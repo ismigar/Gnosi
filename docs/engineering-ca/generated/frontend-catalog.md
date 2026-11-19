@@ -52,7 +52,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1305 | 138278 | 57 |
+| `features` | 1309 | 138563 | 57 |
 | `generated` | 3 | 57966 | 599 |
 | `shared` | 354 | 37502 | 514 |
 
@@ -832,30 +832,34 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useViewActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useViewActions.ts) | 227 | `useViewActions` | — |
 | [`frontend/src/features/vault/dashboard/useViewCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useViewCatalog.ts) | 113 | `useViewCatalog` | — |
 | [`frontend/src/features/vault/dashboard/view-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/view-context.ts) | 29 | `VIEW_WRAPPERS`, `prepareDashboardViewContext` | — |
-| [`frontend/src/features/vault/drawings/TldrawEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/TldrawEditor.tsx) | 98 | `TldrawEditor`, `function` | — |
+| [`frontend/src/features/vault/drawings/TldrawEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/TldrawEditor.tsx) | 106 | `TldrawEditor`, `function` | — |
 | [`frontend/src/features/vault/drawings/VaultDrawings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/VaultDrawings.tsx) | 139 | `VaultDrawings` | — |
 | [`frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.tsx) | 88 | `PageCardComponent` | — |
 | [`frontend/src/features/vault/drawings/canvas-page-card/context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/context.ts) | 11 | `CanvasPageContext` | — |
 | [`frontend/src/features/vault/drawings/canvas-page-card/model.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/model.ts) | 3 | `pageCardPreview` | — |
 | [`frontend/src/features/vault/drawings/canvas-page-card/pageCardDraftStore.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/pageCardDraftStore.ts) | 62 | `pageCardDraftKey`, `pageCardScopeKey`, `pageCardState`, `subscribePageCardState`, `updatePageCardState` | — |
-| [`frontend/src/features/vault/drawings/canvas-page-card/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/types.ts) | 25 | `PAGE_CARD_TYPE` | — |
+| [`frontend/src/features/vault/drawings/canvas-page-card/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/types.ts) | 15 | `PAGE_CARD_TYPE` | — |
 | [`frontend/src/features/vault/drawings/canvas-page-card/useEditablePageCard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/useEditablePageCard.ts) | 119 | `useEditablePageCard` | — |
-| [`frontend/src/features/vault/drawings/canvasPageCardShape.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvasPageCardShape.ts) | 59 | `PageCardShapeUtil` | — |
+| [`frontend/src/features/vault/drawings/canvasPageCardShape.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvasPageCardShape.ts) | 55 | `PageCardShapeUtil` | — |
+| [`frontend/src/features/vault/drawings/drawing-snapshot/integrity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/drawing-snapshot/integrity.ts) | 58 | `validateDrawingRecords` | — |
+| [`frontend/src/features/vault/drawings/drawing-snapshot/tldrawV5.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/drawing-snapshot/tldrawV5.ts) | 185 | `convertV5Snapshot` | — |
+| [`frontend/src/features/vault/drawings/drawingSnapshot.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/drawingSnapshot.ts) | 120 | `loadDrawingDocument`, `serializeDrawingDocument` | — |
 | [`frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeComponent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeComponent.tsx) | 39 | `JsonCanvasNodeComponent` | — |
-| [`frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeShape.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeShape.tsx) | 24 | `JSON_CANVAS_NODE`, `JsonCanvasNodeShapeUtil` | — |
-| [`frontend/src/features/vault/drawings/json-canvas/editorAdapter.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/editorAdapter.ts) | 134 | `exportJsonCanvas`, `importJsonCanvas` | — |
+| [`frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeShape.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/JsonCanvasNodeShape.tsx) | 19 | `JSON_CANVAS_NODE`, `JsonCanvasNodeShapeUtil` | — |
+| [`frontend/src/features/vault/drawings/json-canvas/editorAdapter.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/editorAdapter.ts) | 133 | `exportJsonCanvas`, `importJsonCanvas` | — |
 | [`frontend/src/features/vault/drawings/json-canvas/model.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/model.ts) | 89 | `JsonCanvasError`, `MAX_CANVAS_BYTES`, `canvasColor`, `parseJsonCanvas`, `sideAnchor` | — |
 | [`frontend/src/features/vault/drawings/json-canvas/test-fixture.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/test-fixture.ts) | 10 | `canvasFixture` | — |
-| [`frontend/src/features/vault/drawings/json-canvas/useJsonCanvasIO.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/useJsonCanvasIO.ts) | 40 | `useJsonCanvasIO` | — |
+| [`frontend/src/features/vault/drawings/json-canvas/useJsonCanvasIO.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/useJsonCanvasIO.ts) | 41 | `useJsonCanvasIO` | — |
+| [`frontend/src/features/vault/drawings/json-canvas/whiteboard-limits.d.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/whiteboard-limits.d.ts) | 6 | `MAX_SHAPES_PER_PAGE` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.tsx) | 27 | `HandwritingModelStatus` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/PageActionsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/PageActionsPanel.tsx) | 109 | `PageActionsPanel` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx) | 280 | `TldrawEditorView` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts) | 44 | `CANVAS_SHAPE_UTILS`, `CanvasPageProvider`, `TldrawGlobalSearchModal` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts) | 109 | `assessDrawingSnapshot`, `drawingDocumentFromSnapshot`, `isAbortError`, `isRecord`, `pageCardIdsForDeletedPage`, `parseDroppedCanvasNote`, `selectedPageFromShape` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts) | 79 | `canvasEditorFrom` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.ts) | 116 | `useTldrawHandwriting` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/TldrawEditorView.tsx) | 294 | `TldrawEditorView` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorBridges.ts) | 45 | `CANVAS_SHAPE_UTILS`, `CUSTOM_SHAPE_UTILS`, `CanvasPageProvider`, `TldrawGlobalSearchModal` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.ts) | 55 | `isAbortError`, `isRecord`, `pageCardIdsForDeletedPage`, `parseDroppedCanvasNote`, `selectedPageFromShape` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorTypes.ts) | 49 | — | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.ts) | 111 | `useTldrawHandwriting` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawPageCards.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawPageCards.ts) | 227 | `useTldrawPageCards` | — |
-| [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts) | 166 | `useTldrawPersistence` | — |
+| [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts) | 167 | `useTldrawPersistence` | — |
 | [`frontend/src/features/vault/editor/AICorrectLayer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AICorrectLayer.tsx) | 178 | `AICorrectLayer`, `function` | — |
 | [`frontend/src/features/vault/editor/AIGenerateModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.tsx) | 246 | `AIGenerateModal`, `function` | — |
 | [`frontend/src/features/vault/editor/BibliographyBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/BibliographyBlock.tsx) | 267 | `BibliographyBlock` | — |
