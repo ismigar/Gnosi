@@ -11,6 +11,7 @@ import shutil
 import threading
 import unicodedata
 import uuid
+import weakref
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -72,7 +73,7 @@ def _normalize_user_id(skill_id: str) -> str:
 class UserSkillStore:
     """Read and atomically update `<vault>/.gnosi/agent/skills` packages."""
 
-    _locks: Dict[str, threading.RLock] = {}
+    _locks: weakref.WeakValueDictionary[Path, threading.RLock] = weakref.WeakValueDictionary()
     _locks_guard = threading.Lock()
 
     def __init__(self, vault_path: Path) -> None:
@@ -80,9 +81,12 @@ class UserSkillStore:
             raise ValueError("vault_path is required")
         self.vault_path = Path(vault_path)
         self.root = self.vault_path / ".gnosi" / "agent" / "skills"
-        lock_key = str(self.root.absolute())
-        with self._locks_guard:
-            self._lock = self._locks.setdefault(lock_key, threading.RLock())
+        self._lock = self._lock_for(self.root)
+
+    @classmethod
+    def _lock_for(cls, path: Path) -> threading.RLock:
+        with cls._locks_guard:
+            return cls._locks.setdefault(path.absolute(), threading.RLock())
 
     def _package_path(self, skill_id: str) -> Path:
         normalized = _normalize_user_id(skill_id)
@@ -139,7 +143,7 @@ class UserSkillStore:
 
     def load(self, skill_id: str) -> SkillDescriptor:
         package = self._package_path(skill_id)
-        with self._lock:
+        with self._lock_for(package):
             if not package.is_dir():
                 raise UserSkillNotFoundError(f"skill not found: {skill_id}")
             return self._load_package(package)
@@ -151,25 +155,24 @@ class UserSkillStore:
         personal: List[SkillDescriptor] = []
         pending = list(skill_ids)
         visited: set[str] = set()
-        with self._lock:
-            if self.root.is_symlink():
-                return []
-            while pending:
-                identifier = pending.pop()
-                if identifier in visited:
+        if self.root.is_symlink():
+            return []
+        while pending:
+            identifier = pending.pop()
+            if identifier in visited:
+                continue
+            visited.add(identifier)
+            descriptor = registered.get(identifier)
+            if USER_SKILL_ID_RE.fullmatch(identifier):
+                try:
+                    descriptor = self.load(identifier)
+                except (UserSkillStoreError, UnicodeError):
                     continue
-                visited.add(identifier)
-                descriptor = registered.get(identifier)
-                if USER_SKILL_ID_RE.fullmatch(identifier):
-                    try:
-                        descriptor = self.load(identifier)
-                    except (UserSkillStoreError, UnicodeError):
-                        continue
-                    personal.append(descriptor)
-                if descriptor is not None:
-                    parent = descriptor.metadata.get("derived_from")
-                    if isinstance(parent, dict) and isinstance(parent.get("id"), str):
-                        pending.append(parent["id"])
+                personal.append(descriptor)
+            if descriptor is not None:
+                parent = descriptor.metadata.get("derived_from")
+                if isinstance(parent, dict) and isinstance(parent.get("id"), str):
+                    pending.append(parent["id"])
         return personal
 
     def load_all(self) -> Tuple[List[SkillDescriptor], List[Dict[str, str]]]:
@@ -279,7 +282,8 @@ class UserSkillStore:
             descriptor = self.validate(
                 metadata, instructions, skill_id=skill_id
             )
-            self._write(descriptor)
+            with self._lock_for(self._package_path(skill_id)):
+                self._write(descriptor)
             return descriptor
 
     def update(
@@ -292,7 +296,7 @@ class UserSkillStore:
         learning_metadata: Optional[Mapping[str, Any]] = None,
     ) -> SkillDescriptor:
         normalized = _normalize_user_id(skill_id)
-        with self._lock:
+        with self._lock, self._lock_for(self._package_path(normalized)):
             current = self.load(normalized)
             if expected_revision and expected_revision != _revision(current):
                 raise UserSkillConflictError(
@@ -312,7 +316,7 @@ class UserSkillStore:
     def delete(self, skill_id: str) -> None:
         normalized = _normalize_user_id(skill_id)
         package = self._package_path(normalized)
-        with self._lock:
+        with self._lock, self._lock_for(package):
             if not package.is_dir():
                 raise UserSkillNotFoundError(f"skill not found: {normalized}")
             if package.is_symlink():
@@ -324,7 +328,7 @@ class UserSkillStore:
 
         normalized = _normalize_user_id(skill_id)
         package = self._package_path(normalized)
-        with self._lock:
+        with self._lock, self._lock_for(package):
             if not package.is_dir():
                 raise UserSkillNotFoundError(f"skill not found: {normalized}")
             if package.is_symlink():
@@ -335,9 +339,10 @@ class UserSkillStore:
             return staged
 
     def rollback_delete(self, staged: Path, skill_id: str) -> None:
-        with self._lock:
+        package = self._package_path(skill_id)
+        with self._lock, self._lock_for(package):
             if Path(staged).exists():
-                Path(staged).replace(self._package_path(skill_id))
+                Path(staged).replace(package)
 
     def finalize_delete(self, staged: Path) -> None:
         with self._lock:

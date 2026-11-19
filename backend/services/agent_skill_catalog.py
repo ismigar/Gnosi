@@ -58,10 +58,6 @@ def _stable_hash(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _descriptor_dump(descriptor: Union[SkillDescriptor, ToolDescriptor]) -> Dict[str, Any]:
-    return descriptor.model_dump(mode="json")
-
-
 def _plugin_origin(plugin_id: str) -> CatalogOrigin:
     return CatalogOrigin(type=OriginType.PLUGIN, id=plugin_id)
 
@@ -319,7 +315,7 @@ class ToolCatalog:
         snapshot = self.snapshot()
         return _stable_hash(
             [
-                _descriptor_dump(registration.descriptor)
+                registration.descriptor.model_dump(mode="json")
                 for _, registration in sorted(snapshot.items())
             ]
         )
@@ -440,7 +436,7 @@ class SkillCatalog:
                     effects=sorted(effects, key=lambda effect: effect.value),
                     editable=descriptor.origin.type == OriginType.USER,
                     deletable=descriptor.origin.type == OriginType.USER,
-                    revision=_stable_hash(_descriptor_dump(descriptor)),
+                    revision=_stable_hash(descriptor.model_dump(mode="json")),
                 )
             )
         return tuple(entries)

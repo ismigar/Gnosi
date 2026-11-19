@@ -382,6 +382,11 @@ la compatibilitat i la distinció entre camps gestionats i camps de l’usuari.
 La reconciliació de connectors és idempotent: deshabilitar-ne un suspèn la seva
 aportació gestionada sense eliminar les personalitzacions de l’usuari.
 
+El xat llegeix les habilitats personals assignades a cada perfil que hi participa i
+segueix els enllaços `derived_from`. Gnosi descarrega en segon pla els fitxers del
+núvol que necessita mentre el xat espera. Si algun d’aquests fitxers continua sense
+estar disponible, el xat permet tornar-ho a provar.
+
 Les traduccions de files i pàgines utilitzen l’operació
 compartida `translation`. Els botons de la interfície seleccionen el perfil del
 plugin de Traducció; les accions dins d’una conversa hereten el perfil de l’agent

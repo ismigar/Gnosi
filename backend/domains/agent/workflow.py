@@ -212,7 +212,7 @@ async def create_agent_workflow(
                 profile = replace(profile, agent_data={**profile.agent_data, "context_refs": refs})
     if not operation_mode and profile.target_id == profile.ai_cfg.get("active_agent_id"):
         from backend.services.agent_team_runtime import build_team_workflow
-        coordinated = build_team_workflow(profile, operation_mode=False, original=user_message)
+        coordinated = await asyncio.to_thread(build_team_workflow, profile, operation_mode=False, original=user_message)
         if coordinated is not None:
             return coordinated
     from backend.domains.agent.team_help import optional_team_help

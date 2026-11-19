@@ -63,7 +63,8 @@ def validate_temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], scope: E
         raise PermissionError("agent_team_model_unavailable")
     if not set(spec.skill_ids).issubset(policy.skill_ids) or TEAM_SKILL in spec.skill_ids:
         raise PermissionError("agent_team_skill_not_allowed")
-    entries = {e.descriptor.id: e for e in get_skill_catalog().list_entries(Path(scope.vault_path))}
+    catalog = get_skill_catalog().list_entries(Path(scope.vault_path), profile_skill_ids=spec.skill_ids)
+    entries = {entry.descriptor.id: entry for entry in catalog}
     if any(canonical_id(identifier, entries) == TEAM_SKILL for identifier in spec.skill_ids):
         raise PermissionError("agent_team_skill_not_allowed")
     if any(s not in entries or not entries[s].available for s in spec.skill_ids):
@@ -215,9 +216,9 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
         raise RuntimeError("agent_team_phase_requires_review")
     phase = {"id": identifier, "status": "running", "result": ""}
     artifacts.put(scope, root_id, identifier, "phase", phase, create_only=True)
-    director = _profile(team_for(owner).director_id)
+    director = await asyncio.to_thread(_profile, team_for(owner).director_id)
     routing = (resource("system/team-routing.md"),) if allow_response else ()
-    snapshot, _ = _snapshot(director, owner, root_id, scope, [TEAM_SKILL], [], extra_instructions=routing)
+    snapshot, _ = await asyncio.to_thread(_snapshot, director, owner, root_id, scope, [TEAM_SKILL], [], extra_instructions=routing)
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
@@ -353,7 +354,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     team = team_for(owner)
     ids = allowed_ids if allowed_ids is not None else [m.agent_id for m in team.members if m.agent_id != team.director_id]
     own_task = (not operation_mode and allowed_ids is None and task.agent_id == owner["id"]
-                and owner["id"] == _config().get("active_agent_id"))
+                and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id"))
     if own_task:
         ids = [*ids, owner["id"]]
     original_data = json.loads(original) if operation_mode else {"input": original}
@@ -364,23 +365,25 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
         "completed_evidence": state.get("team_completed_evidence", []),
         "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
-    selected, reason, cost = _candidate(owner, scope, ids, task.skill_ids, text, preferred=task.agent_id if allowed_ids is None else "",
-                                      tools=not operation_mode, allow_owner=own_task)
+    selected, reason, cost = await asyncio.to_thread(
+        _candidate, owner, scope, ids, task.skill_ids, text, preferred=task.agent_id if allowed_ids is None else "",
+        tools=not operation_mode, allow_owner=own_task,
+    )
     temporary = False
     if selected is None and task.temporary is not None:
-        selected = _temporary(task.temporary, owner, root_id, scope, allowed_ids=allowed_ids)
+        selected = await asyncio.to_thread(_temporary, task.temporary, owner, root_id, scope, allowed_ids=allowed_ids)
         temporary, reason = True, "missing_specialty_temporary"
     if selected is None:
         raise RuntimeError("agent_team_no_eligible_executor")
     key = revision({"task": task.model_dump(), "original": original})
     cached = next((r for r in artifacts.list_artifacts(scope, "task", root_id) if r["key"] == key), None)
     if cached:
-        return _resume_cached_task(cached, scope, root_id, key, allowed_ids=allowed_ids)
+        return await asyncio.to_thread(_resume_cached_task, cached, scope, root_id, key, allowed_ids=allowed_ids)
     if len(artifacts.list_artifacts(scope, "task", root_id)) >= 4:
         raise RuntimeError("agent_team_task_limit")
     from backend.services.agent_team_actions import action_context_refs, validate_task_action
     refs = action_context_refs(original, refs, list(state.get("turn_authorized_tool_names") or []), read_only=task.read_only or operation_mode, structured_edit=bool(state.get('title_edit')))
-    snapshot, runtime = _snapshot(selected, owner, root_id, scope, task.skill_ids, refs, read_only=task.read_only or operation_mode, temporary=temporary)
+    snapshot, runtime = await asyncio.to_thread(_snapshot, selected, owner, root_id, scope, task.skill_ids, refs, read_only=task.read_only or operation_mode, temporary=temporary)
     if temporary:
         _validate_temporary_runtime(selected, text, runtime, operation_mode)
     child_id = uuid.uuid4().hex
@@ -450,7 +453,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     scope, root_id = current_scope(), _run.get()
     if not root_id:
         raise RuntimeError("agent_team_execution_required")
-    live = _profile(owner["id"])
+    live = await asyncio.to_thread(_profile, owner["id"])
     if team_for(live) != team_for(owner):
         raise PermissionError("agent_team_configuration_changed")
     team = team_for(owner)
