@@ -144,8 +144,10 @@ def _load_processor(source: str, cache: str) -> Any:
         # Load the declared tokenizer directly and use the CPU/Pillow image backend.
         from transformers import RobertaTokenizer
         from transformers.models.auto.image_processing_auto import AutoImageProcessor
-        return TrOCRProcessor(
-            image_processor=AutoImageProcessor.from_pretrained(source, local_files_only=True, use_fast=False),
+        return TrOCRProcessor(  # type: ignore[no-untyped-call]
+            image_processor=AutoImageProcessor.from_pretrained(  # type: ignore[no-untyped-call]
+                source, local_files_only=True, use_fast=False,
+            ),
             tokenizer=RobertaTokenizer.from_pretrained(source, local_files_only=True),
         )
     return TrOCRProcessor.from_pretrained(source, cache_dir=cache, local_files_only=True)
