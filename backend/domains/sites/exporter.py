@@ -148,13 +148,24 @@ def _read_note(path: Path, vault: Path) -> Note | None:
         raise HTTPException(409, "A vault file is unavailable or incomplete; publication was stopped") from None
 
 
-def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
+def property_definitions(table: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
+    """Read current and older table schemas without dropping field aliases."""
     raw = table.get("properties") or []
     if isinstance(raw, dict):
         raw = [dict(value, id=key) if isinstance(value, dict) else {"id": key, "name": str(value)} for key, value in raw.items()]
     if not isinstance(raw, list):
         return []
-    return [{"id": str(p.get("id") or p.get("key") or ""), "name": str(p.get("name") or p.get("label") or p.get("id") or ""), "type": str(p.get("type") or "text")} for p in raw if isinstance(p, dict) and (p.get("id") or p.get("key"))]
+    return [
+        {**p, "id": p.get("id") or p.get("key"), "name": p.get("name") or p.get("label") or p.get("id")}
+        for p in raw if isinstance(p, dict) and (p.get("id") or p.get("key"))
+    ]
+
+
+def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
+    return [
+        {"id": str(p["id"]), "name": str(p["name"] or ""), "type": str(p.get("type") or "text")}
+        for p in property_definitions(table)
+    ]
 
 
 def catalogue_metadata(store: SiteStore) -> list[CatalogueItem]:
@@ -211,11 +222,13 @@ def catalogue_snapshot(store: SiteStore) -> CatalogueSnapshot:
 
 
 def value_for(note: Note, field_id: str, table: dict[str, JsonValue]) -> JsonValue:
-    props = fields(table)
-    definition = next((field for field in props if field["id"] == field_id), None)
+    from backend.services.field_resolver import get_meta_value
+    definition = next((p for p in property_definitions(table) if str(p["id"]) == field_id), None)
     if definition is None:
         raise HTTPException(409, "A selected field no longer exists")
-    return note.metadata.get(field_id, note.metadata.get(definition["name"]))
+    if definition["name"] == "URL":
+        return cast(JsonValue, get_meta_value(note.metadata, {"properties": [definition]}, field_id))
+    return note.metadata.get(field_id, note.metadata.get(str(definition["name"] or "")))
 
 
 def match_rule(note: Note, rule: dict[str, JsonValue], table: dict[str, JsonValue]) -> bool:

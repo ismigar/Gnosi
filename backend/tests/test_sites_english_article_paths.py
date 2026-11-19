@@ -133,11 +133,19 @@ def test_rendered_links_metadata_feeds_and_withdrawal_follow_new_route(imported_
 
 
 @pytest.mark.parametrize('url_key', ['URL', 'href', 'Former content URL'])
-def test_table_url_owns_route_over_old_local_metadata_and_release(native_site, monkeypatch, url_key):
+@pytest.mark.parametrize('schema_shape', ['list', 'dictionary', 'key-label'])
+def test_table_url_owns_route_over_old_local_metadata_and_release(native_site, monkeypatch, url_key, schema_shape):
     w = native_site
     registry = w.vault / 'BD/vault_db_registry.json'
     data = json.loads(registry.read_text())
-    next(p for p in data['tables'][0]['properties'] if p['id'] == 'href')['aliases'] = ['Former content URL']
+    table = data['tables'][0]
+    field = next(p for p in table['properties'] if p['id'] == 'href')
+    field['aliases'] = ['Former content URL']
+    if schema_shape == 'dictionary':
+        table['properties'] = {p['id']: {k: v for k, v in p.items() if k != 'id'} for p in table['properties']}
+    elif schema_shape == 'key-label':
+        field['key'] = field.pop('id')
+        field['label'] = field.pop('name')
     registry.write_text(json.dumps(data))
     w.metadata.pop('URL')
     w.metadata.update({url_key: w.bound.origin + CANONICAL, 'Idioma': 'en', 'title': TITLE,
@@ -167,6 +175,16 @@ def test_unregistered_url_on_public_and_private_rows_does_not_claim_a_route(webs
     result = build_bundle(website.store, website.site, 'local')
     assert [record.path for record in result.records] == [record.path for record in original.records]
     assert '/ca/local-only' not in {record.path for record in result.records}
+
+
+@pytest.mark.parametrize(('properties', 'metadata', 'expected'), [
+    ({'stable': 'URL'}, {'stable': '/en/registered'}, '/en/registered'),
+    ([{'name': 'URL'}], {'URL': '/en/local-only'}, None),
+    ({}, {'URL': '/en/local-only'}, None),
+])
+def test_url_registration_matches_the_fields_offered_by_the_site_catalogue(website, properties, metadata, expected):
+    from backend.domains.sites.article_routes import table_path
+    assert table_path(metadata, {'properties': properties}, website.site) == expected
 
 
 def test_editorial_links_and_foreign_links_are_projected_to_correct_destinations(imported_pilot, tmp_path):
@@ -296,6 +314,24 @@ def test_unrelated_external_resource_url_does_not_become_a_local_route(native_si
     record = build_bundle(w.store, w.bound, 'local').records[0]
     assert record.path == '/ca/native-stable'
     assert record.fields['href'] == value
+
+
+def test_external_content_url_survives_its_registered_alias_and_legacy_schema(native_site):
+    w = native_site
+    w.bound.sources[0].id = 'imported-research'
+    registry = w.vault / 'BD/vault_db_registry.json'
+    data = json.loads(registry.read_text())
+    properties = data['tables'][0]['properties']
+    field = next(p for p in properties if p['id'] == 'href')
+    field.update(key=field.pop('id'), label=field.pop('name'), aliases=['Former URL'])
+    registry.write_text(json.dumps(data))
+    w.metadata.pop('URL')
+    w.metadata['Former URL'] = 'https://example.org/resource'
+    w.write()
+
+    record = build_bundle(w.store, w.bound, 'local').records[0]
+    assert record.path == '/ca/native-stable'
+    assert record.fields['href'] == record.presentation['href'] == 'https://example.org/resource'
 
 
 def test_declared_resource_url_cleans_previous_links_without_preserving_old_route(native_site, monkeypatch):

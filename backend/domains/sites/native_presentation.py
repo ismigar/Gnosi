@@ -128,10 +128,8 @@ def project_presentation(record: PublicRecord, table: dict[str, JsonValue], site
                 'dissenys': 'disseny', 'designs': 'disseny', 'collaboradores': 'col_laboradora',
                 'collaborators': 'col_laboradora'}.get(table_name, 'page')
     presentation: dict[str, JsonValue] = {'kind': kind}
-    properties = table.get('properties', [])
-    if isinstance(properties, dict):
-        properties = [dict(value, id=key) if isinstance(value, dict) else {'id': key, 'name': str(value), 'type': 'text'} for key, value in properties.items()]
-    definitions = [p for p in properties if isinstance(p, dict)] if isinstance(properties, list) else []
+    from .exporter import property_definitions
+    definitions = property_definitions(table)
     chosen = [(p, record.fields[str(p.get('id'))]) for p in definitions if str(p.get('id')) in record.fields]
     writing_names = {'datadescriptura', 'fechadeescritura', 'writingdate', 'published', 'publishedat', 'publicationdate', 'datadepublicacio', 'fechadepublicacion', 'datedepublication'}
     date_candidates = []
