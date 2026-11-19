@@ -10,8 +10,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
-| Playwright | 38 | 128 |
-| Vitest | 776 | 3540 |
+| Playwright | 39 | 129 |
+| Vitest | 777 | 3544 |
 | pytest | 819 | 6342 |
 
 ## Fichiers
@@ -30,6 +30,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Playwright | [`tests/e2e/tests/disposable/bookmarks-usability.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/bookmarks-usability.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/calendar-public-workflows.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/calendar-public-workflows.spec.ts) | 9 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/canvas-workspaces.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/canvas-workspaces.spec.ts) | 1 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/disposable/drawing-production.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/drawing-production.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/help-menu.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/help-menu.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/knowledge-parity.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/knowledge-parity.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts) | 1 | call-pattern estimate |
@@ -383,10 +384,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/canvas-page-card/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/model.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/canvas-page-card/useEditablePageCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/useEditablePageCard.test.tsx) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/drawings/json-canvas/editorAdapter.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/editorAdapter.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/drawings/drawingSnapshot.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/drawingSnapshot.test.ts) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/drawings/json-canvas/editorAdapter.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/editorAdapter.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/json-canvas/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/json-canvas/model.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/HandwritingModelStatus.test.tsx) | 0 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/AICorrectLayer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AICorrectLayer.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/AIGenerateModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.test.tsx) | 2 | call-pattern estimate |
