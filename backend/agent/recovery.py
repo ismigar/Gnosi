@@ -24,6 +24,7 @@ RETRYABLE_ERROR_CODES = frozenset(
         "timeout",
         "server_error",
         "service_unavailable",
+        "metadata_unavailable",
         "rate_limit",
         "rate_limit_exceeded",
         "network_error",
