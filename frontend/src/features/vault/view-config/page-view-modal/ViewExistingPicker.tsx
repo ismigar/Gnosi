@@ -1,19 +1,21 @@
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewOptionsResult } from './useViewOptions';
+import type { useViewAutosaveResult } from './useViewAutosave';
 import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewExistingPicker({
     isTableMode, sourceTableId, t, selectedExistingViewId,
-    setSelectedExistingViewId, isLoadingExistingViews, existingViews, viewName,
+    selectExistingView, flushing, isLoadingExistingViews, existingViews, viewName,
     existingViewsLoadError, setExistingViewsReloadKey
 }: Pick<
-    ModalInput & useViewStateResult & useViewOptionsResult,
+    ModalInput & useViewStateResult & useViewOptionsResult & useViewAutosaveResult,
     'isTableMode'
     | 'sourceTableId'
     | 't'
     | 'selectedExistingViewId'
-    | 'setSelectedExistingViewId'
+    | 'selectExistingView'
+    | 'flushing'
     | 'isLoadingExistingViews'
     | 'existingViews'
     | 'viewName'
@@ -28,8 +30,8 @@ export function ViewExistingPicker({
             <select
                 className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                 value={selectedExistingViewId}
-                onChange={e => { setSelectedExistingViewId(e.target.value); }}
-                disabled={isLoadingExistingViews}
+                onChange={e => { void selectExistingView(e.target.value); }}
+                disabled={isLoadingExistingViews || flushing}
             >
                 <option value="">
                     {isLoadingExistingViews

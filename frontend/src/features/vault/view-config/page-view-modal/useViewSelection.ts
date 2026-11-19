@@ -7,7 +7,7 @@ import type { useViewSessionResult } from './useViewSession';
 import type { useViewAppearanceResult } from './useViewAppearance';
 
 export function useViewSelection({
-    selectedExistingViewId, setViewUsage, setEditScope, existingViews,
+    selectedExistingViewId, selectionKey, createdViewsRef, setViewUsage, setEditScope, existingViews,
     setViewName, setVisibleProperties, setJoins, setViewType,
     setFilterTree, setResultSnapshot, setResultSnapshotLimit, applyTypeOptions,
     setSorts, appliedSelectionRef, updatedViewsRef, setSaveToTableViews,
@@ -15,6 +15,8 @@ export function useViewSelection({
 }: Pick<
     useViewStateResult & useViewAppearanceResult & useViewSessionResult & ModalInput,
     'selectedExistingViewId'
+    | 'selectionKey'
+    | 'createdViewsRef'
     | 'setViewUsage'
     | 'setEditScope'
     | 'existingViews'
@@ -41,11 +43,12 @@ export function useViewSelection({
             setEditScope('shared');
             return;
         }
-        const v = updatedViewsRef.current.get(selectedExistingViewId) || existingViews.find(x => x.id === selectedExistingViewId);
+        const savedId = createdViewsRef.current.get(selectionKey) || selectedExistingViewId;
+        const v = updatedViewsRef.current.get(savedId) || existingViews.find(x => x.id === selectedExistingViewId);
         if (!v) return;
         if (appliedSelectionRef.current !== selectedExistingViewId) {
             appliedSelectionRef.current = selectedExistingViewId;
-            setModalPinnedViewIds(readPinnedViews(pageId, selectedExistingViewId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
+            setModalPinnedViewIds(readPinnedViews(pageId, savedId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
             setViewName(v.name || '');
             setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
             setJoins(Array.isArray(v.joins) ? v.joins : []);

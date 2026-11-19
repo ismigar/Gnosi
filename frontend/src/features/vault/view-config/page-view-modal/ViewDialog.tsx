@@ -39,7 +39,7 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
                             ? t('page_view.title_edit', "Edit database view")
                             : t('page_view.title', "Add database view"))}
                 </h2>
-                <button type="button" onClick={() => { requestClose(); }} className="gnosi-close-btn" aria-label={t('common.close', 'Close')}>
+                <button type="button" disabled={view.flushing} onClick={() => { requestClose(); }} className="gnosi-close-btn" aria-label={t('common.close', 'Close')}>
                     <X size={16} />
                 </button>
             </div>

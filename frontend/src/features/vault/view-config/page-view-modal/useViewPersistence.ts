@@ -14,14 +14,14 @@ import type { ViewConfig, SavedView } from './types';
 
 export function useViewPersistence({
     sourceTableId, filterTree, sorts, isTableMode, editingView, editingBlock, createdViewsRef, sectionId,
-    selectedExistingViewId, isMultiTable, joins, sourceTableName, viewName, viewType,
+    selectedExistingViewId, selectionKey, isMultiTable, joins, sourceTableName, viewName, viewType,
     visiblePropertiesToPersist, resultSnapshot, resultSnapshotLimit, buildViewExtras,
     api, existingViews, updatedViewsRef, registryViewsRef, inlineSourceRef, editScope, saveToTableViews, heading, headingLevel,
     pageId, modalPinnedViewIds, setError, t,
 }: Pick<
     useViewStateResult & ModalInput & useViewSessionResult & useViewFieldsResult & useViewAppearanceResult,
     'sourceTableId' | 'filterTree' | 'sorts' | 'isTableMode' | 'editingView' | 'editingBlock' | 'createdViewsRef' | 'sectionId'
-    | 'selectedExistingViewId' | 'isMultiTable' | 'joins' | 'sourceTableName' | 'viewName' | 'viewType'
+    | 'selectedExistingViewId' | 'selectionKey' | 'isMultiTable' | 'joins' | 'sourceTableName' | 'viewName' | 'viewType'
     | 'visiblePropertiesToPersist' | 'resultSnapshot' | 'resultSnapshotLimit' | 'buildViewExtras'
     | 'api' | 'existingViews' | 'updatedViewsRef' | 'registryViewsRef' | 'inlineSourceRef' | 'editScope' | 'saveToTableViews' | 'heading' | 'headingLevel'
     | 'pageId' | 'modalPinnedViewIds' | 'setError' | 't'
@@ -47,7 +47,7 @@ export function useViewPersistence({
             visibleProperties: visiblePropertiesToPersist,
             joins: isMultiTable ? joins : [],
         };
-        const creationKey = isTableMode ? 'table' : JSON.stringify([sourceTableId, selectedExistingViewId]);
+        const creationKey = isTableMode ? 'table' : selectionKey;
         const createdId = createdViewsRef.current.get(creationKey);
         // Remember the registry write even when the subsequent page write fails.
         // A retry updates that id instead of creating another view.
@@ -124,7 +124,9 @@ export function useViewPersistence({
                     const { id, is_main, is_default, locked, is_locked, isLocked, ...copy } = registered || source;
                     const copyName = name === source.name || isProtectedMainView({ name })
                         ? t('view.page_copy_name', { name, defaultValue: '{{name}} (page view)' }) : name;
-                    viewId = await saveRegistryView({ ...copy, ...config, embedded: true, hidden: true, is_main: false, name: copyName }, createdId);
+                    const pageView = { ...copy, ...config, embedded: true, hidden: true, is_main: false, name: copyName };
+                    viewId = await saveRegistryView(pageView, createdId);
+                    updatedViewsRef.current.set(viewId, { ...pageView, id: viewId });
                 } else {
                     const embedded = registered?.embedded ?? source.embedded;
                     const body = { ...config, name, is_main: false, embedded: typeof embedded === 'boolean' ? embedded : hasPageFilter };

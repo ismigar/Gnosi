@@ -9,8 +9,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 951 | 346 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1162 | 338 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 546 | 179 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1163 | 339 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 547 | 180 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 146 | 59 | 0 |
