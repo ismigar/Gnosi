@@ -85,6 +85,22 @@ def test_import_keeps_encoded_pdf_materials_link_fallback_and_public_record_cata
     assert bundle.feed_aliases == {'/es/relatos.xml': '/es/relats.xml', '/es/es/relatos.xml': '/es/relats.xml'}
 
 
+def test_renamed_topic_keeps_article_link_and_default_language_feed(imported_pilot, tmp_path):
+    store, site, _, _ = imported_pilot
+    topic = next(page for page in site.pages if page.path == '/ca/taxonomy/term/9')
+    topic.path = '/ca/tema/nou'
+    bundle = build_bundle(store, site, 'local')
+    article = next(record for record in bundle.records if record.id == ARTICLE and record.language == 'ca')
+    assert article.presentation['tags'] == [{'tid': 9, 'label': 'Public theme', 'path': '/ca/tema/nou'}]
+    output = tmp_path / 'public'
+    render_bundle(bundle.model_dump(mode='json'), output)
+    page = BeautifulSoup((output / 'ca/articles/translated/index.html').read_bytes(), 'html.parser')
+    assert page.select_one('.entry-tags nav a')['href'] == '/ca/tema/nou'
+    neutral = (output / 'taxonomy/term/9/feed').read_bytes()
+    assert neutral == (output / 'ca/tema/nou/feed').read_bytes()
+    assert neutral != (output / 'es/taxonomy/term/9/feed').read_bytes()
+
+
 @pytest.mark.skipif(not (extension_root() / 'renderer/node_modules/node/bin/node').is_file(), reason='Pinned renderer required')
 def test_actual_imported_homes_and_articles_keep_public_features(imported_pilot, tmp_path):
     store, site, _, pdf = imported_pilot

@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {bundle,site,production,pages,records,prefix,base,deployment,html,selection} from '../src/lib/site.mjs';
 
 import {plan,restore} from './incremental.mjs';
+import {isTagPage,tagFeedAlias} from '../src/lib/routing.mjs';
 const incremental=plan();
 const output=path.resolve('dist');
 function run(command,args){const result=spawnSync(command,args,{stdio:'inherit'});if(result.status!==0)throw new Error('Website build failed');}
@@ -37,15 +38,14 @@ for(const language of site.languages){
 file('/rss.xml',fs.readFileSync(path.join(output,site.default_language,'rss.xml'),'utf8'));
 if(site.legacy_pilot){
   const defaults=new Map();
-  for(const page of site.pages.filter(page=>page.enabled && page.translation_id?.startsWith('imported:tag:'))){
-    const tid=page.translation_id.slice('imported:tag:'.length);
-    if(!/^\d+$/.test(tid))continue;
+  for(const page of site.pages.filter(page=>page.enabled && isTagPage(page))){
     const block=page.blocks.find(block=>block.type==='selected');
     const content=feed(page.language,block?selection(block,page.language):[],site.name+' · '+page.title);
     file(page.path+'/feed',content);
-    if(!defaults.has(tid)||page.language===site.default_language)defaults.set(tid,content);
+    const alias=tagFeedAlias(page);
+    if(alias && !Object.hasOwn(bundle.feed_aliases || {},alias) && (!defaults.has(alias)||page.language===site.default_language))defaults.set(alias,content);
   }
-  for(const [tid,content] of defaults)file('/taxonomy/term/'+tid+'/feed',content);
+  for(const [alias,content] of defaults)file(alias,content);
 }
 for(const [origin,destination] of Object.entries(bundle.feed_aliases||{})){
   const content=fs.readFileSync(path.join(output,destination.slice(1)),'utf8');

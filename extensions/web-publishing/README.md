@@ -34,6 +34,8 @@ The pinned Node executable is included by that package and is used for construct
 
 Nonsecret configuration is versioned under `<vault>/.gnosi/sites`. New sources are disabled and expose no fields/body/attachments until selected. Table/view/page identifiers are stable; view filters and ordering are evaluated before a snapshot is constructed. A selected missing source or record fails closed. Draft/private state is checked for every source kind. The source union owns each public page once, with independent ordering for each view.
 
+Collection blocks, listings and collection feeds follow the source's configured order. Manually selected blocks keep the order of their entries. Editable static pages bind to their published URL and language. Topic pages share a site-owned translation group, and their public page and RSS addresses stay usable after migration.
+
 Explicitly selected PDF attachments can be up to 1 GiB each; other native attachments retain their 32 MB limit. PDF, office/presentation (including ODP), media and supported design files remain downloads, never executable website content. Attachment snapshots and their public construction copies are hashed and copied in bounded chunks, so large PDFs are not loaded completely into Python memory. Changed, missing, oversized or substituted files stop the preview; partial copies are removed. Preparing a local preview neither publishes files nor changes their permanent OneDrive availability setting.
 
 Pages use configurable blocks; global theme tokens, local fonts, page/block adjustments and advanced CSS compile in ordered cascade layers. Generated files are never the editing source. Themes and source changes are reviewed before activation. Search, feeds and sitemap are regenerated with the artifact.

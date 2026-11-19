@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3563 |
-| pytest | 821 | 6372 |
+| pytest | 821 | 6376 |
 
 ## Archivos
 
@@ -1415,15 +1415,15 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_sites_font_catalogue.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_font_catalogue.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_sites_generic_configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_configuration.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_sites_generic_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_generic_rendering.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_sites_imported_pilot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_imported_pilot.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_sites_imported_pilot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_imported_pilot.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_incremental_preview.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_incremental_preview.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_sites_incremental_release_render.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_incremental_release_render.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_sites_incremental_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_incremental_upload.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_layout_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_layout_config.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_sites_native_assets.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_assets.py) | 11 | Python AST |
-| pytest | [`backend/tests/test_sites_native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_presentation.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_sites_native_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_native_presentation.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_sites_newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_newsletter.py) | 12 | Python AST |
-| pytest | [`backend/tests/test_sites_page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_page_editor.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_sites_page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_page_editor.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_connections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_connections.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_driver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_driver.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_incremental_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_incremental_upload.py) | 5 | Python AST |

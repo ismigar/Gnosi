@@ -84,10 +84,13 @@ export function selection(block, lang) {
     return result.slice(0,block.limit||3);
   }
   const selected = records.filter(record => record.language === lang && (!block.source_id || record.source_ids.includes(block.source_id)) && (!wanted.size || wanted.has(record.id)));
+  const source = site.sources.find(item=>item.id===block.source_id);
+  const sourceOrder = (a,b)=>(a.source_order?.[block.source_id]??0)-(b.source_order?.[block.source_id]??0);
   if(wanted.size) selected.sort((a,b)=>block.page_ids.indexOf(a.id)-block.page_ids.indexOf(b.id));
-  else if(site.legacy_pilot && ['imported:research','imported:stories'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id)) selected.sort((a,b)=>Number(b.presentation?.year||0)-Number(a.presentation?.year||0) || a.title.localeCompare(b.title,lang));
-  else if(site.legacy_pilot && ['imported:blog','imported:design'].includes(site.sources.find(source=>source.id===block.source_id)?.source_id))selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
-  else if(block.source_id) selected.sort((a,b)=>(a.source_order?.[block.source_id]??0)-(b.source_order?.[block.source_id]??0));
+  else if(source?.sort_field_id==='source_order' || source?.kind==='view') selected.sort(sourceOrder);
+  else if(site.legacy_pilot && ['imported:research','imported:stories'].includes(source?.source_id)) selected.sort((a,b)=>Number(b.presentation?.year||0)-Number(a.presentation?.year||0) || a.title.localeCompare(b.title,lang));
+  else if(site.legacy_pilot && ['imported:blog','imported:design'].includes(source?.source_id))selected.sort((a,b)=>Number(b.presentation?.created||0)-Number(a.presentation?.created||0));
+  else if(block.source_id) selected.sort(sourceOrder);
   return selected.slice(0,block.limit || 100);
 }
 export function css(source, anchor) {

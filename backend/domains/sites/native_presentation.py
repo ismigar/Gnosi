@@ -77,7 +77,13 @@ def _tags(value: JsonValue, definition: dict[str, JsonValue], site: SiteConfig, 
         # displayed label and membership always come from the selected field.
         route = next((page for page in site.pages if page.enabled and page.language == language and page.title == name and page.id.startswith('tag-') and page.id.endswith('-' + language)), None)
         tag_id = route.id[len('tag-'):-(len(language) + 1)] if route else identity or 'native-' + hashlib.sha256(name.encode()).hexdigest()[:16]
-        tag: JsonValue = {'tid': tag_id, 'label': name}
+        tag: dict[str, JsonValue] = {'tid': tag_id, 'label': name}
+        if route and (route.translation_id or '').startswith('tag:'):
+            tag['path'] = route.path
+            # Published filter URLs can already use this public route segment.
+            term = re.fullmatch(r'/[^/]+/taxonomy/term/([0-9]+)', route.path)
+            if term:
+                tag['tid'] = term[1]
         if tag not in result:
             result.append(tag)
     return result
