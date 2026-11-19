@@ -1,24 +1,19 @@
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewActionsResult } from './useViewActions';
-import type { useViewClosingResult } from './useViewClosing';
 
 import ConfirmModal from '../../../../shared/ui/dialogs/ConfirmModal';
 export function ViewConfirmations({
     modalViewToDelete, setModalViewToDelete, setModalViewToDeleteUsage, confirmDeleteViewFromModal,
-    t, modalViewToDeleteUsage, discardConfirmOpen, setDiscardConfirmOpen,
-    discardChanges
+    t, modalViewToDeleteUsage
 }: Pick<
-    useViewStateResult & useViewActionsResult & ModalInput & useViewClosingResult,
+    useViewStateResult & useViewActionsResult & ModalInput,
     'modalViewToDelete'
     | 'setModalViewToDelete'
     | 'setModalViewToDeleteUsage'
     | 'confirmDeleteViewFromModal'
     | 't'
     | 'modalViewToDeleteUsage'
-    | 'discardConfirmOpen'
-    | 'setDiscardConfirmOpen'
-    | 'discardChanges'
 >) {
     return (<>            {modalViewToDelete && (
         <ConfirmModal
@@ -36,14 +31,5 @@ export function ViewConfirmations({
             isDestructive
         />
     )}
-        <ConfirmModal
-            isOpen={discardConfirmOpen}
-            onClose={() => { setDiscardConfirmOpen(false); }}
-            onConfirm={discardChanges}
-            title={t('view.discard_changes_title', "Discard changes?")}
-            message={t('view.discard_changes_message', "Your unsaved changes will be lost.")}
-            confirmText={t('view.discard_changes_confirm', "Discard changes")}
-            cancelText={t('view.continue_editing', "Continue editing")}
-            isDestructive
-        /></>);
+    </>);
 }

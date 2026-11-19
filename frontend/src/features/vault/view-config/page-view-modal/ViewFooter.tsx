@@ -1,27 +1,21 @@
 import { SavedFeedback } from '../../../../shared/editor/SavedFeedback';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
-import type { useViewClosingResult } from './useViewClosing';
+import type { useViewAutosaveResult } from './useViewAutosave';
 
 export function ViewFooter({
-    autosaveStatus, flushing, t, isTableMode,
-    requestDiscardChanges, closeWithFlush, selectedExistingViewId, viewLoadStatus
+    autosaveStatus, flushing, t, closeWithFlush
 }: Pick<
-    useViewStateResult & ModalInput & useViewClosingResult,
+    useViewStateResult & ModalInput & useViewAutosaveResult,
     'autosaveStatus'
     | 'flushing'
     | 't'
-    | 'isTableMode'
-    | 'requestDiscardChanges'
     | 'closeWithFlush'
-    | 'selectedExistingViewId'
-    | 'viewLoadStatus'
 >) {
     return (<>                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between gap-3 rounded-b-xl shrink-0">
-        {/* Autosave status pill (table mode shows live state; embed mode
-                        only shows transient states during the flush). */}
-        <div className="text-xs flex items-center gap-1.5 min-h-[1rem]">
-            {(autosaveStatus === 'saving' || flushing) && (
+        {/* Live persistence feedback for both new and existing views. */}
+        <div role="status" className="text-xs flex items-center gap-1.5 min-h-[1rem]">
+            {(autosaveStatus === 'pending' || autosaveStatus === 'saving' || flushing) && (
                 <span className="flex items-center gap-1.5 text-[var(--gnosi-primary)]">
                     <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse" />
                     {t('view.saving', "Saving…")}
@@ -41,28 +35,12 @@ export function ViewFooter({
             )}
         </div>
         <div className="flex items-center gap-2">
-            {!isTableMode && (
-                <button
-                    type="button"
-                    onClick={requestDiscardChanges}
-                    disabled={flushing}
-                    className="btn-gnosi btn-gnosi-secondary px-5"
-                >
-                    {t('common.cancel', "Cancel")}
-                </button>
-            )}
             <button
                 onClick={() => void closeWithFlush()}
-                disabled={flushing || viewLoadStatus !== 'ready'}
+                disabled={flushing}
                 className="btn-gnosi btn-gnosi-primary px-6"
             >
-                {flushing ? t('view.saving', "Saving…") : (
-                    isTableMode
-                        ? t('common.close', "Close")
-                        : (selectedExistingViewId && selectedExistingViewId !== 'default'
-                            ? t('common.insert', "Insert")
-                            : t('view.create_view', "Create view"))
-                )}
+                {t('common.close', "Close")}
             </button>
         </div>
     </div></>);

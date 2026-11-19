@@ -114,8 +114,9 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         } else {
             onOpenPageViewModal(tableId, {
                 id: block?.id,
+                anchorViewId: block?.props?.view_id || '',
                 view: v,
-                props: { view_id: v.id, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+                props: { ...block?.props, view_id: v.id, heading: headingProp || '', heading_level: headingLevelProp || 1 },
             });
         }
     }, [onOpenPageViewModal, tableId, block, headingProp, headingLevelProp]);

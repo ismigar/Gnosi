@@ -21,14 +21,14 @@ describe('embedded tab ordering', () => {
         expect(requireDialog().querySelector('[role="switch"][aria-label="Alphabetical"]')?.getAttribute('aria-disabled')).toBe('true');
         await actAndFlush(() => { requireElement(requireDialog(), 'button[aria-label="Up: Chronology"]', HTMLButtonElement).click(); });
         expect(order()).toEqual(['Chronology', 'Alphabetical', 'Resources', 'Hidden']);
-        await actAndFlush(() => { requireButton(requireDialog(), 'Insert').click(); });
+        await actAndFlush(() => { requireButton(requireDialog(), 'Close').click(); });
         expect(onClose).toHaveBeenCalled();
         expect([...readPinnedViews('order-page', anchor.id)]).toEqual([other.id, anchor.id]);
         await rerender({ isOpen: false });
         await rerender({ isOpen: true });
         expect(order()).toEqual(['Chronology', 'Alphabetical', 'Resources', 'Hidden']);
         await actAndFlush(() => { (requireDialog().querySelector('[role="switch"][aria-label="Chronology"]') as HTMLElement).click(); });
-        await actAndFlush(() => { requireButton(requireDialog(), 'Insert').click(); });
+        await actAndFlush(() => { requireButton(requireDialog(), 'Close').click(); });
         expect([...readPinnedViews('order-page', anchor.id)]).toEqual([anchor.id]);
         await rerender({ isOpen: false });
         await rerender({ isOpen: true });

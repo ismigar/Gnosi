@@ -87,8 +87,8 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(modal.querySelector('input[type="number"][max="100"]')).toBeNull();
         await actAndFlush(() => { requireButton(modal, 'Limited').click(); });
         expect(requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('85');
-        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
-        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.updateVaultView).toHaveBeenCalledWith(view.id, expect.objectContaining({
             id: view.id, type, heightMode: 'limited', heightPercent: 85,
         }));
     });
@@ -124,8 +124,8 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(position.selected).toBe(true);
         await actAndFlush(() => { requireButton(modal, 'General').click(); });
         await actAndFlush(() => { requireButton(modal, 'Full width').click(); });
-        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
-        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.updateVaultView).toHaveBeenCalledWith(view.id, expect.objectContaining({
             id: view.id, name: view.name, type: 'gallery', cardSize: 'full', galleryPreview: 'content',
             groupBy: 'Note type', filters: view.filters, sorts: view.sorts,
         }));
@@ -151,14 +151,14 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         const modal = requireDialog();
         expect(modal.textContent).toContain("Couldn't load this view's settings. Try again.");
         expect(modal.querySelector('input[placeholder="e.g. By area"]')).toBeNull();
-        expect(requireButton(modal, 'Insert').disabled).toBe(true);
+        expect(requireButton(modal, 'Close').disabled).toBe(false);
         expect(api.updateVaultView).not.toHaveBeenCalled();
         expect(api.createVaultView).not.toHaveBeenCalled();
         await actAndFlush(() => { requireButton(modal, 'Retry').click(); });
         await settle();
         expect(api.fetchVaultView).toHaveBeenLastCalledWith(existingView.id);
         expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(existingView.name);
-        expect(requireButton(modal, 'Insert').disabled).toBe(false);
+        expect(requireButton(modal, 'Close').disabled).toBe(false);
     });
 
     it('mirrors a renamed view in the existing-view picker while typing and after blur', async () => {
@@ -185,38 +185,18 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(picker.selectedOptions.item(0)?.textContent).toContain('Research');
     });
 
-    it('asks before Cancel discards edits and closes without saving after confirmation', async () => {
-        const onClose = vi.fn();
-        const { api } = await renderModal(onClose);
+    it('flushes edits through Close without a discard action', async () => {
+        const { api, onClose } = await renderModal();
         const modal = requireDialog();
-        const nameInput = requireElement(
-            modal,
-            'input[placeholder="e.g. By area"]',
-            HTMLInputElement,
-        );
-
-        await actAndFlush(() => {
-            updateInput(nameInput, 'Research');
-        });
-        const cancelButton = requireButton(modal, 'Cancel');
-        await actAndFlush(() => {
-            cancelButton.click();
-        });
-
-        expect(onClose).not.toHaveBeenCalled();
-        expect(document.body.textContent).toContain('Discard changes?');
-
-        const discardButton = requireButton(document.body, 'Discard changes');
-        await actAndFlush(() => {
-            discardButton.click();
-        });
-
-        expect(onClose).toHaveBeenCalledWith(false);
-        expect(api.createVaultView).not.toHaveBeenCalled();
-        expect(api.updateVaultView).not.toHaveBeenCalled();
+        const input = requireElement(modal, 'input[aria-label="View name"]', HTMLInputElement);
+        await actAndFlush(() => { updateInput(input, 'Research'); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: existingView.id }));
+        expect(api.updateVaultView).toHaveBeenCalledWith(existingView.id, expect.objectContaining({ name: 'Research' }));
+        expect(document.body.textContent).not.toContain('Discard changes?');
     });
 
-    it('lets the close button discard an unchanged form without a warning', async () => {
+    it('closes an unchanged form without a discard warning', async () => {
         const onClose = vi.fn();
         await renderModal(onClose);
         const closeButton = requireElement(
@@ -233,7 +213,7 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(document.body.textContent).not.toContain('Discard changes?');
     });
 
-    it('uses the same guarded discard flow from the close button', async () => {
+    it('flushes the last edit through the header close button', async () => {
         const onClose = vi.fn();
         await renderModal(onClose);
         const modal = requireDialog();
@@ -255,11 +235,11 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
             closeButton.click();
         });
 
-        expect(onClose).not.toHaveBeenCalled();
-        expect(document.body.textContent).toContain('Discard changes?');
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: existingView.id }));
+        expect(document.body.textContent).not.toContain('Discard changes?');
     });
 
-    it('persists the renamed existing view when Insert is confirmed', async () => {
+    it('persists the renamed existing view when closing', async () => {
         const onClose = vi.fn();
         const { api } = await renderModal(onClose);
         const modal = requireDialog();
@@ -272,16 +252,16 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
             updateInput(nameInput, 'Research');
         });
 
-        const insertButton = requireButton(modal, 'Insert');
+        const closeButton = requireButton(modal, 'Close');
         await actAndFlush(() => {
-            insertButton.click();
+            closeButton.click();
         });
         await settle();
 
-        const createCall = api.createVaultView.mock.calls.find(([view]) => (
+        const updateCall = api.updateVaultView.mock.calls.find(([, view]) => (
             view.name === 'Research'
         ));
-        expect(createCall?.[0].name).toBe('Research');
+        expect(updateCall?.[1].name).toBe('Research');
         expect(onClose).toHaveBeenCalledWith(true, expect.any(Object));
     });
 
@@ -293,16 +273,17 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         await actAndFlush(() => { updateInput(input, 'Saved table'); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.createVaultView).toHaveBeenCalledTimes(1);
+        const id = api.createVaultView.mock.calls[0]?.[0].id;
         expect(api.upsertPageView).not.toHaveBeenCalled();
         await actAndFlush(() => { updateInput(input, 'Latest table'); });
         await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.createVaultView).toHaveBeenCalledTimes(1);
-        expect(api.updateVaultView).toHaveBeenCalledWith('view-2', expect.objectContaining({ name: 'Latest table' }));
+        expect(api.updateVaultView).toHaveBeenCalledWith(id, expect.objectContaining({ name: 'Latest table' }));
         await actAndFlush(() => { updateInput(input, 'Final table'); });
         // Closing before the next debounce must still flush the final edit.
         await actAndFlush(() => { requireButton(modal, 'Close').click(); });
-        expect(api.updateVaultView).toHaveBeenLastCalledWith('view-2', expect.objectContaining({ name: 'Final table' }));
-        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ id: 'view-2', name: 'Final table' }));
+        expect(api.updateVaultView).toHaveBeenLastCalledWith(id, expect.objectContaining({ name: 'Final table' }));
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ id: id, name: 'Final table' }));
     });
 
     it('reports a save error without closing and permits retry', async () => {
@@ -311,23 +292,23 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         const modal = requireDialog();
         const input = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(input, 'Retry view'); });
-        api.createVaultView.mockRejectedValueOnce(new Error('Synthetic write failure'));
-        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        api.updateVaultView.mockRejectedValueOnce(new Error('Synthetic write failure'));
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
         expect(onClose).not.toHaveBeenCalled();
         expect(modal.textContent).toContain('Synthetic write failure');
-        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
         expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: 'view-1' }));
     });
 
-    it('validates the source before creating an embedded section', async () => {
+    it('closes an incomplete new embed without creating a section', async () => {
         const { api, onClose } = await renderModal(undefined, { preselectedTableId: '', editingBlock: null });
-        await actAndFlush(() => { requireButton(requireDialog(), 'Create view').click(); });
-        expect(requireDialog().textContent).toContain('You must select a source table');
+        await actAndFlush(() => { requireButton(requireDialog(), 'Close').click(); });
         expect(api.upsertPageView).not.toHaveBeenCalled();
-        expect(onClose).not.toHaveBeenCalled();
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        expect(onClose).toHaveBeenCalledWith(false);
     });
 
-    it('guards keyboard Escape exactly like the Cancel action', async () => {
+    it('flushes keyboard Escape exactly like Close', async () => {
         const onClose = vi.fn();
         await renderModal(onClose);
         const input = requireElement(requireDialog(), 'input[placeholder="e.g. By area"]', HTMLInputElement);
@@ -335,8 +316,8 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         await actAndFlush(() => {
             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         });
-        expect(document.body.textContent).toContain('Discard changes?');
-        expect(onClose).not.toHaveBeenCalled();
+        expect(document.body.textContent).not.toContain('Discard changes?');
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: existingView.id }));
     });
 
     it('persists joined columns in their composite format without duplicating the base title', async () => {
@@ -351,8 +332,9 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         if (!country) throw new Error('Joined Country field is missing');
         const checkbox = requireElement(country, 'input[type="checkbox"]', HTMLInputElement);
         await actAndFlush(() => { checkbox.click(); });
-        await actAndFlush(() => { requireButton(modal, 'Create view').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
         expect(api.upsertPageView).toHaveBeenCalledWith('page-1', expect.objectContaining({
+            columns: ['title', 'Country'],
             visible_properties: [{ tableId: 'resources', fieldKey: 'title' }, { tableId: 'authors', fieldKey: 'Country' }],
             joins: [{ tableId: 'authors', type: 'inner', leftField: 'title', rightField: 'id' }],
         }));

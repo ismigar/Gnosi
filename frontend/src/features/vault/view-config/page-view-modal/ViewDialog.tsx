@@ -133,7 +133,7 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
             </div>
 
             </>}
-            {/* Footer: the primary action persists; Cancel discards local edits. */}
+            {/* Closing flushes the latest automatic save. */}
             <ViewFooter {...view} />
         </div>
         <ViewConfirmations {...view} />

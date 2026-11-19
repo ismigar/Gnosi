@@ -3,7 +3,7 @@ import type { useViewStateResult } from './useViewState';
 
 export function ViewIdentity({
     t, viewName, setViewName, displayTitle, setDisplayTitle, isTableMode,
-    sourceTableId, setSourceTableId, allTables, editingView, preselectedTableId
+    sourceTableId, setSourceTableId, setSelectedExistingViewId, allTables, editingView, preselectedTableId
 }: Pick<
     ModalInput & useViewStateResult,
     't'
@@ -14,6 +14,7 @@ export function ViewIdentity({
     | 'isTableMode'
     | 'sourceTableId'
     | 'setSourceTableId'
+    | 'setSelectedExistingViewId'
     | 'allTables'
     | 'editingView'
     | 'preselectedTableId'
@@ -50,7 +51,7 @@ export function ViewIdentity({
                     disabled={sourceIsFixed}
                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                     value={sourceTableId}
-                    onChange={e => { setSourceTableId(e.target.value); }}
+                    onChange={e => { setSourceTableId(e.target.value); setSelectedExistingViewId(''); }}
                 >
                     <option value="">{t('view.pick_table', "— Select table —")}</option>
                     {allTables.map(tbl => (

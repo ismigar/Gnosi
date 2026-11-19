@@ -3948,6 +3948,8 @@
     "existing_view": "Vue existante",
     "loading_views": "Chargement des vues…",
     "create_new_view": "— Créer une nouvelle vue —",
+    "page_copy_name": "{{name}} (vue de page)",
+    "protected_embed_hint": "Les modifications sont enregistrées dans une vue propre à cette page.",
     "existing_hint": "Vous pouvez réviser/écraser les champs dans les onglets Champs, Filtres et Tri.",
     "existing_views_load_error": "Impossible de charger les vues existantes. Vous pouvez en créer une ou réessayer.",
     "pinned_tabs": "Afficher des onglets (vues épinglées à ce bloc)",

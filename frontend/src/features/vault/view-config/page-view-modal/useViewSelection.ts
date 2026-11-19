@@ -1,5 +1,5 @@
 import { readPinnedViews } from './pinned-views';
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { treeFromSource } from './filter-tree';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
@@ -10,7 +10,7 @@ export function useViewSelection({
     selectedExistingViewId, setViewUsage, setEditScope, existingViews,
     setViewName, setVisibleProperties, setJoins, setViewType,
     setFilterTree, setResultSnapshot, setResultSnapshotLimit, applyTypeOptions,
-    setSorts, skipNextAutosaveRef, setFormBaselineRevision, setSaveToTableViews,
+    setSorts, appliedSelectionRef, updatedViewsRef, setSaveToTableViews,
     api, pageId, setModalPinnedViewIds
 }: Pick<
     useViewStateResult & useViewAppearanceResult & useViewSessionResult & ModalInput,
@@ -27,14 +27,13 @@ export function useViewSelection({
     | 'setResultSnapshotLimit'
     | 'applyTypeOptions'
     | 'setSorts'
-    | 'skipNextAutosaveRef'
-    | 'setFormBaselineRevision'
+    | 'appliedSelectionRef'
+    | 'updatedViewsRef'
     | 'setSaveToTableViews'
     | 'api'
     | 'pageId'
     | 'setModalPinnedViewIds'
 >) {
-    const appliedSelectionRef = useRef('');
     const hydrate1 = useEffectEvent(() => {
         if (!selectedExistingViewId) {
             appliedSelectionRef.current = '';
@@ -42,7 +41,7 @@ export function useViewSelection({
             setEditScope('shared');
             return;
         }
-        const v = existingViews.find(x => x.id === selectedExistingViewId);
+        const v = updatedViewsRef.current.get(selectedExistingViewId) || existingViews.find(x => x.id === selectedExistingViewId);
         if (!v) return;
         if (appliedSelectionRef.current !== selectedExistingViewId) {
             appliedSelectionRef.current = selectedExistingViewId;
@@ -63,8 +62,6 @@ export function useViewSelection({
             } else {
                 setSorts([]);
             }
-            skipNextAutosaveRef.current = true;
-            setFormBaselineRevision(revision => revision + 1);
             setSaveToTableViews(selectedExistingViewId === 'default' || v.is_main === true);
             setEditScope('shared');
             setViewUsage({ count: 0, pages: [] });

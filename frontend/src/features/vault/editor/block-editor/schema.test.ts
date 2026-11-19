@@ -14,7 +14,7 @@ describe('editor schema compatibility', () => {
         for (const type of ['database', 'gnosi_view', 'transclusion', 'embed', 'bibliography', 'alert', 'tableOfContents', 'mermaid', 'linkcard', 'synced', 'column', 'columnList', 'toggleListItem']) {
             expect(Object.keys(schema.blockSchema)).toContain(type);
         }
-        expect(schema.blockSchema.gnosi_view.propSchema).toEqual({ view_id: { default: '' }, heading: { default: '' }, heading_level: { default: '1' }, section: { default: '' } });
+        expect(schema.blockSchema.gnosi_view.propSchema).toEqual({ section_id: { default: '' }, view_id: { default: '' }, heading: { default: '' }, heading_level: { default: '1' }, section: { default: '' } });
         expect(schema.blockSchema.alert.content).toBe('none');
         expect(schema.blockSchema.alert.propSchema.type.values).toEqual(['info', 'warning', 'error', 'success']);
     });
