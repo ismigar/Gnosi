@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from fastapi import HTTPException
 
 from .importer import _groups, _imported_body, obj, rows
-from .models import PublicRecord, SiteBlock, SiteConfig, SitePage
+from .models import PublicRecord, SiteBlock, SiteConfig, SitePage, editorial_id
 from .storage import SiteStore
 
 
@@ -84,19 +84,38 @@ def imported_static_pages(store: SiteStore, site: SiteConfig) -> list[SitePage]:
                        and identity not in source.withdrawn_ids and language not in source.withdrawn_versions.get(identity, [])
                        and (source.selection_mode != "selected" or identity in source.page_ids) for source in site.sources)
         if selected:
-            pages.append(SitePage(id="imported-page-" + identity + "-" + language, imported_record_id=identity,
-                                  translation_id=identity, language=language, title=str(node["title"]),
-                                  path=str(node["url"]), enabled=True, blocks=static_blocks(_imported_body(node, True))))
+            path = str(node["url"])
+            pages.append(SitePage(id=editorial_id(site.id, "page", path), imported_record_id=path,
+                                  translation_id=editorial_id(site.id, "translations", identity),
+                                  language=language, title=str(node["title"]), path=path,
+                                  enabled=True, blocks=static_blocks(_imported_body(node, True))))
     return pages
 
 
 def apply_page_overrides(site: SiteConfig, public: dict[tuple[str, str], PublicRecord]) -> None:
     """Only an explicit, enabled static-page override may replace its imported URL."""
+    sources = {source.id for source in site.sources if source.enabled and source.source_id == "imported:pages"}
+    by_route = {(record.path, record.language): key for key, record in public.items()
+                if sources.intersection(record.source_ids) and record.presentation.get("kind") == "page"}
+    translations: dict[str, str] = {}
     for page in site.pages:
         if not page.enabled or not page.imported_record_id:
             continue
-        key = page.imported_record_id, page.language
-        record = public.get(key)
-        if record is None or record.path != page.path or record.presentation.get("kind") != "page":
+        binding = page.imported_record_id
+        key = by_route.get((binding, page.language)) if binding.startswith("/") else (binding, page.language)
+        if key is None:
             raise HTTPException(422, "The imported static page is no longer published at this URL")
+        record = public.get(key)
+        if record is None or by_route.get((page.path, page.language)) != key:
+            raise HTTPException(422, "The imported static page is no longer published at this URL")
+        if binding.startswith("/") and page.translation_id and record.translation_id:
+            translations[record.translation_id] = page.translation_id
         public.pop(key)
+    # A partially edited translation group can still have published source
+    # records or an older editorial override in another language.
+    for record in public.values():
+        if record.translation_id and record.translation_id in translations and sources.intersection(record.source_ids):
+            record.translation_id = translations[record.translation_id]
+    for page in site.pages:
+        if page.imported_record_id and page.translation_id and page.translation_id in translations:
+            page.translation_id = translations[page.translation_id]

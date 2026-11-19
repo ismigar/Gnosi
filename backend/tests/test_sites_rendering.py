@@ -248,15 +248,18 @@ def test_imported_contact_and_taxonomy_keep_equivalent_translations(tmp_path, mo
     (pilot / 'config/homepage.json').write_text('{}')
     site = SiteConfig(name='Synthetic', legacy_pilot=True)
     seed_import(store, site, pilot)
-    for stem in ('home', 'contact', 'tag-1'):
-        translations = [page for page in site.pages if page.id in {stem + '-ca', stem + '-es'}]
+    for suffix in ('', '/form/contact', '/tag/test'):
+        translations = [page for page in site.pages if page.path in {'/ca' + suffix, '/es' + suffix}]
         assert len(translations) == 2
         assert translations[0].translation_id == translations[1].translation_id
         assert translations[0].translation_id
+    assert all(page.id not in {'tag-1-ca', 'tag-1-es'} for page in site.pages)
     # The complete renderer must use those identities for the visible language links.
     site.theme.logo = ''
     output = tmp_path / 'public'
-    render_bundle(SiteBundle(site=site).model_dump(mode='json'), output)
+    from backend.domains.sites.importer import project_imported_routes
+    render_bundle(SiteBundle(site=site, feed_aliases=project_imported_routes(store, site, [])).model_dump(mode='json'), output)
+    assert (output / 'taxonomy/term/1/feed').read_bytes() == (output / 'ca/tag/test/feed').read_bytes()
     for route in ('form/contact', 'tag/test'):
         html = BeautifulSoup((output / 'ca' / route / 'index.html').read_text(), 'html.parser')
         assert html.select_one('.site-header .languages a[lang="es"]')['href'] == '/es/' + route

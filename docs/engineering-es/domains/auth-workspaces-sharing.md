@@ -280,3 +280,5 @@ La reutilización de adjuntos solo para vista previa registra la versión fijada
 Windows con Python 3.11 expone la fecha de creación como ctime; por ello se desactivan la reutilización de versiones y sus registros, y cada vista previa copia de nuevo los originales. Los identificadores de cambio POSIX conservan la optimización.
 
 Cada recorrido resuelve y fija la raíz del vault una sola vez. Cada archivo conserva el recorrido sin seguir enlaces, el descriptor fijado, la lectura limitada y las comprobaciones de identidad y ruta antes y después. Los descriptores de raíz se cierran al terminar o fallar y no se comparten entre peticiones.
+
+Las páginas estáticas editadas identifican la fuente publicada por su URL e idioma. Los grupos de traducción de páginas y etiquetas nuevas tienen identificadores propios del sitio. El generador conserva los enlaces de etiquetas, los valores de los filtros y las direcciones RSS. Cuando una fuente tiene un criterio de ordenación explícito, los bloques de colección, los listados y los canales siguen las posiciones calculadas por el exportador. El campo de ordenación puede ser privado.

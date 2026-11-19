@@ -717,7 +717,11 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
         if form.enabled:
             form.privacy_url = _editor_file_link(form.privacy_url, asset)
             form.privacy_urls = {language: _editor_file_link(url, asset) for language, url in form.privacy_urls.items() if language in exported.languages}
-    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
+    # The public renderer may use the computed positions without learning
+    # the identity or the values of a private sort field.
+    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {},
+                        "sort_field_id": "source_order" if source.sort_field_id else None, "selection_mode": "all"})
+                        for source in exported.sources if source.enabled]
     # Keep the imported theme's stable collection markers on the public wire.
     # The private configuration still resolves native tables, and the snapshot
     # contributes no record bodies for these replaced collection sources.
@@ -776,16 +780,16 @@ def _build_bundle(store: SiteStore, site: SiteConfig, target_id: str, snapshot: 
     projection.guard_missing_files()
     projection.render_bodies(article_paths)
     from .page_editor import apply_page_overrides
-    apply_page_overrides(site, projection.public)
     exported = _exported_site(site, projection.asset)
+    apply_page_overrides(exported, projection.public)
     from .public_links import project_links
     project_links(exported, list(projection.public.values()), article_paths)
     exported.redirects = {origin: target for origin, target in exported.redirects.items()
                           if origin not in projection.obsolete_paths and target not in projection.obsolete_paths}
     withdrawn = _withdrawn_paths(projection, exported)
     withdrawn = [path for path in withdrawn if path not in projection.obsolete_paths]
-    from .importer import imported_feed_aliases
-    feed_aliases = imported_feed_aliases(store, exported)
+    from .importer import project_imported_routes
+    feed_aliases = project_imported_routes(store, exported, projection.public.values())
     bundle = SiteBundle(site=exported, records=list(projection.public.values()), assets=list(projection.asset.assets.values()), source_hashes=projection.hashes, withdrawn_paths=withdrawn, feed_aliases=feed_aliases)
     public_paths = [record.path for record in bundle.records] + [page.path for page in exported.pages]
     if len(public_paths) != len(set(public_paths)):

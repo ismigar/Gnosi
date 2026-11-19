@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {bundle,site,pages,records,base,production,selection,href,html} from '../src/lib/site.mjs';
-import {landingPath} from '../src/lib/routing.mjs';
+import {landingPath,tagPagePath} from '../src/lib/routing.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const blocks=values=>(values||[]).flatMap(block=>[block,...blocks(block.children)]);
 const chrome=[...(site.footer_columns||[]).flatMap(column=>column.blocks||[]),...(site.footer_blocks||[]),...(site.regions||[]).flatMap(region=>region.blocks||[])];
@@ -23,7 +23,7 @@ function routeDependencies(page){
   const alternatives=pages.filter(other=>other.id===page.id || (page.translation_id && other.translation_id===page.translation_id)).map(other=>({language:other.language,path:other.path}));
   const landing=site.languages.map(language=>landingPath(pages,language));
   const visible=page.template==='map'?pages.filter(other=>other.language===page.language && !['search','map'].includes(other.template)).map(other=>({path:other.path,title:other.title})):[];
-  const tags=site.legacy_pilot?(page.presentation?.tags||[]).map(tag=>pages.find(other=>other.id===`tag-${tag.tid}-${page.language}`)?.path):[];
+  const tags=site.legacy_pilot?(page.presentation?.tags||[]).map(tag=>tagPagePath(pages,tag,page.language)):[];
   const hero=site.legacy_pilot && page.template==='home' && page.blocks.find(block=>block.type==='split');
   const heroLinks=hero && hero.actions==null?[2656,5].map(nid=>records.find(record=>record.language===page.language && Number(record.presentation?.nid)===nid)?.path):[];
   return {alternatives,landing,visible,tags,heroLinks};

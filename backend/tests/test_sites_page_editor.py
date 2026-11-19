@@ -29,7 +29,8 @@ def test_static_projection_preserves_snapshot_and_replaces_only_selected_languag
     before = build_bundle(store, site, 'local')
     assert next(record for record in before.records if record.id == 'static-public').body_html == body
     page = imported_static_pages(store, site)[0]
-    assert page.imported_record_id == 'static-public'
+    assert page.imported_record_id == '/ca/profile'
+    assert 'static-public' not in (page.id, page.translation_id)
     assert len(page.blocks) == 1 and page.blocks[0].type == 'split'
     assert '<strong>bold</strong>' in page.blocks[0].body
     assert page.blocks[0].image.endswith('photo.png') and page.blocks[0].image_position == 'right'
@@ -59,6 +60,24 @@ def test_editor_cannot_override_an_article_or_hijack_another_url(imported_pilot)
     site.sources[0].withdrawn_ids.append('static-public')
     with pytest.raises(HTTPException):
         build_bundle(store, site, 'local')
+
+
+def test_route_binding_retains_unedited_translations_and_supports_saved_overrides(imported_pilot):
+    store, site, _, _ = imported_pilot
+    file, _, _ = add_static(store)
+    payload = json.loads(file.read_bytes())
+    node = payload['data']['nodes'][-1]
+    payload['data']['nodes'].append({**node, 'lang': 'es', 'url': '/es/perfil'})
+    file.write_text(json.dumps(payload))
+    page = next(p for p in imported_static_pages(store, site) if p.path == '/ca/profile')
+    site.pages.append(page)
+    bundle = build_bundle(store, site, 'local')
+    assert next(r for r in bundle.records if r.path == '/es/perfil').translation_id == page.translation_id
+    page.imported_record_id = 'static-public'
+    page.translation_id = 'static-public'
+    compatible = build_bundle(store, site, 'local')
+    assert next(r for r in compatible.records if r.path == '/es/perfil').translation_id == page.translation_id
+    assert not any(r.path == '/ca/profile' for r in compatible.records)
 
 
 def test_complex_imports_and_surrounding_content_are_never_silently_flattened():

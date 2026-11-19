@@ -287,3 +287,5 @@ La réutilisation des pièces jointes réservée à l’aperçu enregistre la ve
 Windows avec Python 3.11 expose la date de création comme ctime ; la réutilisation des versions et leurs reçus y sont donc désactivés, et chaque aperçu recopie les originaux. Les jetons de modification POSIX conservent l’optimisation.
 
 Chaque parcours résout et épingle la racine du vault une seule fois. Chaque fichier conserve son parcours sans suivre de liens, son descripteur épinglé, sa lecture limitée et les contrôles d’identité et de chemin avant et après. Les descripteurs racine sont fermés en cas de succès comme d’échec et ne sont pas partagés entre requêtes.
+
+Les pages statiques modifiées identifient la source publiée par son URL et sa langue. Les groupes de traduction des nouvelles pages et étiquettes utilisent des identifiants propres au site. Le générateur conserve les liens des étiquettes, les valeurs des filtres et les adresses RSS. Lorsqu’une source définit un ordre de tri, les blocs de collection, les listes et les flux suivent les positions calculées à l’exportation. Le champ de tri peut rester privé.
