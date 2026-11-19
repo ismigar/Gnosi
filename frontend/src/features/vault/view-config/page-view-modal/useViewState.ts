@@ -122,7 +122,7 @@ export function useViewState({
         xField, setXField, yField, setYField,
         genogram, setGenogram, aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
         error, setError, viewLoadStatus, setViewLoadStatus, viewLoadRetryKey, setViewLoadRetryKey, existingViews, setExistingViews,
-        selectedExistingViewId, setSelectedExistingViewId, selectionKey: JSON.stringify([sourceTableId, selectedExistingViewId]),
+        selectedExistingViewId, setSelectedExistingViewId,
         existingViewsStatus, setExistingViewsStatus,
         existingViewsTableId, setExistingViewsTableId, existingViewsReloadKey, setExistingViewsReloadKey,
         viewUsage, setViewUsage, editScope, setEditScope,

@@ -7,21 +7,21 @@ import { decodeView } from './decode';
 import { writePinnedViews } from './pinned-views';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
-import type { useViewSessionResult } from './useViewSession';
+import { viewSelectionKey, type useViewSessionResult } from './useViewSession';
 import type { useViewFieldsResult } from './useViewFields';
 import type { useViewAppearanceResult } from './useViewAppearance';
 import type { ViewConfig, SavedView } from './types';
 
 export function useViewPersistence({
     sourceTableId, filterTree, sorts, isTableMode, editingView, editingBlock, createdViewsRef, sectionId,
-    selectedExistingViewId, selectionKey, isMultiTable, joins, sourceTableName, viewName, viewType,
+    selectedExistingViewId, setSavedSelections, isMultiTable, joins, sourceTableName, viewName, viewType,
     visiblePropertiesToPersist, resultSnapshot, resultSnapshotLimit, buildViewExtras,
     api, existingViews, updatedViewsRef, registryViewsRef, inlineSourceRef, editScope, saveToTableViews, heading, headingLevel,
     pageId, modalPinnedViewIds, setError, t,
 }: Pick<
     useViewStateResult & ModalInput & useViewSessionResult & useViewFieldsResult & useViewAppearanceResult,
     'sourceTableId' | 'filterTree' | 'sorts' | 'isTableMode' | 'editingView' | 'editingBlock' | 'createdViewsRef' | 'sectionId'
-    | 'selectedExistingViewId' | 'selectionKey' | 'isMultiTable' | 'joins' | 'sourceTableName' | 'viewName' | 'viewType'
+    | 'selectedExistingViewId' | 'setSavedSelections' | 'isMultiTable' | 'joins' | 'sourceTableName' | 'viewName' | 'viewType'
     | 'visiblePropertiesToPersist' | 'resultSnapshot' | 'resultSnapshotLimit' | 'buildViewExtras'
     | 'api' | 'existingViews' | 'updatedViewsRef' | 'registryViewsRef' | 'inlineSourceRef' | 'editScope' | 'saveToTableViews' | 'heading' | 'headingLevel'
     | 'pageId' | 'modalPinnedViewIds' | 'setError' | 't'
@@ -47,7 +47,7 @@ export function useViewPersistence({
             visibleProperties: visiblePropertiesToPersist,
             joins: isMultiTable ? joins : [],
         };
-        const creationKey = isTableMode ? 'table' : selectionKey;
+        const creationKey = isTableMode ? 'table' : viewSelectionKey(sourceTableId, selectedExistingViewId);
         const createdId = createdViewsRef.current.get(creationKey);
         // Remember the registry write even when the subsequent page write fails.
         // A retry updates that id instead of creating another view.
@@ -126,7 +126,6 @@ export function useViewPersistence({
                         ? t('view.page_copy_name', { name, defaultValue: '{{name}} (page view)' }) : name;
                     const pageView = { ...copy, ...config, embedded: true, hidden: true, is_main: false, name: copyName };
                     viewId = await saveRegistryView(pageView, createdId);
-                    updatedViewsRef.current.set(viewId, { ...pageView, id: viewId });
                 } else {
                     const embedded = registered?.embedded ?? source.embedded;
                     const body = { ...config, name, is_main: false, embedded: typeof embedded === 'boolean' ? embedded : hasPageFilter };
@@ -160,6 +159,8 @@ export function useViewPersistence({
             } } : {}),
             columns: visiblePropertiesToPersist.map(column => typeof column === 'string' ? column : column.fieldKey),
         });
+        const selection = { view: { ...localOptions, ...config, name }, editScope, saveToTableViews, pins: new Set(modalPinnedViewIds) };
+        setSavedSelections(previous => new Map(previous).set(creationKey, selection));
         if (viewId) {
             try {
                 const pins = [...modalPinnedViewIds].map(id => id === selectedExistingViewId ? viewId : id);

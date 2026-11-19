@@ -6,7 +6,7 @@ import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewExistingPicker({
     isTableMode, sourceTableId, t, selectedExistingViewId,
-    selectExistingView, flushing, isLoadingExistingViews, existingViews, viewName,
+    selectExistingView, flushing, isLoadingExistingViews, existingViews, viewName, localViewName,
     existingViewsLoadError, setExistingViewsReloadKey
 }: Pick<
     ModalInput & useViewStateResult & useViewOptionsResult & useViewAutosaveResult,
@@ -19,6 +19,7 @@ export function ViewExistingPicker({
     | 'isLoadingExistingViews'
     | 'existingViews'
     | 'viewName'
+    | 'localViewName'
     | 'existingViewsLoadError'
     | 'setExistingViewsReloadKey'
 >) {
@@ -36,7 +37,7 @@ export function ViewExistingPicker({
                 <option value="">
                     {isLoadingExistingViews
                         ? t('view.loading_views', "Loading views…")
-                        : t('view.create_new_view', "— Create new view —")}
+                        : localViewName || t('view.create_new_view', "— Create new view —")}
                 </option>
                 {existingViews.map(v => {
                     const displayedName = v.id === selectedExistingViewId

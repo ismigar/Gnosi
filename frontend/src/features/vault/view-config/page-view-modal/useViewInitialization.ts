@@ -6,7 +6,7 @@ import { decodeView } from './decode';
 import { readPinnedViews } from './pinned-views';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
-import type { useViewSessionResult } from './useViewSession';
+import { viewSelectionKey, type useViewSessionResult } from './useViewSession';
 import type { useViewAppearanceResult } from './useViewAppearance';
 import type { ViewConfig } from './types';
 
@@ -140,7 +140,7 @@ export function useViewInitialization({
                 setSelectedExistingViewId(vid);
                 const applyView = (v: ViewConfig, selectedId = vid) => {
                     inlineSourceRef.current = selectedId ? null : v;
-                    appliedSelectionRef.current = selectedId;
+                    appliedSelectionRef.current = viewSelectionKey(v.table_id || preselectedTableId || '', selectedId);
                     setSelectedExistingViewId(selectedId);
                     setSaveToTableViews(Boolean(selectedId) && (selectedId === 'default' || v.is_main === true));
                     setModalPinnedViewIds(readPinnedViews(pageId, selectedId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));

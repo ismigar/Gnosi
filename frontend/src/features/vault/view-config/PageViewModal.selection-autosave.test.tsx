@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { expect, it, vi } from 'vitest';
-import { actAndFlush, existingView, renderModal, requireButton, requireElement } from './PageViewModal.test-harness';
+import { actAndFlush, existingView, renderModal, requireButton, requireElement, updateInput } from './PageViewModal.test-harness';
 
 const ascending = [{ field: 'title', direction: 'asc' }];
 const descending = [{ field: 'title', direction: 'desc' }];
@@ -74,4 +74,47 @@ it('flushes the original view before changing its source table', async () => {
     await select(source, 'other');
     expect(api.updateVaultView).toHaveBeenCalledWith(original.id, expect.objectContaining({ table_id: original.table_id, sorts: descending }));
     expect(source.value).toBe('other');
+});
+
+it('restores the new view by name with its saved ordering and table visibility', async () => {
+    const { api, onClose } = await renderModal(undefined, { editingBlock: null },
+        prepared => { prepared.fetchVaultViews.mockResolvedValue([alternate]); });
+    const name = requireElement(dialog(), 'input[aria-label="View name"]', HTMLInputElement);
+    await actAndFlush(() => { updateInput(name, 'Reading list'); });
+    await actAndFlush(() => { requireButton(dialog(), 'Sort').click(); });
+    await actAndFlush(() => { requireButton(dialog(), 'Add criterion').click(); });
+    await select(direction(), 'desc');
+    await advance();
+    const created = api.createVaultView.mock.calls[0]?.[0];
+    const expected = { name: 'Reading list', sorts: descending, hidden: false, embedded: false };
+    expect(created).toMatchObject(expected);
+    await select(picker(), alternate.id);
+    await advance();
+    const draft = requireElement(picker(), 'option[value=""]', HTMLOptionElement);
+    expect(draft.text).toBe('Reading list');
+    await select(picker(), draft.value);
+    expect(direction().value).toBe('desc');
+    await actAndFlush(() => { requireButton(dialog(), 'Close').click(); });
+    expect(api.createVaultView).toHaveBeenCalledTimes(1);
+    expect(api.updateVaultView).toHaveBeenLastCalledWith(created?.id, expect.objectContaining(expected));
+    expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: created?.id, name: 'Reading list', sorts: descending }));
+});
+
+it('keeps page-only edits local after returning to their shared source', async () => {
+    const { api, onClose } = await renderModal(undefined, {
+        editingBlock: { props: { view_id: original.id }, view: original },
+    }, prepared => {
+        prepared.fetchVaultViews.mockResolvedValue([original, alternate]);
+        prepared.fetchVaultViewUsage.mockResolvedValue({ count: 2, pages: [], view_id: original.id });
+    });
+    await actAndFlush(() => { requireElement(dialog(), 'input[value="fork"]', HTMLInputElement).click(); });
+    await actAndFlush(() => { requireButton(dialog(), 'Sort').click(); });
+    await select(direction(), 'desc');
+    await select(picker(), alternate.id);
+    await select(picker(), original.id);
+    expect(direction().value).toBe('desc');
+    await actAndFlush(() => { requireButton(dialog(), 'Close').click(); });
+    expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ view_id: null, sorts: descending }));
+    expect(api.updateVaultView).not.toHaveBeenCalled();
+    expect(api.createVaultView).not.toHaveBeenCalled();
 });
