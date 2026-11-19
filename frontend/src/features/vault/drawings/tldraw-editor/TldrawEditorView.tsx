@@ -71,6 +71,8 @@ interface TldrawEditorViewProps {
     readonly wrapperRef: RefObject<HTMLDivElement | null>;
 }
 
+const canvasFileActionClass = 'inline-flex items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs! text-[var(--text-secondary)]';
+
 export function TldrawEditorView({
     allNotes,
     cardsEnabled,
@@ -136,7 +138,7 @@ export function TldrawEditorView({
                 </h2>
                 <div className="flex flex-wrap items-center justify-end gap-2" style={{ flex: '1 1 16rem', minWidth: 0 }}>
                     {editorReady && loadState === 'ready' && <>
-                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-secondary)] focus-within:outline focus-within:outline-2 focus-within:outline-[var(--gnosi-primary)]">
+                        <label className={`${canvasFileActionClass} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-[var(--gnosi-primary)]`}>
                             <Upload size={14} /> {t('json_canvas.import', 'Import .canvas')}
                             <input type="file" accept=".canvas,application/json" className="sr-only" aria-label={t('json_canvas.import', 'Import .canvas')}
                                 onChange={event => {
@@ -145,8 +147,7 @@ export function TldrawEditorView({
                                     event.target.value = '';
                                 }} />
                         </label>
-                        <button type="button" onClick={onExportCanvas}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
+                        <button type="button" onClick={onExportCanvas} className={canvasFileActionClass}>
                             <Download size={14} /> {t('json_canvas.export', 'Export .canvas')}
                         </button>
                     </>}
