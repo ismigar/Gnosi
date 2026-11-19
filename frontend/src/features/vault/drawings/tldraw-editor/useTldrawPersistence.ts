@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getSnapshot, loadSnapshot, type TLStore } from 'tldraw';
+import type { TLStore } from '@bigbluebutton/tldraw';
+import { loadDrawingDocument, serializeDrawingDocument } from '../drawingSnapshot';
 
 import {
     fetchDrawing,
@@ -9,8 +10,6 @@ import { GnosiApiError } from '../../../../shared/api/errors';
 import { logError } from '../../../../shared/notifications/notifyError';
 import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 import {
-    assessDrawingSnapshot,
-    drawingDocumentFromSnapshot,
     isAbortError,
 } from './tldrawEditorModel';
 import type { DrawingLoadState } from './tldrawEditorTypes';
@@ -21,10 +20,12 @@ const AUTOSAVE_DELAY_MS = 1000;
 interface DrawingStatus {
     readonly drawingId: string | null;
     readonly state: DrawingLoadState;
+    readonly unsupportedDocument?: Record<string, unknown>;
 }
 
 interface UseTldrawPersistenceOptions {
     readonly drawingId: string | null;
+    readonly editorReady: boolean;
     readonly onSaveSuccess?: (() => void) | null;
     readonly store: TLStore;
     readonly title: string | null;
@@ -32,6 +33,7 @@ interface UseTldrawPersistenceOptions {
 
 export interface TldrawPersistence {
     readonly loadState: DrawingLoadState;
+    readonly unsupportedDocument?: Record<string, unknown>;
     readonly retryLoad: () => void;
     readonly save: () => Promise<void>;
 }
@@ -42,12 +44,14 @@ function initialStatus(drawingId: string | null): DrawingStatus {
 
 export function useTldrawPersistence({
     drawingId,
+    editorReady,
     onSaveSuccess,
     store,
     title,
 }: UseTldrawPersistenceOptions): TldrawPersistence {
     const [status, setStatus] = useState(() => initialStatus(drawingId));
     const [retryTick, setRetryTick] = useState(0);
+    const originalRef = useRef<Record<string, unknown> | null>(null);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (status.drawingId !== drawingId) {
@@ -59,6 +63,7 @@ export function useTldrawPersistence({
 
     useEffect(() => {
         if (!drawingId) return undefined;
+        originalRef.current = null;
         const controller = new AbortController();
         let retryTimer: ReturnType<typeof setTimeout> | null = null;
         let retries = 0;
@@ -67,17 +72,12 @@ export function useTldrawPersistence({
             try {
                 const data = await fetchDrawing(drawingId, controller.signal);
                 if (controller.signal.aborted) return;
-                const assessment = assessDrawingSnapshot(data);
-                if (assessment.kind === 'incompatible') {
-                    setStatus({ drawingId, state: 'incompatible' });
-                    return;
-                }
-                if (assessment.kind === 'loadable') {
+                if (Object.keys(data).length > 0) {
                     try {
-                        loadSnapshot(store, assessment.snapshot);
+                        originalRef.current = loadDrawingDocument(store, data);
                     } catch (error) {
                         logError('tldraw.snapshot-load', error);
-                        setStatus({ drawingId, state: 'incompatible' });
+                        setStatus({ drawingId, state: 'incompatible', unsupportedDocument: data });
                         return;
                     }
                 }
@@ -109,9 +109,9 @@ export function useTldrawPersistence({
     }, [drawingId, retryTick, store]);
 
     const save = useCallback(async (): Promise<void> => {
-        if (!drawingId || loadState !== 'ready') return;
+        if (!drawingId || loadState !== 'ready' || !editorReady) return;
         try {
-            const snapshot = drawingDocumentFromSnapshot(getSnapshot(store));
+            const snapshot = serializeDrawingDocument(store, originalRef.current);
             await saveDrawing(drawingId, {
                 data: snapshot,
                 metadata: {},
@@ -121,7 +121,7 @@ export function useTldrawPersistence({
         } catch (error) {
             logError('tldraw.drawing-save', error);
         }
-    }, [drawingId, loadState, onSaveSuccess, store, title]);
+    }, [drawingId, editorReady, loadState, onSaveSuccess, store, title]);
 
     const latestSaveRef = useRef(save);
     useEffect(() => {
@@ -129,7 +129,7 @@ export function useTldrawPersistence({
     }, [save]);
 
     useEffect(() => {
-        if (!drawingId || loadState !== 'ready') return undefined;
+        if (!drawingId || loadState !== 'ready' || !editorReady) return undefined;
         const unsubscribe = store.listen(() => {
             if (autosaveTimerRef.current !== null) return;
             autosaveTimerRef.current = setTimeout(() => {
@@ -146,7 +146,7 @@ export function useTldrawPersistence({
                 void latestSaveRef.current();
             }
         };
-    }, [drawingId, loadState, store]);
+    }, [drawingId, editorReady, loadState, store]);
 
     useEffect(() => subscribeWindowEvent('keydown', (event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
@@ -157,6 +157,7 @@ export function useTldrawPersistence({
 
     return {
         loadState,
+        unsupportedDocument: loadState === 'incompatible' ? status.unsupportedDocument : undefined,
         retryLoad: () => {
             setStatus({ drawingId, state: drawingId ? 'loading' : 'ready' });
             setRetryTick((value) => value + 1);

@@ -1,0 +1,56 @@
+diff --git a/dist-cjs/lib/ui/components/MenuZone.js b/dist-cjs/lib/ui/components/MenuZone.js
+index 7f0181ae02457b0290c73d17f9bc00c48f950575..183b1429c78dc2691a281dc63fe28f4d621ccc5c 100644
+--- a/dist-cjs/lib/ui/components/MenuZone.js
++++ b/dist-cjs/lib/ui/components/MenuZone.js
+@@ -23,7 +23,8 @@ __export(MenuZone_exports, {
+ module.exports = __toCommonJS(MenuZone_exports);
+ var import_jsx_runtime = require("react/jsx-runtime");
+ var import_editor = require("@bigbluebutton/editor");
++var import_page_menu = require("./PageMenu/PageMenu.js");
+ const MenuZone = (0, import_editor.track)(function MenuZone2() {
+-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tlui-menu-zone", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tlui-buttons__horizontal" }) });
++  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tlui-menu-zone", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tlui-buttons__horizontal", children: (0, import_jsx_runtime.jsx)(import_page_menu.PageMenu, {}) }) });
+ });
+ //# sourceMappingURL=MenuZone.js.map
+diff --git a/dist-esm/lib/ui/components/MenuZone.mjs b/dist-esm/lib/ui/components/MenuZone.mjs
+index 41b25fa9dbd819daba5a51e21216d91fa896f865..a269859f616b71bbc524f6c9a446858bd3f85e80 100644
+--- a/dist-esm/lib/ui/components/MenuZone.mjs
++++ b/dist-esm/lib/ui/components/MenuZone.mjs
+@@ -1,7 +1,8 @@
+ import { jsx } from "react/jsx-runtime";
+ import { track } from "@bigbluebutton/editor";
++import { PageMenu } from "./PageMenu/PageMenu.mjs";
+ const MenuZone = track(function MenuZone2() {
+-  return /* @__PURE__ */ jsx("div", { className: "tlui-menu-zone", children: /* @__PURE__ */ jsx("div", { className: "tlui-buttons__horizontal" }) });
++  return /* @__PURE__ */ jsx("div", { className: "tlui-menu-zone", children: /* @__PURE__ */ jsx("div", { className: "tlui-buttons__horizontal", children: jsx(PageMenu, {}) }) });
+ });
+ export {
+   MenuZone
+diff --git a/src/lib/ui/components/MenuZone.tsx b/src/lib/ui/components/MenuZone.tsx
+index 72b1fbc9b6c1737d356b287ea61ea68a32a313a4..50665f08911d29a677387fd751324a39a4d895fb 100644
+--- a/src/lib/ui/components/MenuZone.tsx
++++ b/src/lib/ui/components/MenuZone.tsx
+@@ -1,4 +1,5 @@
+ import { track } from '@bigbluebutton/editor'
++import { PageMenu } from './PageMenu/PageMenu'
+ // import { useBreakpoint } from '../hooks/useBreakpoint'
+ // import { useReadonly } from '../hooks/useReadonly'
+-
++
+@@ -11,8 +12,8 @@ export const MenuZone = track(function MenuZone() {
+-	return (
++	return (
+-		<div className="tlui-menu-zone">
++		<div className="tlui-menu-zone">
+-			<div className="tlui-buttons__horizontal">
++			<div className="tlui-buttons__horizontal">
+-				{/* <Menu />
+-				<PageMenu />
++				<PageMenu />
++				{/* <Menu />
+-				{breakpoint >= 6 && !isReadonly && !editor.isInAny('hand', 'zoom') && (
++				{breakpoint >= 6 && !isReadonly && !editor.isInAny('hand', 'zoom') && (
+-					<>
++					<>
+-						<UndoButton />
++						<UndoButton />

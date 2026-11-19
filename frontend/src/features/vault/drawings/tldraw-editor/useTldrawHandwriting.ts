@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { RefObject } from 'react';
-import { createShapeId, toRichText } from '@tldraw/tlschema';
+import { createShapeId, getSvgAsImage } from '@bigbluebutton/tldraw';
 import { useTranslation } from 'react-i18next';
 
 import { recognizeHandwriting, fetchHandwritingStatus, cancelHandwritingDownload, type HandwritingStatusResponse } from '../../../../shared/api/drawings';
@@ -64,15 +64,10 @@ export function useTldrawHandwriting({
 
         setRecognizing(true);
         try {
-            const image = await editor.toImage(ids, {
-                background: true,
-                darkMode: false,
-                format: 'png',
-                padding: 16,
-                scale: 2,
-            });
-            if (!image?.blob) throw new Error('Could not export the image');
-            const result = await recognizeHandwriting(image.blob, { language });
+            const svg = await editor.getSvg(ids, { background: true, darkMode: false, padding: 16 });
+            const image = svg && await getSvgAsImage(svg, editor.environment.isSafari, { type: 'png', quality: 1, scale: 2 });
+            if (!image) throw new Error('Could not export the drawing as an image');
+            const result = await recognizeHandwriting(image, { language });
             const text = result.text.trim();
             if (!text) {
                 toast.error(t('tldraw.no_text_recognized'));
@@ -87,7 +82,7 @@ export function useTldrawHandwriting({
                 id: textId,
                 props: {
                     color: 'black',
-                    richText: toRichText(text),
+                    text,
                     size: 'm',
                 },
                 type: 'text',

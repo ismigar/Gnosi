@@ -4,9 +4,9 @@ import {
     Rectangle2d,
     resizeBox,
     T,
-    type RecordProps,
+    type ShapeProps,
     type TLResizeInfo,
-} from 'tldraw';
+} from '@bigbluebutton/tldraw';
 
 import { PageCardComponent } from './canvas-page-card/PageCardComponent';
 import {
@@ -21,7 +21,7 @@ export type { PageCardShape } from './canvas-page-card/types';
 
 export class PageCardShapeUtil extends BaseBoxShapeUtil<PageCardShape> {
     static override type = PAGE_CARD_TYPE;
-    static override props: RecordProps<PageCardShape> = {
+    static override props: ShapeProps<PageCardShape> = {
         w: T.number,
         h: T.number,
         pageId: T.string,
@@ -32,8 +32,8 @@ export class PageCardShapeUtil extends BaseBoxShapeUtil<PageCardShape> {
         return { w: 260, h: 170, pageId: '', pageTitle: '' };
     }
 
-    override canResize(): boolean { return true; }
-    override canEdit(): boolean { return false; }
+    override canResize = () => true;
+    override canEdit = () => false;
 
     override getGeometry(shape: PageCardShape): Rectangle2d {
         return new Rectangle2d({
@@ -47,13 +47,9 @@ export class PageCardShapeUtil extends BaseBoxShapeUtil<PageCardShape> {
         return createElement(PageCardComponent, { shape });
     }
 
-    override getIndicatorPath(shape: PageCardShape): Path2D {
-        const path = new Path2D();
-        path.roundRect(0, 0, shape.props.w, shape.props.h, 10);
-        return path;
+    override indicator(shape: PageCardShape) {
+        return createElement('rect', { width: shape.props.w, height: shape.props.h, rx: 10 });
     }
 
-    override onResize(shape: PageCardShape, info: TLResizeInfo<PageCardShape>) {
-        return resizeBox(shape, info);
-    }
+    override onResize = (shape: PageCardShape, info: TLResizeInfo<PageCardShape>) => resizeBox(shape, info);
 }

@@ -23,7 +23,7 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('tldraw', () => ({
+vi.mock('@bigbluebutton/tldraw', () => ({
     HTMLContainer: ({ children }: { readonly children: ReactNode }) => <div>{children}</div>,
 }));
 

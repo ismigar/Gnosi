@@ -4832,7 +4832,7 @@
     "ocr_ready": "Reconnaissance disponible",
     "ocr_cancelled": "Téléchargement arrêté",
     "ocr_failed": "Le modèle n’a pas pu être préparé",
-    "ocr_unavailable": "Moteur indisponible",
+    "ocr_unavailable": "Reconnaissance de l’écriture indisponible",
     "ocr_cancelling": "Arrêt…",
     "ocr_size": "{{done}} / {{total}} MiB",
     "ocr_cancel_download": "Arrêter le téléchargement",
@@ -4848,7 +4848,8 @@
     "load_error_title": "Impossible de charger le dessin",
     "incompatible_title": "Format de dessin incompatible",
     "load_error_desc": "L'enregistrement est désactivé pour ne pas écraser le dessin original avec un canevas vide.",
-    "incompatible_desc": "Ce dessin a un format ancien (Excalidraw) ou inconnu. L'enregistrement est désactivé pour protéger le fichier original."
+    "download_original": "Télécharger le dessin original",
+    "incompatible_desc": "Vous pouvez télécharger le dessin original et l’ouvrir dans un éditeur compatible."
   },
   "command_palette": {
     "nav_home": "Aller à l'accueil",
@@ -8670,6 +8671,7 @@
     "export": "Exporter .canvas",
     "not_empty": "Ouvrez un dessin vide avant d'importer un canevas.",
     "unsupported": "Ce canevas contient une forme ou une connexion que JSON Canvas ne peut pas représenter. Rien n'a été importé ni exporté.",
+    "page_limit": "Une page de dessin peut contenir jusqu’à {{limit}} nœuds et connexions au total.",
     "too_large": "Le canevas dépasse la limite de 10 Mo ou de 5 000 éléments.",
     "invalid": "Impossible de lire le canevas. Vérifiez qu'il s'agit d'un fichier .canvas valide.",
     "imported": "Canevas importé.",

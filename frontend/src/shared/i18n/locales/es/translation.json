@@ -4939,7 +4939,7 @@
     "ocr_ready": "Reconocimiento disponible",
     "ocr_cancelled": "Descarga detenida",
     "ocr_failed": "No se ha podido preparar el modelo",
-    "ocr_unavailable": "Motor no disponible",
+    "ocr_unavailable": "Reconocimiento de escritura no disponible",
     "ocr_cancelling": "Deteniendo…",
     "ocr_size": "{{done}} / {{total}} MiB",
     "ocr_cancel_download": "Detener la descarga",
@@ -4955,7 +4955,8 @@
     "load_error_title": "No se ha podido cargar el dibujo",
     "incompatible_title": "Formato de dibujo no compatible",
     "load_error_desc": "El guardado está desactivado para no sobrescribir el dibujo original con un lienzo vacío.",
-    "incompatible_desc": "Este dibujo tiene un formato antiguo (Excalidraw) o desconocido. El guardado está desactivado para proteger el archivo original."
+    "download_original": "Descargar el dibujo original",
+    "incompatible_desc": "Puedes descargar el dibujo original y abrirlo con un editor compatible."
   },
   "command_palette": {
     "nav_home": "Ve a Inicio",
@@ -8670,6 +8671,7 @@
     "export": "Exporta .canvas",
     "not_empty": "Abre un dibujo vacío antes de importar un lienzo.",
     "unsupported": "Este lienzo contiene una forma o conexión que JSON Canvas no puede representar. No se ha importado ni exportado nada.",
+    "page_limit": "Una página de dibujo admite hasta {{limit}} elementos entre nodos y conexiones.",
     "too_large": "El lienzo supera el límite de 10 MB o 5.000 elementos.",
     "invalid": "No se ha podido leer el lienzo. Comprueba que sea un archivo .canvas válido.",
     "imported": "Lienzo importado.",
