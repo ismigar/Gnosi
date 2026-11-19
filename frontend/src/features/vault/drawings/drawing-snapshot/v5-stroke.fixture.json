@@ -1,0 +1,116 @@
+{
+  "document": {
+    "store": {
+      "document:document": {
+        "gridSize": 10,
+        "name": "",
+        "meta": {},
+        "id": "document:document",
+        "typeName": "document"
+      },
+      "page:page": {
+        "meta": {},
+        "id": "page:page",
+        "name": "Page 1",
+        "index": "a1",
+        "typeName": "page"
+      },
+      "user:AD8oL3BaTcwx_vnmZ0i0s": {
+        "name": "",
+        "color": "#E34BA9",
+        "imageUrl": "",
+        "meta": {},
+        "id": "user:AD8oL3BaTcwx_vnmZ0i0s",
+        "typeName": "user"
+      },
+      "shape:Wn3CurXQazs5x-v1Jt8k4": {
+        "x": 326,
+        "y": 287,
+        "rotation": 0,
+        "isLocked": false,
+        "opacity": 1,
+        "meta": {},
+        "id": "shape:Wn3CurXQazs5x-v1Jt8k4",
+        "type": "draw",
+        "props": {
+          "segments": [
+            {
+              "type": "free",
+              "path": "AAAAAAAAAAAASABEAEgARABIAEQASABEAEgARABIAEQASABEAEgARABIAEQASABEAEgARABIAEQ=",
+              "dim": 2
+            }
+          ],
+          "color": "black",
+          "fill": "none",
+          "dash": "draw",
+          "size": "m",
+          "isComplete": true,
+          "isClosed": false,
+          "isPen": false,
+          "scale": 1,
+          "scaleX": 1,
+          "scaleY": 1
+        },
+        "parentId": "page:page",
+        "index": "a1FiE",
+        "typeName": "shape"
+      }
+    },
+    "schema": {
+      "schemaVersion": 2,
+      "sequences": {
+        "com.tldraw.store": 5,
+        "com.tldraw.asset": 1,
+        "com.tldraw.camera": 1,
+        "com.tldraw.document": 2,
+        "com.tldraw.instance": 26,
+        "com.tldraw.instance_page_state": 5,
+        "com.tldraw.page": 1,
+        "com.tldraw.instance_presence": 6,
+        "com.tldraw.pointer": 1,
+        "com.tldraw.shape": 4,
+        "com.tldraw.user": 1,
+        "com.tldraw.asset.image": 6,
+        "com.tldraw.asset.video": 5,
+        "com.tldraw.asset.bookmark": 2,
+        "com.tldraw.shape.group": 0,
+        "com.tldraw.shape.text": 4,
+        "com.tldraw.shape.bookmark": 2,
+        "com.tldraw.shape.draw": 5,
+        "com.tldraw.shape.geo": 12,
+        "com.tldraw.shape.note": 13,
+        "com.tldraw.shape.line": 5,
+        "com.tldraw.shape.frame": 1,
+        "com.tldraw.shape.arrow": 8,
+        "com.tldraw.shape.highlight": 4,
+        "com.tldraw.shape.embed": 4,
+        "com.tldraw.shape.image": 5,
+        "com.tldraw.shape.video": 4,
+        "com.tldraw.shape.page-card": 0,
+        "com.tldraw.shape.json-canvas-node": 0,
+        "com.tldraw.binding.arrow": 1
+      }
+    }
+  },
+  "session": {
+    "version": 0,
+    "currentPageId": "page:page",
+    "exportBackground": true,
+    "isFocusMode": false,
+    "isDebugMode": false,
+    "isToolLocked": false,
+    "isGridMode": false,
+    "pageStates": [
+      {
+        "pageId": "page:page",
+        "camera": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "selectedShapeIds": [],
+        "focusedGroupId": null
+      }
+    ]
+  }
+}

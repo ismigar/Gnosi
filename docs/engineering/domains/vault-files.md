@@ -203,6 +203,8 @@ The review closes and clears its content when the active account, workspace
 or Vault changes, including changes observed from another browser tab. Pending
 saves and responses cannot apply the reviewed operation in the new context.
 
+The drawing editor uses BigBlueButton’s Apache-2.0 whiteboard and bundles its fonts, icons and translations. Opening an existing drawing reads it into memory. When a supported tldraw v5 drawing is edited and saved, Gnosi retains its original payload alongside the editable document.
+
 Canvas page cards support explicit editing and conditional saves. Unsaved drafts
 remain in memory when a saved layout unmounts a drawing, scoped to the account,
 workspace, Vault and page. Closing the app still requires saving those drafts.

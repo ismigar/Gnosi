@@ -4991,7 +4991,7 @@
     "ocr_ready": "Reconeixement disponible",
     "ocr_cancelled": "Descàrrega aturada",
     "ocr_failed": "No s’ha pogut preparar el model",
-    "ocr_unavailable": "Motor no disponible",
+    "ocr_unavailable": "Reconeixement d’escriptura no disponible",
     "ocr_cancelling": "Aturant…",
     "ocr_size": "{{done}} / {{total}} MiB",
     "ocr_cancel_download": "Atura la descàrrega",
@@ -5007,7 +5007,8 @@
     "load_error_title": "No s'ha pogut carregar el dibuix",
     "incompatible_title": "Format de dibuix no compatible",
     "load_error_desc": "El desat està desactivat per no sobreescriure el dibuix original amb un llenç buit.",
-    "incompatible_desc": "Aquest dibuix té un format antic (Excalidraw) o desconegut. El desat està desactivat per protegir el fitxer original."
+    "download_original": "Descarrega el dibuix original",
+    "incompatible_desc": "Pots descarregar el dibuix original i obrir-lo amb un editor compatible."
   },
   "command_palette": {
     "nav_home": "Vés a Inici",
@@ -8668,6 +8669,7 @@
     "export": "Exporta .canvas",
     "not_empty": "Obre un dibuix buit abans d'importar un llenç.",
     "unsupported": "Aquest llenç conté una forma o connexió que JSON Canvas no pot representar. No s'ha importat ni exportat res.",
+    "page_limit": "Una pàgina de dibuix admet fins a {{limit}} elements entre nodes i connexions.",
     "too_large": "El llenç supera el límit de 10 MB o 5.000 elements.",
     "invalid": "No s'ha pogut llegir el llenç. Comprova que sigui un fitxer .canvas vàlid.",
     "imported": "Llenç importat.",

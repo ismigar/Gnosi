@@ -1,23 +1,13 @@
-import type { TLShape } from 'tldraw';
-
+import type { TLBaseShape } from '@bigbluebutton/tldraw';
 
 export const PAGE_CARD_TYPE = 'page-card' as const;
 
-
-declare module '@tldraw/tlschema' {
-    interface TLGlobalShapePropsMap {
-        [PAGE_CARD_TYPE]: {
-            h: number;
-            pageId: string;
-            pageTitle: string;
-            w: number;
-        };
-    }
-}
-
-
-export type PageCardShape = TLShape<typeof PAGE_CARD_TYPE>;
-
+export type PageCardShape = TLBaseShape<typeof PAGE_CARD_TYPE, {
+    w: number;
+    h: number;
+    pageId: string;
+    pageTitle: string;
+}>;
 
 export interface PageCardData {
     readonly content: string;

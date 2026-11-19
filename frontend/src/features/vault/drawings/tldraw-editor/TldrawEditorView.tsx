@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react';
-import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite.js';
+import { getAssetUrlsByMetaUrl } from '@bigbluebutton/assets/urls.js';
 import type { HandwritingStatusResponse } from '../../../../shared/api/drawings';
 import { HandwritingModelStatus } from './HandwritingModelStatus';
 import {
@@ -19,9 +19,10 @@ import {
     type Editor,
     type TLAnyShapeUtilConstructor,
     type TLStore,
-} from 'tldraw';
+} from '@bigbluebutton/tldraw';
 
 import { PageActionsPanel } from './PageActionsPanel';
+import { downloadBlob } from '../../../../shared/platform/download';
 import { subscribeElementEvent } from '../../../../shared/platform/browser-events';
 import {
     CanvasPageProvider,
@@ -34,7 +35,8 @@ import type {
     TldrawVaultTable,
 } from './tldrawEditorTypes';
 
-const canvasAssetUrls = getAssetUrlsByImport();
+// Preserve Vite’s absolute app:// URLs when running from the desktop bundle.
+const canvasAssetUrls = getAssetUrlsByMetaUrl(url => url);
 
 interface TldrawEditorViewProps {
     readonly allNotes: readonly TldrawVaultNote[];
@@ -42,7 +44,9 @@ interface TldrawEditorViewProps {
     readonly closeSelectedPage: () => void;
     readonly createNote: () => Promise<void>;
     readonly isSearchOpen: boolean;
+    readonly editorReady: boolean;
     readonly loadState: DrawingLoadState;
+    readonly unsupportedDocument?: Record<string, unknown>;
     readonly onClose: () => void;
     readonly onImportCanvas: (file: File) => Promise<void>;
     readonly onExportCanvas: () => void;
@@ -73,7 +77,9 @@ export function TldrawEditorView({
     closeSelectedPage,
     createNote,
     isSearchOpen,
+    editorReady,
     loadState,
+    unsupportedDocument,
     onClose,
     onEditorMount,
     onImportCanvas,
@@ -129,7 +135,7 @@ export function TldrawEditorView({
                     {title || t('tldraw.untitled_drawing')}
                 </h2>
                 <div className="flex flex-wrap items-center justify-end gap-2" style={{ flex: '1 1 16rem', minWidth: 0 }}>
-                    {loadState === 'ready' && <>
+                    {editorReady && loadState === 'ready' && <>
                         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-secondary)] focus-within:outline focus-within:outline-2 focus-within:outline-[var(--gnosi-primary)]">
                             <Upload size={14} /> {t('json_canvas.import', 'Import .canvas')}
                             <input type="file" accept=".canvas,application/json" className="sr-only" aria-label={t('json_canvas.import', 'Import .canvas')}
@@ -145,7 +151,7 @@ export function TldrawEditorView({
                         </button>
                     </>}
                     {handwritingStatus && <HandwritingModelStatus status={handwritingStatus} onCancel={onCancelDownload} />}
-                    {loadState === 'ready' && (
+                    {editorReady && loadState === 'ready' && (
                         <button
                             type="button"
                             onClick={() => {
@@ -161,7 +167,7 @@ export function TldrawEditorView({
                             {recognizing ? t('tldraw.recognizing') : t('tldraw.to_text')}
                         </button>
                     )}
-                    {loadState === 'ready' && supportsTouch && (
+                    {editorReady && loadState === 'ready' && supportsTouch && (
                         <button
                             type="button"
                             onClick={() => {
@@ -176,7 +182,7 @@ export function TldrawEditorView({
                             <PenLine size={14} /> {t('tldraw.pen_only')}
                         </button>
                     )}
-                    {loadState === 'ready' && (
+                    {editorReady && loadState === 'ready' && (
                         <button
                             type="button"
                             onClick={openSearch}
@@ -186,7 +192,7 @@ export function TldrawEditorView({
                             <Search size={14} /> {t('tldraw.add_note')}
                         </button>
                     )}
-                    {loadState === 'ready' && cardsEnabled && (
+                    {editorReady && loadState === 'ready' && cardsEnabled && (
                         <button
                             type="button"
                             onClick={() => {
@@ -217,33 +223,41 @@ export function TldrawEditorView({
                     <div className="absolute inset-0 flex items-center justify-center bg-white">
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
-                ) : (
+                ) : loadState === 'ready' ? (
                     <CanvasPageProvider value={{ onOpenPage }}>
                         <Tldraw
                             assetUrls={canvasAssetUrls}
                             store={store}
                             shapeUtils={shapeUtils}
                             hideUi={false}
-                            colorScheme="system"
+                            inferDarkMode
                             onMount={onEditorMount}
                         />
                     </CanvasPageProvider>
-                )}
+                ) : null}
 
                 {(loadState === 'error' || loadState === 'incompatible') && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-                        <div className="max-w-md mx-4 p-5 bg-white rounded-xl shadow-xl border border-amber-300 text-center">
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[var(--bg-primary)]">
+                        <div className="max-w-md mx-4 p-5 bg-[var(--bg-secondary)] rounded-xl shadow-xl border border-[var(--border-primary)] text-center">
                             <AlertTriangle size={28} className="mx-auto mb-3 text-amber-500" />
-                            <p className="text-sm font-semibold text-slate-700 mb-1">
+                            <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
                                 {loadState === 'error'
                                     ? t('tldraw.load_error_title')
                                     : t('tldraw.incompatible_title')}
                             </p>
-                            <p className="text-xs text-slate-500 mb-4">
+                            <p className="text-xs text-[var(--text-secondary)] mb-4">
                                 {loadState === 'error'
                                     ? t('tldraw.load_error_desc')
                                     : t('tldraw.incompatible_desc')}
                             </p>
+                            {unsupportedDocument && <button type="button" className="btn-gnosi btn-gnosi-secondary"
+                                onClick={() => {
+                                    const name = (title || t('tldraw.untitled_drawing')).replace(/[\\/:*?"<>|]/g, '-');
+                                    const extension = unsupportedDocument.type === 'excalidraw' ? 'excalidraw' : 'json';
+                                    downloadBlob(new Blob([JSON.stringify(unsupportedDocument)], { type: 'application/json' }), `${name}.${extension}`);
+                                }}>
+                                <Download size={14} /> {t('tldraw.download_original')}
+                            </button>}
                             {loadState === 'error' && (
                                 <button
                                     type="button"

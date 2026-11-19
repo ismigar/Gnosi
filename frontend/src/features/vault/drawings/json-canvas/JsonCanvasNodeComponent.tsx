@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HTMLContainer, useEditor } from 'tldraw';
+import { HTMLContainer, useEditor } from '@bigbluebutton/tldraw';
 import { canvasColor, type JsonCanvasNode } from './model';
 import { JSON_CANVAS_NODE, type JsonCanvasNodeShape } from './JsonCanvasNodeShape';
 

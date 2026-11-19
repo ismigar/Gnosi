@@ -4904,7 +4904,7 @@
     "ocr_ready": "Recognition available",
     "ocr_cancelled": "Download stopped",
     "ocr_failed": "The model could not be prepared",
-    "ocr_unavailable": "Engine unavailable",
+    "ocr_unavailable": "Handwriting recognition unavailable",
     "ocr_cancelling": "Stopping…",
     "ocr_size": "{{done}} / {{total}} MiB",
     "ocr_cancel_download": "Stop download",
@@ -4920,7 +4920,8 @@
     "load_error_title": "Could not load the drawing",
     "incompatible_title": "Incompatible drawing format",
     "load_error_desc": "Saving is disabled to avoid overwriting the original drawing with an empty canvas.",
-    "incompatible_desc": "This drawing has an old (Excalidraw) or unknown format. Saving is disabled to protect the original file."
+    "download_original": "Download original drawing",
+    "incompatible_desc": "Download the original drawing to open it in a compatible editor."
   },
   "command_palette": {
     "nav_home": "Go to Home",
@@ -8613,6 +8614,7 @@
     "export": "Export .canvas",
     "not_empty": "Open an empty drawing before importing a canvas.",
     "unsupported": "This canvas contains a shape or connection that JSON Canvas cannot represent. Nothing was imported or exported.",
+    "page_limit": "A drawing page can hold up to {{limit}} nodes and connections in total.",
     "too_large": "The canvas exceeds the limit of 10 MB or 5,000 items.",
     "invalid": "The canvas could not be read. Check that it is a valid .canvas file.",
     "imported": "Canvas imported.",
