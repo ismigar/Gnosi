@@ -1,5 +1,6 @@
 """A completed team answer reaches the chat while its usage is still pending."""
 import asyncio
+import errno
 import json
 import sqlite3
 import threading
@@ -18,7 +19,8 @@ from backend.services.agent_team_models import TeamPlan
 from backend.tests.test_agent_team import team_runtime  # noqa: F401
 
 
-@pytest.mark.parametrize("usage_fails", [None, sqlite3.OperationalError, InvalidOperation, TimeoutError])
+@pytest.mark.parametrize("usage_fails", [None, sqlite3.OperationalError, InvalidOperation, TimeoutError,
+    pytest.param(lambda reason: PermissionError(errno.EACCES, reason), id="ledger-access-denied")])
 def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypatch, usage_fails):
     scope, snapshot, calls, settings = team_runtime
     answer = "Hola! En què et puc ajudar?"

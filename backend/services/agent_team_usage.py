@@ -24,9 +24,11 @@ async def attach_team_usage(pending: Any, scope: ExecutionScope, run_id: str, st
         accounting = asyncio.to_thread(record_team_usage, scope, run_id)
         timeout = CHAT_USAGE_TIMEOUT_SECONDS if started else None
         usage = await asyncio.wait_for(accounting, timeout=timeout)
-    except PermissionError:
-        raise
-    except Exception:  # Optional accounting cannot invalidate an approved answer.
+    except Exception as error:
+        # Domain authorization denials carry no OS errno. Device access errors
+        # make usage unavailable without revoking an already-approved reply.
+        if isinstance(error, PermissionError) and error.errno is None:
+            raise
         logging.getLogger(__name__).exception("Could not record usage for the completed team reply")
         usage = {"usage_complete": False, "cost_source": "unknown", "estimated_cost_usd": None}
     for message in messages:
