@@ -633,7 +633,7 @@ async def resume_run(run_id: str) -> AgentRun:
     """Retry only a tool-free operation; retain the frozen procedure and lineage."""
     scope = current_scope()
     revalidate_scope(scope)
-    request_data, snapshot_data = store.resume_data(scope, run_id)
+    request_data, snapshot_data, episode = store.resume_activity_data(scope, run_id)
     from backend.services import agent_team_store as team_artifacts
     if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):
         from backend.services.agent_team_resume import resume_team
@@ -652,7 +652,7 @@ async def resume_run(run_id: str) -> AgentRun:
             elif operation == "podcast":
                 from backend.services.audio_summarizer import resume_podcast
                 resumed_snapshot = AgentExecutionSnapshot.model_validate(snapshot_data).model_copy(update={"parent_run_id": run_id})
-                resume_podcast(resumed_snapshot)
+                resume_podcast(resumed_snapshot, episode=episode)
             else:
                 raise ValueError("use_job_resume")
         except BaseException as error:

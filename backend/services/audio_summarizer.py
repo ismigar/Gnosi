@@ -2,7 +2,7 @@
 
 from backend.services.agent_behavior import task_input
 from backend.services import podcast_audio, podcast_episode as episodes
-from backend.utils.metadata_io import MetadataUnavailable, vault_file_snapshot
+from backend.utils.metadata_io import MetadataUnavailable, guard_missing_file, vault_file_snapshot
 
 import os
 import re
@@ -36,13 +36,13 @@ class GenerationStatus(TypedDict):
 
 _episode: ContextVar[episodes.Episode | None] = ContextVar("podcast_occurrence", default=None)
 _generation_lock = threading.RLock()
-_generation_states: dict[tuple[str, str, str], GenerationStatus] = {}
+_generation_states: dict[tuple[str, str, str, str], GenerationStatus] = {}
 
 
 def _generation_state() -> GenerationStatus:
     from backend.services.agent_execution_scope import current_scope
     scope = current_scope()
-    key = (scope.user_id, scope.workspace_id, str(Path(scope.vault_path).resolve()))
+    key = (scope.user_id, scope.workspace_id, str(Path(scope.vault_path).resolve()), scope.role)
     with _generation_lock:
         return _generation_states.setdefault(key, {
             "running": False, "progress": "", "error": None, "result_filename": None, "skipped_articles": [],
@@ -58,8 +58,8 @@ def get_generation_status() -> GenerationStatus:
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution_scope import current_scope
     scope = current_scope()
-    episode = episodes.current(scope.vault_path)
-    if episode and episode.scope == scope.model_dump() and episode.wait_reason and episode.status in {"waiting", "error"}:
+    episode = episodes.for_scope(scope)
+    if episode and episode.wait_reason and episode.status in {"waiting", "error"}:
         from backend.utils.errors import metadata_unavailable_detail
         try:
             language, _ = _resolve_podcast_language()
@@ -69,7 +69,7 @@ def get_generation_status() -> GenerationStatus:
         waiting = episode.status == "waiting"
         state.update({"running": waiting, "progress": message, "error": None if waiting else message, "result_filename": None})
         return state
-    job = store.latest_job(scope, "podcast")
+    job = store.latest_job(scope, "podcast", exact_scope=True)
     if job is not None:
         state["running"] = job.status in {"queued", "running", "resuming"}
         state["error"] = job.error or None
@@ -252,6 +252,18 @@ def _publish_podcast_audio(snapshot: AgentExecutionSnapshot, staged: Path, targe
         os.replace(staged, target)
 
 
+def _publication_directory(filename: str) -> Path:
+    directory = get_podcast_output_dir()
+    if Path(filename).name != filename or not filename.endswith(".mp3") or any(
+        entry.is_symlink() for entry in (directory.parent, directory, directory / ".generated", directory / filename)
+    ):
+        raise MetadataUnavailable(path=directory / Path(filename).name, reason="permission")
+    if not directory.exists():
+        guard_missing_file(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
 def _recover_publication(snapshot: AgentExecutionSnapshot, receipt: dict[str, Any]) -> bool:
     """Recognize an atomic replace after a crash, or finish from fully generated audio."""
     import hashlib
@@ -262,7 +274,7 @@ def _recover_publication(snapshot: AgentExecutionSnapshot, receipt: dict[str, An
     filename, cache_file = str(receipt["filename"]), str(receipt["cache_file"])
     if any(Path(name).name != name or not name.endswith(".mp3") for name in (filename, cache_file)):
         raise ValueError("podcast_publication_invalid")
-    directory = get_podcast_output_dir()
+    directory = _publication_directory(filename)
     target = directory / filename
     root = directory.parent.parent
     expected = receipt.get("sha256")
@@ -545,14 +557,8 @@ def _generate_daily_podcast() -> str | None:
 
         # 5. Generate audio
         audio_filename = str(podcast_input["audio_filename"])
-        output_directory = get_podcast_output_dir()
-        if Path(audio_filename).name != audio_filename or any(
-            path.is_symlink() for path in (output_directory.parent, output_directory, output_directory / ".generated")
-        ):
-            raise MetadataUnavailable(path=output_directory / Path(audio_filename).name, reason="permission")
-        audio_output_dir = str(output_directory)
-        os.makedirs(audio_output_dir, exist_ok=True)
-        audio_path = os.path.join(audio_output_dir, audio_filename)
+        output_directory = _publication_directory(audio_filename)
+        audio_path = output_directory / audio_filename
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
@@ -596,25 +602,53 @@ def _generate_daily_podcast() -> str | None:
         _generation_state()["running"] = False
 
 
-def _run_reader_episode(episode: episodes.Episode, snapshot: AgentExecutionSnapshot) -> None:
+def _run_reader_episode(episode: episodes.Episode | None, snapshot: AgentExecutionSnapshot) -> None:
     from backend.services import agent_execution_store as store
 
     token = _episode.set(episode)
     try:
         generate_daily_podcast(snapshot)
-        job = store.read(snapshot.scope, snapshot.parent_run_id)
-        episodes.finish(episode, "success" if job.status == "completed" else "error")
+        if episode:
+            job = store.read(snapshot.scope, snapshot.parent_run_id)
+            episodes.finish(episode, "success" if job.status == "completed" else "error")
     except MetadataUnavailable as error:
-        episodes.cloud_failure(episode, error)
+        if episode:
+            episodes.cloud_failure(episode, error)
+        else:
+            _generation_state()["error"] = type(error).__name__
     except Exception as error:
-        episodes.finish(episode, "error")
-        _generation_state()["error"] = str(error)
+        if episode:
+            episodes.finish(episode, "error")
+        _generation_state()["error"] = str(error) if episode else type(error).__name__
     except BaseException:
-        episodes.finish(episode, "running")
+        if episode:
+            episodes.finish(episode, "running")
         raise
     finally:
         _generation_state()["running"] = False
         _episode.reset(token)
+
+
+def _reserve_generation(vault: Path) -> bool:
+    with _generation_lock:
+        if any(state["running"] for key, state in _generation_states.items() if key[2] == str(vault)):
+            return False
+        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
+        return True
+
+
+def _start_podcast_worker(episode: episodes.Episode | None, snapshot: AgentExecutionSnapshot) -> None:
+    from contextvars import copy_context
+    from backend.services import agent_execution_store as store
+
+    try:
+        threading.Thread(target=copy_context().run, args=(_run_reader_episode, episode, snapshot), daemon=True).start()
+    except Exception as error:
+        _generation_state().update({"running": False, "error": str(error)})
+        store.update(snapshot.scope, snapshot.parent_run_id, status="failed", error=str(error))
+        if episode:
+            episodes.finish(episode, "error")
+        raise
 
 
 def start_generation_async(vault_path: str | Path | None = None) -> bool:
@@ -631,13 +665,9 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
     selected_vault_path = Path(selected_vault).resolve()
     if selected_vault_path != Path(scope.vault_path).resolve():
         raise PermissionError("podcast_vault_scope_mismatch")
-    with _generation_lock:
-        if any(state["running"] for key, state in _generation_states.items()
-               if key[2] == str(selected_vault_path)):
-            return False
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
+    if not _reserve_generation(selected_vault_path):
+        return False
 
-    from backend.services import agent_execution_store as store
     try:
         episode = episodes.claim(selected_vault_path, source="reader", scope=scope, retry_terminal=True)
     except episodes.EpisodeBusy:
@@ -673,16 +703,7 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
         _generation_state().update({"running": False, "error": str(error)})
         raise
 
-    from contextvars import copy_context
-    context = copy_context()
-    try:
-        thread = threading.Thread(target=context.run, args=(_run_reader_episode, episode, snapshot), daemon=True)
-        thread.start()
-    except Exception as error:
-        _generation_state().update({"running": False, "error": str(error)})
-        store.update(scope, snapshot.parent_run_id, status="failed", error=str(error))
-        episodes.finish(episode, "error")
-        raise
+    _start_podcast_worker(episode, snapshot)
     return True
 
 
@@ -725,35 +746,30 @@ def _refresh_podcast_upstream(snapshot: AgentExecutionSnapshot) -> AgentExecutio
     return updated
 
 
-def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
+def resume_podcast(snapshot: AgentExecutionSnapshot, *, episode: episodes.Episode | None = None) -> None:
     """Continue the same authorized source snapshot and private work state."""
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution_scope import current_scope, revalidate_scope
-    from contextvars import copy_context
     scope = current_scope()
-    if (scope.user_id != snapshot.scope.user_id or scope.workspace_id != snapshot.scope.workspace_id
-            or Path(scope.vault_path).resolve() != Path(snapshot.scope.vault_path).resolve()):
-        raise PermissionError("podcast_resume_scope_mismatch")
-    if scope.role == "viewer":
-        raise PermissionError("podcast_editor_required")
-    revalidate_scope(snapshot.scope)
-    snapshot = _refresh_podcast_upstream(snapshot)
-    with _generation_lock:
-        if any(state["running"] for key, state in _generation_states.items()
-               if key[2] == str(Path(scope.vault_path).resolve())):
-            raise RuntimeError("podcast_generation_already_running")
-        _generation_state().update({"running": True, "progress": "", "error": None, "result_filename": None, "skipped_articles": []})
-    def worker() -> None:
-        try:
-            generate_daily_podcast(snapshot)
-        except Exception as error:
-            _generation_state()["error"] = type(error).__name__
-        finally:
-            _generation_state()["running"] = False
     try:
-        threading.Thread(target=copy_context().run, args=(worker,), name="podcast-resume", daemon=True).start()
-    except Exception as error:
-        with _generation_lock:
-            _generation_state().update({"running": False, "error": str(error)})
-        store.update(snapshot.scope, snapshot.parent_run_id, status="failed", error=str(error))
+        if (scope.user_id != snapshot.scope.user_id or scope.workspace_id != snapshot.scope.workspace_id
+                or Path(scope.vault_path).resolve() != Path(snapshot.scope.vault_path).resolve()):
+            raise PermissionError("podcast_resume_scope_mismatch")
+        if scope.role == "viewer":
+            raise PermissionError("podcast_editor_required")
+        revalidate_scope(snapshot.scope)
+        snapshot = _refresh_podcast_upstream(snapshot)
+        if not _reserve_generation(Path(scope.vault_path).resolve()):
+            raise RuntimeError("podcast_generation_already_running")
+    except MetadataUnavailable as error:
+        if episode is None:
+            raise
+        store.update(scope, snapshot.parent_run_id, status="waiting" if error.retryable else "failed",
+                     error=f"cloud_file_{error.reason}")
+        episodes.cloud_failure(episode, error)
+        return
+    except Exception:
+        if episode:
+            episodes.finish(episode, "error")
         raise
+    _start_podcast_worker(episode, snapshot)

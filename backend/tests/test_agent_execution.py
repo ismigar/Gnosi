@@ -1439,3 +1439,31 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
         assert sent[0 if primary_retry or first_server or connection_retry else 1].content == sent[-1].content
     assert waits == ([5.0] if primary_retry or connection_retry or mode == 'actual_operation_raw_server_retry' else [])
     assert request.max_model_calls == 2 and request.timeout_seconds == 300
+
+
+def test_specialized_engines_consume_the_authorized_download(tmp_path, monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from backend.platform.files.snapshots import VaultFileSnapshot
+    from backend.services import agent_execution_scope, agent_specialized_tools, handwriting, transcription
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    original = vault / "attachment"
+    original.touch()
+    available = tmp_path / "download"
+    available.write_bytes(b"coordinated bytes")
+    reads = []
+
+    def snapshot(path, *, root):
+        assert root == vault and path == original
+        reads.append(path)
+        return VaultFileSnapshot(available, original.stat())
+
+    monkeypatch.setattr(agent_execution_scope, "current_scope", lambda: SimpleNamespace(vault_path=str(vault)))
+    monkeypatch.setattr(agent_specialized_tools, "vault_file_snapshot", snapshot)
+    monkeypatch.setattr(handwriting, "recognize", lambda data, **_: {"text": data.decode()})
+    monkeypatch.setattr(transcription, "transcribe", lambda path, **_: {"text": Path(path).read_text()})
+    assert agent_specialized_tools.recognize_asset(original.name)["text"] == "coordinated bytes"
+    assert agent_specialized_tools.transcribe_asset(original.name)["text"] == "coordinated bytes"
+    assert reads == [original, original]

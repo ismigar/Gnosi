@@ -5252,7 +5252,7 @@ export interface paths {
         };
         /**
          * Get Podcast Info
-         * @description Returns information about the last generated podcast
+         * @description Return the last published episode available to this Reader.
          */
         get: operations["get_podcast_info_api_reader_podcast_info_get"];
         put?: never;
@@ -5272,7 +5272,7 @@ export interface paths {
         };
         /**
          * Get Latest Podcast
-         * @description Download/Stream the most recent podcast
+         * @description Stream the selected episode using the same coordinated file snapshot as vault downloads.
          */
         get: operations["get_latest_podcast_api_reader_podcast_latest_get"];
         put?: never;

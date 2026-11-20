@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -34,7 +33,7 @@ class Episode:
     worker: dict[str, Any] = field(default_factory=dict)
 
     def due(self, now: datetime) -> bool:
-        if self.status not in {"running", "waiting"} or self.worker and store._worker_alive(self.worker):
+        if self.status not in {"running", "waiting"} or self.worker and store._worker_alive(self.worker, datetime.fromisoformat(self.period_end).timestamp()):
             return False
         return self.retry_at is None or datetime.fromisoformat(self.retry_at) <= now
 
@@ -51,9 +50,13 @@ class EpisodeBusy(RuntimeError):
 @contextmanager
 def _connection() -> Iterator[sqlite3.Connection]:
     with store.connect() as db:
-        db.execute("""CREATE TABLE IF NOT EXISTS podcast_occurrences
-            (vault_path TEXT PRIMARY KEY, payload TEXT NOT NULL)""")
+        _ensure_table(db)
         yield db
+
+
+def _ensure_table(db: sqlite3.Connection) -> None:
+    db.execute("""CREATE TABLE IF NOT EXISTS podcast_occurrences
+        (vault_path TEXT PRIMARY KEY, payload TEXT NOT NULL)""")
 
 
 def _read(db: sqlite3.Connection, vault_path: str) -> Episode | None:
@@ -64,6 +67,14 @@ def _read(db: sqlite3.Connection, vault_path: str) -> Episode | None:
 def current(vault_path: str | Path) -> Episode | None:
     with _connection() as db:
         return _read(db, str(Path(vault_path).resolve()))
+
+
+def for_scope(scope: ExecutionScope | None) -> Episode | None:
+    """Only the verified owner of the selected vault can read its private wait details."""
+    if scope is None:
+        return None
+    episode = current(scope.vault_path)
+    return episode if episode and episode.scope == scope.model_dump() else None
 
 
 def _write(db: sqlite3.Connection, episode: Episode) -> None:
@@ -120,7 +131,7 @@ def claim(vault_path: str | Path, *, source: Literal["reader", "scheduler", "con
             # retry a stopped one can release its slot for a new manual generation.
             row = db.execute("SELECT request, payload FROM agent_runs WHERE run_id=?", (episode.run_id,)).fetchone()
             if row and not json.loads(row["payload"]).get("resumable") and (
-                episode.status == "error" or not store._worker_alive(json.loads(row["request"]))
+                episode.status == "error" or not store._worker_alive(json.loads(row["request"]), json.loads(row["payload"]).get("updated_at"))
             ):
                 episode = None
         if episode is None:
@@ -130,17 +141,36 @@ def claim(vault_path: str | Path, *, source: Literal["reader", "scheduler", "con
             raise EpisodeBusy()
         if episode.status == "success" or (episode.status == "error" and not retry_terminal):
             return episode
-        if episode.worker and store._worker_alive(episode.worker):
-            raise EpisodeBusy()
         if source == "control" and episode.source == "scheduler":
             episode.source = "control"
-        episode.worker = {"_worker_pid": os.getpid(), "_worker_instance": store._WORKER_INSTANCE,
-                          "claim": uuid.uuid4().hex}
-        episode.retry_failure = episode.status == "error" and retry_terminal
-        episode.status = "running"
-        episode.retry_at = None
-        _write(db, episode)
-        return episode
+        return _reserve(db, episode, retry_terminal=retry_terminal)
+
+
+def _reserve(db: sqlite3.Connection, episode: Episode, *, retry_terminal: bool) -> Episode:
+    if episode.worker and store._worker_alive(episode.worker, datetime.fromisoformat(episode.period_end).timestamp()):
+        raise EpisodeBusy()
+    episode.worker = {**store.worker_identity(), "claim": uuid.uuid4().hex}
+    episode.retry_failure = episode.status == "error" and retry_terminal
+    episode.status = "running"
+    episode.retry_at = None
+    _write(db, episode)
+    return episode
+
+
+def claim_activity(db: sqlite3.Connection, scope: ExecutionScope, run_id: str) -> Episode | None:
+    """Claim an existing daily occurrence in the transaction that reopens its private parent."""
+    _ensure_table(db)
+    episode = _read(db, str(Path(scope.vault_path).resolve()))
+    if episode is None or episode.run_id != run_id:
+        return None
+    if episode.scope != scope.model_dump():
+        raise PermissionError("podcast_resume_scope_mismatch")
+    if episode.source == "scheduler":
+        episode.source = "control"
+    try:
+        return _reserve(db, episode, retry_terminal=True)
+    except EpisodeBusy:
+        raise ValueError("podcast_generation_already_running") from None
 
 
 def _update(episode: Episode, **changes: Any) -> None:

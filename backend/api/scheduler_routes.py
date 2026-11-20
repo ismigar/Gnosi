@@ -1,6 +1,7 @@
 import asyncio
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -14,9 +15,13 @@ from backend.models.scheduler import (
     TaskRunResponse,
     TaskUpdateResponse,
 )
+from backend.scheduler.execution import podcast_history_message
 from backend.scheduler.manager import scheduler_manager
-from backend.services.workspace_service import require_role
+from backend.services.agent_execution_models import ExecutionScope
+from backend.services.auth_service import COOKIE_NAME, get_current_user_id
+from backend.services.workspace_service import get_workspace_context, require_role
 from backend.utils.errors import safe_error_detail
+from backend.utils.metadata_io import MetadataUnavailable
 
 router = APIRouter(prefix="/api/schedulers", tags=["schedulers"])
 
@@ -26,10 +31,26 @@ class TaskUpdate(BaseModel):
     enabled: bool
 
 
+def _status_scope(request: Request, db: Session = Depends(get_mgmt_db)) -> ExecutionScope | None:
+    """Global schedule configuration remains readable when a private vault cannot be authorized."""
+    try:
+        uid = get_current_user_id(request.cookies.get(COOKIE_NAME), request.headers.get("authorization"), db)
+        context = get_workspace_context(x_workspace_id=request.headers.get("x-workspace-id"), x_user_id=None,
+                                        x_vault_id=request.headers.get("x-vault-id"), db=db, auth_uid=uid)
+    except (HTTPException, MetadataUnavailable):
+        return None
+    return ExecutionScope.model_validate({"user_id": context.user_id, "workspace_id": context.workspace_id,
+        "vault_path": str(context.vault_path.resolve()), "role": context.role})
+
+
+StatusScope = Annotated[ExecutionScope | None, Depends(_status_scope)]
+
+
 @router.get("", response_model=list[ScheduledTaskResponse])
-async def list_tasks() -> list[ScheduledTaskResponse]:
+async def list_tasks(scope: StatusScope = None) -> list[ScheduledTaskResponse]:
     """Get all scheduled tasks."""
-    return [ScheduledTaskResponse.model_validate(task) for task in await asyncio.to_thread(scheduler_manager.get_tasks)]
+    tasks = await asyncio.to_thread(scheduler_manager.get_tasks, scope)
+    return [ScheduledTaskResponse.model_validate(task) for task in tasks]
 
 
 @router.delete(
@@ -48,6 +69,13 @@ async def clear_history() -> ClearTaskHistoryResponse:
         )
 
 
+def _history_entry(item: TaskExecutionHistory) -> TaskHistoryResponse:
+    entry = TaskHistoryResponse.model_validate(item)
+    if entry.task_name == "generate_podcast" and entry.message:
+        entry.message = podcast_history_message(entry.status, saved_message=entry.message) or None
+    return entry
+
+
 @router.get("/history", response_model=TaskHistoryPageResponse)
 async def get_history(
     limit: int = Query(20, gt=0),
@@ -64,7 +92,7 @@ async def get_history(
     items = query.order_by(TaskExecutionHistory.started_at.desc()).offset(offset).limit(limit).all()
 
     return TaskHistoryPageResponse(
-        items=[TaskHistoryResponse.model_validate(item) for item in items],
+        items=[_history_entry(item) for item in items],
         total=total,
         limit=limit,
         offset=offset,
@@ -73,9 +101,9 @@ async def get_history(
 
 
 @router.get("/{name}", response_model=ScheduledTaskResponse)
-async def get_task(name: str) -> ScheduledTaskResponse:
+async def get_task(name: str, scope: StatusScope = None) -> ScheduledTaskResponse:
     """Get a specific task."""
-    task = await asyncio.to_thread(scheduler_manager.get_task, name)
+    task = await asyncio.to_thread(scheduler_manager.get_task, name, scope)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
     return ScheduledTaskResponse.model_validate(task)

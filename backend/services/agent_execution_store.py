@@ -9,10 +9,15 @@ import uuid
 import hashlib
 from contextlib import contextmanager
 from collections.abc import Iterator
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+import psutil
 
 from backend.config.data_dir import resolve_data_dir
 from backend.services.agent_execution_models import AgentRun, ExecutionScope
+
+if TYPE_CHECKING:
+    from backend.services.podcast_episode import Episode
 
 
 _WORKER_INSTANCE = uuid.uuid4().hex
@@ -52,18 +57,18 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
                 raise ValueError("podcast_generation_already_running")
         if request.get("mode") == "job" and request.get("operation") == "meeting.minutes":
             db.execute("BEGIN IMMEDIATE")
-            active = db.execute("""SELECT request FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
+            active = db.execute("""SELECT request, json_extract(payload,'$.updated_at') FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
                 AND json_extract(request,'$.operation')='meeting.minutes'
                 AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
                 (scope.user_id, scope.workspace_id, scope.vault_path)).fetchall()
-            if any(_worker_alive(json.loads(row[0])) for row in active):
+            if any(_worker_alive(json.loads(row[0]), row[1]) for row in active):
                 raise ValueError("meeting_already_running")
         encoded_snapshot = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
         digest = hashlib.sha256(encoded_snapshot.encode()).hexdigest()
         db.execute("INSERT OR IGNORE INTO agent_run_snapshots VALUES (?,?)", (digest, encoded_snapshot))
         db.execute("INSERT INTO agent_runs VALUES (?,?,?,?,?,?,?,0)", (
             run.run_id, scope.user_id, scope.workspace_id, scope.vault_path,
-            run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid(), "_worker_instance": _WORKER_INSTANCE}), json.dumps({"_snapshot_ref": digest}),
+            run.model_dump_json(), json.dumps({**request, **worker_identity()}), json.dumps({"_snapshot_ref": digest}),
         ))
 
 
@@ -75,11 +80,11 @@ def _podcast_busy(db: sqlite3.Connection, vault_path: str, exclude_run_id: str =
             AND json_extract(payload,'$.status') IN ('running','waiting')""", (vault_path, exclude_run_id)).fetchone()
         if reserved:
             return True
-    active = db.execute("""SELECT request FROM agent_runs WHERE vault_path=? AND run_id!=?
+    active = db.execute("""SELECT request, json_extract(payload,'$.updated_at') FROM agent_runs WHERE vault_path=? AND run_id!=?
         AND json_extract(request,'$.mode')='job' AND json_extract(request,'$.operation')='podcast'
         AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
         (vault_path, exclude_run_id)).fetchall()
-    return any(_worker_alive(json.loads(row[0])) for row in active)
+    return any(_worker_alive(json.loads(row[0]), row[1]) for row in active)
 
 
 def _saved_snapshot(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
@@ -101,31 +106,47 @@ def _row(db: sqlite3.Connection, scope: ExecutionScope, run_id: str) -> sqlite3.
         raise LookupError("agent_run_not_found")
     run = AgentRun.model_validate_json(str(row["payload"]))
     request = json.loads(str(row["request"]))
-    if (run.status in {"running", "resuming"} or (run.status == "queued" and request.get("operation") in {"meeting.minutes", "podcast"})) and not _worker_alive(request):
+    if (run.status in {"running", "resuming"} or (run.status == "queued" and request.get("operation") in {"meeting.minutes", "podcast"})) and not _worker_alive(request, run.updated_at):
         run = run.model_copy(update={"status": "interrupted", "error": "worker_stopped", "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         row = db.execute("SELECT * FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
     return cast(sqlite3.Row, row)
 
 
-def _worker_alive(request: dict[str, Any]) -> bool:
-    worker = request.get("_worker_pid")
-    if not isinstance(worker, int):
+def worker_identity() -> dict[str, Any]:
+    process = psutil.Process()
+    return {"_worker_pid": process.pid, "_worker_instance": _WORKER_INSTANCE,
+            "_worker_created_at": process.create_time()}
+
+
+def _worker_alive(request: dict[str, Any], last_seen: float | None = None) -> bool:
+    pid = request.get("_worker_pid")
+    if not isinstance(pid, int):
         return True
-    if worker == os.getpid():
+    if pid == os.getpid():
         return bool(request.get("_worker_instance", _WORKER_INSTANCE) == _WORKER_INSTANCE)
     try:
-        os.kill(worker, 0)
-    except ProcessLookupError:
+        process = psutil.Process(pid)
+        if process.status() == psutil.STATUS_ZOMBIE:
+            return False
+        created = process.create_time()
+    except psutil.NoSuchProcess:
         return False
-    except PermissionError:
-        pass
-    return True
+    except psutil.AccessDenied:
+        return True
+    recorded = request.get("_worker_created_at")
+    if isinstance(recorded, (float, int)):
+        return created == recorded
+    # Legacy leases lack a birth time. A process born after the last recorded
+    # activity cannot own that lease, even when the OS assigned it the same PID.
+    return last_seen is None or created <= last_seen
 
 
 def _claim_worker(db: sqlite3.Connection, run_id: str) -> None:
-    db.execute("UPDATE agent_runs SET request=json_set(request,'$._worker_pid',?,'$._worker_instance',?) WHERE run_id=?",
-               (os.getpid(), _WORKER_INSTANCE, run_id))
+    worker = worker_identity()
+    db.execute("""UPDATE agent_runs SET request=json_set(request, '$._worker_pid', ?,
+               '$._worker_instance', ?, '$._worker_created_at', ?) WHERE run_id=?""",
+               (worker["_worker_pid"], worker["_worker_instance"], worker["_worker_created_at"], run_id))
 
 
 def read(scope: ExecutionScope, run_id: str) -> AgentRun:
@@ -219,7 +240,9 @@ def publication_guard(scope: ExecutionScope, run_id: str) -> Iterator[None]:
         yield
 
 
-def resume_data(scope: ExecutionScope, run_id: str, *, automatic: bool = False, retry_failed_podcast: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+@contextmanager
+def _resume_transaction(scope: ExecutionScope, run_id: str, *, automatic: bool = False,
+        retry_failed_podcast: bool = False) -> Iterator[tuple[sqlite3.Connection, dict[str, Any], dict[str, Any]]]:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         row = _row(db, scope, run_id)
@@ -257,11 +280,26 @@ def resume_data(scope: ExecutionScope, run_id: str, *, automatic: bool = False, 
         db.execute("UPDATE agent_runs SET cancelled=0,payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         _claim_worker(db, run_id)
         request = json.loads(str(row["request"]))
+        request.pop("_worker_created_at", None)
         request.pop("_worker_instance", None)
         request.pop("_worker_pid", None)
         request.pop("checkpoint_key", None)
         request.pop("reading_result_cache_key", None)
-        return request, _saved_snapshot(db, row)
+        yield db, request, _saved_snapshot(db, row)
+
+
+def resume_data(scope: ExecutionScope, run_id: str, *, automatic: bool = False,
+        retry_failed_podcast: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
+    with _resume_transaction(scope, run_id, automatic=automatic, retry_failed_podcast=retry_failed_podcast) as (_, request, saved):
+        return request, saved
+
+
+def resume_activity_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dict[str, Any], Episode | None]:
+    from backend.services.podcast_episode import claim_activity
+
+    with _resume_transaction(scope, run_id) as (db, request, saved):
+        episode = claim_activity(db, scope, run_id) if request.get("mode") == "job" and request.get("operation") == "podcast" else None
+        return request, saved, episode
 
 
 def aggregate(scope: ExecutionScope, run_id: str) -> None:
@@ -358,13 +396,18 @@ def work_checkpoint(scope: ExecutionScope, run_id: str, key: str, value: dict[st
         return json.loads(row[0]) if row else None
 
 
-def latest_job(scope: ExecutionScope, operation: str) -> AgentRun | None:
+def latest_job(scope: ExecutionScope, operation: str, *, exact_scope: bool = False) -> AgentRun | None:
     """Read the latest job for this exact private owner, without a list limit."""
     with connect() as db:
         row = db.execute("""SELECT run_id FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
             AND json_extract(request,'$.mode')='job' AND json_extract(request,'$.operation')=? ORDER BY json_extract(payload,'$.updated_at') DESC,rowid DESC LIMIT 1""",
             (scope.user_id, scope.workspace_id, scope.vault_path, operation)).fetchone()
-        return AgentRun.model_validate_json(str(_row(db, scope, row[0])["payload"])) if row else None
+        if row is None:
+            return None
+        job = _row(db, scope, row[0])
+        if exact_scope and _saved_snapshot(db, job).get("scope") != scope.model_dump():
+            return None
+        return AgentRun.model_validate_json(str(job["payload"]))
 
 
 def claim_feature_job(scope: ExecutionScope, run_id: str, operation: str) -> dict[str, Any]:
@@ -378,10 +421,10 @@ def claim_feature_job(scope: ExecutionScope, run_id: str, operation: str) -> dic
             raise ValueError("agent_job_wrong_entrypoint")
         if run.status not in {"interrupted", "failed"}:
             raise ValueError("agent_job_not_stopped")
-        active = db.execute("""SELECT request FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? AND run_id!=?
+        active = db.execute("""SELECT request, json_extract(payload,'$.updated_at') FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? AND run_id!=?
             AND json_extract(request,'$.operation')=? AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
             (scope.user_id, scope.workspace_id, scope.vault_path, run_id, operation)).fetchall()
-        if any(_worker_alive(json.loads(entry[0])) for entry in active):
+        if any(_worker_alive(json.loads(entry[0]), entry[1]) for entry in active):
             raise ValueError("meeting_already_running")
         saved = _saved_snapshot(db, row)
         if saved.get("scope") != scope.model_dump():

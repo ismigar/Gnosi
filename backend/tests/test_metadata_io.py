@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.platform.files import snapshots
+from backend.platform.files import LocalProvider, OnDemandFilesProvider, snapshots
 from backend.tests.cloud_file_fixtures import install_coordinated_reader
 from backend.utils import metadata_io
 from backend.utils.metadata_io import MetadataUnavailable
@@ -27,6 +27,7 @@ def isolated_queue(monkeypatch):
 
 
 def test_local_metadata_and_regular_sparse_files_do_not_download(tmp_path, monkeypatch):
+    monkeypatch.setattr(metadata_io, "get_files_provider", LocalProvider)
     path = tmp_path / ".gnosi/skills/skill.yaml"
     path.parent.mkdir(parents=True)
     path.write_text("id: retained")
@@ -36,6 +37,47 @@ def test_local_metadata_and_regular_sparse_files_do_not_download(tmp_path, monke
     with outside.open("wb") as handle:
         handle.truncate(65536)
     assert metadata_io.read_vault_bytes(outside) == bytes(65536)
+    safe_write_text(outside, "local edit")
+    assert outside.read_text() == "local edit"
+
+
+@pytest.mark.parametrize(("platform", "mode"), [("linux", "daemon"), ("darwin", "open"), ("darwin", "direct")])
+def test_safe_write_requires_the_configured_legacy_provider_to_recover_content(tmp_path, monkeypatch, platform, mode):
+    target = tmp_path / ".gnosi/settings.json"
+    target.parent.mkdir()
+    target.write_text("original")
+    original_stat = target.stat()
+    adapter = OnDemandFilesProvider()
+    adapter.warmup_mode = mode
+    pending = True
+    can_download = False
+    attempts = []
+
+    async def hydrate(path):
+        nonlocal pending
+        attempts.append(path)
+        if can_download:
+            pending = False
+        return not pending
+
+    monkeypatch.setattr(metadata_io.sys, "platform", platform)
+    monkeypatch.setattr(metadata_io, "get_files_provider", lambda: adapter)
+    monkeypatch.setattr(adapter, "is_online_only", lambda path, info: path == target and pending)
+    monkeypatch.setattr(adapter, "materialize", hydrate)
+
+    with pytest.raises(MetadataUnavailable) as read:
+        metadata_io.read_vault_text(target)
+    with pytest.raises(MetadataUnavailable) as write:
+        safe_write_text(target, "defaults")
+    assert read.value.path == write.value.path == target
+    assert attempts == [target, target]
+    assert target.read_text() == "original" and target.stat().st_ino == original_stat.st_ino
+    assert list(target.parent.iterdir()) == [target]
+
+    can_download = True
+    safe_write_text(target, "intentional edit")
+    assert attempts == [target, target, target]
+    assert target.read_text() == "intentional edit"
 
 
 def test_failed_read_preserves_existing_content_and_cooldown(tmp_path, monkeypatch):

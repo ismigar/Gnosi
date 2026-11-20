@@ -5,13 +5,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
-from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, guard_missing_file, read_vault_text
 
 Metadata = RegistryData
 DailySource = tuple[Metadata | None, Metadata | None]
@@ -40,6 +42,7 @@ class DailyNotesDependencies:
     create_page: Callable[[str, str, Metadata, object], Awaitable[object]]
     creation_lock: asyncio.Lock
     logger: logging.Logger
+    cached_metadata: Callable[[Path], Metadata | None] = lambda _: None
 
 
 def _metadata(page: object) -> Metadata:
@@ -51,27 +54,62 @@ def _page_id(page: object) -> object:
     return getattr(page, "id", None)
 
 
-def load_template_content(dependencies: DailyNotesDependencies) -> str:
-    """Return the configured daily template body, or an empty string."""
+def _matching_files(
+    directory: Path,
+    matches: Callable[[Metadata], bool],
+    dependencies: DailyNotesDependencies,
+    *,
+    skip: Path | None = None,
+) -> Iterator[Path]:
+    """Try current index matches first, then files whose metadata is unknown."""
+    unknown: list[Path] = []
     try:
-        templates_directory = dependencies.templates_directory()
-        if not templates_directory.exists():
-            return ""
-        for file_path in templates_directory.glob("*.md"):
-            try:
-                metadata, body = dependencies.parse_frontmatter(
-                    file_path.read_text(encoding="utf-8"),
-                    file_path,
-                )
-            except Exception:
+        if is_cloud_placeholder(directory, directory.stat()):
+            raise MetadataUnavailable("Cloud directory is pending", path=directory, reason="pending")
+        for path in directory.iterdir():
+            if path == skip or path.suffix != ".md" or path.is_dir():
                 continue
-            if metadata.get("is_daily_template") is True:
-                return (body or "").strip()
-    except Exception as error:
-        dependencies.logger.warning(
-            "Could not load daily-note template: %s",
-            error,
-        )
+            try:
+                metadata = dependencies.cached_metadata(path)
+            except FileNotFoundError:
+                continue
+            if metadata is None:
+                unknown.append(path)
+            elif matches(metadata):
+                yield path
+    except FileNotFoundError:
+        guard_missing_file(directory)
+        return
+    except OSError as error:
+        raise MetadataUnavailable.from_oserror(directory, error) from error
+    yield from unknown
+
+
+def _read_candidate(
+    path: Path, directory: Path, dependencies: DailyNotesDependencies,
+) -> tuple[Metadata, str] | None:
+    try:
+        raw = read_vault_text(path, root=active_vault_path.get() or directory)
+        return dependencies.parse_frontmatter(raw, path)
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise MetadataUnavailable.from_oserror(path, error) from error
+    except (ValueError, UnicodeError):
+        return None
+
+
+def load_template_content(dependencies: DailyNotesDependencies) -> str:
+    """Return a verified template body, or an empty string when none is configured."""
+    directory = dependencies.templates_directory()
+
+    def is_template(metadata: Metadata) -> bool:
+        return metadata.get("is_daily_template") is True
+
+    for path in _matching_files(directory, is_template, dependencies):
+        parsed = _read_candidate(path, directory, dependencies)
+        if parsed and is_template(parsed[0]):
+            return (parsed[1] or "").strip()
     return ""
 
 
@@ -81,37 +119,21 @@ def find_folder_note_id(
 ) -> str | None:
     """Return the page identifier for one folder-backed daily note."""
     daily_directory = dependencies.daily_directory()
-    if not daily_directory.exists():
-        return None
     direct = daily_directory / f"{date}.md"
-    if direct.exists():
-        try:
-            metadata, _body = dependencies.parse_frontmatter(
-                read_vault_text(direct, root=daily_directory),
-                direct,
-            )
-            page_id = metadata.get("id")
-            if page_id:
-                return str(page_id)
-        except MetadataUnavailable:
-            raise
-        except Exception:
-            pass
-    for file_path in daily_directory.glob("*.md"):
-        try:
-            metadata, _body = dependencies.parse_frontmatter(
-                file_path.read_text(encoding="utf-8"),
-                file_path,
-            )
-        except Exception:
-            continue
-        if str(metadata.get("note_type") or "").lower() != "daily":
-            continue
-        if str(metadata.get("date") or "") != date:
-            continue
-        page_id = metadata.get("id")
-        if page_id:
-            return str(page_id)
+    parsed = _read_candidate(direct, daily_directory, dependencies)
+    if parsed and parsed[0].get("id"):
+        return str(parsed[0]["id"])
+
+    def matches_date(metadata: Metadata) -> bool:
+        return (
+            str(metadata.get("note_type") or "").lower() == "daily"
+            and str(metadata.get("date") or "") == date
+        )
+
+    for path in _matching_files(daily_directory, matches_date, dependencies, skip=direct):
+        parsed = _read_candidate(path, daily_directory, dependencies)
+        if parsed and matches_date(parsed[0]) and parsed[0].get("id"):
+            return str(parsed[0]["id"])
     return None
 
 
@@ -158,6 +180,8 @@ def resolve_source(dependencies: DailyNotesDependencies) -> DailySource:
                 None,
             )
         return (table, date_property) if date_property else (None, None)
+    except (MetadataUnavailable, OSError):
+        raise
     except Exception as error:
         dependencies.logger.warning(
             "Could not resolve daily-notes source table: %s",
@@ -175,6 +199,8 @@ def find_table_note_id(
     """Return the row identifier whose configured date equals the day key."""
     try:
         pages = dependencies.pages_for_table(table.get("id"))
+    except (MetadataUnavailable, OSError):
+        raise
     except Exception:
         return None
     for page in pages:
@@ -225,10 +251,13 @@ async def list_notes(dependencies: DailyNotesDependencies) -> list[DailyNote]:
     if daily_directory.exists():
         for file_path in daily_directory.glob("*.md"):
             try:
-                metadata, _body = dependencies.parse_frontmatter(
-                    file_path.read_text(encoding="utf-8"),
-                    file_path,
-                )
+                metadata = dependencies.cached_metadata(file_path)
+                if metadata is None:
+                    if is_cloud_placeholder(file_path, file_path.stat()):
+                        continue
+                    metadata, _body = dependencies.parse_frontmatter(
+                        file_path.read_text(encoding="utf-8"), file_path,
+                    )
             except Exception:
                 continue
             if str(metadata.get("note_type") or "").lower() != "daily":

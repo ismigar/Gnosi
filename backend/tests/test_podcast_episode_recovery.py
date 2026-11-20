@@ -133,6 +133,10 @@ def test_clock_resumes_after_process_death_without_repeating_recorded_work(
         assert len(list(Path(scope.vault_path).rglob("*.mp3"))) == int(fault == "after_rename")
         speech = store.work_checkpoint(scope, original.run_id, "podcast-speech")
         assert speech["cache_storage"] == "device"
+        if fault == "after_cache":
+            # The cloud provider can evict an empty output directory between launches.
+            output_directory = audio.get_podcast_output_dir(scope.vault_path)
+            output_directory.rmdir()
     task = manager._tasks["generate_podcast"]
     assert datetime.now().timestamp() - datetime.fromisoformat(task.last_run).timestamp() < 60
     assert manager._is_due(task, datetime.now())
@@ -185,15 +189,18 @@ def test_cloud_prerequisite_before_parent_creation_is_durable_safe_and_actionabl
     previous = episodes.current(vault)
     assert previous.scope is None and previous.worker == {}
     _, restored, _ = runtime(monkeypatch, root)
-    status = restored.get_task("generate_podcast")
-    assert status["waiting_file"] == "params.yaml" and status["waiting_provider"] == "OneDrive"
-    assert status["wait_reason"] == reason and "Private Organization" not in str(status)
+    assert previous.waiting_file == "params.yaml" and previous.waiting_provider == "OneDrive"
+    assert previous.wait_reason == reason
+    for caller in (None, scope):
+        status = restored.get_task("generate_podcast", caller)
+        assert not any(status.get(key) for key in ("waiting_file", "waiting_provider", "wait_reason", "retry_at"))
+        assert "Private Organization" not in str(status)
     assert not restored._is_due(restored._tasks["generate_podcast"], datetime.now())
     if retry:
-        at = datetime.fromisoformat(status["retry_at"])
+        at = datetime.fromisoformat(previous.retry_at)
         assert at.tzinfo and restored._is_due(restored._tasks["generate_podcast"], at)
     else:
-        assert status["retry_at"] is None and not restored._is_due(restored._tasks["generate_podcast"],
+        assert previous.retry_at is None and not restored._is_due(restored._tasks["generate_podcast"],
                                                                   datetime.now() + timedelta(minutes=30))
     # A manual retry after correcting the local prerequisite uses the same occurrence.
     assert restored.run_task_now("generate_podcast")["success"]
@@ -222,6 +229,158 @@ def test_concurrent_reader_and_scheduler_claim_only_one_parent(monkeypatch, isol
             release.set()
         assert first.result(timeout=15)["success"]
     assert (isolated_validation_runtime / "observations").read_text().splitlines().count("publication") == 1
+
+
+def test_scheduler_and_reader_gets_authorize_the_selected_vault_and_owner(monkeypatch, isolated_validation_runtime):
+    from fastapi import APIRouter, Depends, FastAPI
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import Session
+    from backend.api import scheduler_routes
+    from backend.data.management_db import Base, get_mgmt_db
+    from backend.domains.reader import podcast_routes
+    from backend.models.management import Membership, User, Vault, Workspace
+    from backend.models.scheduler import TaskExecutionHistory
+    from backend.services import auth_service, workspace_service
+    from backend.services.agent_execution_scope import bind_request_scope
+    from backend.utils.errors import metadata_unavailable_detail
+
+    root = isolated_validation_runtime
+    alice, manager, engine = runtime(monkeypatch, root)
+    bob = alice.model_copy(update={"user_id": "bob", "workspace_id": "team-b", "vault_path": str(root / "other")})
+    Path(bob.vault_path).mkdir()
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        for scope in (alice, bob):
+            db.add(User(id=scope.user_id, email=scope.user_id + "@example.org"))
+            db.add(Workspace(id=scope.workspace_id, name=scope.workspace_id))
+        db.flush()
+        for scope, vault_id in ((alice, "a"), (bob, "b")):
+            db.add(Vault(id=vault_id, workspace_id=scope.workspace_id, name=vault_id, path_override=scope.vault_path))
+            for user in (alice, bob):
+                db.add(Membership(user_id=user.user_id, workspace_id=scope.workspace_id, role="owner"))
+        # Same physical directory under a second legitimate workspace must still be private.
+        db.add(Vault(id="alias-a", workspace_id=bob.workspace_id, name="Alias", path_override=alice.vault_path))
+        db.add(TaskExecutionHistory(task_name="generate_podcast", status="error",
+                                    message="Dropbox: bob-private.md is offline"))
+        db.commit()
+
+    def database():
+        with Session(engine) as db:
+            yield db
+
+    def headers(scope, workspace, vault):
+        return {"Authorization": "Bearer " + auth_service.create_access_token(scope.user_id),
+                "X-Workspace-ID": workspace, "X-Vault-ID": vault, "X-User-ID": alice.user_id}
+
+    params = SimpleNamespace(gnosi_mode="organization", paths={"VAULT": Path(alice.vault_path), "PROJECT_DIR": root})
+    monkeypatch.setattr(workspace_service, "load_params", lambda **_: params)
+    monkeypatch.setattr("backend.services.vault_warmup.kickoff_critical_warmup", lambda _: None)
+    monkeypatch.setattr(auth_service, "SECRET_KEY", "synthetic-test-podcast-access-secret-123456")
+    monkeypatch.setattr(scheduler_routes, "scheduler_manager", manager)
+    monkeypatch.setattr(audio, "_resolve_podcast_language", lambda: ("en", "English"))
+    reader = APIRouter(prefix="/api/reader", dependencies=[Depends(bind_request_scope)])
+    podcast_routes.register_routes(reader)
+    app = FastAPI()
+    app.include_router(scheduler_routes.router)
+    app.include_router(reader)
+    app.dependency_overrides[get_mgmt_db] = database
+    waits = []
+    for scope, provider, filename, reason in ((alice, "OneDrive", "alice-private.md", "pending"),
+                                              (bob, "Dropbox", "bob-private.md", "offline")):
+        episode = episodes.claim(scope.vault_path, source="reader", scope=scope)
+        episodes.cloud_failure(episode, MetadataUnavailable(path=Path(scope.vault_path) / provider / filename, reason=reason))
+        waits.append(episode)
+    with execution_scope(alice):
+        snapshot, _, _ = audio._resolve_podcast_llm()
+        execution.create_job_run(snapshot, waits[0].run_id, "podcast")
+        store.update(alice, waits[0].run_id, status="waiting", error="private parent message")
+    keys = ("waiting_file", "waiting_provider", "wait_reason", "retry_at")
+    with TestClient(app) as client:
+        cases = ((headers(alice, alice.workspace_id, "a"), waits[0]),
+                 (headers(bob, bob.workspace_id, "b"), waits[1]),
+                 (headers(bob, alice.workspace_id, "a"), None),
+                 (headers(alice, bob.workspace_id, "b"), None),
+                 (headers(alice, bob.workspace_id, "alias-a"), None))
+        for auth, expected in cases:
+            for path in ("/api/schedulers", "/api/schedulers/generate_podcast"):
+                response = client.get(path, headers=auth)
+                assert response.status_code == 200
+                task = response.json()[0] if path == "/api/schedulers" else response.json()
+                assert task["enabled"] and task["interval_minutes"] == 1440
+                assert {key: task[key] for key in keys} == {key: getattr(expected, key, None) for key in keys}
+            response = client.get("/api/reader/podcast/status", headers=auth)
+            assert response.status_code == 200
+            assert response.json()["running"] is (expected is not None)
+            assert response.json()["progress"] == (metadata_unavailable_detail("en", expected.wait_reason)[1] if expected else "")
+            history = client.get("/api/schedulers/history", headers=auth)
+            assert history.status_code == 200
+            assert history.json()["items"][0]["message"] == "Podcast generation failed."
+        with Session(engine) as db:
+            db.query(Membership).filter_by(user_id=alice.user_id, workspace_id=alice.workspace_id).update({"role": "viewer"})
+            db.commit()
+        downgraded = client.get("/api/reader/podcast/status", headers=cases[0][0]).json()
+        assert not downgraded["running"] and downgraded["error"] is None and not downgraded["progress"]
+        task = client.get("/api/schedulers/generate_podcast", headers=cases[0][0]).json()
+        assert all(task[key] is None for key in keys)
+        # Membership or cloud failures while resolving the selected vault cannot add private details.
+        monkeypatch.setattr(workspace_service, "load_params", lambda **_: (_ for _ in ()).throw(
+            MetadataUnavailable(path=Path(alice.vault_path) / "private-settings.yaml")))
+        task = client.get("/api/schedulers/generate_podcast", headers=cases[0][0]).json()
+        assert task["enabled"] and all(task[key] is None for key in keys)
+
+
+@pytest.mark.parametrize("blocked_at", ["preparation", "worker"])
+def test_activity_resume_keeps_daily_wait_and_recovers_on_next_clock(monkeypatch, isolated_validation_runtime, blocked_at):
+    import asyncio
+    from unittest.mock import Mock
+
+    root = isolated_validation_runtime
+    scope, manager, _ = runtime(monkeypatch, root)
+    episode = episodes.claim(scope.vault_path, source="scheduler", scope=scope)
+    with execution_scope(scope):
+        snapshot, _, _ = audio._resolve_podcast_llm()
+        execution.create_job_run(snapshot, episode.run_id, "podcast")
+        store.update(scope, episode.run_id, status="failed", error="earlier attempt")
+        episodes.finish(episode, "error")
+        with monkeypatch.context() as patch:
+            class ImmediateThread:
+                def __init__(self, target, args, **kwargs):
+                    self.invoke = lambda: target(*args)
+                def start(self):
+                    self.invoke()
+            failure = MetadataUnavailable(path=Path(scope.vault_path) / "OneDrive" / "article.md", reason="offline")
+            target = "_refresh_podcast_upstream" if blocked_at == "preparation" else "_generate_daily_podcast"
+            patch.setattr(audio, target, Mock(side_effect=failure))
+            patch.setattr(audio.threading, "Thread", ImmediateThread)
+            patch.setattr(execution, "revalidate_scope", lambda selected: selected == scope or pytest.fail("scope changed"))
+            result = asyncio.run(execution.resume_run(episode.run_id))
+    assert result.status == "waiting" and result.run_id == episode.run_id
+    pending = episodes.current(scope.vault_path)
+    assert pending.status == "waiting" and pending.worker == {} and pending.run_id == episode.run_id
+    assert pending.wait_reason == "offline" and pending.waiting_file == "article.md"
+    assert pending.period_end == episode.period_end and pending.scope == scope.model_dump()
+    manager._tasks["generate_podcast"].enabled = False
+    assert manager._is_due(manager._tasks["generate_podcast"], datetime.fromisoformat(pending.retry_at))
+    assert manager.run_task_now("generate_podcast", automatic=True)["success"]
+    assert episodes.current(scope.vault_path).status == "success"
+    assert store.read(scope, episode.run_id).status == "completed"
+    assert len(list(Path(scope.vault_path).rglob("*.mp3"))) == 1
+
+
+def test_activity_resume_and_occurrence_claim_roll_back_together(monkeypatch, isolated_validation_runtime):
+    import asyncio
+    scope, _, _ = runtime(monkeypatch, isolated_validation_runtime)
+    monkeypatch.setattr(execution, "revalidate_scope", lambda selected: selected == scope or pytest.fail("scope changed"))
+    episode = episodes.claim(scope.vault_path, source="reader", scope=scope)
+    with execution_scope(scope):
+        snapshot, _, _ = audio._resolve_podcast_llm()
+        execution.create_job_run(snapshot, episode.run_id, "podcast")
+        store.update(scope, episode.run_id, status="failed")
+        with pytest.raises(ValueError, match="podcast_generation_already_running"):
+            asyncio.run(execution.resume_run(episode.run_id))
+    assert store.read(scope, episode.run_id).status == "failed"
+    assert episodes.current(scope.vault_path).worker == episode.worker
+    assert not (isolated_validation_runtime / "observations").exists()
 
 
 def test_interrupted_reader_episode_resumes_under_original_scope_with_schedule_disabled(
@@ -263,8 +422,9 @@ def test_cancelled_waiter_is_never_claimed_and_revoked_scope_never_reaches_provi
         raise PermissionError("private membership data")
     monkeypatch.setattr(agent_execution_scope, "revalidate_scope", revoked)
     assert manager.run_task_now("generate_podcast")["status"] == "error"
-    public = manager.get_task("generate_podcast")
-    assert public["wait_reason"] == "permission" and public["retry_at"] is None
+    private = episodes.current(scope.vault_path)
+    assert private.wait_reason == "permission" and private.retry_at is None
+    assert manager.get_task("generate_podcast").get("wait_reason") is None
     assert not (root / "observations").exists()
 
 
@@ -322,6 +482,7 @@ def test_latest_download_streams_the_same_daily_episode_as_reader_info(monkeypat
     output.mkdir(parents=True)
     (output / "daily_podcast_2026_01_02.mp3").write_bytes(b"published episode")
     (output / "speech-unrelated.mp3").write_bytes(b"unrelated playback")
+    (output / "voice-memo.mp3").write_bytes(b"a recording saved by the user")
     app = FastAPI()
     app.get("/latest")(get_latest_podcast)
     async def get():
@@ -331,6 +492,32 @@ def test_latest_download_streams_the_same_daily_episode_as_reader_info(monkeypat
         assert get_podcast_info()["filename"] == "daily_podcast_2026_01_02.mp3"
         response = asyncio.run(get())
     assert response.content == b"published episode" and response.headers["content-type"] == "audio/mpeg"
+
+
+def test_reused_pid_does_not_hold_a_daily_episode(monkeypatch):
+    from datetime import datetime, timezone
+    import psutil
+
+    now = datetime.now(timezone.utc)
+    other = 987654321
+    class Process:
+        def __init__(self, pid):
+            assert pid == other
+        def create_time(self):
+            return now.timestamp()
+        def status(self):
+            return psutil.STATUS_RUNNING
+
+    monkeypatch.setattr(psutil, "Process", Process)
+    old = now.timestamp() - 3600
+    episode = episodes.Episode("/vault", "episode",
+        datetime.fromtimestamp(old, timezone.utc).isoformat(), now.date().isoformat(), "scheduler",
+        worker={"_worker_pid": other, "_worker_instance": "previous"})
+    assert episode.due(now)  # Legacy lease, last seen before this process existed.
+    episode.worker["_worker_created_at"] = old
+    assert episode.due(now)
+    episode.worker["_worker_created_at"] = now.timestamp()
+    assert not episode.due(now)
 
 
 if __name__ == "__main__":

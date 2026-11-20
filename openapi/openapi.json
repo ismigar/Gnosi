@@ -82157,7 +82157,7 @@
     },
     "/api/reader/podcast/info": {
       "get": {
-        "description": "Returns information about the last generated podcast",
+        "description": "Return the last published episode available to this Reader.",
         "operationId": "get_podcast_info_api_reader_podcast_info_get",
         "parameters": [
           {
@@ -82272,7 +82272,7 @@
     },
     "/api/reader/podcast/latest": {
       "get": {
-        "description": "Download/Stream the most recent podcast",
+        "description": "Stream the selected episode using the same coordinated file snapshot as vault downloads.",
         "operationId": "get_latest_podcast_api_reader_podcast_latest_get",
         "parameters": [
           {

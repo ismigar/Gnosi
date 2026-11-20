@@ -19,6 +19,7 @@ from backend.scheduler.bounded_executor import SchedulerExecutionRuntime
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
 from backend.scheduler import execution
 from backend.scheduler.startup_policy import wait_before_automatic_dispatch
+from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import run_personal_schedule
 from backend.utils.open_values import get_value, iterable_values
 
@@ -318,19 +319,19 @@ class SchedulerManager:
                 f"Failed to save scheduler mirror to {self.local_mirror_path}: {e}"
             )
 
-    def get_tasks(self) -> list[dict[str, Any]]:
+    def get_tasks(self, scope: ExecutionScope | None = None) -> list[dict[str, Any]]:
         """Get all scheduled tasks."""
-        return [self._public_task(task) for task in self._tasks.values()]
+        return [self._public_task(task, scope) for task in self._tasks.values()]
 
-    def get_task(self, name: str) -> dict[str, Any] | None:
+    def get_task(self, name: str, scope: ExecutionScope | None = None) -> dict[str, Any] | None:
         """Get a specific task."""
         task = self._tasks.get(name)
-        return self._public_task(task) if task else None
+        return self._public_task(task, scope) if task else None
 
-    def _public_task(self, task: ScheduledTask) -> dict[str, Any]:
+    def _public_task(self, task: ScheduledTask, scope: ExecutionScope | None = None) -> dict[str, Any]:
         data = asdict(task)
-        if task.name == "generate_podcast" and self._podcast_vault:
-            episode = episodes.current(self._podcast_vault)
+        if task.name == "generate_podcast":
+            episode = episodes.for_scope(scope)
             if episode and (episode.status in {"waiting", "running"} or task.status != "idle"
                             or (episode.status == "error" and episode.wait_reason)):
                 data.update(episode.public_status())

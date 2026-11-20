@@ -1,6 +1,7 @@
 """Reader podcast generation and download HTTP routes."""
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Callable, cast
 
@@ -33,9 +34,8 @@ def trigger_podcast_generation() -> RouteReturn:
     if not started:
         from backend.services import podcast_episode
         from backend.services.agent_execution_scope import current_scope
-        scope = current_scope()
-        episode = podcast_episode.current(scope.vault_path)
-        if episode and episode.scope == scope.model_dump() and episode.status == "success":
+        episode = podcast_episode.for_scope(current_scope())
+        if episode and episode.status == "success":
             return {"status": "completed", "message": "Today's podcast run has finished."}
         return {"status": "already_running", "message": "A podcast is already being generated."}
     return {"status": "started", "message": "Generation started in the background."}
@@ -64,7 +64,7 @@ def _latest_episode_file() -> Path | None:
         raise MetadataUnavailable(path=directory, reason="permission")
     try:
         latest = max((path for path in directory.iterdir()
-                      if path.suffix == ".mp3" and not path.name.startswith("speech-")), default=None)
+                      if re.fullmatch(r"daily_podcast_[0-9]{4}_[0-9]{2}_[0-9]{2}\.mp3", path.name)), default=None)
     except FileNotFoundError:
         return None
     if latest and latest.is_symlink():

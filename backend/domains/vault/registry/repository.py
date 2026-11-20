@@ -23,6 +23,7 @@ from backend.utils.metadata_io import (
     is_native_vault_file,
     read_vault_text,
     read_vault_text_with_stat,
+    vault_file_snapshot,
 )
 
 
@@ -288,10 +289,14 @@ class RegistryRepository:
             with self.state.mutation_lock:
                 cache_key = str(registry_path)
                 if self.is_degenerate(data):
-                    if (
-                        cache_key not in self.state.seen_nondegenerate
-                        and self.degenerate_overwrite_is_risky(registry_path)
-                    ):
+                    if cache_key in self.state.seen_nondegenerate:
+                        # A successful read on an earlier request cannot establish availability now.
+                        try:
+                            with vault_file_snapshot(registry_path, root=self._dependencies.vault_root()):
+                                pass
+                        except FileNotFoundError:
+                            pass
+                    elif self.degenerate_overwrite_is_risky(registry_path):
                         self._log.error(
                             "🛑 Refused to overwrite the registry with an empty "
                             "structure: %s shows prior data that this process never "

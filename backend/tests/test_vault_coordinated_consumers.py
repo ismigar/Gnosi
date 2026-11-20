@@ -429,3 +429,165 @@ def test_publication_preview_reads_selected_note_and_uses_index_for_evicted_neig
     assert notes["selected"].body == "Only the selected body"
     assert notes["neighbor"].body == ""
     assert cloud.reads == [selected]
+
+
+
+def test_offline_replacement_preserves_prior_registry_and_trash_recovery(cloud, monkeypatch):
+    from backend.domains.vault.registry import runtime as registry
+    from backend.domains.vault.trash.repository import TrashRepository
+
+    path = cloud.source("BD/vault_db_registry.json", b'{"tables":[{"id":"saved"}],"databases":[]}')
+    original = path.read_bytes()
+    source = cloud.source("note.md", b"Second revision")
+    trash = TrashRepository(cloud.vault, retention_days=90,
+                           parse_frontmatter=lambda *_: ({}, ""), write_json=lambda *args, **kwargs: None)
+    entry = trash.entry_dir("note")
+    entry.mkdir()
+    (entry / "_trash.json").write_text('{"id":"note"}')
+    (entry / "page.md").write_text("First revision")
+    monkeypatch.setattr(vault_routes, "get_p", lambda key: path if key == "REGISTRY" else cloud.vault)
+    vault_routes.registry_repository.state.seen_nondegenerate.add(str(path))
+
+    async def offline(path, destination, timeout):
+        raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+
+    monkeypatch.setattr(snapshots, "copy_coordinated", offline)
+    with pytest.raises(metadata_io.MetadataUnavailable):
+        registry.save_registry({"tables": [], "views": [], "databases": []})
+    with pytest.raises(metadata_io.MetadataUnavailable):
+        trash.move_page("note", source)
+    assert path.read_bytes() == original
+    assert source.exists()
+    assert (entry / "page.md").read_text() == "First revision"
+    assert (entry / "_trash.json").read_text() == '{"id":"note"}'
+
+
+
+@pytest.mark.parametrize("target", ["renamed", "template"])
+@pytest.mark.parametrize("offline", [False, True])
+def test_daily_creation_waits_for_existing_note_and_template(cloud, monkeypatch, target, offline):
+    import json
+    from backend.domains.vault.api import core_routes
+
+    date = "2026-11-20"
+    daily = cloud.vault / "Daily Notes"
+    templates = cloud.vault / "Templates"
+    daily.mkdir()
+    templates.mkdir()
+    past = cloud.source("Daily Notes/Earlier.md", b"cached")
+    unused = cloud.source("Templates/Other.md", b"cached")
+    entries = {}
+    for path, metadata in (
+        (past, {"note_type": "daily", "date": "2026-10-01", "id": "past"}),
+        (unused, {"is_daily_template": False, "id": "other-template"}),
+    ):
+        entries[str(path)] = {"size": path.stat().st_size, "mtime_ns": path.stat().st_mtime_ns, "metadata": metadata}
+    if target == "renamed":
+        selected = cloud.source("Daily Notes/A renamed journal.md", json.dumps(
+            {"id": "original", "note_type": "daily", "date": date, "body": "Original"}
+        ).encode())
+    else:
+        selected = cloud.source("Templates/Journal.md", b'{"is_daily_template":true,"body":"Template seed"}')
+
+    monkeypatch.setattr(vault_routes, "_page_index_entries", {str(cloud.vault): entries})
+    monkeypatch.setattr(vault_routes, "get_p", lambda key: {"DAILY": daily, "PLANTILLES": templates}.get(key, cloud.vault))
+    monkeypatch.setattr(vault_routes, "_daily_source_config", lambda: (None, None))
+    def parse(raw, _path):
+        metadata = json.loads(raw)
+        return metadata, metadata.pop("body", "")
+    monkeypatch.setattr(vault_routes, "parse_frontmatter", parse)
+    created = []
+    opened = []
+    async def open_page(page_id):
+        opened.append(page_id)
+        return {"id": page_id}
+    async def create(request, tasks):
+        created.append((request.title, request.content))
+        return {"id": "new"}
+    monkeypatch.setattr(vault_routes, "get_page", open_page)
+    monkeypatch.setattr(vault_routes, "create_page", create)
+    if offline:
+        async def failed(path, destination, timeout):
+            cloud.reads.append(path)
+            raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+        monkeypatch.setattr(snapshots, "copy_coordinated", failed)
+
+    request = core_routes.get_or_create_daily_note(vault_routes.DailyNoteRequest(date=date), BackgroundTasks())
+    if offline:
+        with pytest.raises(metadata_io.MetadataUnavailable) as failure:
+            asyncio.run(request)
+        assert failure.value.reason == "offline"
+        assert created == [] and opened == []
+    else:
+        result = asyncio.run(request)
+        if target == "renamed":
+            assert result == {"id": "original"} and opened == ["original"] and not created
+        else:
+            assert result == {"id": "new"} and created == [(date, "Template seed")] and not opened
+    assert cloud.reads == [selected]
+
+
+
+@pytest.mark.parametrize("offline", [False, True])
+def test_cloud_reference_survives_export_and_prevents_duplicate_import(cloud, monkeypatch, offline):
+    import json
+    from fastapi import APIRouter
+    from backend.app.errors import register_error_handlers
+    from backend.domains.vault.citations import export_routes, io_api
+    from backend.services.workspace_service import WorkspaceContext, get_workspace_context
+
+    reference = {
+        "Citation Key": "retained", "Title": "Retained citation", "Item Type": "book",
+        "DOI": "10.1234/example", "ISBN": "9780306406157",
+    }
+    selected = cloud.source("References/Renamed.md", json.dumps(reference).encode())
+    neighbor = cloud.source("Other/private.md", b"Other table")
+    pages = [
+        SimpleNamespace(id="ref", path=str(selected), metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="other", path=str(neighbor), metadata={}, resolved_table_id="other"),
+    ]
+    writes = []
+    async def create(request, _):
+        writes.append(request)
+        return {"id": "duplicate"}
+    deps = replace(
+        export_routes._REFERENCES_IO_DEPENDENCIES,
+        active_vault_path=lambda: cloud.vault,
+        load_registry=lambda: {"tables": [{"id": "refs"}]},
+        item_type_catalog_names=lambda *_: [],
+        resolve_existing_keys=lambda: set,
+        resolve_ensure_index=lambda: (lambda _: {}),
+        find_page=lambda key: selected if key == "ref" else neighbor,
+        parse_frontmatter=lambda raw, _: (json.loads(raw), ""),
+        page_snapshot=lambda: pages,
+        resolve_create_page=lambda: create,
+        resolve_invalidate_index=lambda: (lambda: None),
+    )
+    if offline:
+        async def fail(path, destination, timeout):
+            cloud.reads.append(path)
+            raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+        monkeypatch.setattr(snapshots, "copy_coordinated", fail)
+    app = FastAPI()
+    router = APIRouter()
+    io_api.register_import_route(router, editor_dependencies=[], dependencies=deps)
+    io_api.register_catalog_export_routes(router, upload_dependencies=[], export_dependencies=[], dependencies=deps)
+    app.include_router(router)
+    register_error_handlers(app)
+    app.dependency_overrides[get_workspace_context] = lambda: WorkspaceContext("workspace", "user", "editor", cloud.vault)
+    with TestClient(app) as client:
+        exported = client.get("/export-references?table_id=refs&keys=retained")
+        imported = client.post("/import-references?table_id=refs&fmt=bibtex", files={"file": ("refs.bib", (
+            "@book{newdoi,title={A different title},doi={10.1234/EXAMPLE}}\n"
+            "@book{newisbn,title={Another title},isbn={978-0-306-40615-7}}"
+        ), "text/plain")})
+    if offline:
+        assert exported.status_code == imported.status_code == 503
+        assert exported.json()["reason"] == imported.json()["reason"] == "offline"
+    else:
+        assert exported.status_code == 200 and "retained" in exported.text and "10.1234/example" in exported.text
+        assert imported.status_code == 200
+        result = imported.json()
+        assert result["created"] == 0 and result["skipped"] == 2
+        assert result["skip_summary"]["doi"] == result["skip_summary"]["isbn"] == 1
+    assert writes == [] and set(cloud.reads) == {selected}

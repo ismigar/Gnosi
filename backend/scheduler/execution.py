@@ -14,10 +14,26 @@ from backend.scheduler.notifications import notify
 from backend.services import podcast_episode as episodes
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import execution_scope
-from backend.utils.errors import metadata_unavailable_detail
 from backend.utils.metadata_io import MetadataUnavailable
 
 log = get_logger(__name__)
+
+_PODCAST_HISTORY = {
+    "waiting": {"en": "Podcast generation is waiting.", "ca": "La generació del podcast està pendent.",
+                "es": "La generación del pódcast está pendiente.", "fr": "La génération du podcast est en attente."},
+    "error": {"en": "Podcast generation failed.", "ca": "No s’ha pogut generar el podcast.",
+              "es": "No se ha podido generar el pódcast.", "fr": "La génération du podcast a échoué."},
+    "success": {"en": "Podcast generation finished.", "ca": "Ha finalitzat la generació del podcast.",
+                "es": "La generación del pódcast ha finalizado.", "fr": "La génération du podcast est terminée."},
+}
+
+
+def podcast_history_message(status: str, language: str = "en", *, saved_message: str | None = None) -> str:
+    """The installation-wide history and notifications can disclose only the task outcome."""
+    messages = _PODCAST_HISTORY.get(status, {})
+    if saved_message is not None and saved_message in messages.values():
+        return saved_message
+    return messages.get(language, messages.get("en", ""))
 
 
 def raise_for_task_failure(result: Any) -> None:
@@ -81,12 +97,11 @@ def _failure(task: ScheduledTask, episode: episodes.Episode | None, error: Excep
     if episode and isinstance(error, MetadataUnavailable):
         episodes.cloud_failure(episode, error)
         task.status = episode.status
-        _, message = metadata_unavailable_detail(language, error.reason)
     else:
         if episode:
             episodes.finish(episode, "error")
         task.status = "error"
-        message = str(error)
+    message = podcast_history_message(task.status, language) if task.name == "generate_podcast" else str(error)
     log.info("Scheduled task %s ended with %s: %s", task.name, task.status, message)
     _finish_history(history_id, task, message)
     if not quiet and task.status == "error":
@@ -121,7 +136,8 @@ def run_task(
         if episode:
             episodes.finish(episode, "success")
         task.status = "success"
-        message = _success_message(task.name, result)
+        message = (podcast_history_message(task.status, language) if task.name == "generate_podcast"
+                   else _success_message(task.name, result))
         _finish_history(history_id, task, message, duration)
         if not quiet:
             notify(f"Tasca Finalitzada: {title}", message, level="SUCCESS")

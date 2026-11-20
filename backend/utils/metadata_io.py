@@ -239,10 +239,11 @@ def ensure_metadata_local(path: Path) -> None:
         if cloud_path(path) or get_files_provider().name != "local":
             raise MetadataUnavailable.from_oserror(path, error) from error
         raise
-    if not is_cloud_placeholder(path, info) and not (stat.S_ISREG(info.st_mode) and is_native_vault_file(path, info)):
-        return
-    with vault_file_snapshot(path):
-        pass
+    # Read and write guards must honor the same configured provider. A legacy
+    # adapter can recognize an online-only regular file without Darwin flags.
+    if stat.S_ISREG(info.st_mode) or is_cloud_placeholder(path, info):
+        with vault_file_snapshot(path):
+            pass
 
 
 def read_metadata_text(path: Path, encoding: str = "utf-8", errors: str | None = None) -> str:

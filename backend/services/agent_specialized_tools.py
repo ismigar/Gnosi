@@ -9,6 +9,8 @@ from pathlib import Path
 
 from backend.models.agent_skills import CatalogOrigin, ConfirmationPolicy, OriginType, ToolDescriptor, ToolEffect
 from backend.services.agent_execution_models import AgentRun
+from backend.platform.files.snapshots import VaultFileSnapshot
+from backend.utils.metadata_io import vault_file_snapshot
 
 T = TypeVar("T")
 ENGINES = {
@@ -90,25 +92,27 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
             store.aggregate(scope, row.parent_run_id)
 
 
-def _vault_asset(relative_path: str) -> Path:
+def _vault_asset_snapshot(relative_path: str) -> VaultFileSnapshot:
     from backend.services.agent_execution_scope import current_scope
     root = Path(current_scope().vault_path).resolve()
     path = (root / relative_path).resolve()
     if not path.is_relative_to(root) or not path.is_file():
         raise PermissionError("agent_asset_outside_vault")
-    return path
+    return vault_file_snapshot(path, root=root)
 
 
 def transcribe_asset(relative_path: str, language: str = "") -> dict[str, Any]:
     """Transcribe an exact audio asset in the authorized Vault."""
     from backend.services.transcription import transcribe
-    return dict(transcribe(str(_vault_asset(relative_path)), language=language or None))
+    with _vault_asset_snapshot(relative_path) as asset:
+        return dict(transcribe(str(asset.path), language=language or None))
 
 
 def recognize_asset(relative_path: str, language: str = "") -> dict[str, Any]:
     """Read handwriting from an exact image asset in the authorized Vault."""
     from backend.services.handwriting import recognize
-    return recognize(_vault_asset(relative_path).read_bytes(), correct=False, language=language or None)
+    with _vault_asset_snapshot(relative_path) as asset:
+        return recognize(asset.path.read_bytes(), correct=False, language=language or None)
 
 
 def synthesize_speech(text: str, language: str = "ca") -> dict[str, Any]:

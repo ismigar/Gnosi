@@ -90,23 +90,14 @@ class TrashRepository:
 
         entry_dir = self.entry_dir(page_id)
         sidecar_path = entry_dir / "_trash.json"
-        if sidecar_path.exists():
-            if not file_path.exists():
-                try:
-                    data: object = json.loads(read_vault_text(sidecar_path, root=self.vault_root))
-                    if is_record(data):
-                        return data
-                except (OSError, json.JSONDecodeError):
-                    pass
-            else:
-                log.warning(
-                    "Trash slot %s already occupied while trashing %s; "
-                    "overwriting the stale entry.",
-                    page_id,
-                    file_path,
-                )
-                shutil.rmtree(entry_dir, ignore_errors=True)
-
+        occupied = sidecar_path.exists()
+        if occupied and not file_path.exists():
+            try:
+                data: object = json.loads(read_vault_text(sidecar_path, root=self.vault_root))
+                if is_record(data):
+                    return data
+            except (OSError, json.JSONDecodeError):
+                pass
         entry_dir.mkdir(parents=True, exist_ok=True)
         title = ""
         table_id: object = None
@@ -125,6 +116,14 @@ class TrashRepository:
         except OSError:
             size_bytes = 0
 
+        if occupied and file_path.exists():
+            log.warning(
+                "Trash slot %s already occupied while trashing %s; overwriting the stale entry.",
+                page_id,
+                file_path,
+            )
+            shutil.rmtree(entry_dir, ignore_errors=True)
+            entry_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(file_path), str(entry_dir / "page.md"))
         sidecar: TrashMetadata = {
             "id": page_id,

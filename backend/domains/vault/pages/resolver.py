@@ -188,9 +188,11 @@ def _full_scan_path(
     vault_root = dependencies.get_path("VAULT")
     if not vault_root.exists():
         return None
+    candidate_names = {page_id.casefold(), canonical_target.casefold()}
     for markdown_path in vault_root.rglob("*.md"):
+        selected = markdown_path.stem.casefold() in candidate_names
         try:
-            if dependencies.canonicalize_id(markdown_path.stem) == canonical_target:
+            if selected:
                 raw = read_vault_text(markdown_path, root=vault_root)
             elif is_cloud_placeholder(markdown_path, markdown_path.stat()):
                 continue
@@ -198,7 +200,7 @@ def _full_scan_path(
                 raw = markdown_path.read_text(encoding="utf-8")
             metadata, _body = dependencies.parse_frontmatter(raw, markdown_path)
         except MetadataUnavailable:
-            if dependencies.canonicalize_id(markdown_path.stem) == canonical_target:
+            if selected:
                 raise
             continue
         except Exception:
