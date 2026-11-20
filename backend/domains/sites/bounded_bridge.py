@@ -90,11 +90,14 @@ class BoundedBridge:
             raise PangeaTransportInterrupted()
         elif first != 2:
             raise RuntimeError("The registered SSH connection could not be verified")
-        self.child.sendline("suweb")
+        # Returning from Suweb must close SSH before the operator prompt can
+        # be mistaken for a successful switch to the website account.
+        self.child.sendline("suweb; exit $?")
         switch = self.expect(["(?i)password:", "(?i)contrase", self.prompt, pexpect.EOF])
         if switch in {0, 1}:
             self.child.sendline(settings["SSH_SUWEB_PASSWORD"])
-            self.expect(self.prompt)
+            if self.expect([self.prompt, pexpect.EOF]) != 0:
+                raise RuntimeError("The registered Suweb connection is unavailable")
         elif switch != 2:
             raise RuntimeError("The registered Suweb connection is unavailable")
         self.child.sendline("stty -echo")

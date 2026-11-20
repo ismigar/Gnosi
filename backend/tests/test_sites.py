@@ -89,7 +89,7 @@ def test_native_page_translation_metadata_publishes_selected_languages_and_one_g
         native = _translation_metadata(original_id.replace("-", "").upper(), "ca", lang, {"noop"})
         metadata.append({"id": identifier, "title": "Translated " + lang, "Private": "NEVER-PUBLISH-NATIVE-SECRET", **native})
     metadata[1]["web_path"] = "/es/traduccion-estable"
-    metadata[2]["drupal_path"] = "/en-gb/retained-english-url"
+    metadata[2]["web_path"] = "/en-gb/retained-english-url"
     for item in metadata:
         (website.vault / (str(item["id"]) + ".md")).write_text("---\n" + yaml.safe_dump(item, allow_unicode=True) + "---\nPublic translated body\n")
     site = website.site.model_copy(deep=True)

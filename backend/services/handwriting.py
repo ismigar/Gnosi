@@ -23,6 +23,7 @@ Opening the canvas does not load weights; recognition loads them on demand.
 
 from backend.services.agent_behavior import task_input
 import io
+import json
 import logging
 import os
 import re
@@ -55,7 +56,6 @@ def _download_owner() -> str:
         scope = current_scope()
     except RuntimeError:
         return ''  # Direct local callers; HTTP cancellation requires a scope.
-    import json
     return json.dumps([scope.user_id, scope.workspace_id, str(scope.vault_path)], ensure_ascii=False)
 
 
@@ -133,6 +133,26 @@ def is_loaded() -> bool:
             and _MODEL_KEY == (_model_id(), str(Path(_cache_dir()).resolve())))
 
 
+def _load_processor(source: str, cache: str) -> Any:
+    from transformers import TrOCRProcessor
+
+    snapshot = Path(source)
+    config = snapshot / 'tokenizer_config.json'
+    if (config.is_file() and (snapshot / 'merges.txt').is_file() and (snapshot / 'vocab.json').is_file()
+            and json.loads(config.read_text(encoding='utf-8')).get('tokenizer_class') in {'RobertaTokenizer', 'RobertaTokenizerFast'}):
+        # TrOCR's original RoBERTa vocabulary and merges lack tokenizer.json.
+        # Load the declared tokenizer directly and use the CPU/Pillow image backend.
+        from transformers import RobertaTokenizer
+        from transformers.models.auto.image_processing_auto import AutoImageProcessor
+        return TrOCRProcessor(  # type: ignore[no-untyped-call]
+            image_processor=AutoImageProcessor.from_pretrained(  # type: ignore[no-untyped-call]
+                source, local_files_only=True, use_fast=False,
+            ),
+            tokenizer=RobertaTokenizer.from_pretrained(source, local_files_only=True),
+        )
+    return TrOCRProcessor.from_pretrained(source, cache_dir=cache, local_files_only=True)
+
+
 def _load() -> tuple[Any, Any, str]:
     """Loads (lazily) the TrOCR processor + model (singleton, CPU)."""
     global _MODEL, _PROCESSOR, _MODEL_KEY
@@ -146,9 +166,9 @@ def _load() -> tuple[Any, Any, str]:
             try:
                 source = downloads.prepare(mid, cache, owner)
                 downloads.transition(mid, cache, owner, 'loading')
-                from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+                from transformers import VisionEncoderDecoderModel
                 log.info("handwriting: loading cached TrOCR '%s' on CPU", mid)
-                processor: Any = TrOCRProcessor.from_pretrained(source, cache_dir=cache, local_files_only=True)
+                processor = _load_processor(source, cache)
                 model: Any = VisionEncoderDecoderModel.from_pretrained(source, cache_dir=cache, local_files_only=True)
                 model.eval()
                 _PROCESSOR, _MODEL, _MODEL_KEY = processor, model, key

@@ -1,6 +1,7 @@
 """Reject incomplete/empty handwritten inputs before loading any model."""
 import asyncio
 import io
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -23,6 +24,22 @@ def lines_image(count):
     for index in range(count):
         draw.rectangle((10, 10 + index * 15, 100, 16 + index * 15), fill='black')
     return image
+
+
+def test_legacy_handwriting_processor_reads_separate_bpe_files_offline(tmp_path):
+    configs = {
+        'preprocessor_config.json': {'image_processor_type': 'ViTImageProcessor', 'size': 32},
+        'tokenizer_config.json': {'tokenizer_class': 'RobertaTokenizer'},
+        'vocab.json': {'<s>': 0, '<pad>': 1, '</s>': 2, '<unk>': 3, 'Hola': 4, '<mask>': 5},
+    }
+    for name, data in configs.items():
+        (tmp_path / name).write_text(json.dumps(data), encoding='utf-8')
+    (tmp_path / 'merges.txt').write_text('#version: 0.2\n', encoding='utf-8')
+
+    processor = handwriting._load_processor(str(tmp_path), str(tmp_path))
+    pixels = processor(images=lines_image(1), return_tensors='pt').pixel_values
+    assert tuple(pixels.shape) == (1, 3, 32, 32)
+    assert processor.batch_decode([[0, 4, 2]], skip_special_tokens=True) == ['Hola']
 
 
 @pytest.mark.parametrize('mode,color', [('RGB', 'white'), ('RGBA', (0, 0, 0, 0))])

@@ -54,6 +54,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if mode == 'foreign': payload['gnosi_mode'] = 'personal'
         if mode == 'wrong-status': payload['status'] = 'error'
         if mode == 'wrong-mode': payload['mode'] = 'another-app'
+        if self.path == '/api/vault/handwriting/status':
+            payload = {'available': mode != 'missing-ocr', 'state': 'not_downloaded', 'loaded': False}
         raw = json.dumps(payload).encode()
         if mode == 'malformed': raw = b'{'
         if mode == 'oversized': raw += b' ' * 5000
@@ -106,6 +108,12 @@ def test_real_http_child_passes_and_is_reaped(child_launcher, mode, monkeypatch)
 def test_real_unhealthy_child_never_passes(child_launcher, mode):
     child_launcher(mode)
     with pytest.raises(RuntimeError, match='before (readiness|timeout)'):
+        smoke.verify_backend(Path(sys.executable))
+
+
+def test_healthy_child_with_broken_handwriting_fails_the_packaging_check(child_launcher):
+    child_launcher('missing-ocr')
+    with pytest.raises(RuntimeError, match='Packaged handwriting engine'):
         smoke.verify_backend(Path(sys.executable))
 
 

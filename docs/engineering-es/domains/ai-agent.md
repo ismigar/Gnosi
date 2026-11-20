@@ -1396,7 +1396,9 @@ Tras un cambio de plugin se invalidan las cachés de configuración y se avisa a
 
 ## Nivel de razonamiento
 
-Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opciones exactas de OpenRouter con `GET /api/ai/model-reasoning`: sin metadatos no ofrece opciones, null explícito admite los niveles de la pasarela y el razonamiento obligatorio excluye `none`. La caché se guarda fuera del vault e incluye una alternativa verificada de Luna para el primer uso sin conexión. El guardado rechaza opciones incompatibles. Las fábricas del modelo predeterminado y del flujo solo propagan el nivel cuando proveedor y modelo coinciden con el perfil. El razonamiento explícito de OpenRouter y el predeterminado de Luna usan Responses sin estado, `store=false`, historial completo y razonamiento cifrado entre llamadas de herramientas. Se conservan los valores predeterminados de los demás modelos.
+Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opciones de cada modelo de OpenAI y OpenRouter mediante `GET /api/ai/model-reasoning`. Con OpenAI directo, GPT-6.1 Sol y GPT-6.2 Sol admiten `low`, `medium`, `high`, `xhigh` y `max`. Cuando se elige un nivel, Gnosi lo envía a la API Responses con `store=false`.
+
+En OpenRouter, sin metadatos no ofrece opciones, null explícito admite los niveles de la pasarela y el razonamiento obligatorio excluye `none`. La caché se guarda fuera del vault e incluye una alternativa verificada de Luna para el primer uso sin conexión. El guardado rechaza opciones incompatibles. Las fábricas del modelo predeterminado y del flujo solo propagan el nivel cuando proveedor y modelo coinciden con el perfil. El razonamiento explícito de OpenRouter y el predeterminado de Luna usan Responses sin estado, `store=false`, historial completo y razonamiento cifrado entre llamadas de herramientas. Se conservan los valores predeterminados de los demás modelos.
 
 ## Ayuda opcional del equipo
 

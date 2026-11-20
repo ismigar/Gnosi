@@ -330,3 +330,26 @@ test('page and content cards start folded, retain edits, and stay folded after s
     view.unmount();
   }
 });
+
+
+test('customizing a multilingual footer keeps English terms below and Spanish contribution in the middle column', () => {
+  const initial: SiteConfig = { ...base, languages: ['ca', 'es', 'en-gb'], footer: [
+    { label: 'Terms', href: '/en-gb/terms', language: 'en-gb' },
+    { label: 'Privacy Policy', href: '/en-gb/privacy-policy', language: 'en-gb' },
+    { label: 'Cookies Policy', href: '/en-gb/cookies-policy', language: 'en-gb' },
+    { label: 'Col·labora', href: '/ca/collabora', language: 'ca', appearance: 'button' },
+    { label: 'Colabora', href: '/es/colabora', language: 'es', appearance: 'button' },
+    { label: 'Collaborate', href: '/en-gb/collaborate', language: 'en-gb', appearance: 'button' },
+  ] };
+  const view = mountEditor(initial, (site, onChange) => <>
+    <NavigationEditor section="menus" site={site} onChange={onChange} />
+    <FooterEditor site={site} catalogue={[]} onChange={onChange} />
+  </>);
+  const bottom = card(view.container, 'websites.footerBottomLinks');
+  expect([...bottom.querySelectorAll<HTMLInputElement>('input')].map(input => input.value)).toContain('Terms');
+  click(view.container, 'websites.customFooter');
+  const columns = view.savedResponse().footer_columns;
+  expect(columns?.[0]?.blocks?.[0]?.links?.map(link => link.label)).not.toContain('Terms');
+  expect(columns?.[0]?.blocks?.[0]?.links?.map(link => link.label)).not.toContain('Colabora');
+  expect(columns?.[1]?.blocks?.[0]?.links?.map(link => link.label)).toEqual(['Col·labora', 'Colabora', 'Collaborate']);
+});

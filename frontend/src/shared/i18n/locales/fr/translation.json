@@ -3594,6 +3594,8 @@
     "saved": "Enregistré",
     "event_save_error": "Erreur lors de l'envoi de l'événement.",
     "calendar_renamed_success": "Calendrier renommé",
+    "calendar_visibility": "Visibilité de {{name}}",
+    "visibility_save_error": "Impossible d’enregistrer la visibilité du calendrier.",
     "calendar_rename_error": "Erreur lors du renommage du calendrier",
     "error_loading_event_data": "Erreur lors du chargement des données de l'événement.",
     "no_event_selected": "Aucun événement sélectionné.",

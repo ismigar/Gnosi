@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import shutil
+from collections.abc import Iterable
 from html import escape, unescape
 from pathlib import Path
 from typing import Literal, cast
@@ -13,7 +14,7 @@ from urllib.parse import unquote, urlsplit
 from fastapi import HTTPException
 from pydantic import JsonValue
 
-from .models import BundleAsset, CatalogueItem, NavigationLink, PublicRecord, SiteBlock, SiteConfig, SiteFont, SitePage, SiteSource
+from .models import BundleAsset, CatalogueItem, NavigationLink, PublicRecord, SiteBlock, SiteConfig, SiteFont, SitePage, SiteSource, editorial_id
 from .storage import SiteStore, private_json
 
 
@@ -51,7 +52,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
     """Only administrator-bound driver paths can supply an existing public baseline."""
     pilot_root = pilot_root.resolve(strict=True)
     source = pilot_root / "src/data/site.json"
-    if not source.is_file() or not (pilot_root / "scripts/web_publish_driver.py").is_file():
+    if not source.is_file():
         raise HTTPException(409, "The configured public pilot snapshot is unavailable")
     raw = source.read_bytes()
     data = obj(json.loads(raw))
@@ -131,7 +132,10 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
         lang = str(route.get("lang", site.default_language))
         tid = route.get("tid")
         selected = [str(node["uuid"]) for node in nodes if node.get("lang") == lang and any(tag.get("tid") == tid for tag in rows(node.get("tags", [])))]
-        site.pages.append(SitePage(id="tag-" + str(tid) + "-" + lang, translation_id="imported:tag:" + str(tid), title=str(route.get("title", "")), path=str(route["path"]), language=lang, enabled=True, template="listing", blocks=[SiteBlock(type="selected", page_ids=selected, limit=100)]))
+        group = editorial_id(site.id, "tag", str(tid))
+        site.pages.append(SitePage(id="tag-" + group + "-" + lang, translation_id="tag:" + group,
+                                   title=str(route.get("title", "")), path=str(route["path"]), language=lang,
+                                   enabled=True, template="listing", blocks=[SiteBlock(type="selected", page_ids=selected, limit=100)]))
     site.social_links = [NavigationLink(label=name, href=url) for name, url in [
         ("Mastodon", "https://mastodon.social/@temenosismael"), ("LinkedIn", "https://www.linkedin.com/company/temenosismael"),
         ("Facebook", "https://www.facebook.com/temenosismael"), ("Telegram", "https://telegram.me/temenosismael"),
@@ -146,7 +150,7 @@ def seed_import(store: SiteStore, site: SiteConfig, pilot_root: Path) -> None:
 def imported_catalogue(store: SiteStore) -> list[CatalogueItem]:
     result: list[CatalogueItem] = []
     for site in store.list():
-        if not site.legacy_pilot:
+        if not site.legacy_pilot or not any(source.enabled and source.source_id.startswith("imported:") for source in site.sources):
             continue
         result.extend(CatalogueItem(id=source.source_id, kind="page", title=site.name + " · " + source.title) for source in site.sources if source.source_id.startswith("imported:"))
         path = store.site_dir(site.id) / "imported/baseline.json"
@@ -182,14 +186,19 @@ def imported_record_ids(store: SiteStore, site: SiteConfig) -> set[str]:
     return {str(node["uuid"]) for node in rows(obj(payload.get("data", {})).get("nodes", []))}
 
 
-def imported_feed_aliases(store: SiteStore, site: SiteConfig) -> dict[str, str]:
+def project_imported_routes(store: SiteStore, site: SiteConfig, records: Iterable[PublicRecord]) -> dict[str, str]:
+    """Bind public topic links, filter values and feed addresses to the enabled editorial pages."""
     if not site.legacy_pilot:
         return {}
     from .models import safe_path
-    payload = obj(json.loads((store.site_dir(site.id) / "imported/baseline.json").read_text()))
+    baseline_path = store.site_dir(site.id) / "imported/baseline.json"
+    if not baseline_path.is_file():
+        return {}
+    payload = obj(json.loads(baseline_path.read_text()))
     sources = {source.source_id: source for source in site.sources if source.enabled}
     result: dict[str, str] = {}
-    for alias in rows(obj(payload.get("data", {})).get("aliases", [])):
+    data = obj(payload.get("data", {}))
+    for alias in rows(data.get("aliases", [])):
         path = str(alias.get("alias", ""))
         if not path.endswith(".xml"):
             continue
@@ -204,7 +213,40 @@ def imported_feed_aliases(store: SiteStore, site: SiteConfig) -> dict[str, str]:
         destination = "/" + language + (source.path_prefix if source else "/rss") + ".xml"
         for origin in (path, "/" + language + path):
             result[safe_path(origin)] = safe_path(destination)
+    result.update(_project_topic_routes(site, data, records))
     return result
+
+
+def _project_topic_routes(site: SiteConfig, data: dict[str, JsonValue], records: Iterable[PublicRecord]) -> dict[str, str]:
+    topics = {(page.translation_id, page.language): page for page in site.pages if page.enabled and page.template == "listing"}
+    by_term: dict[tuple[str, str], SitePage] = {}
+    by_path: dict[tuple[str, str], str] = {}
+    defaults: dict[str, SitePage] = {}
+    for route in rows(data.get("routes", [])):
+        term = str(route.get("tid", ""))
+        if route.get("kind") != "tag" or not re.fullmatch("[0-9]+", term):
+            continue
+        language = str(route.get("lang", site.default_language))
+        page = topics.get(("tag:" + editorial_id(site.id, "tag", term), language)) or topics.get(("imported:tag:" + term, language))
+        if page:
+            by_term[term, language] = page
+            by_path[page.path, language] = term
+            if term not in defaults or language == site.default_language:
+                defaults[term] = page
+    for record in records:
+        for tag in rows(record.presentation.get("tags", [])):
+            if record.source_order:
+                # The selected native field already supplied its label and current page.
+                filter_value = by_path.get((str(tag.get("path", "")), record.language))
+                if filter_value:
+                    tag["tid"] = filter_value
+            else:
+                # The archived article carries the public filter value at import.
+                page = by_term.get((str(tag.get("tid", "")), record.language))
+                if page:
+                    tag["path"] = page.path
+    return {"/taxonomy/term/" + term + "/feed": page.path + "/feed" for term, page in defaults.items()
+            if page.path != "/" + page.language + "/taxonomy/term/" + term}
 
 
 def merge_imported_bundle(store: SiteStore, site: SiteConfig, public: dict[tuple[str, str], PublicRecord], assets: dict[str, BundleAsset], hashes: dict[str, str], *, excluded: set[tuple[str, str]] | None = None) -> None:

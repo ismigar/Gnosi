@@ -17,10 +17,10 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 368 | 152 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 108 | 66 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 107 | 49 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 108 | 49 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 24 | 0 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 347 | 128 | 0 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 350 | 130 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 70 | 41 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 157 | 58 | 0 |

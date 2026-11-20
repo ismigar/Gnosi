@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 
 from fastapi import HTTPException
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from . import exporter, record_publication
 from .models import Contract, SiteConfig, SiteSource, safe_path
@@ -48,7 +48,7 @@ def _published_reference(store: SiteStore, site: SiteConfig, source: SiteSource)
     return False, published
 
 
-def _preserve_published_paths(reference: dict[tuple[str, str], set[str]], has_active: bool, notes: list[exporter.Note], source: SiteSource, translations: PublicTranslations) -> None:
+def _preserve_published_paths(reference: dict[tuple[str, str], set[str]], has_active: bool, notes: list[exporter.Note], source: SiteSource, translations: PublicTranslations, table: dict[str, JsonValue]) -> None:
     paths: dict[tuple[str, str], str] = {}
     for identity, candidates in reference.items():
         if len(candidates) != 1:
@@ -61,11 +61,10 @@ def _preserve_published_paths(reference: dict[tuple[str, str], set[str]], has_ac
         paths[identity] = path
     by_identity = {exporter._note_identity(note, translations): note for note in notes}
     for identity, expected in paths.items():
-        # Use the exporter's exact path policy. Active release paths take
-        # priority there; before the first release the recovered native path
-        # itself must already agree with the existing publication reference.
+        # Resolve the same registered URL definition used by the exporter;
+        # an explicit table URL takes precedence over a former release path.
         try:
-            projected = exporter._record(by_identity[identity], source, translations, paths if has_active else {}).path
+            projected = exporter._record(by_identity[identity], source, translations, paths if has_active else {}, table).path
         except HTTPException:
             raise HTTPException(409, "Reconcile the native URLs before replacing the imported source") from None
         if projected != expected:
@@ -140,7 +139,7 @@ def bind(store: SiteStore, site: SiteConfig, request: TableBindingRequest) -> Si
         eligible_identities = {key for note in eligible if (key := exporter.publication_identity(note, native_projection, translations)) is not None}
         if published - eligible_identities:
             raise HTTPException(409, "The table filters or privacy settings exclude existing public content; reconcile the selection before replacing the imported source")
-        _preserve_published_paths(published_paths, has_active, eligible, native_projection, translations)
+        _preserve_published_paths(published_paths, has_active, eligible, native_projection, translations, tables[0])
     source.kind = "table"
     source.source_id = request.table_id
     source.path_prefix = request.section

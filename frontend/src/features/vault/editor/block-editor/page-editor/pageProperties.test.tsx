@@ -90,6 +90,15 @@ describe('typed page properties', { timeout: 20_000 }, () => {
     expect(patches()).toEqual([]);
   });
 
+  it('keeps managed page metadata out of local fields without hiding user values', async () => {
+    await mountProperties({ initialMetadata: { ...metadata, description: '', is_dashboard: false, 'User value': 0 } });
+    expect(state().adhocProperties).not.toContain('description');
+    expect(state().adhocProperties).not.toContain('is_dashboard');
+    expect(state().adhocProperties).toContain('User value');
+    expect(state().metadata['User value']).toBe(0);
+    expect(patches()).toEqual([]);
+  });
+
   it('lists local fields in Manage Fields, persists a deletion and keeps the table configuration accessible', async () => {
     const onEditSchema = vi.fn();
     await mountProperties({ onEditSchema, initialMetadata: { ...metadata, Name: 'Property fixture', Subítem: [], 'Local value': 'Keep me' } });

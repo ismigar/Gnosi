@@ -61,8 +61,8 @@ export function useDigitalBrainCalendar(props: DigitalBrainCalendarProps) {
 
   const handleEventMouseEnter = useCallback((info: EventHoveringArg): void => {
     const { event, jsEvent } = info;
-    const { id, readonly, metadata } = calendarEventDetails(event);
-    if (id && !readonly) {
+    const { id, isExternal, readonly, metadata } = calendarEventDetails(event);
+    if (id && !isExternal && !readonly) {
       openHover(id, info.el.getBoundingClientRect());
       return;
     }

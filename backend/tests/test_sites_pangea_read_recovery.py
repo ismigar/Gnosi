@@ -43,7 +43,7 @@ def test_recovers_observed_three_preauth_disconnects_without_manual_refresh(monk
     assert pangea.service(store, site, "test", "status", {}) == {"output": '{"ok":true}'}
     assert waits == [10, 20, 1] and launches == [45, 35, 15, 14]
     assert entered == [True] and all(child.closed for child in children)
-    assert children[-1].sent[:3] == ["synthetic-password", "suweb", "stty -echo"]
+    assert children[-1].sent[:3] == ["synthetic-password", "suweb; exit $?", "stty -echo"]
     assert all(not child.sent for child in children[:-1])
 
 

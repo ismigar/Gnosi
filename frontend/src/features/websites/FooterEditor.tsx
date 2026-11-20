@@ -4,8 +4,8 @@ import { Card, Field, Input, ReorderActions, Select, Disclosure } from './compon
 import { BlocksEditor } from './PagesEditor';
 import { moveItem, newId } from './helpers';
 
-const legal = (link: { label: string; href: string }) => /legal|privac|privaci|galetes|cookies/iu.test(`${link.label} ${link.href}`);
-const collaborate = (link: { label: string; href: string }) => /col.?labora|colaborar|collaborate|support|donat/iu.test(`${link.label} ${link.href}`);
+const legal = (link: { label: string; href: string }) => /legal|terms|privac|privaci|galetes|cookies/iu.test(`${link.label} ${link.href}`);
+const collaborate = (link: { label: string; href: string }) => /col.?labora|colabora|collaborate|support|donat/iu.test(`${link.label} ${link.href}`);
 function block(type: SiteBlock['type']): SiteBlock {
   return { id: newId('footer-block'), type, title: '', body: '', image: '', alt: '', image_position: 'right', columns: 3, limit: 3, href: '', css: '' };
 }

@@ -1,4 +1,4 @@
-"""Reasoning settings reach OpenRouter, including stateless tool round trips."""
+"""Profile reasoning settings reach the selected provider and model."""
 
 import json
 from types import SimpleNamespace
@@ -68,24 +68,54 @@ def test_verified_provider_metadata_survives_offline_restart(monkeypatch):
     assert reasoning.reasoning_options("openrouter", "other/model")["supported_efforts"] == ["low", "high"]
 
 
-def test_settings_validate_and_persist_effort_without_losing_other_agent_fields(tmp_path, monkeypatch):
+@pytest.mark.parametrize(("provider", "model", "effort"), [
+    ("openrouter", LUNA, "medium"),
+    ("openai", "gpt-6.2-sol", "high"),
+])
+def test_settings_validate_and_persist_effort_without_losing_other_agent_fields(tmp_path, monkeypatch, provider, model, effort):
     from backend.domains.configuration.api import settings
     from backend.agent import model_router
 
     monkeypatch.setattr(model_router, "load_registry", lambda: [])
-    agent = {"id": "sources", "provider": "openrouter", "model": LUNA,
-             "reasoning_effort": "medium", "persona": "Preserve sources", "skill_ids": ["search"]}
+    agent = {"id": "sources", "provider": provider, "model": model,
+             "reasoning_effort": effort, "persona": "Preserve sources", "skill_ids": ["search"]}
     payload = {"ai": {"agents": [agent]}}
     merged = {"ai": {"agents": [dict(agent)]}}
     settings._validate_agent_strategies(payload, merged)
     path = tmp_path / "settings.yaml"
     settings._write_config(path, merged)
     assert yaml.safe_load(path.read_text())["ai"]["agents"][0].items() >= agent.items()
-    agent["reasoning_effort"] = "minimal"  # Luna does not support this gateway level.
+    agent["reasoning_effort"] = "minimal"
     with pytest.raises(HTTPException) as error:
         settings._validate_agent_strategies(payload, {"ai": {"agents": [dict(agent)]}})
     assert error.value.status_code == 400
-    assert yaml.safe_load(path.read_text())["ai"]["agents"][0]["reasoning_effort"] == "medium"
+    assert yaml.safe_load(path.read_text())["ai"]["agents"][0]["reasoning_effort"] == effort
+
+
+def test_native_sol_high_uses_the_direct_responses_endpoint(monkeypatch):
+    from backend.domains.agent.llm import get_llm
+    from langchain_openai import ChatOpenAI
+
+    def respond(request):
+        assert str(request.url) == "https://api.openai.com/v1/responses"
+        body = json.loads(request.content)
+        assert body["model"] == "gpt-6.2-sol"
+        assert body["reasoning"] == {"effort": "high"}
+        assert body["store"] is False
+        return httpx.Response(200, json={
+            "id": "resp_test", "object": "response", "created_at": 1, "status": "completed",
+            "model": body["model"], "output": [{"id": "msg_test", "type": "message",
+                "role": "assistant", "content": [{"type": "output_text", "text": "Done", "annotations": []}]}],
+        })
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        monkeypatch.setattr("langchain_openai.ChatOpenAI", lambda **kwargs: ChatOpenAI(http_client=client, **kwargs))
+        llm = get_llm("openai", "gpt-6.2-sol", api_key="test-key", reasoning_effort="high")
+        assert llm is not None
+        assert llm.invoke([HumanMessage(content="Read this passage.")]).text == "Done"
+
+    with pytest.raises(ValueError):
+        reasoning.reasoning_client_kwargs("openai", "unlisted-model", "high")
 
 
 @pytest.mark.parametrize("provider,model,expected", [

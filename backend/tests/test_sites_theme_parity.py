@@ -163,7 +163,8 @@ def test_article_byline_follows_image_and_tags_follow_body(imported_pilot, tmp_p
     output = tmp_path / 'public'
     render_bundle(bundle, output)
     for language, heading, byline in [('ca', 'Etiquetes', 'Escrit per'), ('es', 'Etiquetas', 'Escrito por'), ('en-gb', 'Tags', 'Written by')]:
-        page = BeautifulSoup((output / language / 'articles/translated/index.html').read_text(), 'html.parser')
+        path = next(record['path'] for record in bundle['records'] if record['language'] == language and record['presentation'].get('kind') == 'article')
+        page = BeautifulSoup((output / path.lstrip('/') / 'index.html').read_text(), 'html.parser')
         body = page.select_one('main > .record-body')
         assert [tag.name for tag in body.find_all(recursive=False)] == ['figure', 'p', 'p']
         assert body.figure.figcaption.get_text() == 'Image caption'
@@ -224,27 +225,31 @@ def test_footer_networks_use_packaged_icons_tooltips_and_localized_visibility(im
         assert tooltip['role'] == 'tooltip' and tooltip.text == link['aria-label']
 
 
-def test_default_footer_contains_newsletter_and_groups_legal_links_after_copyright(imported_pilot, tmp_path):
+@pytest.mark.parametrize('language,legal_labels,contribution,map_label', [
+    ('ca', ['Avís legal', 'Política de privacitat', 'Política de galetes'], 'Col·labora', 'Mapa del web'),
+    ('es', ['Aviso legal', 'Política de privacidad', 'Política de cookies'], 'Colabora', 'Mapa del sitio'),
+    ('en-gb', ['Terms', 'Privacy Policy', 'Cookies Policy'], 'Collaborate', 'Sitemap'),
+])
+def test_default_footer_contains_newsletter_and_groups_legal_links_after_copyright(imported_pilot, tmp_path, language, legal_labels, contribution, map_label):
     store, site, _, _ = imported_pilot
     from backend.domains.sites.models import NavigationLink
-    site.footer = [
-        NavigationLink(label='Avís legal', href='/ca/legal', language='ca'),
-        NavigationLink(label='Política de privacitat', href='/ca/privacy', language='ca'),
-        NavigationLink(label='Política de galetes', href='/ca/cookies', language='ca'),
-        NavigationLink(label='Col·labora', href='/ca/collabora', language='ca'),
-    ]
+    paths = ['terms', 'privacy-policy', 'cookies-policy'] if language == 'en-gb' else ['legal', 'privacy', 'cookies']
+    site.footer = [NavigationLink(label=label, href=f'/{language}/{path}', language=language)
+                   for label, path in zip(legal_labels, paths)]
+    site.footer.append(NavigationLink(label=contribution, href=f'/{language}/colabora', language=language, appearance='button'))
     output = tmp_path / 'default-footer'
     render_bundle(build_bundle(store, site, 'local').model_dump(mode='json'), output)
-    home = BeautifulSoup((output / 'ca/index.html').read_text(), 'html.parser')
+    home = BeautifulSoup((output / language / 'index.html').read_text(), 'html.parser')
     footer = home.select_one('footer.site-footer')
     assert footer.select_one('.newsletter form') is not None
     columns = footer.select('.footer-column')
     assert len(columns) == 3
-    assert [link.text for link in columns[0].select('a')] == ['Mapa del web', 'RSS']
-    assert columns[1].select_one('a').text == 'Col·labora'
+    assert [link.text for link in columns[0].select('a')] == [map_label, 'RSS']
+    assert columns[1].select_one('a').text == contribution
     bottom = footer.select_one('.footer-bottom')
     assert bottom.select_one('.footer-credit') is not None
-    assert [link.text for link in bottom.select('.footer-legal a')] == ['Avís legal', 'Política de privacitat', 'Política de galetes']
+    assert [link.text for link in bottom.select('.footer-legal a')] == legal_labels
+    assert all(not link.get('class') for link in bottom.select('.footer-legal a'))
 
 
 def test_custom_footer_blocks_export_assets_and_keep_widget_ids_distinct(imported_pilot, tmp_path):

@@ -1419,7 +1419,9 @@ Après un changement de plugin, les caches de configuration sont invalidés et l
 
 ## Niveau de raisonnement
 
-Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les choix exacts d’OpenRouter via `GET /api/ai/model-reasoning` : des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
+Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les niveaux de chaque modèle OpenAI ou OpenRouter via `GET /api/ai/model-reasoning`. Avec OpenAI en accès direct, GPT-6.1 Sol et GPT-6.2 Sol prennent en charge `low`, `medium`, `high`, `xhigh` et `max`. Lorsqu’un niveau est choisi, Gnosi le transmet à l’API Responses avec `store=false`.
+
+Chez OpenRouter, des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
 
 ## Aide facultative de l’équipe
 

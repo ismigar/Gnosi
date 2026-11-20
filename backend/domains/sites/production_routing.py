@@ -1,4 +1,4 @@
-"""Reviewed root routing for a retained Drupal-to-Webs cutover.
+"""Reviewed root routing for native website releases.
 
 This module generates artifacts; it never connects to a server or changes routing.
 The operator must bind activation to the verified release and backup receipts.
@@ -15,7 +15,7 @@ def root_htaccess(namespace: str, withdrawn: list[str] | None = None) -> str:
             raise ValueError("Invalid withdrawn public route")
         gone.append("RewriteRule ^" + re.escape(path.lstrip("/")) + "/?$ - [G,END]")
     return "\n".join([
-        "# Gnosi production routing; Drupal retained for verified rollback.",
+        "# Gnosi production routing for verified website releases.",
         "Options -Indexes -MultiViews +FollowSymLinks",
         "DirectoryIndex index.html",
         'AddDefaultCharset UTF-8',

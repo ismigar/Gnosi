@@ -76,7 +76,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
   const registryEmpty = grouped.size === 0;
   const [reasoning, setReasoning] = useState<{ key: string; options: AiModelReasoning } | null>(null);
   useEffect(() => {
-    if (provider !== 'openrouter' || !model) return;
+    if (!model || (provider !== 'openai' && provider !== 'openrouter')) return;
     const controller = new AbortController();
     void fetchAiModelReasoning(provider, model, controller.signal).then(options => {
       if (!controller.signal.aborted) setReasoning({ key: selectedKey, options });

@@ -82,6 +82,61 @@ afterEach(async () => {
 });
 
 describe('calendar source continuity', () => {
+    it('keeps two sibling calendars hidden through rapid toggles, late discovery and reopening', async () => {
+        const account = 'google@example.test';
+        const eventsFor = (names: string[]) => names.map(name => ({ ...externalEvent('google'), account,
+            title: name, id: name, calendar_id: name, calendar_name: name, source: account + ' - ' + name }));
+        const foundation = account + ' - Foundation';
+        const moon = account + ' - Moon';
+        let saved = { ...settings };
+        api.fetchIntegrations.mockImplementation(() => Promise.resolve(saved));
+        api.fetchCalendarEvents.mockResolvedValue(eventsFor(['Foundation', 'Moon', 'Other']));
+        const firstWrite = deferred<boolean>();
+        api.updateCalendarSelection.mockImplementation(async (preference: IntegrationsDocument['calendar_selection']) => {
+            await firstWrite.promise;
+            saved = { ...saved, calendar_selection: preference };
+            return { status: 'success' };
+        });
+        await mount();
+        await ready(() => { expect(current.selectedCalendars).toContain(moon); });
+        await update(() => { current.toggleCalendar(foundation); current.toggleCalendar(moon); });
+        expect(current.selectedCalendars).not.toContain(foundation);
+        expect(current.selectedCalendars).not.toContain(moon);
+        expect(api.updateCalendarSelection).toHaveBeenCalledTimes(1);
+        await update(() => { firstWrite.resolve(true); });
+        await ready(() => { expect(api.updateCalendarSelection).toHaveBeenCalledTimes(2); });
+        await update(() => { root.render(null); });
+        client.clear();
+        api.fetchCalendarEvents.mockResolvedValue(eventsFor(['Foundation', 'Moon', 'Other', 'New']));
+        await mount();
+        await ready(() => { expect(current.selectedCalendars).toContain(account + ' - New'); });
+        expect([...current.selectedCalendars].sort()).toEqual(['Appointments', account, account + ' - New', account + ' - Other'].sort());
+        await update(() => { current.toggleCalendar(foundation); });
+        expect(current.selectedCalendars).toContain(foundation);
+        expect(current.selectedCalendars).not.toContain(moon);
+    });
+
+    it('restores an explicitly empty visible calendar after reopening and rolls back a failed save', async () => {
+        let saved: IntegrationsDocument = { ...settings, calendar_selection: ['Appointments'] };
+        api.fetchIntegrations.mockImplementation(() => Promise.resolve(saved));
+        api.updateCalendarSelection.mockImplementation((preference: IntegrationsDocument['calendar_selection']) => {
+            saved = { ...saved, calendar_selection: preference };
+            return Promise.resolve({ status: 'success' });
+        });
+        await mount();
+        await ready(() => { expect([...current.selectedCalendars]).toEqual(['Appointments']); });
+        await update(() => { current.toggleCalendar('Appointments'); });
+        await update(() => { root.render(null); });
+        client.clear();
+        await mount();
+        await ready(() => { expect(current.loading).toBe(false); });
+        expect(current.selectedCalendars.size).toBe(0);
+        api.updateCalendarSelection.mockRejectedValueOnce(new Error('save failed'));
+        await update(() => { current.toggleCalendar('Appointments'); });
+        await ready(() => { expect(notices.error).toHaveBeenCalledWith('calendar.visibility_save_error'); });
+        expect(current.selectedCalendars.size).toBe(0);
+    });
+
     it('keeps a complete snapshot through partial and failed refreshes, including reopening', async () => {
         await mount();
         await ready(() => { expect(current.loading).toBe(false); expect(current.pages).toHaveLength(1); });
@@ -119,6 +174,9 @@ describe('calendar source continuity', () => {
         await ready(() => { expect(current.localSourcesError).toBe(true); });
         expect(current.loading).toBe(false);
         expect(current.pages[0]?.title).toBe('Local appointment');
+        await update(() => { current.toggleCalendar('Appointments'); });
+        expect(api.updateCalendarSelection).not.toHaveBeenCalled();
+        expect(notices.error).toHaveBeenCalledWith('calendar.visibility_save_error');
         expect(client.getQueryData(calendarQueryKeys.localSources())).toBeUndefined();
         expect(notices.error).toHaveBeenCalledWith('calendar.partial_data_warning');
         await update(async () => { await current.fetchPages(); });

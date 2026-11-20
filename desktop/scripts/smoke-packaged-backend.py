@@ -59,8 +59,8 @@ def probe_environment(root: Path, port: int, identity: str,
     return environment
 
 
-def health_matches(port: int, identity: str, timeout: float) -> bool:
-    """Accept only our nonce-bearing health payload, without proxies/redirects."""
+def endpoint_matches(port: int, path: str, expected: Mapping[str, object], timeout: float) -> bool:
+    """Check a bounded JSON response directly, without proxies or redirects."""
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     deadline = time.monotonic() + timeout
     timer: threading.Timer | None = None
@@ -81,7 +81,7 @@ def health_matches(port: int, identity: str, timeout: float) -> bool:
         timer = threading.Timer(max(0, deadline - time.monotonic()), interrupt)
         timer.daemon = True
         timer.start()
-        connection.request("GET", "/api/health", headers={"Connection": "close"})
+        connection.request("GET", path, headers={"Connection": "close"})
         response = connection.getresponse()
         if response.status != 200:
             return False
@@ -89,9 +89,7 @@ def health_matches(port: int, identity: str, timeout: float) -> bool:
         if len(raw) > 4096:
             return False
         payload = json.loads(raw)
-        return (isinstance(payload, dict) and payload.get("status") == "ok"
-                and payload.get("mode") == "FastAPI"
-                and payload.get("gnosi_mode") == identity)
+        return isinstance(payload, dict) and all(payload.get(key) == value for key, value in expected.items())
     except (OSError, http.client.HTTPException, ValueError, UnicodeError):
         return False
     finally:
@@ -99,6 +97,10 @@ def health_matches(port: int, identity: str, timeout: float) -> bool:
             timer.cancel()
             timer.join()
         connection.close()
+
+
+def health_matches(port: int, identity: str, timeout: float) -> bool:
+    return endpoint_matches(port, "/api/health", {"status": "ok", "mode": "FastAPI", "gnosi_mode": identity}, timeout)
 
 
 def stop_process(process: subprocess.Popen[bytes]) -> None:
@@ -139,6 +141,12 @@ def verify_backend(executable: Path) -> None:
                     if remaining <= 0:
                         raise RuntimeError("Packaged backend did not become healthy before timeout")
                     if health_matches(port, identity, min(1.0, remaining)):
+                        if process.poll() is not None:
+                            break
+                        if not endpoint_matches(port, "/api/vault/handwriting/status",
+                                                {"available": True, "state": "not_downloaded", "loaded": False},
+                                                max(0.001, deadline - time.monotonic())):
+                            raise RuntimeError("Packaged handwriting engine failed its offline readiness check")
                         if process.poll() is not None:
                             break
                         return
