@@ -116,6 +116,8 @@ async def _opening_events(
         )
     )
     if should_clarify:
+        state.mark_response()
+        state.answer_count += 1
         content = clarification_message(
             interpretation,
             state.turn_plan.get("language", "ca"),
@@ -138,23 +140,13 @@ async def _opening_events(
                         "role": "ai",
                         "content": content,
                         "node": "semantic_interpreter",
+                        "timings": {"response_ms": state.response_ms},
                     },
                     ensure_ascii=False,
                 )
                 + "\n",
-                json.dumps(state.metrics_payload()) + "\n",
-                json.dumps(
-                    {
-                        "type": "done",
-                        "trace_id": state.trace_id,
-                        "has_response": True,
-                        "message_count": 1,
-                    }
-                )
-                + "\n",
             ]
         )
-        state.metrics_emitted = True
         return events, True
 
     deterministic_confirmation = None if coordinated else await asyncio.to_thread(
@@ -162,23 +154,9 @@ async def _opening_events(
         chat_req.message,
     )
     if deterministic_confirmation:
+        state.mark_response()
         state.answer_count += 1
-        events.extend(
-            [
-                json.dumps(deterministic_confirmation, ensure_ascii=False) + "\n",
-                json.dumps(state.metrics_payload()) + "\n",
-                json.dumps(
-                    {
-                        "type": "done",
-                        "trace_id": state.trace_id,
-                        "has_response": True,
-                        "message_count": state.answer_count,
-                    }
-                )
-                + "\n",
-            ]
-        )
-        state.metrics_emitted = True
+        events.append(json.dumps(deterministic_confirmation, ensure_ascii=False) + "\n")
         return events, True
 
     events.extend(
@@ -239,21 +217,19 @@ async def stream_agent_events(
         )
         for event in opening_events:
             yield event
-        if terminal:
-            return
-
-        async for event in iter_workflow_events(
-            state=state,
-            turn_timeout_seconds=turn_timeout_seconds,
-            untrusted_context_flags=untrusted_context_flags,
-            turn_lock=turn_lock,
-            db_path=db_path,
-            workflow=workflow,
-            inputs=inputs,
-            config=config,
-        ):
-            yield event
-        state.usage_recorded = True  # Recorded at the shared model boundary.
+        if not terminal:
+            async for event in iter_workflow_events(
+                state=state,
+                turn_timeout_seconds=turn_timeout_seconds,
+                untrusted_context_flags=untrusted_context_flags,
+                turn_lock=turn_lock,
+                db_path=db_path,
+                workflow=workflow,
+                inputs=inputs,
+                config=config,
+            ):
+                yield event
+            state.usage_recorded = True  # Recorded at the shared model boundary.
         yield json.dumps(state.metrics_payload()) + "\n"
         state.metrics_emitted = True
         yield (
