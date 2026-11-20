@@ -202,9 +202,9 @@ def _read_export_page(
         return None
     from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
 
-    folder_index = build_table_folder_index(dict(dependencies.load_registry()))
+    folder_index = build_table_folder_index({key: value for key, value in dependencies.load_registry().items()})
     relative_folder = str(resolved.parent.relative_to(root)) if root and resolved.is_relative_to(root) else ""
-    current_table = resolve_table_id_from_context(dict(metadata), relative_folder, folder_index)
+    current_table = resolve_table_id_from_context({key: value for key, value in metadata.items()}, relative_folder, folder_index)
     return metadata if current_table == table_id else None
 
 

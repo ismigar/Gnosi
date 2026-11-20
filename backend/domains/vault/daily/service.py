@@ -251,23 +251,23 @@ async def list_notes(dependencies: DailyNotesDependencies) -> list[DailyNote]:
     if daily_directory.exists():
         for file_path in daily_directory.glob("*.md"):
             try:
-                metadata = dependencies.cached_metadata(file_path)
-                if metadata is None:
+                file_metadata = dependencies.cached_metadata(file_path)
+                if file_metadata is None:
                     if is_cloud_placeholder(file_path, file_path.stat()):
                         continue
-                    metadata, _body = dependencies.parse_frontmatter(
+                    file_metadata, _body = dependencies.parse_frontmatter(
                         file_path.read_text(encoding="utf-8"), file_path,
                     )
             except Exception:
                 continue
-            if str(metadata.get("note_type") or "").lower() != "daily":
+            if str(file_metadata.get("note_type") or "").lower() != "daily":
                 continue
-            date = str(metadata.get("date") or file_path.stem)
+            date = str(file_metadata.get("date") or file_path.stem)
             notes.append(
                 {
-                    "id": str(metadata.get("id") or ""),
+                    "id": str(file_metadata.get("id") or ""),
                     "date": date,
-                    "title": metadata.get("title") or date,
+                    "title": file_metadata.get("title") or date,
                 }
             )
     notes.sort(key=lambda note: str(note["date"]), reverse=True)
