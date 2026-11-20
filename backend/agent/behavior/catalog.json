@@ -66,6 +66,11 @@
       "owner": "ai-platform",
       "name": "Learn and evaluate skills",
       "instructions": "operations/learning/SKILL.md"
+    },
+    "reading-review": {
+      "owner": "llm-wiki",
+      "name": "Source-grounded reading review",
+      "instructions": "operations/reading-review/SKILL.md"
     }
   }
 }

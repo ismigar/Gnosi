@@ -16,7 +16,7 @@ afterEach(() => { act(() => { root.unmount(); }); vi.unstubAllGlobals(); });
 it.each(['custom', 'principal', 'llm-wiki', ''])('uses the principal reference despite legacy selection %s', agentId => {
     const select = vi.fn();
     act(() => { root.render(<LlmWikiAgentSettings agentId={agentId} agents={[]} busy={false} onSelect={select} />); });
-    expect(host.textContent).toBe('knowledge');
+    expect(host.textContent).toBe('knowledgereading-review');
     expect(host.querySelector('select')).toBeNull();
     expect(select).not.toHaveBeenCalled();
 });

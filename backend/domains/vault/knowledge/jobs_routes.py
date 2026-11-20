@@ -67,6 +67,8 @@ class LlmWikiBudgetResponse(BaseModel):
 
 
 class LlmWikiEstimateResponse(BaseModel):
+    review_provider: str | None = None
+    review_model: str | None = None
     estimate_id: str
     provider: str
     model: str

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
 from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
 from backend.domains.llm_wiki.semantic_context import state_progress
-from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, resume_semantic_state
+from backend.domains.llm_wiki.reading_identity import job_identity, reading_identity, identity_parts, resume_semantic_state
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
@@ -34,7 +35,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
                 fingerprint([runtime.identity, chunks, dimensions, index]))
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
     parts = identity_parts(runtime.identity, chunks, dimensions, index) if semantic else {}
-    saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language, parts)
+    saved, previous_plans = _saved_state(previous, identity, semantic, force, source_title, language, parts,
+                                         getattr(runtime, "compatible_legacy_revision", None))
     count, token_method = reading_price_counter(runtime.provider, runtime.model)
     batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
@@ -68,6 +70,62 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         input_bound = 2*passages + repeated + 2*restore_input
         output_assumed = sum(count(encoded(chunk)) for chunk in remaining)//2 + 512*calls
         output_bound = 16384*calls
+    rates = _rates(runtime)
+    low, high, flex = _quote(runtime, rates, semantic, input_bound, output_assumed, output_bound, semantic_cost)
+    priced = rates is not None
+    review_fields = {}
+    if semantic:
+        from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
+        reviewer = prepare_review_runtime(vault_root, runtime.snapshot)
+        review_rates = _rates(reviewer)
+        from backend.domains.llm_wiki.independent_review import sample_passages
+        sampled = sample_passages(chunks) | set(saved.get("flagged_passages", []))
+        if saved.get("independent_revision") == reviewer.identity:
+            sampled.difference_update(saved.get("independent_reviews", {}))
+        # An extraction batch can flag one additional passage. Price that allowance
+        # separately from the distributed sample, including a final synthesis.
+        remaining_segments = sum(len(records(c.get("segments"))) for c in remaining)
+        possible_flags = min(semantic_cost["phase_calls"]["interpretation"], remaining_segments)
+        passages = sum(len(records(c.get("segments"))) for c in chunks)
+        completed = saved.get("independent_revision") == reviewer.identity and saved.get("independent_synthesis")
+        review_calls = min(passages, len(sampled) + possible_flags) + int(not completed)
+        review_count, _ = reading_price_counter(reviewer.provider, reviewer.model)
+        typical_passage = max(1, sum(review_count(encoded(segment)) for chunk in chunks for segment in records(chunk.get("segments")))
+                              // max(1, sum(len(records(c.get("segments"))) for c in chunks)))
+        review_input = review_calls * (review_count(runtime.instructions) + review_count(reviewer.instructions) +
+                                       6 * typical_passage + 4096)
+        review_output = 768 * review_calls
+        review_bound = 16384 * review_calls
+        review_low, review_high, _ = _quote(reviewer, review_rates, True, review_input, review_output, review_bound, {})
+        low = low + review_low if low is not None and review_low is not None else None
+        high = high + review_high if high is not None and review_high is not None else None
+        priced = priced and review_rates is not None
+        calls += review_calls
+        input_bound += review_input
+        output_assumed += review_output
+        output_bound += review_bound
+        semantic_cost["phase_calls"]["independent_review"] = review_calls
+        review_fields = {"review_provider": reviewer.provider, "review_model": reviewer.model}
+        identity = job_identity(identity, reviewer.identity)
+    budget = None
+    if not force and previous.get("budget_id"):
+        budget = reading_budget.status(str(previous["budget_id"]))
+    return {**semantic_cost, **review_fields, "_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high, flex]),
+            "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
+            "processing_tier": "flex" if flex else "default",
+            "display_currency": currency_context(),
+            "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
+            "cost_out_per_million_usd": rates["cost_out"] if priced and rates else None,
+            "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
+            "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
+            "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
+            "source_token_bound": source_tokens, "token_count_method": token_method, "input_token_bound": input_bound,
+            "output_tokens_assumed": output_assumed, "output_token_bound": output_bound,
+            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings}
+
+
+
+def _rates(runtime: Any) -> dict[str, Any] | None:
     from backend.agent.model_catalog import catalog_model_cost
     from backend.agent.model_router import load_registry
     rates = catalog_model_cost(runtime.provider, runtime.model)
@@ -79,10 +137,15 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         rates = {"cost_in": 0, "cost_out": 0}
     from backend.services.ai_usage_ledger import decimal_cost
     priced = bool(rates and decimal_cost(rates.get("cost_in")) is not None and decimal_cost(rates.get("cost_out")) is not None)
+    return rates if priced else None
+
+
+def _quote(runtime: Any, rates: Any, semantic: bool, input_bound: int, output_assumed: int,
+           output_bound: int, evidence: dict[str, Any]) -> tuple[float | None, float | None, bool]:
     low = high = None
     from backend.services.reading_performance import eligible
     flex = eligible(runtime.provider, runtime.model) and getattr(runtime, "cost_optimization", True)
-    if priced and rates:
+    if rates:
         multiplier = 0.5 if flex else 1.0
         # Hits depend on actual provider cache reuse. Forecast no hits and
         # include the 30-minute write premium instead of promising a discount.
@@ -90,33 +153,20 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         output_rate = float(rates["cost_out"]) * multiplier
         low = (input_bound*input_rate+output_assumed*output_rate)/1_000_000
         # Include bounded evidence rounds as well as each call's format repair.
-        repair_input = input_bound + semantic_cost.get("evidence_input_token_bound", 0)
-        repair_output = output_bound + semantic_cost.get("evidence_output_token_bound", 0)
+        repair_input = input_bound + evidence.get("evidence_input_token_bound", 0)
+        repair_output = output_bound + evidence.get("evidence_output_token_bound", 0)
         high_in = float(rates["cost_in"]) * (1.25 if flex else 1)
         high_out = float(rates["cost_out"])
         if flex and runtime.input_budget > 272_000:
             high_in *= 2
             high_out *= 1.5
         high = (2 if semantic else 3)*(repair_input*high_in+repair_output*high_out)/1_000_000*1.10
-    budget = None
-    if not force and previous.get("budget_id"):
-        budget = reading_budget.status(str(previous["budget_id"]))
-    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high, flex]),
-            "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
-            "processing_tier": "flex" if flex else "default",
-            "display_currency": currency_context(),
-            "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
-            "cost_out_per_million_usd": rates["cost_out"] if priced and rates else None,
-            "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
-            "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
-            "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
-            "source_token_bound": source_tokens, "token_count_method": token_method, "input_token_bound": input_bound,
-            "output_tokens_assumed": output_assumed, "output_token_bound": output_bound,
-            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings, **semantic_cost}
+    return low, high, flex
 
 
 def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force: bool,
-                 source_title: str, language: str, parts: dict[str, str] | None = None) -> tuple[dict[str, Any], int]:
+                 source_title: str, language: str, parts: dict[str, str] | None = None,
+                 legacy_revision: Callable[[str], str] | None = None) -> tuple[dict[str, Any], int]:
     saved: dict[str, Any] = {}
     previous_plans = 0
     if not force and previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
@@ -128,7 +178,8 @@ def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force:
             if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
                 previous_plans = max(previous_plans, len(checkpoint["plans"]))
             if semantic:
-                checkpoint = resume_semantic_state(checkpoint, identity, parts or {}, fingerprint([source_title, language]))
+                checkpoint = resume_semantic_state(checkpoint, identity, parts or {}, fingerprint([source_title, language]),
+                                                  (lambda: legacy_revision(job_id)) if legacy_revision else None)
             if (isinstance(checkpoint, dict) and checkpoint.get("identity") == identity
                     and (not semantic or (checkpoint.get("engine") == 2
                          and checkpoint.get("reading_context") == fingerprint([source_title, language])))):

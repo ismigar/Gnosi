@@ -42,9 +42,6 @@ def operation_origin() -> ExecutionOrigin:
 
 
 def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None = None) -> AgentExecutionSnapshot:
-    from backend.services.agent_skill_catalog import resolve_agent_runtime
-    from backend.services.principal_agent_migration import ensure_migrated
-
     requested_skill = selected_skill
     if selected_skill.startswith("user."):
         from backend.services.agent_skill_catalog import get_skill_catalog
@@ -65,6 +62,30 @@ def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None 
             return select_snapshot_skill(inherited, selected_skill)
         if selected_skill not in inherited.skill_instructions and selected_skill not in inherited.skill_ids:
             raise PermissionError("agent_execution_scope_or_skill_mismatch")
+    snapshot = _prepare_bound_snapshot(selected_skill, requested_skill, active_skill_ids)
+    if inherited is not None:
+        snapshot = snapshot.model_copy(update={"parent_run_id": _run.get() or inherited.parent_run_id})
+    return snapshot
+
+
+def prepare_reading_reviewer(reader: AgentExecutionSnapshot) -> AgentExecutionSnapshot:
+    """The authorized source job owns this fixed second stage and its parent run."""
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_operation_catalog import skill_id
+
+    if reader.scope != current_scope() or SKILL_ID not in reader.skill_ids:
+        raise PermissionError("agent_execution_scope_or_skill_mismatch")
+    selected = skill_id("reading-review")
+    snapshot = _prepare_bound_snapshot(selected, selected, [selected])
+    if snapshot.agent_id == reader.agent_id:
+        raise ValueError("reading_reviewer_must_be_independent")
+    return snapshot.model_copy(update={"parent_run_id": reader.parent_run_id})
+
+
+def _prepare_bound_snapshot(selected_skill: str, requested_skill: str,
+                            active_skill_ids: list[str] | None) -> AgentExecutionSnapshot:
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from backend.services.principal_agent_migration import ensure_migrated
     scope = current_scope()
     ai = ensure_migrated()
     from backend.services.plugin_ai_contributions import reconcile_plugin_ai_contributions
@@ -78,10 +99,7 @@ def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None 
         raise RuntimeError(f"agent_skill_unavailable:{selected_skill}")
     if requested_skill != selected_skill and not any(entry.descriptor.metadata.get("effective_skill_id") == requested_skill for entry in runtime.skills):
         raise RuntimeError(f"agent_skill_override_unassigned:{requested_skill}")
-    snapshot = snapshot_from_runtime(scope, profile, runtime)
-    if inherited is not None:
-        snapshot = snapshot.model_copy(update={"parent_run_id": _run.get() or inherited.parent_run_id})
-    return snapshot
+    return snapshot_from_runtime(scope, profile, runtime)
 
 
 def snapshot_from_runtime(scope: Any, profile: dict[str, Any], runtime: Any) -> AgentExecutionSnapshot:
@@ -434,6 +452,10 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
     )
     if workflow is None:
         raise RuntimeError("principal_agent_model_unavailable")
+    if request.operation == "knowledge.process-source.phase" and request.options.get("reading_pinned"):
+        if (selection.get("provider") != snapshot.profile.get("provider") or
+                selection.get("model") != snapshot.profile.get("model") or selection.get("fallbacks")):
+            raise RuntimeError("reading_profile_route_changed")
     return workflow.compile(), selection
 
 

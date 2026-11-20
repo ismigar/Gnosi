@@ -736,6 +736,8 @@ makes a handler executable.
 
 Knowledge uses its dedicated plugin profile. The historical `agent_id` setting is preserved but does not override the plugin profile. The old managed `llm-wiki` profile remains retired; the new profile retains migrated Knowledge companion instructions. Settings link to the plugin profile and its skills.
 
+Activating Knowledge creates two editable bot profiles. Knowledge reads the entire resource and checks its drafts. Its initial model is GPT-5.6 Luna. Reading reviewer uses GPT-6.2 Sol at medium reasoning to check selected originals for omissions and misattribution, then produces the final synthesis. Gnosi samples each section and includes passages flagged during extraction. Both agents use the spending limit shown before processing. Each completed review is saved so an interrupted review can resume.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.

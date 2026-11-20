@@ -55,6 +55,14 @@ class ApplyPlan(Protocol):
     ) -> dict[str, list[str]]: ...
 
 
+class ReviewRuntime(Protocol):
+    input_budget: int
+    @property
+    def identity(self) -> str: ...
+    def count_tokens(self, text: str) -> int: ...
+    def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]: ...
+
+
 @dataclass(frozen=True)
 class IngestionPhases:
     reading: str
@@ -105,6 +113,9 @@ class IngestionDependencies:
     clock: Callable[[], float]
     logger: logging.Logger
     phases: IngestionPhases
+    reviewer: ReviewRuntime | None = None
+    reader_instructions: str = ""
+    legacy_reader_revision: Callable[[str], str] | None = None
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
     generate_prose: Callable[[str, Callable[[str], str], int], tuple[str, str]] | None = None
     resume_candidates: Callable[[str], list[str]] | None = None
@@ -178,14 +189,17 @@ def process_resource(
         resolved_config,
         metadata,
     )
-    from backend.domains.llm_wiki.reading_identity import reading_identity
+    from backend.domains.llm_wiki.reading_identity import job_identity, reading_identity
     identity = (reading_identity(dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index)
                 if dependencies.semantic_reading else fingerprint([dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index]))
+    review_revision = dependencies.reviewer.identity if dependencies.reviewer else ""
+    identity = job_identity(identity, review_revision)
     if dependencies.expected_reading_identity and dependencies.expected_reading_identity != identity:
         raise RuntimeError("reading_estimate_changed")
     reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
                                     source_dimensions, ai_dimensions, brain_index, sources.chunks,
                                     [document_key(origin) for origin in sources.origins]])
+    reading_revision = job_identity(reading_revision, review_revision)
     plan, models = _resolve_plan(
         source_title,
         language,

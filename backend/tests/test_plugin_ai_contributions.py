@@ -180,3 +180,25 @@ def test_tool_effects_are_derived_from_per_tool_permissions():
     }
     assert policy["minimum_role"] == "editor"
     assert policy["confirmation"].value == "explicit_request"
+
+
+def test_knowledge_enablement_reconciles_both_profiles_to_durable_settings(monkeypatch, tmp_path):
+    from backend.services import builtin_plugins
+    state, _ = builtin_plugins.normalize_state({})
+    params = {"ai": {"agents": [{"id": "personal", "enabled": True}], "active_agent_id": "personal"}}
+    _, params_path = _install_runtime(monkeypatch, tmp_path, state, params)
+    def profiles_on_disk():
+        return {agent["id"]: agent for agent in yaml.safe_load(params_path.read_text())["ai"]["agents"]
+                if agent.get("managed_by") == "builtin:llm-wiki"}
+    contributions.reconcile_plugin_ai_contributions()
+    assert profiles_on_disk() == {}
+    state.update(builtin_plugins.set_enabled(state, "llm-wiki", True))
+    contributions.reconcile_plugin_ai_contributions()
+    saved = profiles_on_disk()
+    assert {p["model"] for p in saved.values()} == {"gpt-5.6-luna", "gpt-6.2-sol"}
+    state.update(builtin_plugins.set_enabled(state, "llm-wiki", False))
+    contributions.reconcile_plugin_ai_contributions()
+    assert all(p["plugin_suspended"] for p in profiles_on_disk().values())
+    state.update(builtin_plugins.set_enabled(state, "llm-wiki", True))
+    contributions.reconcile_plugin_ai_contributions()
+    assert set(saved) == set(profiles_on_disk()) and all(not p["plugin_suspended"] for p in profiles_on_disk().values())

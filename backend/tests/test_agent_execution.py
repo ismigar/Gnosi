@@ -1439,3 +1439,24 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
         assert sent[0 if primary_retry or first_server or connection_retry else 1].content == sent[-1].content
     assert waits == ([5.0] if primary_retry or connection_retry or mode == 'actual_operation_raw_server_retry' else [])
     assert request.max_model_calls == 2 and request.timeout_seconds == 300
+
+
+@pytest.mark.parametrize("actual,allowed", [
+    ({"provider": "openai", "model": "gpt-6.2-sol", "fallbacks": []}, True),
+    ({"provider": "other", "model": "gpt-6.2-sol", "fallbacks": []}, False),
+    ({"provider": "openai", "model": "other", "fallbacks": []}, False),
+    ({"provider": "openai", "model": "gpt-6.2-sol", "fallbacks": [{"model": "other"}]}, False),
+])
+def test_book_phase_checks_the_actual_model_before_any_paid_call(runtime, monkeypatch, actual, allowed):
+    _, snapshot = runtime
+    snapshot = snapshot.model_copy(update={"profile": {**snapshot.profile, "provider": "openai", "model": "gpt-6.2-sol"}})
+    async def workflow(*args, **kwargs):
+        return SimpleNamespace(compile=lambda: "compiled"), actual
+    monkeypatch.setattr("backend.agent.factory.create_agent_workflow", workflow)
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="knowledge.process-source.phase",
+                             input="source", options={"reading_pinned": True})
+    if allowed:
+        assert asyncio.run(execution._operation_application(request, snapshot, {}, None))[0] == "compiled"
+    else:
+        with pytest.raises(RuntimeError, match="reading_profile_route_changed"):
+            asyncio.run(execution._operation_application(request, snapshot, {}, None))

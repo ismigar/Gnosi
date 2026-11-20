@@ -154,7 +154,7 @@ class BehaviorPreviewResponse(BaseModel):
 def preview(payload: BehaviorPreviewRequest) -> dict[str, Any]:
     from pathlib import Path
     from backend.services.agent_skill_catalog import resolve_agent_runtime
-    from backend.services.agent_operation_catalog import OPERATIONS, skill_id
+    from backend.services.agent_operation_catalog import OPERATIONS, default_profile_id, skill_id
     from backend.services.agent_behavior import resource, inventory
     from backend.services.agent_learning_packages import runtime_instructions
     from backend.config.app_config import load_params
@@ -174,7 +174,7 @@ def preview(payload: BehaviorPreviewRequest) -> dict[str, Any]:
                     "available": entry.available, "tool_ids": entry.descriptor.tool_ids}
                    for entry in runtime.skills],
         "operations": [{"operation": key, "skill_id": skill_id(key), "name": name, "owner": owner,
-                        "agent_id": str(bindings.get(key, {}).get("agent_id", f"builtin.{owner}.default"))}
+                        "agent_id": str(bindings.get(key, {}).get("agent_id", default_profile_id(key)))}
                        for key, (owner, name, _) in OPERATIONS.items() if skill_id(key) in runtime.assigned_skill_ids],
         "catalog_revision": runtime.catalog_revision, "missing_skill_ids": list(runtime.missing_skill_ids),
         "system_resources": [{**item, "text": resource(item["path"])} for item in inventory() if item["path"].startswith("system/")],

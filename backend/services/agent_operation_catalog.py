@@ -20,6 +20,7 @@ OPERATIONS: dict[str, tuple[str, str, str]] = {
     "translation": ("translation", "Faithful translation", behavior_resource('operations/translation/SKILL.md')),
     "tables": ("ai-platform", "Table actions", behavior_resource('operations/tables/SKILL.md')),
     "knowledge": ("llm-wiki", "Knowledge connections and refinement", behavior_resource('operations/knowledge/SKILL.md')),
+    "reading-review": ("llm-wiki", "Source-grounded reading review", behavior_resource('operations/reading-review/SKILL.md')),
     "capture": ("ai-platform", "Structured knowledge capture", behavior_resource('operations/capture/SKILL.md')),
     "learning": ("ai-platform", "Learn and evaluate skills", behavior_resource('operations/learning/SKILL.md')),
 }
@@ -52,6 +53,12 @@ def skill_id(operation: str) -> str:
     if operation not in OPERATIONS:
         raise ValueError("unknown_agent_operation")
     return EXISTING_SKILLS.get(operation, f"core.gnosi-operation-{operation}")
+
+
+def default_profile_id(operation: str) -> str:
+    if operation == "reading-review":
+        return "builtin.llm-wiki.reviewer"
+    return f"builtin.{OPERATIONS[operation][0]}.default"
 
 
 def descriptors() -> list[SkillDescriptor]:

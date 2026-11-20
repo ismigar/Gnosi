@@ -19879,6 +19879,10 @@ export interface components {
             provider: string;
             /** Remaining Chunks */
             remaining_chunks: number;
+            /** Review Model */
+            review_model?: string | null;
+            /** Review Provider */
+            review_provider?: string | null;
             /** Saved Chunks */
             saved_chunks: number;
             /** Source Token Bound */

@@ -46,6 +46,7 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
         </label>
         {!estimate ? <p>{estimateError || translate('estimate_loading', 'Estimating without AI calls…')}</p> : <>
             <p className="font-semibold text-[var(--text-primary)]">{estimate.model} · {estimate.provider}{estimate.processing_tier === 'flex' ? ` · ${translate('processing_tier_flex', 'Flex')}` : ''}</p>
+            {estimate.review_model && <p>{translate('review_with_model', 'Review with {{model}} · {{provider}}', { model: estimate.review_model, provider: estimate.review_provider ?? '' })}</p>}
             {estimate.incompatible_saved_chunks > 0 && <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Choose Reprocess to review a fresh estimate before starting again.', { count: estimate.incompatible_saved_chunks })}</p>}
             <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
             {estimate.batch_size < batchSize && <p role="status">{t('llm_wiki.batch_reduced', { count: estimate.batch_size })}</p>}

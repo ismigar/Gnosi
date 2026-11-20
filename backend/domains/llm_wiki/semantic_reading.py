@@ -39,9 +39,11 @@ class SemanticReader:
                       resolve_candidates(reader.resume_job_id)) if reader.resume_job_id else []
         self.resume_map_jobs = candidates
         selected_resume = False
+        legacy_revision = getattr(self.deps, "legacy_reader_revision", None)
         for candidate in candidates:
             saved = resume_semantic_state(self.deps.load_checkpoint(candidate, "semantic-state"),
-                                          identity, self.state["identity_parts"], self.state["reading_context"])
+                                          identity, self.state["identity_parts"], self.state["reading_context"],
+                                          (lambda: legacy_revision(candidate)) if legacy_revision else None)
             if (saved is not None
                     and (not selected_resume or state_progress(saved) > state_progress(self.state))):
                 selected_resume = True
@@ -183,6 +185,13 @@ class SemanticReader:
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)
         plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)
+        if getattr(self.deps, "reviewer", None):
+            from backend.domains.llm_wiki.independent_review import flagged_passage
+            flagged = flagged_passage(primary, answer)
+            if flagged:
+                flags = self.state.setdefault("flagged_passages", [])
+                if flagged not in flags:
+                    flags.append(flagged)
         self.state["observations"][key] = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
         return plans
 
@@ -227,7 +236,11 @@ class SemanticReader:
             raise RuntimeError("No readable source segments were extracted")
         global_map = self.overview()
         self.extract(global_map)
-        reviewed = self.review(global_map, self.note_map())
+        notes_map = self.note_map()
+        reviewed = self.review(global_map, notes_map)
+        if getattr(self.deps, "reviewer", None):
+            from backend.domains.llm_wiki.independent_review import review_reading
+            global_map = review_reading(self, reviewed, global_map, notes_map)
         notes, warnings = self.deps.reduce_plans(reviewed, self.reader.origins, self.reader.dimensions)
         self.reader.warnings.extend(warnings)
         self.state["completed"] = True
