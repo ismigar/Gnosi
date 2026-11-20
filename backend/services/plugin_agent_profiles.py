@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from backend.services.agent_operation_catalog import OPERATIONS, skill_id
+from backend.services.agent_operation_catalog import OPERATIONS, default_profile_id, skill_id
 from backend.services.builtin_plugins import is_enabled
 from backend.services.agent_behavior import profile_defaults, revision
 
@@ -19,13 +19,36 @@ PROFILE_NAMES = {
 def declarations() -> dict[str, dict[str, Any]]:
     result = {}
     for plugin, name in PROFILE_NAMES.items():
-        skills = list(dict.fromkeys(skill_id(key) for key, (owner, _, _) in OPERATIONS.items() if owner == plugin))
+        skills = list(dict.fromkeys(skill_id(key) for key, (owner, _, _) in OPERATIONS.items() if owner == plugin and key != "reading-review"))
         if plugin == "llm-wiki":
             from backend.services.llm_wiki_agent import LLM_WIKI_SKILL_IDS
             skills = list(dict.fromkeys([*skills, *LLM_WIKI_SKILL_IDS]))
         result[plugin] = {"id": f"builtin.{plugin}.default", "name": name,
                           "managed_by": f"builtin:{plugin}", "skill_ids": skills}
     return result
+
+
+def declared_profiles() -> dict[str, list[dict[str, Any]]]:
+    profiles = {plugin: [template] for plugin, template in declarations().items()}
+    profiles["llm-wiki"].append({
+        "id": default_profile_id("reading-review"), "name": "Reading reviewer",
+        "managed_by": "builtin:llm-wiki", "skill_ids": [skill_id("reading-review")],
+    })
+    return profiles
+
+
+def _new_profile(template: dict[str, Any], default: dict[str, Any]) -> dict[str, Any]:
+    current = {**deepcopy(template), "enabled": True, "icon": "Bot",
+               "provider": default.get("provider", ""), "model": default.get("model", ""),
+               "persona": "", "context": "", "context_refs": [],
+               "model_strategy": {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}}
+    if template["id"] == "builtin.llm-wiki.default":
+        current.update(provider="openai", model="gpt-5.6-luna")
+        current["skill_ids"].extend(identifier for identifier in default.get("skill_ids", [])
+                                    if isinstance(identifier, str) and identifier.startswith("user.knowledge-migrated-"))
+    if template["id"] == default_profile_id("reading-review"):
+        current.update(provider="openai", model="gpt-6.2-sol", reasoning_effort="medium")
+    return current
 
 
 def reconcile(ai: dict[str, Any], state: dict[str, Any]) -> bool:
@@ -37,56 +60,50 @@ def reconcile(ai: dict[str, Any], state: dict[str, Any]) -> bool:
         default = principal_profile(ai)
     except RuntimeError:
         default = {}
-    changed = False
     changed = _migrate_personal_profiles(agents)
-    for plugin, template in declarations().items():
-        current = by_id.get(template["id"])
-        enabled = is_enabled(state, plugin)
-        if current is None:
-            if not enabled:
-                continue
-            current = {**deepcopy(template), "enabled": True, "icon": "Bot",
-                       "provider": default.get("provider", ""), "model": default.get("model", ""),
-                       "persona": "", "context": "", "context_refs": [],
-                       "model_strategy": {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}}
-            if plugin == "llm-wiki":
-                current["skill_ids"].extend(identifier for identifier in default.get("skill_ids", [])
-                                            if isinstance(identifier, str) and identifier.startswith("user.knowledge-migrated-"))
-            agents.append(current)
-            changed = True
-        if current.get("managed_by") != template["managed_by"]:
-            raise ValueError("plugin_profile_identity_conflict")
-        if "behavior_migration" not in current:
-            original = profile_defaults(template["managed_by"])
-            legacy = str(current.get("persona") or "")
-            current["behavior_migration"] = {"version": 1, "original": original,
-                "original_revision": revision(original), "legacy_persona": legacy,
-                "legacy_context": str(current.get("context") or "")}
-            if not legacy.strip():
-                current["persona"] = original
-            changed = True
-        if current.get("plugin_suspended", False) != (not enabled):
-            current["plugin_suspended"] = not enabled
-            changed = True
+    for plugin, templates in declared_profiles().items():
+        for template in templates:
+            current = by_id.get(template["id"])
+            enabled = is_enabled(state, plugin)
+            if current is None:
+                if not enabled:
+                    continue
+                current = _new_profile(template, default)
+                agents.append(current)
+                changed = True
+            if current.get("managed_by") != template["managed_by"]:
+                raise ValueError("plugin_profile_identity_conflict")
+            if "behavior_migration" not in current:
+                original = profile_defaults(template["managed_by"], template["id"])
+                legacy = str(current.get("persona") or "")
+                current["behavior_migration"] = {"version": 1, "original": original,
+                    "original_revision": revision(original), "legacy_persona": legacy,
+                    "legacy_context": str(current.get("context") or "")}
+                if not legacy.strip():
+                    current["persona"] = original
+                changed = True
+            if current.get("plugin_suspended", False) != (not enabled):
+                current["plugin_suspended"] = not enabled
+                changed = True
     for profile in agents:
         migration = profile.get("behavior_migration") if isinstance(profile, dict) else None
         if not isinstance(migration, dict):
             continue
-        available = profile_defaults(str(profile.get("managed_by") or ""))
+        available = profile_defaults(str(profile.get("managed_by") or ""), str(profile.get("id") or ""))
         if migration.get("available_revision") != revision(available):
             migration.update(available_original=available, available_revision=revision(available))
             changed = True
     bindings = ai.setdefault("operation_bindings", {})
-    for operation, (plugin, _, _) in OPERATIONS.items():
+    for operation in OPERATIONS:
         if operation not in bindings:
-            bindings[operation] = {"agent_id": f"builtin.{plugin}.default", "skill_id": skill_id(operation)}
+            bindings[operation] = {"agent_id": default_profile_id(operation), "skill_id": skill_id(operation)}
             changed = True
     return changed
 
 
 def owner_for_skill(selected: str) -> str:
-    for plugin, template in declarations().items():
-        if selected in template["skill_ids"]:
+    for plugin, templates in declared_profiles().items():
+        if any(selected in template["skill_ids"] for template in templates):
             return f"builtin:{plugin}"
     if selected.startswith("plugin."):
         # Resolve external ownership from the registered descriptor, never by parsing IDs.

@@ -40,7 +40,7 @@ def operation_input(request: Any, *, provider: str = "") -> str:
     if request.operation == "knowledge.process-source.phase":
         # The tier/cache selector governs transport, not the reading task.
         options = {key: value for key, value in options.items()
-                   if key not in {"reading_performance", "reading_review_notes", "reading_result_cache"}}
+                   if key not in {"reading_performance", "reading_review_notes", "reading_result_cache", "reading_pinned"}}
     payload = {"operation": request.operation, "input": request.input,
                        "data": request.data, "options": options,
                        "language": request.language, "sources": request.context_refs,
@@ -68,8 +68,10 @@ def snapshot_instruction_text(snapshot: Any) -> str:
     ])
 
 
-def profile_defaults(owner: str) -> str:
+def profile_defaults(owner: str, profile_id: str = "") -> str:
     identifier = owner.removeprefix("builtin:") if owner.startswith("builtin:") else "principal"
+    if profile_id == "builtin.llm-wiki.reviewer" and owner == "builtin:llm-wiki":
+        identifier = "llm-wiki-reviewer"
     path = ROOT / "agents" / f"{identifier}.md"
     return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
 

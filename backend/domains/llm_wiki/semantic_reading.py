@@ -39,9 +39,11 @@ class SemanticReader:
                       resolve_candidates(reader.resume_job_id)) if reader.resume_job_id else []
         self.resume_map_jobs = candidates
         selected_resume = False
+        legacy_revision = getattr(self.deps, "legacy_reader_revision", None)
         for candidate in candidates:
             saved = resume_semantic_state(self.deps.load_checkpoint(candidate, "semantic-state"),
-                                          identity, self.state["identity_parts"], self.state["reading_context"])
+                                          identity, self.state["identity_parts"], self.state["reading_context"],
+                                          (lambda: legacy_revision(candidate)) if legacy_revision else None)
             if (saved is not None
                     and (not selected_resume or state_progress(saved) > state_progress(self.state))):
                 selected_resume = True
@@ -168,9 +170,13 @@ class SemanticReader:
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))
-        schema = interpretation_schema(len(primary), self.reader.dimensions)
+        paired = bool(getattr(self.deps, "reviewer", None))
+        schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
         def validate(answer: dict[str, object]) -> None:
-            bind_interpretation(answer, selected, evidence, self.reader.dimensions)
+            plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
+            if reviewer := getattr(self.deps, "reviewer", None):
+                from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
+                check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
         selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
@@ -180,10 +186,19 @@ class SemanticReader:
                    "brain_notes": self.reader.relevant_index("", primary, maximum=8,
                                                            limit=auxiliary_limit(self.reader.budget, 12, 4000)), **context,
                    "instruction": "Interpret each primary passage in the supplied order. Return exactly one passages entry per primary passage, with substantive atomic reading notes or a concrete omission reason. A sentence ending mid-list does not erase its already complete claims: explain each supported claim in note bodies before considering the unfinished tail. Never invent missing list items. Coverage reasons must explain substantive claims retained or source-grounded exclusion, not justify loss by a processing boundary. Each note needs an exact quote from its own primary passage. Context clarifies interpretation, not additional extraction. Preserve qualifications and distinct voices; connect supported ideas with [[wikilinks]]. Record themes, unresolved questions and contradictions; do not edit previous memory or choose workflow actions."}
+        if paired:
+            payload["instruction"] = str(payload["instruction"]) + (
+                " For each primary passage set needs_specialist when ambiguity, contradiction, uncertain attribution, "
+                "missing evidence or a difficult inference needs an independent check. An open question from the author "
+                "that the draft faithfully preserves need not trigger another review.")
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)
-        plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)
+        plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
         self.state["observations"][key] = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
+        if paired:
+            from backend.domains.llm_wiki.review_selection import passage_key
+            self.state["observations"][key]["review_passages"] = [
+                passage_key(s) for s, outcome in zip(primary, records(answer["passages"])) if outcome["needs_specialist"]]
         return plans
 
     def extract(self, global_map: str) -> None:
@@ -225,9 +240,18 @@ class SemanticReader:
     def run(self) -> tuple[dict[str, object], list[str]]:
         if not self.reader.chunks:
             raise RuntimeError("No readable source segments were extracted")
+        if reviewer := getattr(self.deps, "reviewer", None):
+            from backend.domains.llm_wiki.independent_review import validate_review_capacity
+            validate_review_capacity(reviewer, self.reader.chunks, self.reader.dimensions, self.reader.title, self.reader.language)
+            from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
+            check_draft_capacity(reviewer, self.reader.chunks, self.state["plans"], self.reader.dimensions, self.reader.title, self.reader.language)
         global_map = self.overview()
         self.extract(global_map)
-        reviewed = self.review(global_map, self.note_map())
+        notes_map = self.note_map()
+        reviewed = self.review(global_map, notes_map)
+        if getattr(self.deps, "reviewer", None):
+            from backend.domains.llm_wiki.independent_review import review_reading
+            global_map = review_reading(self, reviewed, global_map, notes_map)
         notes, warnings = self.deps.reduce_plans(reviewed, self.reader.origins, self.reader.dimensions)
         self.reader.warnings.extend(warnings)
         self.state["completed"] = True

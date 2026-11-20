@@ -20445,6 +20445,50 @@
             "title": "Remaining Chunks",
             "type": "integer"
           },
+          "review_cost_in_per_million_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Cost In Per Million Usd"
+          },
+          "review_cost_out_per_million_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Cost Out Per Million Usd"
+          },
+          "review_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Model"
+          },
+          "review_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Provider"
+          },
           "saved_chunks": {
             "title": "Saved Chunks",
             "type": "integer"

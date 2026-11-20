@@ -45,11 +45,12 @@ class ReadingRuntime:
     snapshot: AgentExecutionSnapshot
     cost_optimization: bool = True
     reuse_results: bool = True
+    skill_id: str = SKILL_ID
 
     @property
     def performance_options(self) -> dict[str, object]:
         from backend.services.reading_performance import eligible
-        return {"reading_result_cache": self.reuse_results,
+        return {"reading_pinned": True, "reading_result_cache": self.reuse_results,
                 **({"reading_performance": self.cost_optimization} if eligible(self.provider, self.model) else {})}
 
     def count_tokens(self, text: str, *, output_schema: dict[str, object] | None = None) -> int:
@@ -67,7 +68,7 @@ class ReadingRuntime:
             envelope = None
         schema = output_schema if output_schema is not None else envelope.get("output_schema") if isinstance(envelope, dict) else None
         request = AgentOperation(
-            skill_id=SKILL_ID, operation="knowledge.process-source.phase", input=text,
+            skill_id=self.skill_id, operation="knowledge.process-source.phase", input=text,
             output_schema=schema if isinstance(schema, dict) else {"type": "object"},
         )
         message = HumanMessage(content=operation_input(request))
@@ -76,6 +77,10 @@ class ReadingRuntime:
 
     @property
     def identity(self) -> str:
+        frozen = self.snapshot.model_dump(exclude={"parent_run_id", "origin", "catalog_revision", "revision"})
+        # The effective skills, instructions, scope, model and resources are in the snapshot.
+        # Changes to other catalog entries or to the review assignment do not change this reader.
+        frozen["profile"].get("_execution_operation_bindings", {}).pop("reading-review", None)
         payload = [
             SKILL_VERSION,
             self.agent_id,
@@ -83,9 +88,29 @@ class ReadingRuntime:
             self.model,
             self.instructions,
             self.input_budget,
-            self.snapshot.model_dump(exclude={"parent_run_id", "origin"}),
+            frozen,
         ]
-        return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+    def compatible_legacy_revision(self, job_id: str) -> str:
+        """Verify old single-agent drafts against the actual scoped job snapshot."""
+        from backend.services import agent_execution_store as store
+        from backend.services import llm_wiki_storage
+        try:
+            data = store.reading_job_snapshot(self.snapshot.scope, job_id)
+            if not data:
+                return ""
+            old = AgentExecutionSnapshot.model_validate(data)
+        except (LookupError, ValueError):
+            return ""
+        if old.scope != self.snapshot.scope or old.agent_id != self.agent_id or old.profile.get("model") != self.model:
+            return ""
+        if runtime_for_snapshot(old.scope.vault_path, old, SKILL_ID).identity != self.identity:
+            return ""
+        execution = llm_wiki_storage.get_job_status(job_id).get("execution")
+        if isinstance(execution, dict) and execution.get("agent_id") == old.agent_id:
+            return str(execution.get("execution_revision") or "")
+        return ""
 
     @property
     def reading_engine(self) -> str:
@@ -97,8 +122,8 @@ class ReadingRuntime:
             "agent_id": self.agent_id,
             "provider": self.provider,
             "model": self.model,
-            "skill_id": SKILL_ID,
-            "skill_version": SKILL_VERSION,
+            "skill_id": self.skill_id,
+            "skill_version": SKILL_VERSION if self.skill_id == SKILL_ID else self.snapshot.skill_versions[self.skill_id],
             "reading_engine": self.reading_engine,
             "execution_revision": self.identity,
         }
@@ -111,7 +136,7 @@ class ReadingRuntime:
         if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         result = run_sync(AgentOperation(
-            skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+            skill_id=self.skill_id, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", options=self.performance_options,
         ), snapshot=self.snapshot)
         return result.result, result.model
@@ -154,7 +179,7 @@ class ReadingRuntime:
         try:
             review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
                 if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
-            result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+            result = run_sync(AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
                 input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
                 options={**self.performance_options, **review_options},
                 # Literal choices apply even when the second call repairs syntax.
@@ -219,7 +244,7 @@ class ReadingRuntime:
         except ValueError:
             envelope = None
         bounded = isinstance(envelope, dict) and envelope.get("map_contract") == "bounded-reduction-v1"
-        result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+        result = run_sync(AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
             options={"reading_prose": True, **self.performance_options}, max_model_calls=1 if bounded else 2),
             snapshot=self.snapshot, output_validator=validate)
@@ -227,16 +252,27 @@ class ReadingRuntime:
 
 
 def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
-    from backend.services.agent_execution import prepare_snapshot, _snapshot
-    from backend.domains.agent.runtime_tools import _model_context_window
+    from backend.services.agent_execution import prepare_snapshot
+    return runtime_for_snapshot(vault_root, prepare_snapshot(SKILL_ID), SKILL_ID)
 
-    snapshot = prepare_snapshot(SKILL_ID)
-    if SKILL_ID not in snapshot.skill_ids:
+
+def prepare_review_runtime(vault_root: str | Path, reader: AgentExecutionSnapshot) -> ReadingRuntime:
+    from backend.services.agent_execution import prepare_reading_reviewer
+    from backend.services.agent_operation_catalog import skill_id
+    return runtime_for_snapshot(vault_root, prepare_reading_reviewer(reader), skill_id("reading-review"))
+
+
+def runtime_for_snapshot(vault_root: str | Path, snapshot: AgentExecutionSnapshot,
+                         selected_skill: str) -> ReadingRuntime:
+    from backend.domains.agent.runtime_tools import _model_context_window
+    if selected_skill not in snapshot.skill_ids:
         raise PermissionError("agent_execution_skill_unavailable")
     if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
         raise PermissionError("agent_execution_vault_mismatch")
     profile = snapshot.profile
     provider, model = str(profile.get("provider") or ""), str(profile.get("model") or "")
+    if not provider or not model:
+        raise ValueError("reading_profile_model_required")
     from backend.services.agent_behavior import snapshot_instruction_text
     instructions = snapshot_instruction_text(snapshot)
     window = _model_context_window(provider, model)
@@ -246,4 +282,4 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     budget = window - max(2_048, window // 4) - count_tokens(system, model if snapshot.behavior_resources else "").tokens - 512
     if budget < 4_000:
         raise RuntimeError("Choose a model with a larger context window for source reading")
-    return ReadingRuntime(snapshot.agent_id, provider, model, instructions, budget, snapshot)
+    return ReadingRuntime(snapshot.agent_id, provider, model, instructions, budget, snapshot, skill_id=selected_skill)

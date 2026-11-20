@@ -847,6 +847,8 @@ gestionnaire exécutable.
 
 Connaissances utilise son profil de plugin. Le paramètre historique `agent_id` est conservé mais ne remplace pas le profil du plugin. L’ancien profil géré `llm-wiki` reste retiré ; le nouveau profil conserve les instructions complémentaires de Connaissances migrées. Les paramètres renvoient au profil du plugin et à ses compétences.
 
+Activer Connaissances crée deux assistants modifiables. Connaissances lit la ressource entière et vérifie ses brouillons avec GPT-5.6 Luna comme modèle initial. Le Réviseur de lecture utilise GPT-6.2 Sol avec un raisonnement moyen pour examiner un échantillon de chaque section et les passages signalés pendant la lecture. Il peut ajouter des idées omises en citant le texte original et rédige la synthèse finale. Les deux assistants partagent le plafond de dépense de la ressource. Chaque vérification est enregistrée pour permettre la reprise.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion

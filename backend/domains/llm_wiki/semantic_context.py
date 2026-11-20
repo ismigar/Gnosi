@@ -88,4 +88,5 @@ def state_progress(state: dict[str, Any]) -> tuple[int, ...]:
     # reusable current reviews simply because an older job finished more batches.
     reviews = len(state.get("reviewed_groups", {})) if state.get("review_quality_version") == REVIEW_QUALITY_VERSION else 0
     return (len(state.get("plans", {})), reviews,
-            int(bool(state.get("notes_map"))), int(bool(state.get("global_map"))), len(state.get("maps", [])))
+            int(bool(state.get("notes_map"))), int(bool(state.get("global_map"))), len(state.get("maps", [])),
+            len(state.get("independent_reviews", {})), int(bool(state.get("independent_synthesis"))))

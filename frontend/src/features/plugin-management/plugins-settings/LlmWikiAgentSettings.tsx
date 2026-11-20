@@ -10,5 +10,8 @@ interface Props extends PluginConfigProps {
 }
 
 export function LlmWikiAgentSettings(_props: Props) {
-    return <PrincipalAgentReference operation="knowledge" />;
+    return <>
+        <PrincipalAgentReference operation="knowledge" profileId="builtin.llm-wiki.default" />
+        <PrincipalAgentReference operation="reading-review" />
+    </>;
 }

@@ -115,6 +115,9 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "backend/migrations/alembic/script.py.mako" in first.resources
     assert "backend/agent/instructions/gnosy.md" in first.resources
     assert "backend/data/model_catalog.json" in first.resources
+    assert "backend/agent/behavior/agents/llm-wiki-reviewer.md" in first.resources
+    assert "backend/agent/behavior/operations/reading-review/SKILL.md" in first.resources
+    assert "backend/agent/behavior/operations/reading-review/skill.json" in first.resources
     assert "backend/domains/genograms/option_labels.json" in first.resources
     assert "pipeline/skills/translate_row/SKILL.md" in first.resources
     assert "extensions/examples/clone-logger/backend.mjs" in first.resources

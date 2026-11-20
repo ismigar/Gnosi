@@ -19879,6 +19879,14 @@ export interface components {
             provider: string;
             /** Remaining Chunks */
             remaining_chunks: number;
+            /** Review Cost In Per Million Usd */
+            review_cost_in_per_million_usd?: number | null;
+            /** Review Cost Out Per Million Usd */
+            review_cost_out_per_million_usd?: number | null;
+            /** Review Model */
+            review_model?: string | null;
+            /** Review Provider */
+            review_provider?: string | null;
             /** Saved Chunks */
             saved_chunks: number;
             /** Source Token Bound */

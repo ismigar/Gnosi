@@ -155,9 +155,9 @@ BUILTIN_PLUGIN_BY_ID = {entry["id"]: entry for entry in BUILTIN_PLUGINS}
 
 def public_registry() -> list[dict[str, Any]]:
     """Return a JSON-safe copy of the built-in capability registry."""
-    from backend.services.plugin_agent_profiles import declarations
-    profiles = declarations()
-    return [{**entry, **({"agent_profile": profiles[entry["id"]]} if entry["id"] in profiles else {})} for entry in BUILTIN_PLUGINS]
+    from backend.services.plugin_agent_profiles import declared_profiles
+    profiles = declared_profiles()
+    return [{**entry, **({"agent_profile": profiles[entry["id"]][0], "agent_profiles": profiles[entry["id"]]} if entry["id"] in profiles else {})} for entry in BUILTIN_PLUGINS]
 
 
 def normalize_state(raw: Any) -> tuple[dict[str, Any], bool]:
