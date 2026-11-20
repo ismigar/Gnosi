@@ -70,8 +70,7 @@ def _assistant_metadata(
     metadata = getattr(message, "additional_kwargs", {})
     if not isinstance(metadata, dict):
         metadata = {}
-    timings = ({"response_ms": state.response_ms} if state.team_reply_streamed and state.team_usage is None
-               else state.metrics_payload())
+    timings = state.metrics_payload() if state.team_usage is not None else {"response_ms": state.response_ms}
     metadata["gnosi_timings"] = timings
     if untrusted_context_flags:
         evidence_security = dict(metadata.get("gnosi_evidence_security") or {})
@@ -316,7 +315,6 @@ async def iter_workflow_events(
                             execution_deadline.reschedule(None)
                             state.team_reply_streamed = True
                             node_name = "team"
-                            state_update = {"messages": state_update["pending_team_messages"]}
                             if state_update["messages"]:
                                 timings = state_update["messages"][0].additional_kwargs.get("gnosi_timings", {})
                                 state.response_ms = timings.get("response_ms")
@@ -325,7 +323,6 @@ async def iter_workflow_events(
                             # final graph update retains them in history with their usage.
                             for message in state_update["messages"]:
                                 state.apply_team_usage(message.additional_kwargs["gnosi_team_usage"])
-                                _assistant_metadata(message, state=state, untrusted_context_flags=untrusted_context_flags)
                             continue
                         events, previous_update_at = _node_events(
                             node_name,

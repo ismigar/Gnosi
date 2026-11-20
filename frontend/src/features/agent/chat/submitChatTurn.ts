@@ -24,7 +24,6 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
 
   const turnId = context.queuedTurnId || crypto.randomUUID();
   let successful = false;
-  let streamFailed = false;
   const processingStartedAt = performance.now();
   processingStartedAtRef.current = processingStartedAt;
   const mentions = selectedMentionsInText(inputValue, selectedMentions);
@@ -76,12 +75,12 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     })) {
       if (requestAbortRef.current !== ownedController || activeScopeRef.current !== requestScope) return;
       try {
-        if (recordValue(data, 'type') === 'error' || recordValue(data, 'type') === 'confirmation_required') streamFailed = true;
         applyChatStreamEvent(streamState, data, streamContext);
       }
       catch (error) { logError('chat.stream.event', error); }
     }
-    successful = streamState.terminal && streamState.responseReceived && !streamFailed;
+    if (!streamState.terminal && streamState.streamId) throw new Error(t('chat.empty_response', 'The connection closed before the response was complete.'));
+    successful = streamState.terminal && streamState.responseReceived && !streamState.failed;
     if (!streamState.terminal || !streamState.responseReceived) {
       setMessages(previous => activeScopeRef.current !== requestScope ? previous : [...previous, {
         role: 'system',
@@ -96,7 +95,8 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
       try { recovered = await recoverChatStream(streamState, streamContext); }
       catch (resumeError) { logChatError('agent-chat-stream-resume', resumeError); }
     }
-    if (!aborted && !recovered && activeScopeRef.current === requestScope) {
+    successful = recovered && !streamState.failed;
+    if (!aborted && !recovered && !streamState.responseReceived && activeScopeRef.current === requestScope) {
       const message = recordValue(error, 'message');
       const errorMessage = typeof message === 'string' ? message.trim() : '';
       setMessages(previous => activeScopeRef.current !== requestScope ? previous : [...previous, {
@@ -114,7 +114,7 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
       const responseIndex = lastTurnResponseIndex(previous, turnId);
       if (responseIndex < 0) return previous;
       return previous.map((message, index) => index !== responseIndex ? message : {
-        ...message, processingMs: elapsedMs,
+        ...message, processingMs: message.processingMs ?? elapsedMs,
         ...(streamState.metrics ? { timings: streamState.metrics } : {}),
         ...Object.fromEntries(Object.entries(streamState.transparency)
           .filter(([field, value]) => value !== null && message[field] == null)),

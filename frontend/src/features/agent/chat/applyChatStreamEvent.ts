@@ -35,6 +35,7 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
   if (type === 'done') { state.terminal = true; state.responseReceived ||= Boolean(value.has_response); return; }
   if (!['tool_start', 'tool_end', 'message', 'thought', 'error', 'confirmation_required'].includes(type)) return;
   if (['message', 'thought', 'error', 'confirmation_required'].includes(type)) state.responseReceived = true;
+  if (type === 'error' || type === 'confirmation_required') state.failed = true;
   const addAssistant = !state.assistantAdded;
   state.assistantAdded = true;
   if (type === 'confirmation_required') {

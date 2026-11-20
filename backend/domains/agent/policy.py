@@ -8,6 +8,7 @@ import time
 from typing import Annotated, Any, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage, ToolMessage
+from langgraph.graph.message import add_messages
 from langgraph.managed import RemainingSteps
 from openai import LengthFinishReasonError
 
@@ -28,8 +29,7 @@ from backend.services.tool_runtime import execute_contract, validate_arguments
 log = logging.getLogger(__name__)
 
 
-class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], operator.add]
+class _AgentFields(TypedDict):
     user_request: str
     title_edit: dict[str, Any]
     next: str
@@ -44,7 +44,12 @@ class AgentState(TypedDict):
     team_help_allowed: bool
 
 
-class TeamState(AgentState, total=False):
+class AgentState(_AgentFields):
+    messages: Annotated[Sequence[BaseMessage], operator.add]
+
+
+class TeamState(_AgentFields, total=False):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
     pending_team_messages: Sequence[BaseMessage]
     chat_request_started_at: float
 

@@ -23,6 +23,7 @@ export interface ChatStreamState {
   transparency: ReturnType<typeof boundedTransparencyMetadata>;
   assistantAdded: boolean;
   terminal: boolean;
+  failed: boolean;
   responseReceived: boolean;
 }
 export interface StreamEventContext {
@@ -39,7 +40,7 @@ export interface StreamEventContext {
   readonly confirmationSummary: (confirmation: AgentConfirmation) => string;
 }
 export function createChatStreamState(): ChatStreamState {
-  return { sequence: 0, streamId: '', model: null, metrics: null, transparency: boundedTransparencyMetadata({}), assistantAdded: false, terminal: false, responseReceived: false };
+  return { sequence: 0, streamId: '', model: null, metrics: null, transparency: boundedTransparencyMetadata({}), assistantAdded: false, terminal: false, failed: false, responseReceived: false };
 }
 export function definedTransparency(metadata: ChatStreamState['transparency']): Partial<ChatStreamState['transparency']> {
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== null));

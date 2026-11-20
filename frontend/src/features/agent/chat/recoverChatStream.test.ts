@@ -41,6 +41,14 @@ describe('existing chat stream recovery', () => {
     expect(f.messages()[0]?.gauntlet).toEqual(gauntlet?.status === 'incomplete' ? gauntlet : null);
     expect(JSON.stringify(f.messages())).not.toContain('PRIVATE-REVIEW');
   });
+  it('finishes a live response when only its statistics and terminal event need replay', async () => {
+    const f = fixture([{ role: 'assistant', content: 'Hola!', turnId: 'turn' }]);
+    f.state.responseReceived = true;
+    replay.mockResolvedValueOnce([{ type: 'turn_metrics', sequence: 3, response_ms: 25, total_ms: 87 }, { type: 'done', sequence: 4 }]);
+    await expect(f.recover()).resolves.toBe(true);
+    expect(f.state.metrics).toMatchObject({ response_ms: 25, total_ms: 87 });
+    expect(f.messages()).toHaveLength(1); expect(f.pause).not.toHaveBeenCalled();
+  });
   it('does not call a terminal-only replay a recovered response', async () => {
     const f = fixture(); replay.mockResolvedValueOnce([{ type: 'done', sequence: 3 }]).mockResolvedValueOnce(null);
     await expect(f.recover()).resolves.toBe(false); expect(f.messages()).toEqual([]); expect(replay).toHaveBeenCalledTimes(2);

@@ -5,8 +5,6 @@ import asyncio
 import copy
 import hashlib
 import json
-import logging
-import sqlite3
 import time
 import uuid
 from contextvars import ContextVar
@@ -599,28 +597,21 @@ def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) ->
         if started := state.get("chat_request_started_at"):
             response_ms = max(0, int((time.monotonic() - started) * 1000))
             for message in result["messages"]:
+                message.id = message.id or uuid.uuid4().hex
                 message.additional_kwargs["gnosi_timings"] = {"response_ms": response_ms}
+            # Persist the approved answer before accounting. The final node
+            # enriches the same message IDs, so replay and history see one reply.
+            return {"messages": result["messages"], "pending_team_messages": result["messages"]}
         return {"pending_team_messages": result["messages"]}
 
     async def finish_reply(state: TeamState) -> dict[str, Any]:
         from backend.services.agent_execution import _run
-        from backend.services.agent_team_usage import record_team_usage
-        messages = state["pending_team_messages"]
-        try:
-            usage = await asyncio.to_thread(record_team_usage, current_scope(), _run.get())
-        except PermissionError:
-            raise
-        except (sqlite3.Error, OSError, ValueError):
-            logging.getLogger(__name__).exception("Could not record usage for the completed team reply")
-            usage = {"usage_complete": False, "cost_source": "unknown", "estimated_cost_usd": None}
-        for message in messages:
-            message.additional_kwargs["gnosi_team_usage"] = usage
-            if started := state.get("chat_request_started_at"):
-                timings = message.additional_kwargs["gnosi_timings"]
-                timings.update(total_ms=max(0, int((time.monotonic() - started) * 1000)), team_usage=usage)
-                for key in ("model_calls", "tool_calls", "input_tokens", "output_tokens", "estimated_cost_usd"):
-                    if key in usage:
-                        timings[key] = usage[key]
+        from backend.services.agent_team_usage import attach_team_usage
+        pending = state.get("pending_team_messages")
+        if pending is None:
+            # A pre-upgrade checkpoint may already be scheduled at the old team node.
+            pending = (await prepare_reply(state))["pending_team_messages"]
+        messages = await attach_team_usage(pending, current_scope(), _run.get(), state.get("chat_request_started_at"))
         return {"messages": messages, "pending_team_messages": []}
 
     graph: StateGraph[Any, None, Any, Any] = StateGraph(TeamState)

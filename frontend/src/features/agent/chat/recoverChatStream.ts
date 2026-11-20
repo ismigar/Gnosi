@@ -16,7 +16,8 @@ function applyRecoveredResponse(data: LooseRecord, state: ChatStreamState, conte
     const content = data.type === 'error'
       ? `${t('chat.error_prefix', 'Error')}: ${stringifyLooseValue(data.content || t('errors.unknown', 'Unknown error'))}`
       : typeof data.content === 'string' ? data.content : '';
-    const metadata = { ...definedTransparency(boundedTransparencyMetadata({
+    const responseMs = boundedTurnMetrics(data.timings)?.response_ms;
+    const metadata = { ...(typeof responseMs === 'number' ? { processingMs: responseMs } : {}), ...definedTransparency(boundedTransparencyMetadata({
       plan: data.plan, privacy: data.privacy, verification: data.verification, citations: data.citations,
       freshness: data.freshness, job: data.job, explanation: data.explanation, quality: data.quality,
       conflicts: data.conflicts, evidence_security: data.evidence_security,
@@ -29,7 +30,6 @@ function applyRecoveredResponse(data: LooseRecord, state: ChatStreamState, conte
 /** Retrieve an existing stream only. Never repeat the POST that may have performed an action. */
 export async function recoverChatStream(state: ChatStreamState, context: StreamEventContext, runtime: RecoveryRuntime = {}): Promise<boolean> {
   let recovered = false;
-  let responseSeen = false;
   const pause = runtime.pause ?? pauseBetweenPolls;
   for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
     // A switched conversation no longer needs polling, and can never receive this response.
@@ -45,10 +45,12 @@ export async function recoverChatStream(state: ChatStreamState, context: StreamE
       state.sequence = sequence.sequence;
       if (value.type === 'turn_metrics') state.metrics = boundedTurnMetrics(value);
       if (value.type === 'message' || value.type === 'thought' || value.type === 'error') response = value;
+      if (value.type === 'error' || value.type === 'confirmation_required') state.failed = true;
       if (value.type === 'done') terminal = true;
     }
-    if (response) { responseSeen = true; applyRecoveredResponse(response, state, context); }
-    recovered = terminal && responseSeen;
+    if (response) { state.responseReceived = true; applyRecoveredResponse(response, state, context); }
+    state.terminal ||= terminal;
+    recovered = state.terminal && state.responseReceived;
     if (!recovered) await pause();
   }
   return recovered;

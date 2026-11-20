@@ -3,6 +3,7 @@ import asyncio
 import json
 import sqlite3
 import threading
+from decimal import InvalidOperation
 import time
 
 import pytest
@@ -17,18 +18,20 @@ from backend.services.agent_team_models import TeamPlan
 from backend.tests.test_agent_team import team_runtime  # noqa: F401
 
 
-@pytest.mark.parametrize("usage_fails", [False, True])
+@pytest.mark.parametrize("usage_fails", [None, sqlite3.OperationalError, InvalidOperation, TimeoutError])
 def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypatch, usage_fails):
     scope, snapshot, calls, settings = team_runtime
     answer = "Hola! En què et puc ajudar?"
     settings["_responses"] = {"director": [TeamPlan(response_kind="greeting", response=answer).model_dump_json()]}
     release = threading.Event()
+    entered = threading.Event()
     record_usage = agent_team_usage.record_team_usage
 
     def blocked_usage(*args):
+        entered.set()
         assert release.wait(15), "The UI could not receive the answer while usage was pending"
         if usage_fails:
-            raise sqlite3.OperationalError("usage database unavailable")
+            raise usage_fails("usage unavailable")
         return record_usage(*args)
 
     monkeypatch.setattr(agent_team_usage, "record_team_usage", blocked_usage)
@@ -45,6 +48,16 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
         inputs = {"messages": [HumanMessage(content="Hola")], "user_request": "Hola",
                   "trace_id": state.trace_id, "active_skill_ids": snapshot.skill_ids,
                   "turn_authorized_tool_names": [], "current_user_role": scope.role}
+        async def check_history():
+            try:
+                assert await asyncio.to_thread(entered.wait, 2)
+                async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+                    history = await graph.compile(checkpointer=saver).aget_state(config)
+                assert [m.content for m in history.values["messages"] if m.type == "ai"] == [answer]
+            finally:
+                release.set()
+
+        observer = None
         replies = []
         try:
             async for raw in chat_stream_updates.iter_workflow_events(state=state, turn_timeout_seconds=30,
@@ -55,9 +68,11 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
                     assert state.team_usage is None
                     assert event["timings"] == {"response_ms": state.response_ms}
                     replies.append(event["content"])
-                    release.set()
+                    observer = asyncio.create_task(check_history())
         finally:
             release.set()
+        assert observer is not None
+        await observer
         assert replies == [answer]
         assert state.answer_count == 1 and calls == ["director"]
         metrics = state.metrics_payload()
