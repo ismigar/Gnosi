@@ -11,6 +11,15 @@ from backend.services import agent_execution_store as store
 from backend.services.agent_execution_models import AgentRun, ExecutionScope
 
 
+def record_team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
+    from backend.services import agent_team_store
+    from backend.services.agent_execution_trace import record
+    usage = team_usage(scope, run_id)
+    agent_team_store.put(scope, run_id, "usage", "usage", usage)
+    record("team.usage", usage)
+    return usage
+
+
 def _calls(scope: ExecutionScope, identifiers: set[str]) -> dict[str, list[dict[str, Any]]]:
     """Read the existing provider ledger, including retries and reported billing."""
     path = resolve_data_dir(create=False) / "llm_usage.sqlite"
@@ -52,7 +61,7 @@ def team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
     tree = """WITH RECURSIVE descendants(id) AS (
         SELECT run_id FROM agent_runs WHERE run_id=?
         UNION SELECT r.run_id FROM agent_runs r JOIN descendants d
-        ON json_extract(r.payload,'$.parent_run_id')=d.id)
+        ON json_valid(r.payload) AND CAST(json_extract(r.payload,'$.parent_run_id') AS TEXT)=d.id)
     """
     with store.connect() as db:
         rows = db.execute(tree + """SELECT r.payload FROM agent_runs r JOIN descendants d ON r.run_id=d.id

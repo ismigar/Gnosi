@@ -70,7 +70,8 @@ def _assistant_metadata(
     metadata = getattr(message, "additional_kwargs", {})
     if not isinstance(metadata, dict):
         metadata = {}
-    timings = state.metrics_payload()
+    timings = ({"response_ms": state.response_ms} if state.team_reply_streamed and state.team_usage is None
+               else state.metrics_payload())
     metadata["gnosi_timings"] = timings
     if untrusted_context_flags:
         evidence_security = dict(metadata.get("gnosi_evidence_security") or {})
@@ -157,11 +158,7 @@ def _message_events(
     events: list[str] = []
     team_usage = getattr(message, "additional_kwargs", {}).get("gnosi_team_usage")
     if node_name == "team" and isinstance(team_usage, dict):
-        state.total_in_tok = int(team_usage["input_tokens"])
-        state.total_out_tok = int(team_usage["output_tokens"])
-        state.model_calls = int(team_usage["model_calls"])
-        state.tool_calls_count = int(team_usage["tool_calls"])
-        state.team_usage = team_usage
+        state.apply_team_usage(team_usage)
     if turn_usage:
         state.total_in_tok += int(turn_usage[0])
         state.total_out_tok += int(turn_usage[1])
@@ -191,6 +188,7 @@ def _message_events(
     if node_name == 'team' and message.type == 'ai' and isinstance(native_confirmation, dict):
         pending = confirmation_event(json.dumps(native_confirmation, ensure_ascii=False))
         if pending:
+            state.mark_response()
             state.answer_count += 1
             gauntlet = _public_gauntlet_metadata(getattr(message, 'additional_kwargs', {}).get('gnosi_gauntlet'))
             if gauntlet is not None:
@@ -214,6 +212,7 @@ def _message_events(
             state.answer_count += 1
             events.append(json.dumps(pending_confirmation, ensure_ascii=False) + "\n")
     elif message.type == "ai" and content:
+        state.mark_response()
         state.answer_count += 1
         events.append(
             _assistant_event(
@@ -298,17 +297,36 @@ async def iter_workflow_events(
         if item.get("name")
     }
     async with _acquire_turn_lock(turn_lock):
-        async with asyncio.timeout(turn_timeout_seconds):
+        async with asyncio.timeout(turn_timeout_seconds) as execution_deadline:
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 agent_app = workflow.compile(checkpointer=saver)
                 previous_update_at = time.monotonic()
                 from backend.services.agent_execution import stream_workflow
+                if state.llm_selection.get("mode") == "team":
+                    inputs = {**inputs, "chat_request_started_at": state.request_started_at}
                 async for event in stream_workflow(
                     agent_app, inputs, origin="chat", selection=state.llm_selection, snapshot=getattr(workflow, "_execution_snapshot", None),
                     config=config,
                     stream_mode="updates",
                 ):
                     for node_name, state_update in event.items():
+                        if node_name == "team_reply":
+                            # All model work, actions and required reviews have finished.
+                            # Optional accounting must not time out an accepted answer.
+                            execution_deadline.reschedule(None)
+                            state.team_reply_streamed = True
+                            node_name = "team"
+                            state_update = {"messages": state_update["pending_team_messages"]}
+                            if state_update["messages"]:
+                                timings = state_update["messages"][0].additional_kwargs.get("gnosi_timings", {})
+                                state.response_ms = timings.get("response_ms")
+                        elif node_name == "team" and state.team_reply_streamed:
+                            # The approved messages have already reached the client. The
+                            # final graph update retains them in history with their usage.
+                            for message in state_update["messages"]:
+                                state.apply_team_usage(message.additional_kwargs["gnosi_team_usage"])
+                                _assistant_metadata(message, state=state, untrusted_context_flags=untrusted_context_flags)
+                            continue
                         events, previous_update_at = _node_events(
                             node_name,
                             state_update,

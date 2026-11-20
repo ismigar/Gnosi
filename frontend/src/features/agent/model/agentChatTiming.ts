@@ -11,7 +11,7 @@ import {
 
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
 const TURN_TIMING_MS_FIELDS = [
-    'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
+    'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms', 'response_ms',
 ] as const;
 const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
@@ -375,6 +375,7 @@ export const processingSeconds = (processingMs: LooseValue): number | null => {
 
 export const effectiveMessageTimingMs = (message: unknown): number | null => {
     const timings = timedPayloadFromMessage(message);
+    if (timings && typeof timings.response_ms === 'number') return timings.response_ms;
     if (timings && typeof timings.total_ms === 'number') return timings.total_ms;
     return boundedProcessingMs(
         recordValue(message, 'processingMs')

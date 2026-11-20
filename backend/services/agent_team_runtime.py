@@ -5,6 +5,9 @@ import asyncio
 import copy
 import hashlib
 import json
+import logging
+import sqlite3
+import time
 import uuid
 from contextvars import ContextVar
 from dataclasses import replace
@@ -586,25 +589,45 @@ async def repair_output(root_id: str, scope: ExecutionScope, text: str, error: s
 def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) -> tuple[Any, dict[str, Any]] | None:
     if delegating.get() or profile.agent_data.get("_team_execution") or not team_for(profile.agent_data).enabled:
         return None
-    from backend.domains.agent.policy import AgentState
+    from backend.domains.agent.policy import TeamState
     from backend.services.agent_execution import snapshot_from_runtime
     from backend.services.agent_execution_scope import current_scope
     owner = copy.deepcopy(profile.agent_data)
-    async def execute(state: AgentState) -> dict[str, Any]:
+    async def prepare_reply(state: TeamState) -> dict[str, Any]:
         current = state.get("user_request") or next((str(m.content) for m in reversed(state["messages"]) if m.type == "human"), original)
         result = await coordinate(owner, dict(state), operation_mode=operation_mode, original=current)
+        if started := state.get("chat_request_started_at"):
+            response_ms = max(0, int((time.monotonic() - started) * 1000))
+            for message in result["messages"]:
+                message.additional_kwargs["gnosi_timings"] = {"response_ms": response_ms}
+        return {"pending_team_messages": result["messages"]}
+
+    async def finish_reply(state: TeamState) -> dict[str, Any]:
         from backend.services.agent_execution import _run
-        from backend.services.agent_team_usage import team_usage
-        from backend.services.agent_execution_trace import record
-        usage = team_usage(current_scope(), _run.get())
-        artifacts.put(current_scope(), _run.get(), "usage", "usage", usage)
-        record("team.usage", usage)
-        for message in result["messages"]:
+        from backend.services.agent_team_usage import record_team_usage
+        messages = state["pending_team_messages"]
+        try:
+            usage = await asyncio.to_thread(record_team_usage, current_scope(), _run.get())
+        except PermissionError:
+            raise
+        except (sqlite3.Error, OSError, ValueError):
+            logging.getLogger(__name__).exception("Could not record usage for the completed team reply")
+            usage = {"usage_complete": False, "cost_source": "unknown", "estimated_cost_usd": None}
+        for message in messages:
             message.additional_kwargs["gnosi_team_usage"] = usage
-        return result
-    graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)
-    graph.add_node("team", execute)
-    graph.add_edge(START, "team")
+            if started := state.get("chat_request_started_at"):
+                timings = message.additional_kwargs["gnosi_timings"]
+                timings.update(total_ms=max(0, int((time.monotonic() - started) * 1000)), team_usage=usage)
+                for key in ("model_calls", "tool_calls", "input_tokens", "output_tokens", "estimated_cost_usd"):
+                    if key in usage:
+                        timings[key] = usage[key]
+        return {"messages": messages, "pending_team_messages": []}
+
+    graph: StateGraph[Any, None, Any, Any] = StateGraph(TeamState)
+    graph.add_node("team_reply", prepare_reply)
+    graph.add_node("team", finish_reply)
+    graph.add_edge(START, "team_reply")
+    graph.add_edge("team_reply", "team")
     graph.add_edge("team", END)
     setattr(graph, "_execution_snapshot", snapshot_from_runtime(current_scope(), owner, profile.resolved_runtime))
     from backend.domains.agent.runtime_tools import _runtime_tool_metadata

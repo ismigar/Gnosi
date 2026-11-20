@@ -1,4 +1,5 @@
 import { boundedMemoryProvenance } from './memoryProvenance';
+import { boundedTurnMetrics } from '../model/agentChatTiming';
 import type { TFunction } from 'i18next';
 import { boundedTransparencyMetadata, isRetryableErrorCode } from '../model/agentChatTransparency';
 import { isRecord, type LooseRecord } from '../model/agentChatMessageTypes';
@@ -31,6 +32,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       ? t('chat.tool_pending_confirmation', '🟡 *Tool {{tool}} is awaiting confirmation.*', { tool: data.tool })
       : t('chat.tool_end', '✅ *Tool {{tool}} finished.*', { tool: data.tool }) };
   } else if (data.type === 'message' || data.type === 'thought') {
+    const responseMs = boundedTurnMetrics(data.timings)?.response_ms;
     const metadata = boundedTransparencyMetadata({
       plan: data.plan || message.plan || state.transparency.plan,
       privacy: data.privacy || message.privacy || state.transparency.privacy,
@@ -40,6 +42,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
     });
     message = { ...message, ...(data.memory_provenance !== undefined ? { memory_provenance: boundedMemoryProvenance(data.memory_provenance) } : {}), ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata),
       ...(data.gauntlet !== undefined ? { gauntlet: metadata.gauntlet } : {}),
+      ...(typeof responseMs === 'number' ? { processingMs: responseMs } : {}),
     };
   } else if (data.type === 'error') {
     const errorCode = typeof data.code === 'string' && data.code ? data.code : 'agent_error';

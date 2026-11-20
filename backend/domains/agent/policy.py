@@ -44,6 +44,11 @@ class AgentState(TypedDict):
     team_help_allowed: bool
 
 
+class TeamState(AgentState, total=False):
+    pending_team_messages: Sequence[BaseMessage]
+    chat_request_started_at: float
+
+
 def _turn_is_cancelled(state: Any) -> bool:
     """Read the request cancellation signal without capturing it in a graph."""
     token = (

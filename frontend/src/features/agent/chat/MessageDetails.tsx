@@ -31,12 +31,12 @@ export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
                     <div>{t('chat.timing_tools', 'Tools: {{count}} ms', { count: msg.timings.tools_ms ?? 0 })}</div>
                     <div>{t('chat.timing_model', 'Model: {{count}} ms', { count: msg.timings.model_ms ?? 0 })}</div>
                     <div>{t('chat.timing_misc', 'Other: {{count}} ms', { count: msg.timings.other_ms ?? 0 })}</div>
-                    <div>{t('chat.timing_usage', '{{input}} input tokens · {{output}} output tokens · {{models}} model calls · {{tools}} tool calls', {
+                    {msg.timings.model_calls !== undefined && <div>{t('chat.timing_usage', '{{input}} input tokens · {{output}} output tokens · {{models}} model calls · {{tools}} tool calls', {
                         input: msg.timings.input_tokens ?? 0,
                         output: msg.timings.output_tokens ?? 0,
                         models: msg.timings.model_calls ?? 0,
                         tools: msg.timings.tool_calls ?? 0,
-                    })}</div>
+                    })}</div>}
                     {msg.timings.estimated_cost_usd !== undefined && (
                         <div>{t(msg.timings.team_cost_source === 'reported' ? 'chat.team_reported_cost' : 'chat.timing_cost',
                             msg.timings.team_cost_source === 'reported' ? 'Reported cost: ${{amount}}' : 'Estimated cost: ${{amount}}', {

@@ -25,6 +25,8 @@ class AgentStreamState:
     model_calls: int = 0
     tool_calls_count: int = 0
     team_usage: Dict[str, Any] | None = None
+    response_ms: int | None = None
+    team_reply_streamed: bool = False
     last_phase: str = ""
     deadline_warned: bool = False
     stream_failed: bool = False
@@ -61,12 +63,8 @@ class AgentStreamState:
         model_ms = max(0, int(self.phase_ms["model"]))
         tools_ms = max(0, int(self.phase_ms["tools"]))
         other_ms = max(0, total_ms - setup_ms - routing_ms - model_ms - tools_ms)
-        input_rate, output_rate = model_cost_rates(
-            str((self.llm_selection or {}).get("provider") or ""),
-            str((self.llm_selection or {}).get("model") or ""),
-        )
         budgets = self.turn_plan.get("budgets") or {}
-        return {
+        timings = {
             "type": "turn_metrics",
             "trace_id": self.trace_id,
             "setup_ms": setup_ms,
@@ -75,24 +73,40 @@ class AgentStreamState:
             "tools_ms": tools_ms,
             "other_ms": other_ms,
             "total_ms": total_ms,
-            "input_tokens": self.total_in_tok,
-            "output_tokens": self.total_out_tok,
-            "estimated_cost_usd": self.team_usage.get("estimated_cost_usd") if self.team_usage is not None else round(
-                (self.total_in_tok * input_rate + self.total_out_tok * output_rate) / 1_000_000,
-                6,
-            ),
-            "model_calls": self.model_calls,
-            "tool_calls": self.tool_calls_count,
+            **({"response_ms": self.response_ms} if self.response_ms is not None else {}),
             **({"team_usage": self.team_usage} if self.team_usage is not None else {}),
             "budget": dict(budgets),
+        }
+        if self.team_reply_streamed and (self.team_usage is None or "model_calls" not in self.team_usage):
+            return timings
+        if self.team_usage is not None:
+            cost = self.team_usage.get("estimated_cost_usd")
+        else:
+            input_rate, output_rate = model_cost_rates(
+                str(self.llm_selection.get("provider") or ""), str(self.llm_selection.get("model") or ""),
+            )
+            cost = round((self.total_in_tok * input_rate + self.total_out_tok * output_rate) / 1_000_000, 6)
+        return {
+            **timings,
+            "input_tokens": self.total_in_tok,
+            "output_tokens": self.total_out_tok,
+            "estimated_cost_usd": cost,
+            "model_calls": self.model_calls,
+            "tool_calls": self.tool_calls_count,
             "budget_exhausted": {
-                "model_calls": bool(
-                    budgets.get("max_model_calls")
-                    and self.model_calls >= int(budgets["max_model_calls"])
-                ),
-                "tool_calls": bool(
-                    budgets.get("max_tool_calls")
-                    and self.tool_calls_count >= int(budgets["max_tool_calls"])
-                ),
+                "model_calls": bool(budgets.get("max_model_calls") and self.model_calls >= int(budgets["max_model_calls"])),
+                "tool_calls": bool(budgets.get("max_tool_calls") and self.tool_calls_count >= int(budgets["max_tool_calls"])),
             },
         }
+
+    def mark_response(self) -> None:
+        if self.response_ms is None:
+            self.response_ms = max(0, int((time.monotonic() - self.request_started_at) * 1000))
+
+    def apply_team_usage(self, usage: Dict[str, Any]) -> None:
+        self.team_usage = usage
+        if "model_calls" in usage:
+            self.total_in_tok = int(usage["input_tokens"])
+            self.total_out_tok = int(usage["output_tokens"])
+            self.model_calls = int(usage["model_calls"])
+            self.tool_calls_count = int(usage["tool_calls"])
