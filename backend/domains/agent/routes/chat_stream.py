@@ -230,7 +230,8 @@ async def stream_agent_events(
             ):
                 yield event
             state.usage_recorded = True  # Recorded at the shared model boundary.
-        yield json.dumps(state.metrics_payload()) + "\n"
+        metrics = await asyncio.to_thread(state.metrics_payload)
+        yield json.dumps(metrics) + "\n"
         state.metrics_emitted = True
         yield (
             json.dumps(

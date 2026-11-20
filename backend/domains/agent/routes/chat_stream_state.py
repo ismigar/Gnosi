@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -81,11 +82,17 @@ class AgentStreamState:
             return timings
         if self.team_usage is not None:
             cost = self.team_usage.get("estimated_cost_usd")
+        elif not (self.total_in_tok or self.total_out_tok):
+            cost = 0.0
         else:
-            input_rate, output_rate = model_cost_rates(
-                str(self.llm_selection.get("provider") or ""), str(self.llm_selection.get("model") or ""),
-            )
-            cost = round((self.total_in_tok * input_rate + self.total_out_tok * output_rate) / 1_000_000, 6)
+            try:
+                input_rate, output_rate = model_cost_rates(
+                    str(self.llm_selection.get("provider") or ""), str(self.llm_selection.get("model") or ""),
+                )
+                cost = round((self.total_in_tok * input_rate + self.total_out_tok * output_rate) / 1_000_000, 6)
+            except Exception:
+                logging.getLogger(__name__).exception("The model price is unavailable")
+                cost = None
         return {
             **timings,
             "input_tokens": self.total_in_tok,
