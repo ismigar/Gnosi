@@ -281,14 +281,16 @@ def test_extracted_cache_reuses_a_valid_empty_provider_result() -> None:
     assert calls == 1
 
 
-def test_unavailable_vault_event_cannot_be_rewritten_as_a_partial_patch(tmp_path, monkeypatch):
+def test_unavailable_vault_event_cannot_be_rewritten_as_a_partial_patch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from backend.domains.calendar import mutations
     from backend.utils.metadata_io import MetadataUnavailable
 
     source = tmp_path / "event.md"
     source.write_text("---\ntitle: Original\n---\nFull event body")
 
-    def offline(path):
+    def offline(path: Path) -> str:
         raise MetadataUnavailable(path=path, reason="offline")
 
     monkeypatch.setattr(mutations, "read_vault_text", offline)
