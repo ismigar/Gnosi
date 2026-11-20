@@ -112,15 +112,17 @@ def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict
         # invocation parameters and framing. Do not discount prompt caching.
         payload = json.dumps([messages, parameters], default=lambda v: v.model_dump() if hasattr(v, "model_dump") else str(v), ensure_ascii=False)
         input_bound = len(payload.encode("utf-8")) + 4096
-        if provider == "openai" and model == "gpt-6.1-sol":
+        from backend.services.openai_usage_pricing import LONG_INPUT, reading_model
+        direct_model = reading_model(provider, model)
+        if direct_model:
             options = parameters.get("prompt_cache_options") or {}
             # Reserve cache writes as well as ordinary input; never assume hits.
             # The explicitly bound native tier determines the quoted tariff.
             cost_in *= Decimal("2.5") if options.get("ttl") == "12h" else Decimal("1.25")
-            if input_bound > 272_000:
+            if input_bound > LONG_INPUT:
                 cost_in *= 2
                 cost_out *= Decimal("1.5")
-            if parameters.get("service_tier") == "flex":
+            if parameters.get("service_tier") == "flex" and direct_model == "gpt-6.1-sol":
                 # Native Flex is explicitly bound, with no automatic Standard
                 # fallback. Reserve its published tariff, including every write.
                 # A body override must never invalidate the priced request.

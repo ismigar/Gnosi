@@ -411,6 +411,8 @@ def load_catalog(force_refresh: bool = False) -> Dict[str, Any]:
             catalog = _read_json(VENDORED_PATH) or {"schema": 1, "providers": []}
             catalog.setdefault("source", "vendored")
 
+        from backend.agent.reading_model_catalog import supply_reading_models
+        supply_reading_models(catalog)
         catalog = merge_ollama_overlay(catalog, _live_ollama_models())
         _mem_cache = catalog
         _mem_cached_at = time.monotonic()
@@ -620,4 +622,8 @@ def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, fl
             if not any(values) and model.get("pricing_known") is not True:
                 return None
             return {key: float(model[key]) for key in ("cost_in", "cost_out")}
+    from backend.agent.reading_model_catalog import DEFAULT_OFFERS
+    if provider_id == "openai" and model_id in DEFAULT_OFFERS:
+        _, inputs, outputs = DEFAULT_OFFERS[model_id]
+        return {"cost_in": inputs, "cost_out": outputs}
     return None

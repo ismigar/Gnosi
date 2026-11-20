@@ -429,7 +429,7 @@ def process_resource(
         save_snapshot=llm_wiki_storage.save_snapshot,
         chunk_origins=partial(
             reading_chunks,
-            budget=reading_chunk_budget(runtime.input_budget),
+            budget=reading_chunk_budget(min(runtime.input_budget, review_runtime.input_budget) if review_runtime else runtime.input_budget),
             count=getattr(runtime, "count_tokens", token_bound),
         ),
         load_brain_index=_load_brain_index,
@@ -447,7 +447,6 @@ def process_resource(
         execution_metadata=execution,
         reviewer=review_runtime,
         legacy_reader_revision=getattr(runtime, "compatible_legacy_revision", None),
-        reader_instructions=getattr(runtime, "instructions", ""),
         input_budget=runtime.input_budget,
         count_tokens=getattr(runtime, "count_tokens", token_bound),
         parse_plan=_parse_plan,

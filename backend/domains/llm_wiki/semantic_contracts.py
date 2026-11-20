@@ -44,9 +44,10 @@ def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
     return result
 
 
-def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+def interpretation_schema(size: int, dimensions: list[dict[str, object]], *, flag_review: bool = False) -> dict[str, Any]:
     return obj({"passages": {"type": "array", "minItems": size, "maxItems": size,
-                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)}})},
+                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)},
+                                          **({"needs_specialist": {"type": "boolean"}} if flag_review else {})})},
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
 
@@ -112,9 +113,10 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
 
 
 def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object]],
-                        evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> dict[str, Any]:
+                        evidence: list[dict[str, object]], dimensions: list[dict[str, object]],
+                        *, flag_review: bool = False) -> dict[str, Any]:
     primary = [s for c in chunks for s in records(c.get("segments"))]
-    validate_schema(answer, interpretation_schema(len(primary), dimensions))
+    validate_schema(answer, interpretation_schema(len(primary), dimensions, flag_review=flag_review))
     passages = iter(records(answer["passages"]))
     plans = {}
     for chunk in chunks:

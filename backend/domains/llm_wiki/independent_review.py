@@ -1,7 +1,6 @@
 """Selective review of original passages after the reader has checked its drafts."""
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import replace
 from collections.abc import Callable
 from typing import Any, TYPE_CHECKING
@@ -9,9 +8,10 @@ from typing import Any, TYPE_CHECKING
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.reading_quality import adjacent_originals, validate_boundary_coverage, validate_reviewed_prose
-from backend.domains.llm_wiki.semantic_context import source_view, terms
+from backend.domains.llm_wiki.semantic_context import source_view
+from backend.domains.llm_wiki.review_selection import passage_key, selected_passages
 from backend.domains.llm_wiki.semantic_contracts import (
-    MAP_SCHEMA, TEXT, bind_note, fields, note_schema, obj, semantic_note, validate_schema,
+    TEXT, TEXTS, bind_note, fields, note_schema, obj, semantic_note, validate_schema,
 )
 
 if TYPE_CHECKING:
@@ -19,72 +19,92 @@ if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
 
-SAMPLE_INTERVAL = 12
-
-
-def sample_passages(chunks: list[dict[str, object]]) -> set[str]:
-    """Sample even short chapters and spread checks through long/unsectioned text."""
-    chapters: dict[tuple[str, str], list[str]] = defaultdict(list)
-    for chunk in chunks:
-        for segment in records(chunk.get("segments")):
-            section = str(record(segment.get("locator")).get("section") or "")
-            chapters[str(chunk.get("origin_id") or chunk.get("origin_label") or ""), section].append(str(segment["id"]))
-    return {block[len(block) // 2] for chapter in chapters.values()
-            for block in (chapter[start:start + SAMPLE_INTERVAL] for start in range(0, len(chapter), SAMPLE_INTERVAL))}
-
-
-def flagged_passage(passages: list[dict[str, object]], observations: dict[str, object]) -> str:
-    signals = []
-    for field in ("questions", "contradictions", "warnings"):
-        values = observations.get(field)
-        if isinstance(values, list):
-            signals.extend(value for value in values if isinstance(value, str))
-    if not signals or not passages:
-        return ""
-    keywords = terms(" ".join(signals))
-    return str(max(passages, key=lambda s: len(keywords & terms(str(s["text"]))))["id"])
-
-
 def audit_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+    replacement = note_schema(dimensions)
+    replacement["properties"].pop("quote_source_keys", None)  # Provenance is bound locally.
     change = obj({"position": {"type": "integer", "minimum": 0, "maximum": size},
-                  "reason": TEXT, "replacement": note_schema(dimensions)})
-    return obj({"assessment": TEXT, "evidence_quote": TEXT, "changes": {"type": "array", "items": change}})
+                  "reason": TEXT, "replacement": {"anyOf": [replacement, {"type": "null"}]}})
+    return obj({"assessment": TEXT, "evidence_quote": TEXT, "unresolved_issues": TEXTS, "changes": {"type": "array", "items": change}})
 
 
 def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], primary: dict[str, object],
                   evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
     validate_schema(answer, audit_schema(len(drafts), dimensions))
+    if answer["unresolved_issues"]:
+        raise ValueError("The independent reviewer must resolve outstanding source issues before acceptance")
     quote = str(answer["evidence_quote"])
     if not quote.strip() or quote not in str(primary["text"]):
         raise ValueError("The assessment must cite an exact quotation from the primary passage")
+    if not str(answer["assessment"]).strip():
+        raise ValueError("Explain what the evidence establishes")
     validate_boundary_coverage(answer["assessment"])
-    revised = list(drafts)
+    revised: list[dict[str, object] | None] = list(drafts)
     replaced: set[int] = set()
     for change in records(answer["changes"]):
         position = int(str(change["position"]))
         if position and position in replaced:
             raise ValueError("Only one correction per existing note is allowed")
+        if not str(change["reason"]).strip():
+            raise ValueError("Explain how the evidence justifies each change")
+        if change["replacement"] is None:
+            if position == 0:
+                raise ValueError("An exclusion must identify an existing note")
+            revised[position - 1] = None
+            replaced.add(position)
+            continue
         note = bind_note(record(change["replacement"]), primary, evidence, dimensions)
         if position:
             revised[position - 1] = note
             replaced.add(position)
         else:
             revised.append(note)
-    return revised
+    return [note for note in revised if note is not None]
+
+
+def audit_payload(primary: dict[str, object], drafts: list[dict[str, object]], support: list[dict[str, object]],
+                  coverage: list[object], dimensions: list[dict[str, object]]) -> dict[str, object]:
+    return {"reading_engine": "semantic", "original": source_view(primary), "support": [source_view(s) for s in support],
+            "drafts": drafts, "properties": fields(dimensions), "coverage": coverage,
+            "instruction": "Verify these drafts against this original. Return only justified corrections. "
+            "Use position 0 for a missing substantive idea or the one-based position to replace a draft. "
+            "Return a null replacement only to exclude an unsupported note and explain why. Quote the original literally. "
+            "Report any remaining defects in unresolved_issues.",
+            "output_schema": audit_schema(len(drafts), dimensions)}
+
+
+def fits_review(reviewer: ReviewRuntime, phase: str, title: str, language: str, payload: dict[str, object]) -> bool:
+    prompt = encoded({"phase": phase, "resource": title, "language": language, **payload})
+    # Exact runtime counting is needed only near the limit. Even a byte tokenizer
+    # with repeated schema and JSON escaping fits under this conservative shortcut.
+    return len(prompt.encode()) * 6 + 4096 <= reviewer.input_budget or reviewer.count_tokens(prompt) <= reviewer.input_budget
+
+
+def validate_review_capacity(reviewer: ReviewRuntime, chunks: list[dict[str, object]], dimensions: list[dict[str, object]],
+                             title: str, language: str) -> None:
+    for chunk in chunks:
+        for segment in records(chunk.get("segments")):
+            primary = {**segment, "origin_label": chunk.get("origin_label", "")}
+            # Reserve space for a grounded draft and its literal quotation before extraction.
+            draft = {"title": title, "body_md": segment["text"], "quotes": [segment["text"]], "properties": {}}
+            if not fits_review(reviewer, "source-audit", title, language, audit_payload(primary, [draft], [], [], dimensions)):
+                raise RuntimeError("The reading reviewer needs more context for the original passage, its notes and citations")
 
 
 def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
-                 drafts: list[dict[str, object]], evidence: list[dict[str, object]],
-                 plan: dict[str, object], policy: str, saved: dict[str, Any],
-                 citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None,
-                 ) -> tuple[str, dict[str, object]]:
-    payload = {"reading_engine": "semantic", "original": source_view(primary), "support": [source_view(s) for s in evidence if s["id"] != str(primary["id"])],
-               "drafts": [semantic_note(n, worker.dimensions) for n in drafts], "properties": fields(worker.dimensions),
-               "coverage": [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == str(primary["id"])],
-               "reader_policy": policy, "instruction": "Verify these drafts against this original. Return only justified corrections. "
-               "Use position 0 to add a missing substantive idea or the one-based position of a draft to replace it. "
-               "Keep faithful notes. Quote the primary original literally for each change and for the assessment."}
+                  drafts: list[dict[str, object]], evidence: list[dict[str, object]],
+                  plan: dict[str, object], saved: dict[str, Any],
+                  citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None,
+                  ) -> tuple[str, dict[str, object]]:
+    coverage = [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == primary["id"]]
+    notes = [semantic_note(n, worker.dimensions) for n in drafts]
+    support = [s for s in evidence if s["id"] != primary["id"]]
+    payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
+    cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
+    if not fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
+        support = [s for s in support if s["id"] in cited]
+        payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
     schema = audit_schema(len(drafts), worker.dimensions)
+    evidence = [primary, *support]
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
     def validate(answer: dict[str, object]) -> None:
         checked = apply_changes(answer, drafts, primary, evidence, worker.dimensions)
@@ -107,30 +127,30 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
     assert reviewer is not None
     reader = engine.reader
     worker = replace(reader, models=[], report_progress=False)
-    selected = sample_passages(reader.chunks) | set(engine.state.get("flagged_passages", []))
+    selected = selected_passages(reader.chunks, engine.state)
     adjacent = adjacent_originals(reader.chunks)
     if engine.state.get("independent_revision") != reviewer.identity:
         engine.state.update(independent_revision=reviewer.identity, independent_reviews={}, independent_synthesis=None)
     results = engine.state["independent_reviews"]
     findings: list[dict[str, object]] = []
     reader.phase("reviewing", 73)
-    policy = engine.deps.reader_instructions
     for chunk, plan in reviewed:
         notes = records(plan["notes"])
         for segment in records(chunk["segments"]):
             identifier = str(segment["id"])
-            if identifier not in selected:
+            checkpoint_id = passage_key(segment)
+            if checkpoint_id not in selected:
                 continue
             primary = {**segment, "origin_label": chunk.get("origin_label", "")}
             drafts = [n for n in notes if n["source_segment_id"] == identifier]
             cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
             support = [s for s in records(plan.get("evidence_segments")) if s["id"] in cited]
             evidence = list({s["id"]: s for s in [*support, *adjacent.get(identifier, []), primary]}.values())
-            saved = results.get(identifier, {})
-            key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan, policy,
+            saved = results.get(checkpoint_id, {})
+            key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan,
                                         saved, engine.deps.citation_issues)
             if key != saved.get("key"):
-                results[identifier] = {"key": key, "answer": answer}
+                results[checkpoint_id] = {"key": key, "answer": answer}
                 engine.state["step"] += 1
                 reader.models.extend(worker.models)
                 worker.models.clear()
@@ -147,28 +167,8 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                 plan["coverage"] = coverage
                 plan["evidence_segments"] = list({s["id"]: s for s in [*records(plan.get("evidence_segments")), *evidence]}.values())
             findings.append({"document": primary["origin_label"], "location": primary.get("locator"),
-                             "assessment": answer["assessment"], "quote": answer["evidence_quote"]})
+                             "assessment": answer["assessment"], "quote": answer["evidence_quote"],
+                             "corrections": answer["changes"]})
         plan["notes"] = notes
-    # Both full-book maps remain available. Sample geographically across the findings
-    # if their combined text exceeds the reviewer's context.
-    def synthesis_payload(selected_findings: list[dict[str, object]]) -> dict[str, object]:
-        return {"reading_engine": "semantic", "source_map": global_map, "notes_map": notes_map, "reviewed_passages": len(findings),
-                "findings": selected_findings, "output_schema": MAP_SCHEMA, "instruction":
-                "Write the final synthesis in the requested language. Check the source and notes maps against the supplied "
-                "original quotations and independent assessments. Preserve disagreements, attribution and caveats. "
-                "Do not claim every passage received independent review."}
-    subset = findings
-    while len(subset) > 1 and reviewer.count_tokens(encoded(synthesis_payload(subset))) > reviewer.input_budget * 3 // 4:
-        subset = subset[::2]
-    payload = synthesis_payload(subset)
-    key = fingerprint([reviewer.identity, reader.title, reader.language, payload])
-    saved_final = engine.state.get("independent_synthesis") or {}
-    if saved_final.get("key") == key:
-        final = saved_final["answer"]
-        validate_schema(final, MAP_SCHEMA)
-        return str(final["summary"])
-    final = worker.ask("independent-synthesis", "source-synthesis", payload, lambda item: validate_schema(item, MAP_SCHEMA), MAP_SCHEMA, executor=reviewer)
-    engine.state["independent_synthesis"] = {"key": key, "answer": final}
-    reader.models.extend(worker.models)
-    engine.save()
-    return str(final["summary"])
+    from backend.domains.llm_wiki.review_synthesis import synthesize
+    return synthesize(engine, worker, reviewer, global_map, notes_map, findings)

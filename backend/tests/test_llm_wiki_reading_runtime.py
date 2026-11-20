@@ -199,3 +199,13 @@ def test_legacy_checkpoint_requires_a_matching_scoped_reader_and_does_not_resume
     assert store.read(runtime.snapshot.scope, "paid") == original
     configured[0]["agents"][0]["model"] = "new-reader"
     assert prepare_reading_runtime(tmp_path).compatible_legacy_revision("paid") == ""
+
+
+def test_reviewer_records_its_own_skill_version(configured, tmp_path):
+    from backend.services.agent_operation_catalog import skill_id
+    from backend.services.llm_wiki_reading_runtime import runtime_for_snapshot
+    reviewer_skill = skill_id("reading-review")
+    reader = prepare_reading_runtime(tmp_path)
+    frozen = reader.snapshot.model_copy(update={"skill_ids": [reviewer_skill], "skill_versions": {reviewer_skill: "2.0.0"}})
+    reviewer = runtime_for_snapshot(tmp_path, frozen, reviewer_skill)
+    assert reviewer.metadata["skill_version"] == "2.0.0"

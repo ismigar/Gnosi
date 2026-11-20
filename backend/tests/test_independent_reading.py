@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.domains.llm_wiki.independent_review import sample_passages
+from backend.domains.llm_wiki.review_selection import sample_passages
 from backend.services import reading_budget
 from backend.tests.test_semantic_reading import setup
 
@@ -22,6 +22,7 @@ def test_resuming_independent_review_preserves_reader_work_and_uses_the_same_boo
     calls = []
     def generate(prompt, validate, timeout):
         request = json.loads(prompt)
+        assert "PRIVATE reader context marker" not in prompt
         calls.append(request["phase"])
         assert reading_budget.active()
         if request["phase"] == "source-synthesis":
@@ -30,7 +31,7 @@ def test_resuming_independent_review_preserves_reader_work_and_uses_the_same_boo
             original = request["original"]["text"]
             if len(calls) == 2:
                 raise reading_budget.ReadingBudgetError("reading_budget_exhausted")
-            answer = {"assessment": "The author qualifies the claim.", "evidence_quote": original,
+            answer = {"assessment": "The author qualifies the claim.", "evidence_quote": original, "unresolved_issues": [],
                       "changes": [{"position": 0, "reason": "The objection is missing.",
                                    "replacement": {"title": "A qualification", "body_md": "The author qualifies the claim.",
                                                    "properties": {}, "quotes": [original]}}]}
@@ -40,7 +41,7 @@ def test_resuming_independent_review_preserves_reader_work_and_uses_the_same_boo
     def configure(reader, revision="review-1"):
         reader.dependencies.reviewer = SimpleNamespace(identity=revision, input_budget=48000, count_tokens=len,
                                                        generate_structured=generate)
-        reader.dependencies.reader_instructions = "Keep the contrast with the opponent."
+        reader.dependencies.reader_instructions = "PRIVATE reader context marker"
         reader.dependencies.citation_issues = None
 
     reader, reader_calls, records = setup(count=3)
@@ -66,3 +67,107 @@ def test_resuming_independent_review_preserves_reader_work_and_uses_the_same_boo
         changed.run()
     assert reader_calls == []
     assert calls[-4:] == ["source-audit"] * 3 + ["source-synthesis"]
+
+
+def test_repeated_section_names_and_distinct_signals_keep_both_originals():
+    from backend.domains.llm_wiki.documents import extract_html
+    from backend.domains.llm_wiki.origins import finalize_origin
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.review_selection import flagged_passages
+    html = "<h1>Alpha</h1><h2>Overview</h2><p>First.</p><h1>Beta</h1><h2>Overview</h2><p>Second.</p>"
+    origin = finalize_origin({"kind": "html", "label": "Book", "input_order": 0, "segments": extract_html(html)})
+    chunks = reading_chunks([origin], budget=4096, count=len)
+    assert sample_passages(chunks) == {s["id"] for s in origin["segments"]}
+    passages = [{"id": "a", "text": "Cyanium hypothesis"}, {"id": "b", "text": "Ordinary"},
+                {"id": "c", "text": "Vermillion counterexample"}]
+    assert flagged_passages(passages, {"questions": ["Cyanium hypothesis?"], "warnings": ["Vermillion."]}) == {"a", "c"}
+
+
+def test_revision_only_migration_keeps_paid_verification_and_sends_grounded_corrections_to_synthesis():
+    reader, _, states = setup(count=1, revision="old")
+    reader.run()
+    resumed, reader_calls, _ = setup(count=1, revision="compatible", checkpoints=states, resume="new")
+    resumed.job_id = "upgrade"
+    resumed.dependencies.legacy_reader_revision = lambda _: "old"
+    resumed.dependencies.citation_issues = None
+    def review(prompt, validate, timeout):
+        req = json.loads(prompt)
+        if req["phase"] == "source-synthesis":
+            correction = req["findings"][0]["corrections"][0]
+            assert correction["replacement"]["body_md"] == "Revised attribution."
+            assert correction["replacement"]["quotes"] == [original]
+            assert correction["reason"] == "The author attributes the objection to the opponent."
+            with pytest.raises(ValueError, match="substantive synthesis"):
+                validate({"summary": " "})
+            answer = {"summary": "The opponent supplies the objection."}
+        else:
+            change = {"position": 1, "reason": "The author attributes the objection to the opponent.",
+                      "replacement": {"title": "Objection", "body_md": "Revised attribution.", "properties": {}, "quotes": [original]}}
+            answer = {"assessment": "The author attributes the objection.", "evidence_quote": original, "unresolved_issues": [], "changes": [change]}
+            with pytest.raises(ValueError, match="resolve outstanding"):
+                validate({**answer, "unresolved_issues": ["Who is speaking?"]})
+        validate(answer)
+        return json.dumps(answer), "review-model"
+    original = reader.chunks[0]["segments"][0]["text"]
+    resumed.dependencies.reviewer = SimpleNamespace(identity="revisor", input_budget=48000, count_tokens=len, generate_structured=review)
+    result, _ = resumed.run()
+    assert result["notes"][0]["body_md"] == "Revised attribution."
+    assert not reader_calls
+
+
+def test_undersized_reviewer_is_detected_before_any_model_calls():
+    reader, calls, _ = setup(count=1)
+    reader.chunks[0]["segments"][0]["text"] = "Attribution, exception and qualification remain in this original. " * 50
+    reader.dependencies.reviewer = SimpleNamespace(identity="narrow", input_budget=5000, count_tokens=len)
+    with pytest.raises(RuntimeError, match="reviewer needs more context"):
+        reader.run()
+    assert calls == []
+
+
+def test_large_synthesis_sends_all_findings_in_checkpointed_batches():
+    from backend.domains.llm_wiki.review_synthesis import synthesize
+    reader, _, _ = setup(count=1)
+    prompts = []
+    def review(prompt, validate, timeout):
+        request = json.loads(prompt)
+        prompts.append(request)
+        answer = {"summary": "All these source qualifications have been reviewed."}
+        validate(answer)
+        return json.dumps(answer), "reviewer"
+    runtime = SimpleNamespace(identity="narrow", input_budget=2200, count_tokens=len, generate_structured=review)
+    material = [{"quote": str(i) + "a" * 550, "corrections": [{"reason": f"correction-{i}"}]} for i in range(9)]
+    engine = SimpleNamespace(reader=reader, state={}, save=lambda: None)
+    assert synthesize(engine, reader, runtime, "Source map", "Notes map", material).strip()
+    assert all(any(item in request.get("material", []) for request in prompts) for item in material)
+    assert "reviewed_evidence" in prompts[-1]
+    count = len(prompts)
+    synthesize(engine, reader, runtime, "Source map", "Notes map", material)
+    assert len(prompts) == count
+
+
+def test_reader_routes_only_identified_difficult_passages_plus_distributed_sample():
+    from backend.tests.test_semantic_reading import response
+    def reading(request):
+        answer = response(request)
+        if request["phase"] == "interpret":
+            for passage, original in zip(answer["passages"], request["primary_passages"]):
+                passage["needs_specialist"] = original["text"].startswith(("Argument 0:", "Argument 6:"))
+        return answer
+    reader, _, _ = setup(count=7, generate=reading)
+    for chunk in reader.chunks:
+        chunk["segments"][0]["locator"] = {"section": "One chapter"}
+    seen = []
+    def reviewing(prompt, validate, timeout):
+        request = json.loads(prompt)
+        if request["phase"] == "source-audit":
+            quote = request["original"]["text"]
+            seen.append(quote.split(":")[0])
+            answer = {"assessment": "The passage supports the reading.", "evidence_quote": quote, "changes": [], "unresolved_issues": []}
+        else:
+            answer = {"summary": "The reviewed qualifications are grounded in the originals."}
+        validate(answer)
+        return json.dumps(answer), "reviewer"
+    reader.dependencies.reviewer = SimpleNamespace(identity="reviewer", input_budget=48000, count_tokens=len, generate_structured=reviewing)
+    reader.dependencies.citation_issues = None
+    reader.run()
+    assert seen == ["Argument 0", "Argument 3", "Argument 6"]

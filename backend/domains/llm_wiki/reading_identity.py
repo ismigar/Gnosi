@@ -41,8 +41,10 @@ def resume_semantic_state(saved: object, identity: str, parts: dict[str, str],
         if not revision or previous.get("execution") != canonical_hash(revision):
             return None
     restored = deepcopy(saved)
-    restored.update(identity=identity, identity_parts=parts, completed=False,
-                    previous_reviewed_groups=restored.get("reviewed_groups", {}),
+    restored.update(identity=identity, identity_parts=parts, completed=False)
+    if previous.get("knowledge") == parts.get("knowledge"):
+        return restored
+    restored.update(previous_reviewed_groups=restored.get("reviewed_groups", {}),
                     reviewed_groups={}, reviewed_ranges={}, independent_reviews={}, independent_synthesis=None, knowledge_context_changed=True)
     return restored
 

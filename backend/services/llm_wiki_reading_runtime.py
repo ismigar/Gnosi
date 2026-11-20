@@ -123,7 +123,7 @@ class ReadingRuntime:
             "provider": self.provider,
             "model": self.model,
             "skill_id": self.skill_id,
-            "skill_version": SKILL_VERSION,
+            "skill_version": SKILL_VERSION if self.skill_id == SKILL_ID else self.snapshot.skill_versions[self.skill_id],
             "reading_engine": self.reading_engine,
             "execution_revision": self.identity,
         }

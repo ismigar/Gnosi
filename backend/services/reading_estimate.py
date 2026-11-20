@@ -27,10 +27,13 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     origins, warnings = llm_wiki_extractors.extract_resource_sources(metadata, body, vault_root, source_table, source_config)
     if not origins:
         raise ValueError("No readable configured attachment or URL was found")
-    chunks = reading_chunks(origins, budget=reading_chunk_budget(runtime.input_budget), count=runtime.count_tokens)
+    semantic = getattr(runtime, "reading_engine", "legacy") == "semantic"
+    from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
+    reviewer = prepare_review_runtime(vault_root, runtime.snapshot) if semantic else None
+    capacity = min(runtime.input_budget, reviewer.input_budget) if reviewer else runtime.input_budget
+    chunks = reading_chunks(origins, budget=reading_chunk_budget(capacity), count=runtime.count_tokens)
     _, dimensions = llm_wiki._dimension_context(llm_wiki_config.load_config(), source_table, source_config, metadata)
     index = llm_wiki._load_brain_index(brain_table_id, resource_id)
-    semantic = getattr(runtime, "reading_engine", "legacy") == "semantic"
     identity = (reading_identity(runtime.identity, chunks, dimensions, index) if semantic else
                 fingerprint([runtime.identity, chunks, dimensions, index]))
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
@@ -74,16 +77,16 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     low, high, flex = _quote(runtime, rates, semantic, input_bound, output_assumed, output_bound, semantic_cost)
     priced = rates is not None
     review_fields = {}
-    if semantic:
-        from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
-        reviewer = prepare_review_runtime(vault_root, runtime.snapshot)
+    if reviewer is not None:
+        from backend.domains.llm_wiki.independent_review import validate_review_capacity
+        from backend.domains.llm_wiki.review_selection import selected_passages
+        validate_review_capacity(reviewer, chunks, dimensions, source_title, language)
         review_rates = _rates(reviewer)
-        from backend.domains.llm_wiki.independent_review import sample_passages
-        sampled = sample_passages(chunks) | set(saved.get("flagged_passages", []))
+        sampled = selected_passages(chunks, saved)
         if saved.get("independent_revision") == reviewer.identity:
             sampled.difference_update(saved.get("independent_reviews", {}))
-        # An extraction batch can flag one additional passage. Price that allowance
-        # separately from the distributed sample, including a final synthesis.
+        # Forecast one extra flagged passage per remaining extraction batch. Allow
+        # every remaining passage and additional map reductions in the upper projection.
         remaining_segments = sum(len(records(c.get("segments"))) for c in remaining)
         possible_flags = min(semantic_cost["phase_calls"]["interpretation"], remaining_segments)
         passages = sum(len(records(c.get("segments"))) for c in chunks)
@@ -92,11 +95,16 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         review_count, _ = reading_price_counter(reviewer.provider, reviewer.model)
         typical_passage = max(1, sum(review_count(encoded(segment)) for chunk in chunks for segment in records(chunk.get("segments")))
                               // max(1, sum(len(records(c.get("segments"))) for c in chunks)))
-        review_input = review_calls * (review_count(runtime.instructions) + review_count(reviewer.instructions) +
-                                       6 * typical_passage + 4096)
+        input_per_call = review_count(reviewer.instructions) + 6 * typical_passage + 4096
+        review_input = review_calls * input_per_call
         review_output = 768 * review_calls
         review_bound = 16384 * review_calls
-        review_low, review_high, _ = _quote(reviewer, review_rates, True, review_input, review_output, review_bound, {})
+        possible_reviews = min(passages, len(sampled) + remaining_segments)
+        extra_calls = max(0, possible_reviews + int(not completed) - review_calls)
+        if possible_reviews > 1:
+            extra_calls += possible_reviews  # Includes intermediate evidence syntheses.
+        review_low, review_high, _ = _quote(reviewer, review_rates, True, review_input, review_output, review_bound,
+            {"evidence_input_token_bound": extra_calls * input_per_call, "evidence_output_token_bound": extra_calls * 16384})
         low = low + review_low if low is not None and review_low is not None else None
         high = high + review_high if high is not None and review_high is not None else None
         priced = priced and review_rates is not None
@@ -146,18 +154,20 @@ def _quote(runtime: Any, rates: Any, semantic: bool, input_bound: int, output_as
     from backend.services.reading_performance import eligible
     flex = eligible(runtime.provider, runtime.model) and getattr(runtime, "cost_optimization", True)
     if rates:
+        from backend.services.openai_usage_pricing import LONG_INPUT, reading_model
+        direct = reading_model(runtime.provider, runtime.model)
         multiplier = 0.5 if flex else 1.0
         # Hits depend on actual provider cache reuse. Forecast no hits and
         # include the 30-minute write premium instead of promising a discount.
-        input_rate = float(rates["cost_in"]) * multiplier * (1.25 if flex else 1)
+        input_rate = float(rates["cost_in"]) * multiplier * (1.25 if direct else 1)
         output_rate = float(rates["cost_out"]) * multiplier
         low = (input_bound*input_rate+output_assumed*output_rate)/1_000_000
         # Include bounded evidence rounds as well as each call's format repair.
         repair_input = input_bound + evidence.get("evidence_input_token_bound", 0)
         repair_output = output_bound + evidence.get("evidence_output_token_bound", 0)
-        high_in = float(rates["cost_in"]) * (1.25 if flex else 1)
+        high_in = float(rates["cost_in"]) * (1.25 if direct else 1)
         high_out = float(rates["cost_out"])
-        if flex and runtime.input_budget > 272_000:
+        if direct and runtime.input_budget > LONG_INPUT:
             high_in *= 2
             high_out *= 1.5
         high = (2 if semantic else 3)*(repair_input*high_in+repair_output*high_out)/1_000_000*1.10

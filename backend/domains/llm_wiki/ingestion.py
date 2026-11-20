@@ -114,7 +114,6 @@ class IngestionDependencies:
     logger: logging.Logger
     phases: IngestionPhases
     reviewer: ReviewRuntime | None = None
-    reader_instructions: str = ""
     legacy_reader_revision: Callable[[str], str] | None = None
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
     generate_prose: Callable[[str, Callable[[str], str], int], tuple[str, str]] | None = None

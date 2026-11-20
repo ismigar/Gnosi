@@ -79,7 +79,7 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
     monkeypatch.setattr(estimate.llm_wiki, '_load_brain_index', lambda *_: [])
     monkeypatch.setattr(estimate.llm_wiki_storage, 'get_job_status', lambda *_: {})
     monkeypatch.setattr(model_catalog, 'catalog_model_cost', lambda *_: {'cost_in': .1, 'cost_out': .5})
-    reviewer = SimpleNamespace(provider="openai", model="reviewer", identity="review-v1", instructions="Check citations.", input_budget=32000)
+    reviewer = SimpleNamespace(provider="openai", model="reviewer", identity="review-v1", instructions="Check citations.", input_budget=32000, count_tokens=len)
     monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_review_runtime", lambda *_: reviewer)
     legacy_schema = Mock(side_effect=AssertionError('Semantic preflight must not prepare legacy actions'))
     monkeypatch.setattr(estimate, 'action_schemas', legacy_schema)
@@ -340,3 +340,19 @@ def test_pricing_tokens_change_cost_without_replanning_semantic_batches():
     assert new['output_tokens_assumed'] < old['output_tokens_assumed']
     assert new['output_token_bound'] == old['output_token_bound']
     assert new['evidence_input_token_bound'] == old['evidence_input_token_bound']
+
+
+def test_shipped_prices_include_direct_pair_and_preserve_explicit_newer_tariff(monkeypatch):
+    from backend.agent import model_catalog as catalog
+    from backend.agent.reading_model_catalog import supply_reading_models
+    import json
+    shipped = json.loads(catalog.VENDORED_PATH.read_text())
+    monkeypatch.setattr(catalog, "load_catalog", lambda: shipped)
+    for model, expected in [("gpt-5.6-luna", .20), ("gpt-6.2-sol", 2.)]:
+        assert catalog.catalog_model_cost("openai", model)["cost_in"] == expected
+    supply_reading_models(shipped)
+    offer = next(row for row in catalog.catalog_provider("openai")["models"] if row["id"] == "gpt-6.2-sol")
+    offer["cost_in"] = 3
+    supply_reading_models(shipped)
+    assert offer["context_window"] == 1_050_000 and catalog.catalog_model_cost("openai", "gpt-6.2-sol")["cost_in"] == 3
+    assert catalog.catalog_model_cost("unrelated", "gpt-6.2-sol") is None
