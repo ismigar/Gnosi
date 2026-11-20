@@ -69,6 +69,33 @@ def native_site(website, monkeypatch):
     return w
 
 
+def test_collection_uses_private_sort_positions_for_blog_and_feed(native_site, tmp_path):
+    from xml.etree import ElementTree as ET
+    from backend.domains.sites.renderer import render_bundle
+    from backend.domains.sites.models import SiteBlock
+
+    w = native_site
+    second = {**w.metadata, 'id': 'two', 'title': 'Another article', 'web_path': '/ca/another',
+              'drupal_uuid': 'public-two', "Data d'escriptura": '2028-01-02', 'Any': 2001}
+    w.note.with_name('two.md').write_text('---\n' + yaml.safe_dump(second, allow_unicode=True) + '---\nAnother body.')
+    source = w.bound.sources[0]
+    source.page_ids.append('two')
+    source.field_ids.remove('year')
+    source.sort_field_id = 'year'
+    source.sort_descending = True
+    w.bound.pages = [SitePage(title='Home', path='/ca', template='home', enabled=True,
+                              blocks=[SiteBlock(type='collection', source_id=source.id)])]
+    bundle = exporter.build_bundle(w.store, w.bound, 'local')
+    assert bundle.site.sources[0].sort_field_id != 'year'
+    assert all('year' not in row.fields for row in bundle.records)
+    render_bundle(bundle.model_dump(mode='json'), tmp_path / 'web')
+    for path in ('ca/index.html', 'ca/blog/index.html'):
+        page = BeautifulSoup((tmp_path / 'web' / path).read_bytes(), 'html.parser')
+        assert [a.get_text() for a in page.select('main article h3 a')] == ['First native title', 'Another article']
+    feed = ET.parse(tmp_path / 'web/ca/blog.xml')
+    assert [item.text for item in feed.findall('channel/item/title')] == ['First native title', 'Another article']
+
+
 def renderer(record):
     module = Path(__file__).resolve().parents[2] / 'extensions/web-publishing/renderer/src/lib/temenos.mjs'
     code = "import {excerpt,publishedDate,splitArticleImage} from " + json.dumps(module.as_uri()) + ";let raw='';for await(const x of process.stdin)raw+=x;const r=JSON.parse(raw);console.log(JSON.stringify({excerpt:excerpt(r),date:publishedDate(r,'ca'),image:splitArticleImage(r.body_html)}));"
@@ -187,6 +214,22 @@ def test_selected_tag_labels_reuse_only_matching_configured_public_route(native_
     record = exporter.build_bundle(w.store, w.bound, 'local').records[0]
     assert record.presentation['tags'] == [{'tid': '9', 'label': 'NATIVE TAG'}]
     assert any(page.id == 'tag-' + record.presentation['tags'][0]['tid'] + '-ca' for page in w.bound.pages)
+
+
+def test_native_tag_keeps_published_filter_for_descriptive_url(native_site):
+    from backend.domains.sites.models import editorial_id
+
+    w = native_site
+    baseline = w.store.site_dir(w.bound.id) / 'imported/baseline.json'
+    payload = json.loads(baseline.read_text())
+    payload['data']['routes'] = [{'kind': 'tag', 'tid': 9, 'lang': 'ca', 'path': '/ca/original'}]
+    baseline.write_text(json.dumps(payload))
+    group = editorial_id(w.bound.id, 'tag', '9')
+    w.bound.pages.append(SitePage(id='tag-' + group + '-ca', translation_id='tag:' + group, template='listing',
+                                  title='NATIVE TAG', path='/ca/new-topic', language='ca', enabled=True))
+    bundle = exporter.build_bundle(w.store, w.bound, 'local')
+    assert bundle.records[0].presentation['tags'] == [{'tid': '9', 'label': 'NATIVE TAG', 'path': '/ca/new-topic'}]
+    assert bundle.feed_aliases['/taxonomy/term/9/feed'] == '/ca/new-topic/feed'
 
 
 def test_dictionary_registry_fields_and_renamed_table_keep_selected_article_presentation(native_site):

@@ -14,6 +14,11 @@ def identifier() -> str:
     return uuid.uuid4().hex
 
 
+def editorial_id(site_id: str, kind: str, key: str) -> str:
+    """Give an editor object a stable, site-scoped identity across imports."""
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"gnosi:website:{site_id}:{kind}:{key}").hex
+
+
 def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -370,7 +375,8 @@ class SiteBundle(Contract):
         for origin, destination in value.items():
             safe_path(origin)
             safe_path(destination)
-            if not origin.endswith(".xml") or not destination.endswith(".xml"):
+            topic_feed = re.fullmatch(r"/taxonomy/term/[0-9]+/feed", origin) and destination.endswith("/feed")
+            if not topic_feed and (not origin.endswith(".xml") or not destination.endswith(".xml")):
                 raise ValueError("Feed aliases must use plain XML website paths")
         return value
 

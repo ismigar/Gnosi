@@ -3,14 +3,10 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import importlib.util
-from importlib import import_module
 import json
 import logging
-import os
 import re
 import shlex
-import sys
 import tarfile
 import tempfile
 import threading
@@ -49,34 +45,16 @@ class Driver(Protocol):
 
 
 def driver(store: SiteStore) -> Driver:
-    path = Path(os.environ.get("GNOSI_WEB_PUBLISH_DRIVER", ""))
-    if not path.is_absolute() or not path.is_file() or path.name != "web_publish_driver.py":
-        raise HTTPException(503, "Configure the maintained Pangea staging bridge first")
-    spec = importlib.util.spec_from_file_location("gnosi_sites_pangea_driver", path)
-    if not spec or not spec.loader:
-        raise HTTPException(503, "The Pangea bridge is unavailable")
-    module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(path.parent))
-    try:
-        spec.loader.exec_module(module)
-        # Preload the maintained driver's SSH/Suweb helper while its directory
-        # is importable. Its historical module name is independent of content sync.
-        import_module("snapshot_drupal")
-    finally:
-        sys.path.remove(str(path.parent))
-    result = cast(Driver, module)
-    config: object = json.loads(result.CONFIG.read_text())
-    if not isinstance(config, dict) or config.get("target") != "staging":
-        raise HTTPException(409, "Only the registered Pangea staging bridge is available")
-    vaults = config.get("vault_paths", [])
-    if not isinstance(vaults, list) or str(store.vault) not in [str(Path(value).resolve()) for value in vaults if isinstance(value, str)]:
-        raise HTTPException(403, "This vault is not registered with the Pangea bridge")
-    if not re.fullmatch(r"/[a-zA-Z0-9_./-]+", result.REMOTE_ROOT):
-        raise HTTPException(409, "Invalid maintained Pangea web root")
-    return result
+    from .pangea_driver import load_driver
+    return load_driver(store)
 
 
-def paths(transport: Driver, site: SiteConfig, target: SiteTarget | None = None) -> tuple[str, str]:
+def paths(transport: Driver, site: SiteConfig, target: SiteTarget | None = None, *, bridge: Bridge | None = None) -> tuple[str, str]:
+    from .pangea_driver import PangeaDriver
+    if isinstance(transport, PangeaDriver) and not transport.REMOTE_ROOT:
+        if bridge is None:
+            raise HTTPException(409, "Connect to resolve the registered Pangea web root")
+        transport.resolve_legacy_root(bridge)
     if target is not None and target.environment == "production":
         return (transport.REMOTE_ROOT + "/web/_gnosi-live/webs/" + site.id,
                 transport.REMOTE_ROOT + "/.gnosi-sites-production/" + site.id)
@@ -201,7 +179,7 @@ def upload_release(store: SiteStore, site: SiteConfig, target: SiteTarget, relea
     validate_target(site, target)
     _registration(store, site, target)
     with connection(store) as (transport, bridge):
-        public, private = paths(transport, site, target)
+        public, private = paths(transport, site, target, bridge=bridge)
         marker = transport.REMOTE_ROOT + "/web/_gnosi-proves/.gnosi-staging-marker"
         owner = _owner(store, site, target)
         setup = namespace_program(private, private, None) + '$marker=' + json.dumps(marker) + ';if(!is_file($marker)||is_link($marker)){throw new Exception("Protected staging missing");}$owner=' + json.dumps(owner) + ';$directories=[' + json.dumps(public) + ',' + json.dumps(private) + '];foreach($directories as $directory){$parent=$directory;while(!gnosi_exists($parent)){$parent=dirname($parent);}if(gnosi_directory($parent)!==$parent){throw new Exception("Noncanonical namespace parent");}if(gnosi_exists($directory)){if(gnosi_directory($directory)!==$directory){throw new Exception("Noncanonical namespace");}$marker=gnosi_file($directory,".gnosi-owner");if(!is_file($marker)||file_get_contents($marker)!==$owner){throw new Exception("Unowned namespace");}}}foreach($directories as $directory){if(gnosi_directory($directory,true,0711)!==$directory){throw new Exception("Invalid new namespace");}gnosi_write($directory,".gnosi-owner",$owner);}$private=' + json.dumps(private) + ';foreach(["service","releases"] as $name){$path=$private."/".$name;if(gnosi_directory($path,true,$name==="service"?0700:0711)!==$path){throw new Exception("Invalid private directory");}}'
@@ -284,7 +262,7 @@ def revert(store: SiteStore, site: SiteConfig, target: SiteTarget, release_id: s
     validate_target(site, target)
     _registration(store, site, target)
     with connection(store) as (transport, bridge):
-        public, private = paths(transport, site, target)
+        public, private = paths(transport, site, target, bridge=bridge)
         if activation_guard:
             activation_guard()
         _activate(transport, bridge, public, private, release_id, parent_id, _owner(store, site, target))
@@ -294,7 +272,7 @@ def current_release(store: SiteStore, site: SiteConfig, target: SiteTarget) -> s
     validate_target(site, target)
     _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site, target)
+        public, private = paths(transport, site, target, bridge=bridge)
         code = '$root=' + json.dumps(public) + ';if(!file_exists($root)&&!is_link($root)){echo "null";exit;}' + _policy(public, private, _owner(store, site, target)) + 'echo json_encode(gnosi_pangea_current());'
         response: object = json.loads(transport.php(bridge, code))
     if response is not None and (not isinstance(response, str) or not re.fullmatch(r"[a-f0-9]{32}", response)):
@@ -306,7 +284,7 @@ def sync_settings(store: SiteStore, site: SiteConfig, target: SiteTarget, forms_
     validate_target(site, target)
     _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site, target)
+        public, private = paths(transport, site, target, bridge=bridge)
         root = private + "/service"
         policy = _policy(public, private, _owner(store, site, target))
         pending = "config-" + uuid.uuid4().hex + ".json"
@@ -352,9 +330,9 @@ def service(store: SiteStore, site: SiteConfig, target_id: str, action: str, req
     validate_target(site, target)
     _registration(store, site, target)
     with connection(store, bounded=True) as (transport, bridge):
-        public, private = paths(transport, site, target)
         for attempt in range(2):
             try:
+                public, private = paths(transport, site, target, bridge=bridge)
                 return _service_request(transport, bridge, public, private, _owner(store, site, target), action, request)
             except TimeoutError:
                 raise HTTPException(503, "The Pangea operation exceeded its deadline") from None

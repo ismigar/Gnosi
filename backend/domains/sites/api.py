@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 from typing import Annotated, Literal
@@ -53,16 +52,15 @@ def create_site(request: SiteCreate, context: Admin) -> SiteConfig:
     site.targets[0].enabled = True
     site.pages = [SitePage(title=request.name, path="/ca", enabled=True, template="home", blocks=[SiteBlock(type="text", title=request.name)])]
     if request.import_pilot:
-        driver = Path(os.environ.get("GNOSI_WEB_PUBLISH_DRIVER", ""))
-        if not driver.is_absolute() or not driver.is_file():
-            raise HTTPException(409, "Configure the existing pilot publisher before importing it")
+        from .pangea_driver import import_root
+        archive = import_root()
         if any(existing.legacy_pilot for existing in store.list()):
             raise HTTPException(409, "The existing pilot has already been imported")
         site.legacy_pilot = True
         site.origin = "https://temenosismael.org"
         site.targets.append(SiteTarget(id="pangea-staging", name="Pangea", environment="staging", adapter="legacy-pangea", base_url="https://temenosismael.org/_gnosi-proves/webs/" + site.id + "/current", enabled=True))
         from .importer import seed_import
-        seed_import(store, site, driver.parent.parent)
+        seed_import(store, site, archive)
     return store.save(site, create=True)
 
 

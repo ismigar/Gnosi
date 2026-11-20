@@ -1,5 +1,4 @@
-"""Disposable tests for the configured staging adapter and scope-bound previews."""
-import json
+"""Retired staging operations retain their contracts without executing scripts."""
 import subprocess
 from types import SimpleNamespace
 
@@ -27,19 +26,9 @@ def state(tmp_path, monkeypatch):
     return context
 
 
-def test_driver_uses_context_path_safe_argv_and_minimal_environment(state, monkeypatch):
-    def run(argv, **options):
-        assert argv[0] == "/usr/bin/python3"
-        assert len(argv) == 2 and argv[1].endswith("driver.py")
-        assert options.get("shell", False) is False
-        assert options["timeout"] == 60
-        assert "GNOSI_JWT_SECRET" not in options["env"]
-        assert json.loads(options["input"]) == {
-            "action": "status", "vault_path": str(state.vault_path.resolve()), "request": {},
-        }
-        return SimpleNamespace(returncode=0, stdout='{"configured":true,"target":"staging","pages":[],"releases":[]}')
-    monkeypatch.setattr(web.subprocess, "run", run)
-    assert web.status(state).target == "staging"
+def test_retired_status_never_runs_a_configured_script(state, monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: pytest.fail("Retired script executed"))
+    assert web.status(state).configured is False
 
 
 @pytest.mark.parametrize("part", ["user_id", "workspace_id", "vault_path"])
@@ -56,18 +45,16 @@ def test_tokens_are_scope_bound_one_use_and_cannot_cross_action(state, part):
         web._consume(state, "publish", token)
 
 
-def test_preview_expires_and_driver_errors_are_sanitized(state, monkeypatch):
+def test_preview_expires_without_reactivating_retired_publishing(state, monkeypatch):
     token = web._remember(state, "publish", "driver-preview")
     monkeypatch.setattr(web.time, "monotonic", lambda: float("inf"))
     with pytest.raises(web.HTTPException) as error:
         web._consume(state, "publish", token)
     assert error.value.status_code == 409
-    def timeout(*args, **kwargs):
-        raise subprocess.TimeoutExpired("SECRET-COMMAND", 180, stderr="SECRET-TRACE")
-    monkeypatch.setattr(web.subprocess, "run", timeout)
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: pytest.fail("Retired script executed"))
     with pytest.raises(web.HTTPException) as error:
-        web.status(state)
-    assert error.value.status_code == 504
+        web._driver("publish", state, {})
+    assert error.value.status_code == 410
     assert "SECRET" not in str(error.value.detail)
 
 
@@ -89,14 +76,13 @@ def test_newsletter_refuses_a_real_delivery_response(state, monkeypatch):
     assert error.value.status_code == 502
 
 
-def test_driver_stale_error_is_safe_even_on_nonzero_exit(state, monkeypatch):
-    monkeypatch.setattr(web.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
-        returncode=1, stdout=json.dumps({"error": {"code": "preview_stale", "message": "SECRET-PATH"}}),
-    ))
+@pytest.mark.parametrize("action", ["publish", "preview", "rollback", "newsletter_status", "newsletter_preview", "newsletter_send"])
+def test_retired_operations_never_execute_former_driver(state, monkeypatch, action):
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: pytest.fail("Retired script executed"))
     with pytest.raises(web.HTTPException) as error:
-        web._driver("publish", state, {"preview_id": "synthetic"})
-    assert error.value.status_code == 409
-    assert "SECRET" not in str(error.value.detail)
+        web._driver(action, state, {"preview_id": "synthetic"})
+    assert error.value.status_code == 410
+    assert error.value.detail == {"code": "web_publishing_retired"}
 
 
 def test_rejects_production_target_from_driver(state, monkeypatch):
@@ -276,22 +262,9 @@ def test_general_expected_account_semantics_stay_auth_only(web_http):
     assert web_http.seen == []
 
 
-@pytest.mark.parametrize("action", ["status", "newsletter_status"])
-@pytest.mark.parametrize("code", ["publication_failed", "publication_read_timeout", "publication_busy"])
-def test_read_failures_are_not_reported_as_expired_previews(state, monkeypatch, action, code):
-    monkeypatch.setattr(web.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
-        returncode=1, stdout=json.dumps({"error": {"code": code, "message": "PRIVATE-PATH-SECRET"}}),
-    ))
-    with pytest.raises(web.HTTPException) as caught:
-        web._driver(action, state, {})
-    assert caught.value.status_code == 503
-    assert caught.value.detail == {"code": "web_publishing_unavailable"}
-
-
-def test_publication_actions_keep_their_existing_long_timeout(state, monkeypatch):
-    def run(*args, **kwargs):
-        assert kwargs["timeout"] == 600
-        return SimpleNamespace(returncode=0, stdout='{}')
-    monkeypatch.setattr(web.subprocess, "run", run)
-    for action in ("publish", "preview", "rollback", "newsletter_send", "newsletter_preview"):
-        assert web._driver(action, state, {}) == {}
+def test_registered_publish_route_cannot_reactivate_former_driver(state, monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: pytest.fail("Retired script executed"))
+    token = web._remember(state, "publish", "former-preview")
+    with pytest.raises(web.HTTPException) as failure:
+        web.publish(web.WebPreviewReference(preview_id=token), state)
+    assert failure.value.status_code == 410

@@ -51,7 +51,7 @@ def test_replacing_imported_section_preserves_native_records_paths_and_requires_
     directory = website.store.site_dir(site.id) / 'imported'; directory.mkdir()
     nodes = [{'uuid': 'public-one', 'nid': 1, 'lang': language, 'url': f'/{language}/stable', 'type': 'article', 'body_html': '<p>OLD-BASELINE-CONTENT</p>', 'title': 'Old'} for language in (['ca', 'es'] if missing_language else ['ca'])]
     (directory / 'baseline.json').write_text(json.dumps({'data': {'nodes': nodes, 'aliases': []}, 'assets': [], 'type_map': {}}))
-    path = website.vault / 'BD/Articles/one.md'; path.write_text(path.read_text().replace('id: one', 'id: one\ndrupal_uuid: public-one\ndrupal_path: /ca/stable'))
+    path = website.vault / 'BD/Articles/one.md'; path.write_text(path.read_text().replace('id: one', 'id: one\ndrupal_uuid: public-one\nweb_path: /ca/stable'))
     monkeypatch.setattr(record_publication, '_discovery_notes', exporter.notes)
     before = website.store.config_path(site.id).read_bytes()
     if missing_language:
@@ -220,3 +220,29 @@ def test_binding_rejects_ambiguous_active_target_paths_without_mutation(website,
         table_binding.bind(website.store, site, request(website))
     assert error.value.status_code == 409
     assert website.store.config_path(site.id).read_bytes() == before
+
+
+@pytest.mark.parametrize('key', ['owned-url', 'Former URL'])
+@pytest.mark.parametrize('active', [False, True])
+def test_binding_resolves_registered_url_ids_and_aliases_before_preserving_paths(website, monkeypatch, key, active):
+    import yaml
+    site = migration_site(website, monkeypatch, '/ca/stable', '/ca/obsolete-local')
+    registry = website.vault / 'BD/vault_db_registry.json'
+    data = json.loads(registry.read_text())
+    data['tables'][0]['properties'].append({'id': 'owned-url', 'name': 'URL', 'type': 'url', 'aliases': ['Former URL']})
+    registry.write_text(json.dumps(data))
+    note = website.vault / 'BD/Articles/one.md'
+    metadata = yaml.safe_load(note.read_text().split('---')[1])
+    metadata.pop('web_path')
+    metadata[key] = site.origin + ('/ca/changed' if active else '/ca/stable')
+    note.write_text('---\n' + yaml.safe_dump(metadata) + '---\nPublic body\n')
+    if active:
+        monkeypatch.setattr(website.store, 'active_bundle', lambda *_: {'records': [{
+            'id': 'public-one', 'language': 'ca', 'path': '/ca/stable', 'source_ids': ['imported-blog']}]})
+        before = website.store.config_path(site.id).read_bytes()
+        with pytest.raises(HTTPException, match='native URLs'):
+            table_binding.bind(website.store, site, request(website))
+        assert website.store.config_path(site.id).read_bytes() == before
+    else:
+        bound = table_binding.bind(website.store, site, request(website))
+        assert exporter.build_bundle(website.store, bound, 'local').records[0].path == '/ca/stable'

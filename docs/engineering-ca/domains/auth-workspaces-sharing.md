@@ -308,3 +308,5 @@ La reutilització d’adjunts només per a previsualització registra la versió
 Windows amb Python 3.11 exposa la data de creació com a ctime; per això s’hi desactiven la reutilització de versions i els seus registres, i cada previsualització copia de nou els originals. Els identificadors de canvi POSIX conserven l’optimització.
 
 Cada recorregut resol i fixa l’arrel del vault una sola vegada. Cada fitxer conserva el recorregut sense seguir enllaços, el descriptor fixat, la lectura limitada i les comprovacions d’identitat i ruta abans i després. Els descriptors d’arrel es tanquen tant en acabar com en fallar i no es comparteixen entre peticions.
+
+Les pàgines estàtiques editades identifiquen la font publicada per l’URL i l’idioma. Els grups de traducció de pàgines i etiquetes noves tenen identificadors propis del web. El generador conserva els enllaços d’etiquetes, els valors dels filtres i les adreces RSS. Quan una font té un criteri d’ordenació explícit, els blocs de col·lecció, els llistats i els canals segueixen les posicions calculades per l’exportador. El camp d’ordenació pot ser privat.

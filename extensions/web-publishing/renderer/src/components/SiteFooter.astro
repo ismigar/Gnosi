@@ -5,8 +5,8 @@ import RenderBlock from './RenderBlock.astro';
 import SiteRegions from './SiteRegions.astro';
 const {lang}=Astro.props;
 const visible=link=>!link.language||link.language===lang;
-const legal=link=>/legal|privac|privaci|galetes|cookies/i.test(link.label+' '+link.href);
-const collaborate=link=>/col.?labora|colaborar|collaborate|support|donat/i.test(link.label+' '+link.href);
+const legal=link=>/legal|terms|privac|privaci|galetes|cookies/i.test(link.label+' '+link.href);
+const collaborate=link=>/col.?labora|colabora|collaborate|support|donat/i.test(link.label+' '+link.href);
 const links=site.footer.filter(visible);
 const custom=Array.isArray(site.footer_columns);
 const columns=custom?site.footer_columns.filter(column=>!column.language||column.language===lang):[

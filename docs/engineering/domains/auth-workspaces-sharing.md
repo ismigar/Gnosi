@@ -298,3 +298,5 @@ Preview-only attachment reuse authenticates the pinned source version (device, i
 Windows/Python 3.11 exposes creation time as ctime, so source-version reuse and receipts are disabled there; previews keep fresh original copies. POSIX edit tokens retain the optimization.
 
 Each source scan resolves and pins its vault root once. Every file still has its own no-follow traversal, pinned descriptor, bounded content read and before/after identity and path checks. Root descriptors close on success or failure and are never shared across requests.
+
+Static editorial overrides identify the published source by URL and language. New page and topic translation groups use site-owned identifiers. The renderer keeps existing topic links, filter values and RSS aliases. For an explicitly sorted source it uses the positions computed by the exporter for collection blocks, listings and feeds. The sort field can stay private.

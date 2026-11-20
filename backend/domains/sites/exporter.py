@@ -6,6 +6,7 @@ import json
 import os
 import re
 import unicodedata
+from collections import Counter
 from functools import cmp_to_key
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,7 +18,8 @@ from .asset_files import parent_descriptor_cache, read_session
 from .note_parse_cache import parsed_note_cache as parsed_note_cache, parse_metadata, parsed_metadata_context
 from fastapi import HTTPException
 from markdown_it import MarkdownIt
-from markdown_it.token import Token
+
+from .public_links import body_html as _body_html
 from pydantic import JsonValue
 
 from .models import BundleAsset, CatalogueItem, CatalogueSnapshot, PublicRecord, SiteBlock, SiteBundle, SiteConfig, SiteSource, safe_path
@@ -34,7 +36,6 @@ class Note:
     metadata: dict[str, JsonValue]
     body: str
     digest: str
-
 
 
 def is_public_metadata(metadata: dict[str, JsonValue]) -> bool:
@@ -148,13 +149,33 @@ def _read_note(path: Path, vault: Path) -> Note | None:
         raise HTTPException(409, "A vault file is unavailable or incomplete; publication was stopped") from None
 
 
-def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
+def property_definitions(table: dict[str, JsonValue]) -> list[dict[str, JsonValue]]:
+    """Read current and older table schemas without dropping field aliases."""
     raw = table.get("properties") or []
     if isinstance(raw, dict):
         raw = [dict(value, id=key) if isinstance(value, dict) else {"id": key, "name": str(value)} for key, value in raw.items()]
     if not isinstance(raw, list):
         return []
-    return [{"id": str(p.get("id") or p.get("key") or ""), "name": str(p.get("name") or p.get("label") or p.get("id") or ""), "type": str(p.get("type") or "text")} for p in raw if isinstance(p, dict) and (p.get("id") or p.get("key"))]
+    definitions: list[tuple[dict[str, JsonValue], list[str]]] = []
+    owners: Counter[str] = Counter()
+    for prop in raw:
+        if not isinstance(prop, dict) or not (prop.get("id") or prop.get("key")):
+            continue
+        identifier = str(prop.get("id") or prop.get("key"))
+        name = str(prop.get("name") or prop.get("label") or prop.get("id") or "")
+        raw_aliases = prop.get("aliases")
+        aliases = [alias for alias in raw_aliases if isinstance(alias, str) and alias] if isinstance(raw_aliases, list) else []
+        owners.update({identifier, name, *aliases})
+        definitions.append(({**prop, "id": identifier, "name": name}, aliases))
+    # A reused column name can hold another, unselected field's data.
+    return [{**prop, "aliases": [alias for alias in aliases if owners[alias] == 1]} for prop, aliases in definitions]
+
+
+def fields(table: dict[str, JsonValue]) -> list[dict[str, str]]:
+    return [
+        {"id": str(p["id"]), "name": str(p["name"] or ""), "type": str(p.get("type") or "text")}
+        for p in property_definitions(table)
+    ]
 
 
 def catalogue_metadata(store: SiteStore) -> list[CatalogueItem]:
@@ -211,11 +232,11 @@ def catalogue_snapshot(store: SiteStore) -> CatalogueSnapshot:
 
 
 def value_for(note: Note, field_id: str, table: dict[str, JsonValue]) -> JsonValue:
-    props = fields(table)
-    definition = next((field for field in props if field["id"] == field_id), None)
+    from backend.services.field_resolver import get_meta_value
+    definition = next((p for p in property_definitions(table) if str(p["id"]) == field_id), None)
     if definition is None:
         raise HTTPException(409, "A selected field no longer exists")
-    return note.metadata.get(field_id, note.metadata.get(definition["name"]))
+    return cast(JsonValue, get_meta_value(note.metadata, {"properties": [definition]}, field_id))
 
 
 def match_rule(note: Note, rule: dict[str, JsonValue], table: dict[str, JsonValue]) -> bool:
@@ -457,7 +478,6 @@ def _note_identity(note: Note, translations: PublicTranslations, *, required: bo
     return public_id(note.metadata, translations.site), translations.language(note.metadata, required=required)
 
 
-
 def publication_identity(note: Note, source: SiteSource, translations: PublicTranslations) -> tuple[str, str] | None:
     """Apply the final record eligibility rules shared with binding preservation."""
     if translations.site.legacy_pilot:
@@ -469,12 +489,15 @@ def publication_identity(note: Note, source: SiteSource, translations: PublicTra
         return None
     return key
 
-def _record(note: Note, source: SiteSource, translations: PublicTranslations, paths: dict[tuple[str, str], str]) -> PublicRecord:
+def _record(note: Note, source: SiteSource, translations: PublicTranslations, paths: dict[tuple[str, str], str], table: dict[str, JsonValue] | None = None) -> PublicRecord:
     identity, language = _note_identity(note, translations)
     page_id = str(note.metadata["id"])
     title = str(note.metadata.get("title") or note.metadata.get("Títol") or note.path.stem)
-    preferred = note.metadata.get("web_path") or note.metadata.get("drupal_path")
-    path = paths.get((identity, language)) or (str(preferred) if preferred else f"/{language}{source.path_prefix.rstrip('/')}/{slug(title)}-{page_id[:8]}")
+    from .article_routes import table_path
+    declared = table_path(note.metadata, table or {}, translations.site)
+    preferred = note.metadata.get("web_path")  # Read compatibility; never written.
+    previous = paths.get((identity, language))
+    path = declared or previous or (str(preferred) if preferred else f"/{language}{source.path_prefix.rstrip('/')}/{slug(title)}-{page_id[:8]}")
     try:
         safe_path(path)
     except ValueError:
@@ -501,33 +524,7 @@ def _record_fields(record: PublicRecord, note: Note, source: SiteSource, table: 
             record.field_labels[field_id] = labels.get(field_id, field_id)
 
 
-def _body_link(child: Token, asset: AssetExporter, links: dict[str, str], allowed_paths: set[str]) -> None:
-    href = str(child.attrGet("href") or "")
-    parsed = urlsplit(href)
-    if parsed.scheme in {"https", "http", "mailto", "tel"}:
-        if parsed.scheme in {"https", "http"}:
-            child.attrSet("target", "_blank")
-            child.attrSet("rel", "noopener noreferrer")
-    elif href.startswith("#"):
-        return
-    elif href in asset.links:
-        child.attrSet("href", asset.links[href])
-    elif href in links:
-        child.attrSet("href", links[href])
-    elif href not in allowed_paths:
-        raise HTTPException(422, "A public body links to an unpublished or unsupported internal page")
 
-
-def _body_html(note: Note, asset: AssetExporter, links: dict[str, str], allowed_paths: set[str]) -> str:
-    parser = MarkdownIt("commonmark", {"html": False, "linkify": False})
-    tokens = parser.parse(note.body)
-    for token in tokens:
-        for child in token.children or []:
-            if child.type == "image":
-                child.attrSet("src", asset(str(child.attrGet("src") or ""), note))
-            elif child.type == "link_open":
-                _body_link(child, asset, links, allowed_paths)
-    return cast(str, parser.renderer.render(tokens, parser.options, {}))
 
 
 @dataclass
@@ -545,6 +542,8 @@ class Projection:
     asset: AssetExporter = field(init=False)
     paths: dict[tuple[str, str], str] = field(init=False)
     translations: PublicTranslations = field(init=False)
+    obsolete_paths: set[str] = field(default_factory=set)
+    declared_owners: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.asset = AssetExporter(self.store, self.hashes, site_id=self.site.id)
@@ -552,6 +551,8 @@ class Projection:
         self.paths = {(str(record.get("id")), str(record.get("language"))): str(record.get("path")) for record in self.previous_records}
 
     def collect(self) -> None:
+        from .article_routes import validate_table_paths
+        self.declared_owners = validate_table_paths(self.site, self.all_notes, self.data, self.store.vault)
         for source in self.site.sources:
             if not source.enabled:
                 continue
@@ -563,13 +564,15 @@ class Projection:
         key = publication_identity(note, source, self.translations)
         if key is None:
             return
-        record = self.public.setdefault(key, _record(note, source, self.translations, self.paths))
+        record = self.public.setdefault(key, _record(note, source, self.translations, self.paths, table or note_table(note, self.data, self.store.vault)))
         record.source_ids.append(source.id)
         record.source_order[source.id] = position
         _record_fields(record, note, source, table, self.asset)
         if self.site.legacy_pilot:
             from .native_presentation import project_presentation
             record.presentation = project_presentation(record, table, self.site)
+            from .article_routes import validate_article_url
+            validate_article_url(record, note.metadata, table, self.site)
         if source.include_body:
             from .public_body import public_markdown
             # Keep schema privacy independent of how a record is reached.
@@ -579,7 +582,7 @@ class Projection:
         self.hashes[str(note.path.relative_to(self.store.vault))] = note.digest
 
     def import_baseline(self) -> None:
-        if not self.site.legacy_pilot:
+        if not self.site.legacy_pilot or not any(source.enabled and source.source_id.startswith("imported:") for source in self.site.sources):
             return
         from .importer import imported_record_ids, merge_imported_bundle
         excluded: set[tuple[str, str]] = set()
@@ -593,6 +596,7 @@ class Projection:
                     excluded.add((identity, language))
                     self.public.pop((identity, language), None)
         merge_imported_bundle(self.store, self.site, self.public, self.asset.assets, self.hashes, excluded=excluded)
+
 
     def guard_missing_files(self) -> None:
         enabled_sources = {source.id for source in self.site.sources if source.enabled}
@@ -612,7 +616,7 @@ class Projection:
             if retained and missing and not explicit and (str(old.get("id")), str(old.get("language"))) not in self.public:
                 raise HTTPException(409, "A previously published source file is missing; select an explicit withdrawal after checking OneDrive")
 
-    def render_bodies(self) -> None:
+    def render_bodies(self, replacements: dict[str, str] | None = None) -> None:
         links = {record.id: record.path for record in self.public.values()}
         for note in self.all_notes:
             key = _note_identity(note, self.translations, required=False)
@@ -620,13 +624,14 @@ class Projection:
                 links[str(note.metadata["id"])] = self.public[key].path
                 links[str(note.path.relative_to(self.store.vault))] = self.public[key].path
         allowed = {record.path for record in self.public.values()} | {page.path for page in self.site.pages if page.enabled}
+        links.update({origin: target for origin, target in (replacements or {}).items() if target in allowed})
         for key, note in self.bodies.items():
             from .native_presentation import detail_image
             record = self.public[key]
             from .public_body import without_private_property_lists
             private_names = {definition["name"] for definition in fields(self.body_tables.get(key, {})) if definition["id"] not in record.fields}
             note = Note(note.path, note.metadata, without_private_property_lists(note.body, private_names), note.digest)
-            body = _body_html(note, self.asset, links, allowed)
+            body = _body_html(note, self.asset, links, allowed, self.site.origin)
             record.body_html = detail_image(body, record.presentation) if self.site.legacy_pilot else body
 
 
@@ -648,7 +653,8 @@ def _projection(store: SiteStore, site: SiteConfig, target_id: str, snapshot: So
     previous_records = [record for record in raw_records if isinstance(record, dict)] if isinstance(raw_records, list) else []
     hashes = {"BD/vault_db_registry.json": registry_hash} if registry_hash else {}
     previous_withdrawn = previous.get("withdrawn_paths", []) if previous else []
-    return Projection(store, site, data, all_notes, previous_records, hashes, [str(path) for path in previous_withdrawn] if isinstance(previous_withdrawn, list) else [])
+    return Projection(store, site, data, all_notes, previous_records, hashes,
+                      [str(path) for path in previous_withdrawn] if isinstance(previous_withdrawn, list) else [])
 
 
 def _editor_file_link(value: str, asset: AssetExporter) -> str:
@@ -711,7 +717,11 @@ def _exported_site(site: SiteConfig, asset: AssetExporter) -> SiteConfig:
         if form.enabled:
             form.privacy_url = _editor_file_link(form.privacy_url, asset)
             form.privacy_urls = {language: _editor_file_link(url, asset) for language, url in form.privacy_urls.items() if language in exported.languages}
-    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {}, "sort_field_id": None, "selection_mode": "all"}) for source in exported.sources if source.enabled]
+    # The public renderer may use the computed positions without learning
+    # the identity or the values of a private sort field.
+    exported.sources = [source.model_copy(update={"filters": [], "page_ids": [], "withdrawn_ids": [], "withdrawn_versions": {},
+                        "sort_field_id": "source_order" if source.sort_field_id else None, "selection_mode": "all"})
+                        for source in exported.sources if source.enabled]
     # Keep the imported theme's stable collection markers on the public wire.
     # The private configuration still resolves native tables, and the snapshot
     # contributes no record bodies for these replaced collection sources.
@@ -732,7 +742,7 @@ def _withdrawn_paths(projection: Projection, exported: SiteConfig) -> list[str]:
     withdrawn = (set(projection.previous_withdrawn) | {str(record["path"]) for record in projection.previous_records}) - current
     if exported.legacy_pilot:
         path = projection.store.site_dir(exported.id) / "imported/baseline.json"
-        data = json.loads(path.read_text()).get("data", {})
+        data = json.loads(path.read_text()).get("data", {}) if path.is_file() else {}
         withdrawn |= {str(node["url"]) for node in data.get("nodes", [])} - current
     # A restored alias must cease being a tombstone before alias propagation.
     available = set(current)
@@ -762,18 +772,28 @@ def _build_bundle(store: SiteStore, site: SiteConfig, target_id: str, snapshot: 
     projection.asset.reuse_source_versions = reuse_asset_snapshots
     projection.collect()
     projection.import_baseline()
+    from .article_routes import ArticleRoutes
+    routes = ArticleRoutes(site, projection.public, projection.previous_records, projection.paths,
+                           store.site_dir(site.id) / "imported/baseline.json", projection.previous_withdrawn, projection.declared_owners)
+    article_paths = routes.project()
+    projection.obsolete_paths = routes.obsolete_paths
     projection.guard_missing_files()
-    projection.render_bodies()
+    projection.render_bodies(article_paths)
     from .page_editor import apply_page_overrides
-    apply_page_overrides(site, projection.public)
     exported = _exported_site(site, projection.asset)
+    apply_page_overrides(exported, projection.public)
+    from .public_links import project_links
+    project_links(exported, list(projection.public.values()), article_paths)
+    exported.redirects = {origin: target for origin, target in exported.redirects.items()
+                          if origin not in projection.obsolete_paths and target not in projection.obsolete_paths}
     withdrawn = _withdrawn_paths(projection, exported)
-    from .importer import imported_feed_aliases
-    feed_aliases = imported_feed_aliases(store, exported)
+    withdrawn = [path for path in withdrawn if path not in projection.obsolete_paths]
+    from .importer import project_imported_routes
+    feed_aliases = project_imported_routes(store, exported, projection.public.values())
     bundle = SiteBundle(site=exported, records=list(projection.public.values()), assets=list(projection.asset.assets.values()), source_hashes=projection.hashes, withdrawn_paths=withdrawn, feed_aliases=feed_aliases)
     public_paths = [record.path for record in bundle.records] + [page.path for page in exported.pages]
     if len(public_paths) != len(set(public_paths)):
         raise HTTPException(422, "Two selected pages own the same public URL")
-    bundle.fingerprint = fingerprint({"site": site.model_dump(mode="json"), "records": [record.model_dump(mode="json") for record in bundle.records], "hashes": projection.hashes, "assets": [{"path": item.path, "sha256": item.sha256} for item in bundle.assets], "withdrawn": withdrawn, "feed_aliases": feed_aliases})
+    bundle.fingerprint = fingerprint({"site": site.model_dump(mode="json"), "records": [record.model_dump(mode="json") for record in bundle.records], "hashes": projection.hashes, "assets": [{"path": item.path, "sha256": item.sha256} for item in bundle.assets], "withdrawn": withdrawn, "feed_aliases": feed_aliases, "redirects": exported.redirects})
     private_json(store.site_dir(site.id) / "last-export.json", {"fingerprint": bundle.fingerprint, "records": len(bundle.records)})
     return bundle
