@@ -106,18 +106,22 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     schema = audit_schema(len(drafts), worker.dimensions)
     evidence = [primary, *support]
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
-    def validate(answer: dict[str, object]) -> None:
-        checked = apply_changes(answer, drafts, primary, evidence, worker.dimensions)
-        validate_reviewed_prose(checked, evidence, worker.language)
+    def validate(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
+        checked = apply_changes(answer, subset, primary, sources, worker.dimensions)
+        validate_reviewed_prose(checked, sources, worker.language)
         if citation_issues and any(citation_issues(checked, worker.origins)):
             raise ValueError("Review corrections must use valid source citations")
 
     answer = saved.get("answer") if saved.get("key") == key else None
     if isinstance(answer, dict):
-        validate(answer)
+        validate(answer, drafts, evidence)
+    elif fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
+        answer = worker.ask("independent-" + key[:24], "source-audit", payload,
+                            lambda item: validate(item, drafts, evidence), schema, executor=reviewer)
     else:
-        answer = worker.ask("independent-" + key[:24], "source-audit", {**payload, "output_schema": schema},
-                            validate, schema, executor=reviewer)
+        from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
+        answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate)
+        validate(answer, drafts, evidence)
     return key, answer
 
 

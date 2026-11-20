@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
-| Vitest | 778 | 3567 |
-| pytest | 823 | 6394 |
+| Vitest | 778 | 3568 |
+| pytest | 823 | 6395 |
 
 ## Files
 
@@ -186,7 +186,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/literature/records/CslStylePicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/CslStylePicker.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/MetadataLookupModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/MetadataLookupModal.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/literature/records/ProcessResourceBudget.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceBudget.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/literature/records/ProcessResourceBudget.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceBudget.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 17 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ReferenceImportExport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ReferenceImportExport.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx) | 10 | call-pattern estimate |
@@ -1092,7 +1092,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_image_download_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_image_download_recovery.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_image_metadata_scheduling.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_image_metadata_scheduling.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_import_dedup.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_independent_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_independent_reading.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_independent_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_independent_reading.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_index_schema_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_index_schema_titles.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_indexed_page_metadata_boundary.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_indexed_page_metadata_boundary.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_inline_comments_permissions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_inline_comments_permissions.py) | 3 | Python AST |

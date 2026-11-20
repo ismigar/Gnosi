@@ -7094,6 +7094,8 @@
     "budget_available": "Disponible dentro del límite: {{amount}}. El proceso se pausa antes de una llamada que no quepa y guarda el progreso.",
     "estimate_over_budget": "El cálculo supera el presupuesto disponible. Si empiezas, puede quedar trabajo pendiente; el límite no se aumenta automáticamente.",
     "estimate_calculation": "Cómo se calcula",
+    "reader_tariff": "Lector {{model}} · {{provider}} por millón de tokens · {{input}} de entrada y {{output}} de salida",
+    "reviewer_tariff": "Revisor {{model}} · {{provider}} por millón de tokens · {{input}} de entrada y {{output}} de salida",
     "review_with_model": "Revisión con {{model}} · {{provider}}",
     "processing_tier_flex": "Flex",
     "estimate_flex": "Flex reduce la tarifa base a la mitad y puede tardar más. La estimación incluye el coste de escribir la caché y no presupone aciertos. Las reservas incluyen la salida máxima y el coste de escritura; no se cambia automáticamente a la tarifa estándar.",

@@ -1,6 +1,7 @@
 """Ground the final synthesis in accepted changes, including their exact quotations."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import encoded
@@ -19,6 +20,39 @@ def validate_summary(answer: dict[str, object]) -> None:
         raise ValueError("Return a substantive synthesis of the source")
 
 
+def reduce_for_context(worker: ContextualReader, reviewer: ReviewRuntime, material: list[dict[str, object]],
+                       complete_fits: Callable[[list[dict[str, object]]], bool]) -> list[dict[str, object]]:
+    maximum = max(160, min(2000, reviewer.input_budget // 12))
+    def map_request(items: list[dict[str, object]]) -> dict[str, object]:
+        return {"reading_engine": "semantic", "output_schema": MAP_SCHEMA, "material": items, "instruction":
+                f"Synthesize ALL supplied evidence within {maximum} UTF-8 bytes. Preserve the accepted claims, "
+                "corrections, attribution and qualifications for the following review."}
+    def fits_items(items: list[dict[str, object]]) -> bool:
+        return fits_review(reviewer, "source-synthesis", worker.title, worker.language, map_request(items))
+    def compact(items: list[dict[str, object]]) -> str:
+        request = map_request(items)
+        def validate(answer: dict[str, object]) -> None:
+            validate_summary(answer)
+            if len(str(answer["summary"]).encode()) > maximum:
+                raise ValueError("Compress the complete evidence within the requested synthesis size")
+        answer = worker.ask("review-map-" + fingerprint(request)[:24], "source-synthesis", request, validate, MAP_SCHEMA, executor=reviewer)
+        return str(answer["summary"]).strip()
+
+    while not complete_fits(material):
+        groups: list[list[dict[str, object]]] = []
+        for item in material:
+            if not fits_items([item]):
+                raise RuntimeError("The reading reviewer needs more context for a complete synthesis finding")
+            if not groups or not fits_items([*groups[-1], item]):
+                groups.append([])
+            groups[-1].append(item)
+        summaries: list[dict[str, object]] = [{"reviewed_evidence": compact(group)} for group in groups]
+        if len(summaries) >= len(material) and len(encoded(summaries)) >= len(encoded(material)):
+            raise RuntimeError("The reading reviewer needs more context to combine its synthesis")
+        material = summaries
+    return material
+
+
 def synthesize(engine: SemanticReader, worker: ContextualReader, reviewer: ReviewRuntime, global_map: str,
                notes_map: str, findings: list[dict[str, object]]) -> str:
     instruction = ("Write the final synthesis in the requested language. Apply the accepted corrections and their evidence "
@@ -34,37 +68,18 @@ def synthesize(engine: SemanticReader, worker: ContextualReader, reviewer: Revie
     def fits(phase: str, value: dict[str, object]) -> bool:
         return fits_review(reviewer, phase, worker.title, worker.language, value)
 
-    def compact(items: list[dict[str, object]]) -> str:
-        maximum = max(160, min(2000, reviewer.input_budget // 12))
-        request = {**base, "material": items, "instruction": f"Synthesize ALL supplied evidence within {maximum} UTF-8 bytes. "
-                   "Preserve meanings of accepted corrections, their attribution and material qualifications for the final synthesis."}
-        def validate(answer: dict[str, object]) -> None:
-            validate_summary(answer)
-            if len(str(answer["summary"]).encode()) > maximum:
-                raise ValueError("Compress the complete evidence within the requested synthesis size")
-        answer = worker.ask("review-map-" + fingerprint(request)[:24], "source-synthesis", request, validate, MAP_SCHEMA, executor=reviewer)
-        return str(answer["summary"]).strip()
-
     if not fits("source-synthesis", payload):
-        # Feed every finding and correction into the reviewer's maps. Never drop
-        # alternate chapters or silently discard a correction to make a prompt fit.
-        material: list[dict[str, object]] = [{"source_map": global_map}, {"notes_map": notes_map}, *findings]
-        while True:
-            groups: list[list[dict[str, object]]] = []
-            for item in material:
-                check = {**base, "material": [item], "instruction": instruction + " " * 250}
-                if not fits("source-synthesis", check):
-                    raise RuntimeError("The reading reviewer needs more context for a complete synthesis finding")
-                if not groups or not fits("source-synthesis", {**check, "material": [*groups[-1], item]}):
-                    groups.append([])
-                groups[-1].append(item)
-            summaries: list[dict[str, object]] = [{"reviewed_evidence": compact(group)} for group in groups]
-            payload = {**base, "reviewed_evidence": summaries, "instruction": instruction}
-            if fits("source-synthesis", payload):
-                break
-            if len(summaries) >= len(material) and len(encoded(summaries)) >= len(encoded(material)):
-                raise RuntimeError("The reading reviewer needs more context to combine its synthesis")
-            material = summaries
+        material: list[dict[str, object]] = [{"source_map": global_map}, {"notes_map": notes_map}]
+        for finding in findings:
+            corrections = finding["corrections"]
+            if isinstance(corrections, list) and len(corrections) > 1:
+                material.extend({**finding, "corrections": [change]} for change in corrections)
+            else:
+                material.append(finding)
+        def complete_fits(items: list[dict[str, object]]) -> bool:
+            return fits("source-synthesis", {**base, "reviewed_evidence": items, "instruction": instruction})
+        summaries = reduce_for_context(worker, reviewer, material, complete_fits)
+        payload = {**base, "reviewed_evidence": summaries, "instruction": instruction}
     final = worker.ask("independent-synthesis", "source-synthesis", payload, validate_summary, MAP_SCHEMA, executor=reviewer)
     engine.state["independent_synthesis"] = {"key": identity, "answer": final}
     engine.reader.models.extend(worker.models)

@@ -171,3 +171,44 @@ def test_reader_routes_only_identified_difficult_passages_plus_distributed_sampl
     reader.dependencies.citation_issues = None
     reader.run()
     assert seen == ["Argument 0", "Argument 3", "Argument 6"]
+
+
+def test_six_notes_on_one_original_can_resume_a_partly_completed_audit():
+    from backend.tests.test_semantic_reading import response
+    claims = [f"The {word} depends on observation." for word in ("definition", "assumption", "comparison", "evidence", "exception", "conclusion")]
+    def make_notes(request):
+        answer = response(request)
+        if request["phase"] == "interpret":
+            row = answer["passages"][0]
+            row["needs_specialist"] = True
+            row["notes"] = [{"title": claim, "body_md": (claim + " ") * 18, "properties": {}, "quotes": [claim]} for claim in claims]
+        return answer
+    attempts = []
+    completed = []
+    def review(prompt, validate, timeout):
+        request = json.loads(prompt)
+        if request["phase"] == "source-synthesis":
+            answer = {"summary": "The six claims depend on observation."}
+        else:
+            subset = [n["title"] for n in request["drafts"]]
+            attempts.append(subset)
+            if len(attempts) == 2:
+                raise reading_budget.ReadingBudgetError("pause in fixture")
+            completed.extend(subset)
+            answer = {"assessment": "The notes preserve the observed claims.", "changes": [], "evidence_quote": claims[0], "unresolved_issues": []}
+        validate(answer)
+        return json.dumps(answer), "reviewer"
+    def prepare(name, states=None, prior=""):
+        reader, calls, states = setup(count=1, generate=make_notes, checkpoints=states, resume=prior)
+        reader.job_id = name
+        reader.chunks[0]["segments"][0]["text"] = reader.origins[0]["segments"][0]["text"] = " ".join(claims)
+        reader.dependencies.reviewer = SimpleNamespace(identity="narrow", input_budget=5000, count_tokens=len, generate_structured=review)
+        reader.dependencies.citation_issues = None
+        return reader, calls, states
+    first, _, states = prepare("first")
+    with pytest.raises(reading_budget.ReadingBudgetError):
+        first.run()
+    resumed, calls, _ = prepare("second", states, "first")
+    plan, _ = resumed.run()
+    assert len(plan["notes"]) == 6 and calls == []
+    assert completed == claims and attempts[-1] == []

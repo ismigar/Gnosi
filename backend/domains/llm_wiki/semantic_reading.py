@@ -173,7 +173,10 @@ class SemanticReader:
         paired = bool(getattr(self.deps, "reviewer", None))
         schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
         def validate(answer: dict[str, object]) -> None:
-            bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
+            plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
+            if reviewer := getattr(self.deps, "reviewer", None):
+                from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
+                check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
         selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
@@ -240,6 +243,8 @@ class SemanticReader:
         if reviewer := getattr(self.deps, "reviewer", None):
             from backend.domains.llm_wiki.independent_review import validate_review_capacity
             validate_review_capacity(reviewer, self.reader.chunks, self.reader.dimensions, self.reader.title, self.reader.language)
+            from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
+            check_draft_capacity(reviewer, self.reader.chunks, self.state["plans"], self.reader.dimensions, self.reader.title, self.reader.language)
         global_map = self.overview()
         self.extract(global_map)
         notes_map = self.note_map()

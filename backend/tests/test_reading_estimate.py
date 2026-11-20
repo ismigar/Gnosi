@@ -94,6 +94,8 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
         return {"cost_in": 11., "cost_out": 55.} if model == "reviewer" else {"cost_in": .1, "cost_out": .5}
     monkeypatch.setattr(model_catalog, 'catalog_model_cost', review_price)
     repriced = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
+    assert repriced["cost_in_per_million_usd"] == .1 and repriced["cost_out_per_million_usd"] == .5
+    assert repriced["review_cost_in_per_million_usd"] == 11 and repriced["review_cost_out_per_million_usd"] == 55
     assert repriced["cost_usd"] > result["cost_usd"]
     assert repriced["estimate_id"] != result["estimate_id"]
     legacy_schema.assert_not_called()

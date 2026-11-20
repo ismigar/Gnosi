@@ -81,6 +81,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         from backend.domains.llm_wiki.independent_review import validate_review_capacity
         from backend.domains.llm_wiki.review_selection import selected_passages
         validate_review_capacity(reviewer, chunks, dimensions, source_title, language)
+        from backend.domains.llm_wiki.review_draft_batches import additional_review_calls, check_draft_capacity
+        check_draft_capacity(reviewer, chunks, saved.get("plans", {}), dimensions, source_title, language)
         review_rates = _rates(reviewer)
         sampled = selected_passages(chunks, saved)
         if saved.get("independent_revision") == reviewer.identity:
@@ -91,7 +93,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         possible_flags = min(semantic_cost["phase_calls"]["interpretation"], remaining_segments)
         passages = sum(len(records(c.get("segments"))) for c in chunks)
         completed = saved.get("independent_revision") == reviewer.identity and saved.get("independent_synthesis")
-        review_calls = min(passages, len(sampled) + possible_flags) + int(not completed)
+        extra_batches = additional_review_calls(reviewer, chunks, saved.get("plans", {}), sampled, dimensions, source_title, language)
+        review_calls = min(passages, len(sampled) + possible_flags) + int(not completed) + extra_batches
         review_count, _ = reading_price_counter(reviewer.provider, reviewer.model)
         typical_passage = max(1, sum(review_count(encoded(segment)) for chunk in chunks for segment in records(chunk.get("segments")))
                               // max(1, sum(len(records(c.get("segments"))) for c in chunks)))
@@ -100,7 +103,7 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         review_output = 768 * review_calls
         review_bound = 16384 * review_calls
         possible_reviews = min(passages, len(sampled) + remaining_segments)
-        extra_calls = max(0, possible_reviews + int(not completed) - review_calls)
+        extra_calls = max(0, possible_reviews + extra_batches + int(not completed) - review_calls)
         if possible_reviews > 1:
             extra_calls += possible_reviews  # Includes intermediate evidence syntheses.
         review_low, review_high, _ = _quote(reviewer, review_rates, True, review_input, review_output, review_bound,
@@ -113,7 +116,9 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         output_assumed += review_output
         output_bound += review_bound
         semantic_cost["phase_calls"]["independent_review"] = review_calls
-        review_fields = {"review_provider": reviewer.provider, "review_model": reviewer.model}
+        review_fields = {"review_provider": reviewer.provider, "review_model": reviewer.model,
+            "review_cost_in_per_million_usd": review_rates["cost_in"] if review_rates else None,
+            "review_cost_out_per_million_usd": review_rates["cost_out"] if review_rates else None}
         identity = job_identity(identity, reviewer.identity)
     budget = None
     if not force and previous.get("budget_id"):
@@ -122,8 +127,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
             "processing_tier": "flex" if flex else "default",
             "display_currency": currency_context(),
-            "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
-            "cost_out_per_million_usd": rates["cost_out"] if priced and rates else None,
+            "cost_in_per_million_usd": rates["cost_in"] if rates else None,
+            "cost_out_per_million_usd": rates["cost_out"] if rates else None,
             "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
             "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
