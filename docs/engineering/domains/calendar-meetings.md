@@ -73,6 +73,8 @@ but the web runtime no longer refreshes that legacy mirror.
 
 ## Event aggregation
 
+Hovering over a connected calendar appointment shows its title, time and available details directly from the event, including for editable appointments. Local vault pages have a page preview.
+
 The route layer resolves workspace context and selected integrations, then
 normalizes provider events and local Markdown events into a shared response.
 Provider identifiers remain paired with their account/calendar origin; an ID

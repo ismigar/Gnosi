@@ -48,7 +48,7 @@ export function availableCalendarSources(pages: readonly CalendarEntry[], extern
 }
 
 export function hybridCalendarEntry(event: CalendarEvent): CalendarEntry {
-    return { id: event.id, title: event.title, metadata: {
+    return { id: event.id, title: event.title, isExternal: event.provider !== 'vault', metadata: {
         date: event.start, end_date: event.end || null, all_day: event.all_day, source: event.source,
         location: event.location || '', description: event.description || '', rrule: event.recurrence || null,
         status: event.status, link: event.link || '', join_url: event.join_url || '',

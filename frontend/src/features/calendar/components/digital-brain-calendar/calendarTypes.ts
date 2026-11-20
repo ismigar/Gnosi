@@ -7,6 +7,7 @@ export type CalendarMetadata = Readonly<Record<string, unknown>>;
 
 export interface CalendarNote {
   readonly id: string;
+  readonly isExternal?: boolean;
   readonly title?: string | null;
   readonly metadata?: CalendarMetadata | null;
   readonly resolved_table_id?: string | null;
@@ -69,6 +70,7 @@ export interface DigitalBrainCalendarProps {
 
 export interface CalendarEventDetails {
   readonly id: string;
+  readonly isExternal: boolean;
   readonly readonly: boolean;
   readonly metadata: CalendarMetadata;
 }

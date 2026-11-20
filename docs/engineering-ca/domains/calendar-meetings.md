@@ -53,6 +53,8 @@ La ruta híbrid consultes externes directament als proveïdors. Obrir el calenda
 
 ## Esdeveniment agregregació
 
+En passar el cursor sobre una cita d’un calendari connectat, es mostren el títol, l’hora i els detalls disponibles de l’esdeveniment, també quan es pot editar. Les pàgines locals del vault tenen una previsualització de pàgina.
+
 La capa de ruta resol el context de l' espai de treball i les integració seleccionades, després normalitza els esdeveniments del proveïdor i els esdeveniments locals Markdown en una resposta compartida. Els identificadors del proveïdor es troben aparellats amb el seu origen del compte/calendar, un ID únic no és prou únic globalment per a la mutació.
 
 Els esdeveniments ocults són registres de recobriment locals. Ocultar no esborra un esdeveniment del proveïdor. El no Oculta elimina el recobriment de manera que la següent acceleració ho inclogui de nou.

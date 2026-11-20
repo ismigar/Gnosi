@@ -74,6 +74,8 @@ actualiza ese espejo heredado.
 
 ## Agregación de eventos
 
+Al pasar el cursor sobre una cita de un calendario conectado, se muestran el título, la hora y los detalles disponibles del evento, incluso cuando se puede editar. Las páginas locales del vault tienen una vista previa de página.
+
 La capa de rutas resuelve el contexto del workspace y las integraciones seleccionadas, y normaliza los eventos de proveedores y los eventos Markdown locales en una respuesta común. Los identificadores de proveedor conservan su cuenta y calendario de origen; un identificador aislado no garantiza la unicidad global necesaria para modificar un evento.
 
 Los eventos ocultos se registran en una capa local superpuesta. Ocultar un evento no lo elimina del proveedor. Volver a mostrarlo elimina esa marca local, de modo que la siguiente agregación lo incluya de nuevo.
