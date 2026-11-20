@@ -15,6 +15,14 @@ _lock = threading.Lock()
 _cached: dict[str, dict[str, Any]] | None = None
 _checked_at = 0.0
 
+# Verified native Sol models share the effort levels listed in OpenAI's model
+# catalog (https://developers.openai.com/api/docs/models). Leave an
+# undocumented provider default unspecified.
+_OPENAI_SOL_DEFAULTS: dict[str, str | None] = {
+    "gpt-6.1-sol": "medium",
+    "gpt-6.2-sol": None,
+}
+
 # Offline fallback verified against the provider's exact model id on 2026-09-27.
 # Live declarations (including an absent supported_efforts) always take priority.
 _VERIFIED = {
@@ -87,10 +95,9 @@ def _openrouter_options() -> dict[str, dict[str, Any]]:
 
 
 def reasoning_options(provider: str, model: str) -> dict[str, Any]:
-    if provider == "openai" and model == "gpt-6.1-sol":
-        # Official OpenAI model documentation, verified 2026-11-08.
+    if provider == "openai" and model in _OPENAI_SOL_DEFAULTS:
         return {"supported_efforts": ["low", "medium", "high", "xhigh", "max"],
-                "default_effort": "medium", "source": "verified_snapshot"}
+                "default_effort": _OPENAI_SOL_DEFAULTS[model], "source": "verified_snapshot"}
     options = _openrouter_options().get(model) if provider == "openrouter" else None
     return dict(options or {"supported_efforts": [], "default_effort": None,
                             "source": "unavailable"})
@@ -116,8 +123,8 @@ def agent_reasoning_kwargs(agent: Mapping[str, Any], provider: str, model: str |
 
 
 def reasoning_client_kwargs(provider: str, model: str | None, effort: str | None) -> dict[str, Any]:
-    if provider == "openai" and model == "gpt-6.1-sol" and effort:
-        if effort not in reasoning_options(provider, model)["supported_efforts"]:
+    if provider == "openai" and effort:
+        if effort not in reasoning_options(provider, model or "")["supported_efforts"]:
             raise ValueError("Unsupported reasoning provider or effort")
         return {"use_responses_api": True, "use_previous_response_id": False,
                 "reasoning": {"effort": effort}, "store": False}

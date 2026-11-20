@@ -131,7 +131,10 @@ it('does not persist invalid or duplicate commands', () => {
 });
 
 const luna = { ...agent, provider: 'openrouter', model: 'openai/gpt-6-luna' };
-const reasoningModels = [...registry, { provider: luna.provider, model_id: luna.model, enabled: true }] as SettingsModel[];
+const sol = { ...agent, provider: 'openai', model: 'gpt-6.2-sol' };
+const reasoningModels = [...registry, ...[luna, sol].map(({ provider, model }) => ({
+  provider, model_id: model, enabled: true,
+}))] as SettingsModel[];
 
 it('offers only provider-supported efforts and autosaves medium without changing the model', async () => {
   await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
@@ -150,6 +153,16 @@ it('restores saved effort and clears it when choosing a different model', async 
   select('profile_model', 'beta||large');
   expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'beta', model: 'large', reasoning_effort: null }));
   expect(host.querySelector('select[aria-label="settings.ai.assistant.reasoning_effort"]')).toBeNull();
+});
+
+it('loads direct OpenAI efforts and saves high on the selected Sol profile', async () => {
+  vi.mocked(fetchAiModelReasoning).mockResolvedValue({
+    supported_efforts: ['low', 'medium', 'high', 'xhigh', 'max'], default_effort: null, source: 'verified_snapshot',
+  });
+  await act(async () => { render(sol, reasoningModels); await Promise.resolve(); });
+  expect(fetchAiModelReasoning).toHaveBeenCalledWith(sol.provider, sol.model, expect.any(AbortSignal));
+  select('reasoning_effort', 'high');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...sol, reasoning_effort: 'high' }));
 });
 
 it('does not invent choices for a model without effort metadata', async () => {
