@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3567 |
-| pytest | 819 | 6344 |
+| pytest | 820 | 6346 |
 
 ## Fichiers
 
@@ -853,6 +853,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_agent_adaptive_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_adaptive_quality.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_behavior.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_behavior.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_agent_case_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_case_quality.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_agent_chat_cloud_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_cloud_skills.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_safety.py) | 54 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_schema_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_schema_transport.py) | 3 | Python AST |
