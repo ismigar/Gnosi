@@ -212,3 +212,43 @@ def test_six_notes_on_one_original_can_resume_a_partly_completed_audit():
     plan, _ = resumed.run()
     assert len(plan["notes"]) == 6 and calls == []
     assert completed == claims and attempts[-1] == []
+
+
+def test_same_support_quote_preserves_its_batch_source_in_the_merged_notes_and_synthesis():
+    from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage, synthesis_changes
+    from backend.domains.llm_wiki.semantic_contracts import bind_note
+    primary = {"id": "primary", "text": "Two studies use independent observations.", "locator": {"page": 1}, "origin_label": "Studies"}
+    repeated = "Replication is required."
+    support = [{"id": name, "text": f"{name} findings. {repeated}", "locator": {"page": i}, "origin_label": "Studies"}
+               for i, name in enumerate(("Spring", "Autumn"), start=2)]
+    evidence = [primary, *support]
+    drafts = [bind_note({"title": s["id"], "body_md": "The study compares independent observations and preserves the stated qualifications. " * 9,
+                         "quotes": [primary["text"], s["text"]], "properties": {}}, primary, evidence, []) for s in support]
+    plan = {"coverage": [{"segment_id": "primary", "reason": "Two experimental series."}]}
+    calls = []
+    def review(prompt, validate, timeout):
+        request = json.loads(prompt)
+        assert "quote_source_keys" not in prompt
+        notes = request["drafts"]
+        changes = []
+        if notes:
+            assert len(notes) == 1 and len(request["support"]) == 1
+            changes.append({"position": 1, "reason": "Preserve the replication condition.", "replacement": {
+                "title": notes[0]["title"], "body_md": "Independent replication is required.", "properties": {},
+                "quotes": [primary["text"], repeated]}})
+        answer = {"assessment": "The comparison requires replication.", "changes": changes,
+                  "unresolved_issues": [], "evidence_quote": primary["text"]}
+        validate(answer)
+        calls.append(len(notes))
+        return json.dumps(answer), "reviewer"
+    reviewer = SimpleNamespace(identity="reviewer", input_budget=3300, count_tokens=len, generate_structured=review)
+    worker, _, checkpoints = setup(count=1)
+    key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan, {}, None)
+    accepted = apply_changes(answer, drafts, primary, evidence, [])
+    assert [[c["segment_id"] for c in n["citations"]] for n in accepted] == [["primary", "Spring"], ["primary", "Autumn"]]
+    findings = synthesis_changes(answer, evidence)
+    assert "quote_source_keys" not in json.dumps(findings)
+    assert [change["citation_locations"][-1]["location"]["page"] for change in findings] == [2, 3]
+    resumed, _, _ = setup(count=1, checkpoints=checkpoints, resume="new")
+    assert audit_passage(resumed, reviewer, primary, drafts, evidence, plan, {"key": key, "answer": answer}, None) == (key, answer)
+    assert calls == [1, 1, 0]

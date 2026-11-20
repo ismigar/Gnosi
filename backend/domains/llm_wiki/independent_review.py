@@ -19,17 +19,48 @@ if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
 
-def audit_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+def audit_schema(size: int, dimensions: list[dict[str, object]], *, bound_sources: bool = False) -> dict[str, Any]:
     replacement = note_schema(dimensions)
-    replacement["properties"].pop("quote_source_keys", None)  # Provenance is bound locally.
+    if not bound_sources:
+        replacement["properties"].pop("quote_source_keys", None)  # Provenance is bound locally.
     change = obj({"position": {"type": "integer", "minimum": 0, "maximum": size},
                   "reason": TEXT, "replacement": {"anyOf": [replacement, {"type": "null"}]}})
     return obj({"assessment": TEXT, "evidence_quote": TEXT, "unresolved_issues": TEXTS, "changes": {"type": "array", "items": change}})
 
 
+def bound_changes(answer: dict[str, object], primary: dict[str, object], sources: list[dict[str, object]],
+                  dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Retain the exact original resolved in this batch across all later merges."""
+    from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+    keys = {str(s["id"]): source_key(source_view(s)) for s in [*sources, primary]}
+    changes = records(answer["changes"])
+    for change in changes:
+        if change["replacement"] is not None:
+            replacement = record(change["replacement"])
+            note = bind_note(replacement, primary, sources, dimensions)
+            change["replacement"] = {**replacement, "quote_source_keys": [
+                keys[str(c["segment_id"])] for c in records(note["citations"])]}
+    return changes
+
+
+def synthesis_changes(answer: dict[str, object], sources: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Expose corrected text and human-readable locations to the final synthesis."""
+    from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+    locations = {source_key(source_view(s)): {"document": s.get("origin_label", ""), "location": s.get("locator", {})} for s in sources}
+    changes = records(answer["changes"])
+    for change in changes:
+        if change["replacement"] is not None:
+            replacement = record(change["replacement"])
+            keys = replacement.pop("quote_source_keys", [])
+            if isinstance(keys, list):
+                change["citation_locations"] = [locations[str(k)] for k in keys]
+            change["replacement"] = replacement
+    return changes
+
+
 def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], primary: dict[str, object],
                   evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
-    validate_schema(answer, audit_schema(len(drafts), dimensions))
+    validate_schema(answer, audit_schema(len(drafts), dimensions, bound_sources=True))
     if answer["unresolved_issues"]:
         raise ValueError("The independent reviewer must resolve outstanding source issues before acceptance")
     quote = str(answer["evidence_quote"])
@@ -112,15 +143,20 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
         if citation_issues and any(citation_issues(checked, worker.origins)):
             raise ValueError("Review corrections must use valid source citations")
 
+    def validate_transport(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
+        validate_schema(answer, audit_schema(len(subset), worker.dimensions))
+        validate(answer, subset, sources)
+
     answer = saved.get("answer") if saved.get("key") == key else None
     if isinstance(answer, dict):
         validate(answer, drafts, evidence)
     elif fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
-                            lambda item: validate(item, drafts, evidence), schema, executor=reviewer)
+                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer)
+        answer = {**answer, "changes": bound_changes(answer, primary, evidence, worker.dimensions)}
     else:
         from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
-        answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate)
+        answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate_transport)
         validate(answer, drafts, evidence)
     return key, answer
 
@@ -172,7 +208,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                 plan["evidence_segments"] = list({s["id"]: s for s in [*records(plan.get("evidence_segments")), *evidence]}.values())
             findings.append({"document": primary["origin_label"], "location": primary.get("locator"),
                              "assessment": answer["assessment"], "quote": answer["evidence_quote"],
-                             "corrections": answer["changes"]})
+                             "corrections": synthesis_changes(answer, evidence)})
         plan["notes"] = notes
     from backend.domains.llm_wiki.review_synthesis import synthesize
     return synthesize(engine, worker, reviewer, global_map, notes_map, findings)

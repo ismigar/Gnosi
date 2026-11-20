@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3568 |
-| pytest | 823 | 6395 |
+| pytest | 823 | 6396 |
 
 ## Archivos
 
@@ -1092,7 +1092,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_image_download_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_image_download_recovery.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_image_metadata_scheduling.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_image_metadata_scheduling.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_import_dedup.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_independent_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_independent_reading.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_independent_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_independent_reading.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_index_schema_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_index_schema_titles.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_indexed_page_metadata_boundary.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_indexed_page_metadata_boundary.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_inline_comments_permissions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_inline_comments_permissions.py) | 3 | Python AST |

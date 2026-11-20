@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import record, records
-from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, fits_review
+from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
 
 if TYPE_CHECKING:
@@ -111,7 +111,7 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
                             record(payload["output_schema"]), executor=reviewer)
         accepted = apply_changes(answer, subset, primary, sources, worker.dimensions)
         claims.append({"assessment": answer["assessment"], "retained": [n["title"] for n in accepted]})
-        changes.extend({**change, "position": int(str(change["position"])) + start} for change in records(answer["changes"]))
+        changes.extend({**change, "position": int(str(change["position"])) + start} for change in bound_changes(answer, primary, sources, worker.dimensions))
         start = end
 
     payload = audit_payload(primary, [], [], coverage, worker.dimensions)
@@ -125,4 +125,4 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     payload["reviewed_claims"] = claims
     coverage_answer = worker.ask(f"audit-coverage-{key[:24]}", "source-audit", payload,
                                  lambda result: validate(result, [], [primary]), record(payload["output_schema"]), executor=reviewer)
-    return {**coverage_answer, "changes": [*changes, *records(coverage_answer["changes"])]}
+    return {**coverage_answer, "changes": [*changes, *bound_changes(coverage_answer, primary, [primary], worker.dimensions)]}
