@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 214 |
-| `domains` | 633 | 124224 |
+| `domains` | 633 | 124225 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1136 modules** and **215345 source lines**.
+Total: **1136 modules** and **215346 source lines**.
 
 ## agent
 
@@ -515,7 +515,7 @@ Total: **1136 modules** and **215345 source lines**.
 | [`backend/domains/reader/analysis_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/analysis_routes.py) | 171 | 1 | 8 | 0 | 9 | Reader inventory and durable-analysis HTTP routes. |
 | [`backend/domains/reader/backfill_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/backfill_routes.py) | 175 | 1 | 4 | 0 | 4 | Reader full-content extraction and backfill HTTP routes. |
 | [`backend/domains/reader/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/internal_sources.py) | 54 | 0 | 5 | 0 | 5 | Typed boundary around the legacy Reader helpers owned by the agent domain. |
-| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 130 | 0 | 6 | 1 | 5 | Reader podcast generation and download HTTP routes. |
+| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 131 | 0 | 6 | 1 | 5 | Reader podcast generation and download HTTP routes. |
 | [`backend/domains/reader/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py) | 536 | 1 | 17 | 1 | 16 | No module docstring |
 | [`backend/domains/reader/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routing.py) | 28 | 0 | 1 | 0 | 1 | Shared runtime contract for Reader route modules. |
 | [`backend/domains/reader/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/schemas.py) | 207 | 19 | 0 | 0 | 19 | Public request and response contracts for the Reader domain. |

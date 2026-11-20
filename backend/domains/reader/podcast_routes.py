@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable, cast
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 
 from backend.domains.reader.routing import RouteReturn, require_active_vault
 from backend.domains.reader.schemas import (
@@ -91,7 +92,7 @@ def get_podcast_info() -> RouteReturn:
     }
 
 
-async def get_latest_podcast() -> RouteReturn:
+async def get_latest_podcast() -> FileResponse:
     """Stream the selected episode using the same coordinated file snapshot as vault downloads."""
     from backend.domains.vault.files.serving import serve_snapshot
 
