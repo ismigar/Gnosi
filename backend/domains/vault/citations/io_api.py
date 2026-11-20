@@ -187,18 +187,25 @@ def _read_export_page(
     if snapshot_path is not None and root is not None:
         snapshot_path = root / snapshot_path
     metadata = _read_reference_path(snapshot_path, root, dependencies) if snapshot_path else None
-    relocated = False
-    if metadata is None:
-        resolved = dependencies.find_page(str(getattr(page, "id", "") or ""))
-        if resolved is None or resolved == snapshot_path:
-            return None
-        metadata = _read_reference_path(resolved, root, dependencies)
-        relocated = snapshot_path is not None
     if metadata is not None:
         stored_table = metadata.get("database_table_id") or metadata.get("table_id")
-        if (relocated or stored_table) and str(stored_table or "") != table_id:
-            return None
-    return metadata
+        return metadata if not stored_table or str(stored_table) == table_id else None
+    resolved = dependencies.find_page(str(getattr(page, "id", "") or ""))
+    if resolved is None:
+        return None
+    if root is not None:
+        resolved = root / resolved
+    if resolved == snapshot_path:
+        return None
+    metadata = _read_reference_path(resolved, root, dependencies)
+    if metadata is None:
+        return None
+    from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
+
+    folder_index = build_table_folder_index(dict(dependencies.load_registry()))
+    relative_folder = str(resolved.parent.relative_to(root)) if root and resolved.is_relative_to(root) else ""
+    current_table = resolve_table_id_from_context(dict(metadata), relative_folder, folder_index)
+    return metadata if current_table == table_id else None
 
 
 def _export_index_entries(

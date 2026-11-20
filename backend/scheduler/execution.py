@@ -85,6 +85,8 @@ def _start_history(task: ScheduledTask, episode: episodes.Episode | None) -> str
     try:
         with get_mgmt_session() as db:
             row = db.get(TaskExecutionHistory, episode.run_id) if episode else None
+            if row is None and episode and episode.source == "reader":
+                return None
             if row is None:
                 row = TaskExecutionHistory(id=episode.run_id if episode else None,
                     task_name=task.name, description=task.description, status="running")

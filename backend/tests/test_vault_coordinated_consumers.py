@@ -677,16 +677,21 @@ def test_selected_reference_export_recovers_stale_index_in_table_and_keeps_order
 
 
 
-@pytest.mark.parametrize("stored_table, expected_count", [("refs", 1), ("other", 0), (None, 0)])
-def test_relocated_selected_reference_verifies_current_table(cloud, stored_table, expected_count):
+@pytest.mark.parametrize("snapshot_path", ["Missing/old.md", None])
+@pytest.mark.parametrize("folder, stored_table, expected_count", [
+    ("Renamed", "refs", 1), ("Renamed", "other", 0), ("Renamed", None, 0),
+    ("Current", None, 1), ("Other", "refs", 0),
+])
+def test_relocated_selected_reference_verifies_current_table(cloud, snapshot_path, folder, stored_table, expected_count):
     import json
     from backend.domains.vault.citations import export_routes, io_api
 
     metadata = {"Citation Key": "requested", "table_id": stored_table}
-    moved = cloud.source("Renamed/note.md", json.dumps(metadata).encode())
-    page = SimpleNamespace(id="old", path="Missing/old.md", metadata={}, resolved_table_id="refs")
+    moved = cloud.source(f"{folder}/note.md", json.dumps(metadata).encode())
+    page = SimpleNamespace(id="old", path=snapshot_path, metadata={}, resolved_table_id="refs")
     deps = replace(
         export_routes._REFERENCES_IO_DEPENDENCIES, active_vault_path=lambda: cloud.vault,
+        load_registry=lambda: {"tables": [{"id": "refs", "folder": "Current"}, {"id": "other", "folder": "Other"}]},
         resolve_ensure_index=lambda: (lambda _: {"requested": {"id": "old"}}),
         find_page=lambda _: moved, page_snapshot=lambda: [page],
         parse_frontmatter=lambda raw, _: (json.loads(raw), ""),

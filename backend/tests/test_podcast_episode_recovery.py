@@ -473,11 +473,15 @@ def test_activity_resume_and_occurrence_claim_roll_back_together(monkeypatch, is
 def test_interrupted_reader_episode_resumes_under_original_scope_with_schedule_disabled(
     monkeypatch, isolated_validation_runtime,
 ):
+    from sqlalchemy.orm import Session
+
+    from backend.models.scheduler import TaskExecutionHistory
+
     root = isolated_validation_runtime
     process = subprocess.run([sys.executable, "-m", __name__, str(root), "mid_script", "reader"],
                              capture_output=True, timeout=45)
     assert process.returncode == 86, process.stderr.decode()[-2000:]
-    scope, manager, _ = runtime(monkeypatch, root)
+    scope, manager, engine = runtime(monkeypatch, root)
     episode = episodes.current(scope.vault_path)
     assert episode.source == "reader" and episode.scope == scope.model_dump()
     assert store.latest_job(scope, "podcast").origin == "button"
@@ -485,6 +489,8 @@ def test_interrupted_reader_episode_resumes_under_original_scope_with_schedule_d
     assert manager._is_due(manager._tasks["generate_podcast"], datetime.now())
     assert manager.run_task_now("generate_podcast", automatic=True)["success"]
     assert store.read(scope, episode.run_id).status == "completed"
+    with Session(engine) as db:
+        assert db.get(TaskExecutionHistory, episode.run_id) is None
 
 
 def test_cancelled_waiter_is_never_claimed_and_revoked_scope_never_reaches_provider(
