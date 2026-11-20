@@ -301,6 +301,8 @@
     "saved": "Guardat",
     "event_save_error": "Error enviant la cita.",
     "calendar_renamed_success": "Calendari reanomenat",
+    "calendar_visibility": "Visibilitat de {{name}}",
+    "visibility_save_error": "No s’ha pogut desar la visibilitat del calendari.",
     "calendar_rename_error": "Error al reanomenar el calendari",
     "error_loading_event_data": "Error carregant les dades de l'event.",
     "no_event_selected": "No hi ha cap event seleccionat.",

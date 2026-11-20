@@ -18,7 +18,8 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                     />
                 )}
                 {/* Barra Esquerra Col·lapsable */}
-                <div className={`calendar-workspace__sidebar calendar-workspace__sidebar--left ${showLeftSidebar ? 'is-open' : ''}`}>
+                <div className={`calendar-workspace__sidebar calendar-workspace__sidebar--left ${showLeftSidebar ? 'is-open' : ''}`}
+                     inert={!showLeftSidebar}>
                     <div className="calendar-workspace__sidebar-content calendar-workspace__sidebar-content--left">
 <CalendarSidebarLeft
                             calendarRef={calendarRef}

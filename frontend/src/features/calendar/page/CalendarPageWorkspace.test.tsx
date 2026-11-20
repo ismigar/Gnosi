@@ -90,6 +90,15 @@ beforeEach(() => {
 });
 afterEach(async () => { await update(() => { root.unmount(); }); client.clear(); host.remove(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
+it('disables the source controls while their drawer is closed', async () => {
+    await mount();
+    const drawer = host.querySelector('.calendar-workspace__sidebar--left');
+    await update(() => { controller.setShowLeftSidebar(false); });
+    expect(drawer?.hasAttribute('inert')).toBe(true);
+    await update(() => { controller.setShowLeftSidebar(true); });
+    expect(drawer?.hasAttribute('inert')).toBe(false);
+});
+
 it('starts external reads from the real calendar range while local data is pending and honors saved hidden calendars', async () => {
     const pages = deferred<VaultPageSummary[]>();
     const settings = deferred<IntegrationsDocument>();

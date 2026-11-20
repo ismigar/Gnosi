@@ -4,6 +4,10 @@ import type FullCalendar from '@fullcalendar/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { toast } from '../../../shared/notifications/toast';
+import { hybridCalendarEntry } from '../page/calendarPageModel';
+import { externalEvent } from './calendar-sidebar-right/calendarTestFixtures';
+
+const openHover = vi.hoisted(() => vi.fn());
 
 vi.mock('react-i18next', () => {
   const t = (_key: string, fallback: unknown) => typeof fallback === 'string' ? fallback : _key;
@@ -11,7 +15,7 @@ vi.mock('react-i18next', () => {
   return { useTranslation: () => ({ t, i18n }) };
 });
 vi.mock('../../../shared/editor/useTitlePreview', () => {
-  const value = { openHover: vi.fn(), scheduleClose: vi.fn(), preview: null };
+  const value = { openHover, scheduleClose: vi.fn(), preview: null };
   return { useTitlePreview: () => value };
 });
 vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -56,6 +60,30 @@ function eventElement(title: string): HTMLElement {
 }
 
 describe('DigitalBrainCalendar with real FullCalendar', () => {
+  it.each([
+    ['google', false], ['caldav', false], ['microsoft', false], ['other-provider', false], ['google', true],
+  ] as const)('previews a %s appointment from its event data (read-only %s)', async (provider, readOnly) => {
+    const calendarRef = createRef<FullCalendar>();
+    const appointment = hybridCalendarEntry({
+      ...externalEvent(provider), start: '2026-09-02T12:30:00', end: '2026-09-02T13:00:00',
+      all_day: false, is_read_only: readOnly, location: 'Meeting room',
+    });
+    await render(<DigitalBrainCalendar allNotes={[...NOTES, appointment]} ignoreCalendarFilter calendarRef={calendarRef} />);
+    await update(() => { calendarRef.current?.getApi().gotoDate('2026-09-02'); });
+    const target = eventElement(appointment.title);
+    await update(() => { target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    const heading = container.querySelector('h4');
+    expect(heading?.textContent).toBe(appointment.title);
+    expect(heading?.parentElement?.textContent).toContain('12:30');
+    expect(heading?.parentElement?.textContent).toContain('Meeting room');
+    expect(heading?.parentElement?.textContent).toContain('External description');
+    expect(openHover).not.toHaveBeenCalled();
+    await update(() => { target.closest('.fc-event')?.dispatchEvent(new MouseEvent('mouseleave')); });
+    expect(container.querySelector('h4')).toBeNull();
+    await update(() => { eventElement('Calendar contract event').dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(openHover).toHaveBeenCalledWith('one', expect.anything());
+  });
+
   it('honors the initial compact view selected by the page controller', async () => {
     const calendarRef = createRef<FullCalendar>();
     await render(<DigitalBrainCalendar allNotes={NOTES} ignoreCalendarFilter initialView="timeGridDay" calendarRef={calendarRef} />);

@@ -78,7 +78,7 @@ function noteEvent(note: CalendarNote, options: EventOptions): RenderedCalendarE
   if (end && allDay && !metadata._end_exclusive && !(end instanceof Date)) end = inclusiveToExclusiveAllDayEnd(end);
   return {
     id: note.id, title, start, end, allDay, color, textColor: allDay ? '#ffffff' : color,
-    extendedProps: { id: note.id, readonly: Boolean(metadata.readonly), metadata },
+    extendedProps: { id: note.id, isExternal: note.isExternal === true, readonly: Boolean(metadata.readonly), metadata },
     ...recurrence(calendarText(metadata[`${options.dateField ?? "date"}_rrule`] || metadata.rrule), start, metadata),
   };
 }
@@ -93,6 +93,7 @@ export function calendarEventDetails(event: Pick<EventApi, 'id' | 'extendedProps
   const details = calendarRecord(raw);
   return {
     id: calendarText(details?.id) || event.id,
+    isExternal: details?.isExternal === true,
     readonly: Boolean(details?.readonly),
     metadata: calendarRecord(details?.metadata) ?? {},
   };

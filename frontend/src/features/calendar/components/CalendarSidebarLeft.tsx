@@ -98,7 +98,7 @@ export const CalendarSidebarLeft = ({
     const sourceGroups = groupCalendarSources(availableCalendars, calendarConfigs);
 
     return (
-        <div className="w-64 flex-shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] flex flex-col h-full overflow-y-auto hidden md:flex text-sm text-[var(--text-secondary)]">
+        <div className="w-full flex-shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] flex flex-col h-full overflow-y-auto text-sm text-[var(--text-secondary)]">
             {/* Mini Calendar Header */}
             <div className="p-4 pb-2 flex items-center justify-between">
                 <button 
@@ -253,14 +253,14 @@ export const CalendarSidebarLeft = ({
                                                         }}
                                                     />
                                                 ) : (
-                                                    <span className="text-[13px] text-[var(--text-primary)] font-medium truncate w-full cursor-pointer" title={displayName}>
+                                                    <span className={`text-[13px] font-medium truncate w-full cursor-pointer ${isVisible ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] line-through'}`} title={displayName}>
                                                         {displayName}
                                                     </span>
                                                 )}
                                             </div>
 
                                             {!isEditing && (
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                                     <button
                                                         className={`p-1 hover:bg-[var(--bg-tertiary)] rounded transition-colors ${defaultCalendar === source ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
                                                         onClick={(e) => {
@@ -282,14 +282,15 @@ export const CalendarSidebarLeft = ({
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
-                                                    <div
+                                                    <button
+                                                        type="button"
                                                         className="cursor-pointer p-1"
-                                                        onClick={() => {
-                                                            onToggleCalendar?.(source);
-                                                        }}
+                                                        aria-label={t('calendar.calendar_visibility', { name: displayName })}
+                                                        aria-pressed={isVisible}
+                                                        onClick={() => { onToggleCalendar?.(source); }}
                                                     >
                                                         {!isVisible ? <EyeOff size={14} className="text-[var(--text-tertiary)]" /> : <Eye size={14} className="text-[var(--text-tertiary)]" />}
-                                                    </div>
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>

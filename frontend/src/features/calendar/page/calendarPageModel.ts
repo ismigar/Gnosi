@@ -5,11 +5,12 @@ import { attendeeList, record, stringList, textValue } from '../components/calen
 
 export interface EnabledTable { id: string; name: string; type: 'table'; color?: string }
 interface CalendarIntegration { email: string; name: string; url: string; color: string }
+export type CalendarVisibility = { default_sources: string[]; shown_sources: string[]; hidden_sources: string[] };
 export interface CalendarSettings {
     calendars?: CalendarIntegration[];
     calendar_aliases?: Record<string, string>;
     calendar_colors?: Record<string, string>;
-    calendar_selection?: string[] | { selection: string[] };
+    calendar_selection?: CalendarVisibility;
     default_calendar?: string;
     vault_calendar?: { color: string; enabled_tables: string[] };
 }
@@ -17,6 +18,24 @@ export interface CalendarSettings {
 function stringMap(value: unknown): Record<string, string> {
     return Object.fromEntries(Object.entries(record(value)).map(([key, item]) => [key, textValue(item)]));
 }
+
+export function calendarVisibility(value: unknown): CalendarVisibility {
+    const raw = record(value);
+    // Older clients saved either a list of sources or a wrapped list. An account
+    // in that list also selects its subcalendars, including those discovered later.
+    return {
+        default_sources: stringList(raw.default_sources ?? (Array.isArray(value) ? value : raw.selection)),
+        shown_sources: stringList(raw.shown_sources),
+        hidden_sources: stringList(raw.hidden_sources),
+    };
+}
+
+export function isCalendarVisible(preference: CalendarVisibility, { source, account }: CalendarConfig): boolean {
+    if (preference.hidden_sources.includes(source)) return false;
+    return preference.shown_sources.includes(source) || !preference.default_sources.length
+        || preference.default_sources.includes(source) || (account !== null && preference.default_sources.includes(account));
+}
+
 export function calendarSettings(value: IntegrationsDocument): CalendarSettings {
     if (!Object.keys(value).length) return {};
     const rawCalendars: unknown[] = Array.isArray(value.calendars) ? value.calendars : [];
@@ -24,7 +43,7 @@ export function calendarSettings(value: IntegrationsDocument): CalendarSettings 
     return {
         calendars: rawCalendars.map((item) => { const calendar = record(item); return { email: textValue(calendar.email), name: textValue(calendar.name), url: textValue(calendar.url), color: textValue(calendar.color) }; }),
         calendar_aliases: stringMap(value.calendar_aliases), calendar_colors: stringMap(value.calendar_colors),
-        calendar_selection: Array.isArray(value.calendar_selection) ? stringList(value.calendar_selection) : { selection: stringList(record(value.calendar_selection).selection) },
+        calendar_selection: calendarVisibility(value.calendar_selection),
         default_calendar: textValue(value.default_calendar),
         vault_calendar: { color: textValue(vault.color), enabled_tables: stringList(vault.enabled_tables) },
     };
@@ -48,7 +67,7 @@ export function availableCalendarSources(pages: readonly CalendarEntry[], extern
 }
 
 export function hybridCalendarEntry(event: CalendarEvent): CalendarEntry {
-    return { id: event.id, title: event.title, metadata: {
+    return { id: event.id, title: event.title, isExternal: event.provider !== 'vault', metadata: {
         date: event.start, end_date: event.end || null, all_day: event.all_day, source: event.source,
         location: event.location || '', description: event.description || '', rrule: event.recurrence || null,
         status: event.status, link: event.link || '', join_url: event.join_url || '',

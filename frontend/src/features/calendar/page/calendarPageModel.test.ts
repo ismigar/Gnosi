@@ -12,8 +12,8 @@ describe('calendar page source model', () => {
     });
     it('keeps empty integrations distinct from a saved selection and accepts both selection shapes', () => {
         expect(calendarSettings({})).toEqual({});
-        expect(calendarSettings({calendar_selection: ['Appointments']})).toMatchObject({calendar_selection: ['Appointments']});
-        expect(calendarSettings({calendar_selection: {selection: ['caldav@example.test']}})).toMatchObject({calendar_selection: {selection: ['caldav@example.test']}});
+        expect(calendarSettings({calendar_selection: ['Appointments']})).toMatchObject({calendar_selection: {default_sources: ['Appointments'], hidden_sources: [], shown_sources: []}});
+        expect(calendarSettings({calendar_selection: {selection: ['caldav@example.test']}})).toMatchObject({calendar_selection: {default_sources: ['caldav@example.test']}});
     });
     it('retains aliases, colors, CalDAV and Google sub-calendars without OneDrive assumptions', () => {
         const settings = calendarSettings({calendars: [{email: 'caldav@example.test'}, {email: 'google@example.test'}], calendar_aliases: {Appointments: 'Visits'}, calendar_colors: {Appointments: '#123456'}, default_calendar: 'Appointments'});

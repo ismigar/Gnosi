@@ -14,11 +14,12 @@ interface CalendarLocalSources {
     pages: CalendarEntry[];
     undatedNotes: CalendarEntry[];
     integrations: CalendarSettings;
+    settingsAvailable: boolean;
     enabledTables: EnabledTable[];
 }
 
 const EMPTY_SOURCES: CalendarLocalSources = {
-    pages: [], undatedNotes: [], integrations: {}, enabledTables: [],
+    pages: [], undatedNotes: [], integrations: {}, settingsAvailable: false, enabledTables: [],
 };
 
 class PartialCalendarSources extends Error {
@@ -75,7 +76,7 @@ async function readLocalSourcesWithSignal(signal: AbortSignal): Promise<Calendar
             if (path.includes('/Calendar/') || path.includes('\\Calendar\\')) undatedNotes.push(page);
         }
     }
-    const snapshot = { pages, undatedNotes, integrations, enabledTables };
+    const snapshot = { pages, undatedNotes, integrations, settingsAvailable: settings !== null, enabledTables };
     // A query error retains the last successful snapshot. On a first partial
     // read the useful pages remain available through the error, never as success.
     if (settingsResult.status !== 'fulfilled' || tablesResult.status !== 'fulfilled') {
