@@ -17,6 +17,7 @@ from backend.domains.vault.links.document_inventory import (
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
 from backend.domains.vault.schemas.pages import PagePatchRequest
+from backend.utils.metadata_io import read_vault_text
 
 Metadata = PageMetadata
 PageIndexEntries = dict[str, dict[str, PageCacheEntry]]
@@ -106,7 +107,7 @@ def find_and_read_patch_page(
     if dependencies.is_dashboard_file(file_path):
         metadata, body = dependencies.read_dashboard_file(file_path)
         return file_path, metadata, body, None, current_etag
-    raw_content = file_path.read_text(encoding="utf-8")
+    raw_content = read_vault_text(file_path, root=dependencies.active_vault_path())
     metadata, body = dependencies.parse_frontmatter(raw_content, file_path)
     return file_path, metadata, body, raw_content, current_etag
 

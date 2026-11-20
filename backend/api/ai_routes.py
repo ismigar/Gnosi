@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+
+from backend.utils.metadata_io import read_vault_text
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, JsonValue
 
@@ -70,8 +72,7 @@ def _load_yaml_mapping(path: Path) -> JsonObject:
     """Load one YAML object, rejecting non-mapping configuration roots."""
     if not path.exists():
         return {}
-    with path.open("r", encoding="utf-8") as stream:
-        loaded = yaml.safe_load(stream)
+    loaded = yaml.safe_load(read_vault_text(path))
     return cast(JsonObject, loaded) if isinstance(loaded, dict) else {}
 
 

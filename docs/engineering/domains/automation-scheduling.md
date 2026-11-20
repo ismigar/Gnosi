@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-11-20
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
   - backend/platform/notifications.py
+  - backend/services/podcast_episode.py
+  - backend/services/podcast_briefing.py
   - backend/scheduler/task_handlers.py
   - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
@@ -18,6 +20,7 @@ source_paths:
 tests:
   - frontend/src/features/automations/SchedulerPage.test.tsx
   - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
+  - backend/tests/test_podcast_episode_recovery.py
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_scheduler_maintenance_scope.py
@@ -109,8 +112,8 @@ errors, and registers only candidates whose deterministic identity is new to
 that review. The next run is persisted with the review configuration rather
 than held only by the scheduler process.
 
-The queue requires an explicit `LOCAL_DATA` root and fails before opening
-SQLite when configuration is incomplete. Worker adapters narrow opaque queue
+The queue opens SQLite under the device’s canonical `LOCAL_DATA` directory even
+when the Vault configuration is waiting for a download. Worker adapters narrow opaque queue
 payloads to concrete mappings before dispatch, and legacy dispatcher
 registration rejects a missing callable before constructing its typed contract.
 Scheduled contact synchronization constructs each engine with explicit database,
@@ -159,6 +162,19 @@ The Reader podcast service uses typed model and language selection, bounded
 sentence-level TTS workers, and atomic MP3 replacement. Background generation
 captures the selected Vault explicitly and refuses to start when no Vault is
 active, so output cannot fall through to an ambiguous local path.
+
+The clock, **Run now** and Reader share a daily occurrence for the active
+Vault and authorized scope. The occurrence and the end of its 24-hour news
+window are saved on the device before loading cloud prerequisites. A pending
+file leaves the occurrence waiting. The scheduler checks for recoverable work
+on startup and on its regular tick. The dashboard and Reader can show which
+file is needed, the provider, the reason and the next retry.
+
+The episode keeps its validated work across attempts and process restarts.
+On resumption the worker uses the saved inputs, briefings, script and any completed
+speech recording. It records a publication intent and content digest
+before the atomic rename to the dated MP3. Recovery after that rename verifies
+the existing output and completes the same occurrence.
 
 ## Invariants
 

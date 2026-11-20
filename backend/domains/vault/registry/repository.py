@@ -15,6 +15,15 @@ from typing import Protocol
 from backend.domains.vault.registry.names import normalize_registry_table_view_names
 from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData, RegistryState
+from backend.platform.files import get_files_provider
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import (
+    MetadataUnavailable,
+    guard_missing_file,
+    is_native_vault_file,
+    read_vault_text,
+    read_vault_text_with_stat,
+)
 
 
 class JsonWriter(Protocol):
@@ -36,6 +45,7 @@ class RegistryRepositoryDependencies:
     ensure_table_folder: Callable[[RegistryData, RegistryData], object]
     ensure_status_catalog: Callable[[RegistryData], bool]
     write_json: JsonWriter
+    vault_root: Callable[[], Path | None] = active_vault_path.get
 
 
 class RegistryRepository:
@@ -57,13 +67,13 @@ class RegistryRepository:
 
     def degenerate_overwrite_is_risky(self, registry_path: Path) -> bool:
         try:
-            if registry_path.exists():
-                try:
-                    previous = json.loads(registry_path.read_text(encoding="utf-8"))
-                except Exception:
-                    return True
-                if not self.is_degenerate(previous):
-                    return True
+            previous = json.loads(read_vault_text(registry_path, root=self._dependencies.vault_root()))
+            if not self.is_degenerate(previous):
+                return True
+        except FileNotFoundError:
+            pass
+        except MetadataUnavailable:
+            raise
         except Exception:
             return True
 
@@ -118,13 +128,16 @@ class RegistryRepository:
         ):
             return cached
         try:
-            if not registry_path.exists():
-                return cached if cached is not None else empty
             modified = registry_path.stat().st_mtime
             if cached is not None and modified <= self.state.cache_mtime.get(cache_key, 0.0):
                 self.state.cache_timestamp[cache_key] = now
                 return cached
-        except Exception as error:
+        except FileNotFoundError:
+            guard_missing_file(registry_path)
+            return cached if cached is not None else empty
+        except OSError as error:
+            if is_native_vault_file(registry_path) or get_files_provider().name != "local":
+                raise MetadataUnavailable.from_oserror(registry_path, error) from error
             if cached is not None:
                 self._log.warning("⚠️ load_registry: stat failed (%s); serving stale cache", error)
                 return cached
@@ -134,6 +147,8 @@ class RegistryRepository:
         try:
             with self.state.mutation_lock:
                 return self.load_from_disk(registry_path, cache_key, now)
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             self._log.error("❌ Error loading registry: %s", error)
             if cached is not None:
@@ -147,7 +162,8 @@ class RegistryRepository:
         cache_key: str,
         now: float,
     ) -> RegistryData:
-        raw_data: object = json.loads(registry_path.read_text(encoding="utf-8"))
+        raw, source_stat = read_vault_text_with_stat(registry_path, root=self._dependencies.vault_root())
+        raw_data: object = json.loads(raw)
         if not is_record(raw_data):
             raise ValueError("Registry root must be an object")
         data: RegistryData = raw_data
@@ -166,10 +182,8 @@ class RegistryRepository:
             self.save(data)
         self.state.cache[cache_key] = data
         self.state.cache_timestamp[cache_key] = now
-        try:
-            self.state.cache_mtime[cache_key] = registry_path.stat().st_mtime
-        except Exception:
-            pass
+        if not changed:
+            self.state.cache_mtime[cache_key] = source_stat.st_mtime
         return data
 
     def _drop_default_table(self, data: RegistryData) -> bool:
@@ -295,6 +309,8 @@ class RegistryRepository:
                     ensure_ascii=False,
                 )
                 self.update_cache(registry_path, data)
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             self._log.error("❌ Error saving registry: %s", error)
 

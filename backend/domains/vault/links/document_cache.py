@@ -10,8 +10,10 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
+from backend.platform.files.coordinated import is_cloud_placeholder
 
 
 Metadata = PageMetadata
@@ -136,7 +138,8 @@ def body_for_path(file_path: Path, dependencies: DocumentCacheDependencies) -> s
     """Return one Markdown body, reusing it while the file mtime is unchanged."""
     path_key = str(file_path)
     try:
-        mtime = file_path.stat().st_mtime_ns
+        info = file_path.stat()
+        mtime = info.st_mtime_ns
     except OSError:
         return ""
     with dependencies.body_lock:
@@ -144,6 +147,8 @@ def body_for_path(file_path: Path, dependencies: DocumentCacheDependencies) -> s
         if cached and cached[0] == mtime:
             return cached[1]
     try:
+        if is_cloud_placeholder(file_path, info):
+            return ""
         content = file_path.read_text(encoding="utf-8")
     except OSError as error:
         if error.errno == 35:

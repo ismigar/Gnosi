@@ -12,9 +12,7 @@ The user opens the `.md` in any editor and only sees semantic metadata.
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
-
-from backend.utils.metadata_io import ensure_metadata_local
+from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_vault_text
 
 import json
 import os
@@ -124,10 +122,8 @@ def read_sidecar(vault_root: Path, page_id: str) -> Metadata:
     path = sidecar_path_for(vault_root, page_id)
     if not path.exists():
         return {}
-    ensure_metadata_local(path)
     try:
-        with metadata_path(path).open("r", encoding="utf-8") as f:
-            data: object = json.load(f)
+        data: object = json.loads(read_vault_text(path, root=vault_root))
         if is_record(data):
             return data
         log.warning(f"Sidecar at {path} is not a dictionary; ignoring it")

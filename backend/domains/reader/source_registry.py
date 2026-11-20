@@ -24,6 +24,10 @@ class SourceRegistryError(RuntimeError):
     """The canonical subscriptions could not be read or saved safely."""
 
 
+class _SourceFileUnavailable(MetadataUnavailable, SourceRegistryError):
+    """A recoverable file wait that also preserves the registry's error contract."""
+
+
 def _lock_directory() -> Path:
     # Data-directory transitions must not split the lock for the same Vault.
     # Use the per-user platform directory, independently of instance overrides.
@@ -171,6 +175,11 @@ def source_transaction(
                 db.commit()
     except Exception as exc:
         db.rollback()
-        if isinstance(exc, (OSError, ValueError, MetadataUnavailable, Timeout)):
+        if isinstance(exc, MetadataUnavailable):
+            raise _SourceFileUnavailable(
+                str(exc), path=exc.path or Path(vault_path) / ".gnosi/reader_sources.json",
+                reason=exc.reason, retryable=exc.retryable,
+            ) from exc
+        if isinstance(exc, (OSError, ValueError, Timeout)):
             raise SourceRegistryError('Reader source registry is unavailable or invalid') from exc
         raise

@@ -1,11 +1,10 @@
 """Reader podcast generation and download HTTP routes."""
 
-import os
+import asyncio
 from pathlib import Path
 from typing import Callable, cast
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
 
 from backend.domains.reader.routing import RouteReturn, require_active_vault
 from backend.domains.reader.schemas import (
@@ -32,7 +31,13 @@ def trigger_podcast_generation() -> RouteReturn:
     launch = cast(Callable[..., bool], start_generation_async)
     started = launch(vault_path=require_active_vault())
     if not started:
-        raise HTTPException(status_code=409, detail="Generation already in progress.")
+        from backend.services import podcast_episode
+        from backend.services.agent_execution_scope import current_scope
+        scope = current_scope()
+        episode = podcast_episode.current(scope.vault_path)
+        if episode and episode.scope == scope.model_dump() and episode.status == "success":
+            return {"status": "completed", "message": "Today's podcast run has finished."}
+        return {"status": "already_running", "message": "A podcast is already being generated."}
     return {"status": "started", "message": "Generation started in the background."}
 
 
@@ -50,29 +55,32 @@ def get_podcast_status() -> RouteReturn:
     }
 
 
+def _latest_episode_file() -> Path | None:
+    from backend.services.audio_summarizer import get_podcast_output_dir
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    directory = get_podcast_output_dir()
+    if directory.is_symlink() or directory.parent.is_symlink():
+        raise MetadataUnavailable(path=directory, reason="permission")
+    try:
+        latest = max((path for path in directory.iterdir()
+                      if path.suffix == ".mp3" and not path.name.startswith("speech-")), default=None)
+    except FileNotFoundError:
+        return None
+    if latest and latest.is_symlink():
+        raise MetadataUnavailable(path=latest, reason="permission")
+    return latest
+
+
 def get_podcast_info() -> RouteReturn:
-    """Returns information about the last generated podcast"""
-    import os
+    """Return the last published episode available to this Reader."""
     from datetime import datetime
 
-    from backend.services.audio_summarizer import get_podcast_output_dir
-
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    pod_dir.mkdir(parents=True, exist_ok=True)
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
+    latest = _latest_episode_file()
+    if latest is None:
         return {"exists": False}
-
-    latest_file = sorted(files, reverse=True)[0]
-    # Previous bug: file_path was built using AUDIO_OUTPUT_DIR (config.paths.AUDIO)
-    # but the files lived in pod_dir → getmtime failed with FileNotFoundError.
-    file_path = os.path.join(pod_dir, latest_file)
-
-    # Get the modification date
-    mtime = os.path.getmtime(file_path)
-    dt = datetime.fromtimestamp(mtime)
+    latest_file = latest.name
+    dt = datetime.fromtimestamp(latest.stat().st_mtime)
 
     return {
         "exists": True,
@@ -83,24 +91,15 @@ def get_podcast_info() -> RouteReturn:
     }
 
 
-def get_latest_podcast() -> RouteReturn:
-    """Download/Stream the most recent podcast"""
-    from backend.services.audio_summarizer import get_podcast_output_dir
+async def get_latest_podcast() -> RouteReturn:
+    """Stream the selected episode using the same coordinated file snapshot as vault downloads."""
+    from backend.domains.vault.files.serving import serve_snapshot
 
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    if not os.path.exists(pod_dir):
+    latest = await asyncio.to_thread(_latest_episode_file)
+    if latest is None:
         raise HTTPException(status_code=404, detail="No podcasts available")
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    # Sort files by name (which contains the date format YYYY_MM_DD) to get the latest
-    latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(pod_dir, latest_file)
-
-    return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+    return await serve_snapshot(latest, require_active_vault(),
+                                headers={"Content-Disposition": 'attachment; filename="gnosi_daily.mp3"'})
 
 
 def register_routes(router: APIRouter) -> None:

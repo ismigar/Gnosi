@@ -10,6 +10,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
+
 from fastapi import HTTPException
 
 from backend.domains.vault.registry.names import normalize_registry_table_view_names
@@ -46,7 +47,7 @@ async def list_views(
     table_id: str | None,
     dependencies: ViewDependencies,
 ) -> list[RegistryData]:
-    registry = dependencies.load_registry()
+    registry = await asyncio.to_thread(dependencies.load_registry)
     views = _registry_views(registry)
     if table_id:
         views = [view for view in views if _involves_table(view, table_id)]
@@ -141,7 +142,7 @@ async def get_view(
     view_id: str,
     dependencies: ViewDependencies,
 ) -> RegistryData:
-    registry = dependencies.load_registry()
+    registry = await asyncio.to_thread(dependencies.load_registry)
     view = next(
         (item for item in _registry_views(registry) if item.get("id") == view_id),
         None,

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from backend.domains.vault.registry.state import RegistryData
+from backend.platform.files.coordinated import is_cloud_placeholder
 
 
 Metadata = RegistryData
@@ -95,6 +96,8 @@ def _table_rows(
         if any(part.startswith(".") for part in relative_parts):
             continue
         try:
+            if is_cloud_placeholder(file_path, file_path.stat()):
+                continue
             raw = file_path.read_text(encoding="utf-8")
             metadata, body = dependencies.parse_frontmatter(raw, file_path)
         except Exception:

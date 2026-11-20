@@ -22,6 +22,7 @@ from backend.domains.vault.schemas.trash import (
 from backend.domains.vault.trash.purge import PurgeResult
 from backend.domains.vault.trash.repository import TrashMetadata
 from backend.utils.open_values import item_value
+from backend.utils.metadata_io import MetadataUnavailable
 
 PageWriteLock = Callable[[str], Awaitable[asyncio.Lock]]
 
@@ -108,7 +109,7 @@ async def delete_page(page_id: str) -> dict[str, object]:
                 "retention_days": dependencies.retention_days,
                 "restorable_until": restorable_until,
             }
-        except HTTPException:
+        except (HTTPException, MetadataUnavailable):
             raise
         except Exception as exc:
             log.error("Error soft-deleting page %s: %s", safe_page_id, exc)
@@ -128,6 +129,8 @@ async def restore_page(page_id: str) -> dict[str, object]:
     await dependencies.materialize_sidecar(safe_page_id)
     try:
         result = await asyncio.to_thread(dependencies.restore_page, safe_page_id)
+    except MetadataUnavailable:
+        raise
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Trash entry not found") from exc
     except FileExistsError as exc:
@@ -149,7 +152,7 @@ async def restore_page(page_id: str) -> dict[str, object]:
 
     restored_path = result.get("restored_path")
     if restored_path:
-        dependencies.add_page_index(dependencies.vault_root() / str(restored_path))
+        await asyncio.to_thread(dependencies.add_page_index, dependencies.vault_root() / str(restored_path))
     return {
         "status": "restored",
         "id": safe_page_id,
@@ -239,6 +242,8 @@ async def purge_trash_entry(page_id: str) -> dict[str, object]:
     await dependencies.materialize_sidecar(safe_page_id)
     try:
         result = await asyncio.to_thread(dependencies.purge_entry, safe_page_id)
+    except MetadataUnavailable:
+        raise
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Trash entry not found") from exc
     except Exception as exc:

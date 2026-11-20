@@ -52,3 +52,38 @@ def test_local_draft_listing_preserves_blind_recipients_and_account_scope(
     assert drafts[0]["cc"] == "copy@example.test"
     assert drafts[0]["bcc"] == blind_recipients
     assert drafts[0]["body_text"].strip() == "Preserved body"
+
+
+def test_suggestions_and_uid_scans_do_not_open_remote_or_symlinked_messages(tmp_path, monkeypatch):
+    local = tmp_path / "local.md"
+    remote = tmp_path / "online.md"
+    local.write_text("resident")
+    remote.write_text("not requested")
+    (tmp_path / "alias.md").symlink_to(local)
+    monkeypatch.setattr(vault, "is_cloud_placeholder", lambda path, _: path == remote)
+    assert list(vault.resident_messages(tmp_path)) == [local]
+
+
+def test_opening_saved_mail_waits_for_its_required_html(tmp_path, monkeypatch):
+    from backend.domains.mail.routes import messages
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    note = tmp_path / "saved_notes.md"
+    note.write_text("---\nid: saved\n---\nBody")
+    html = note.with_suffix(".html")
+    html.write_text("locally evicted")
+    monkeypatch.setattr(messages, "get_mail_vault_path", lambda: tmp_path)
+    original = messages.read_vault_text
+
+    def read(path, *, root):
+        if path == html:
+            raise MetadataUnavailable(path=path, reason="offline")
+        return original(path, root=root)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(messages, "read_vault_text", read)
+        with pytest.raises(MetadataUnavailable) as failure:
+            messages._get_saved_message("saved")
+        assert failure.value.path == html and failure.value.reason == "offline"
+    html.unlink()
+    assert messages._get_saved_message("saved")["body_html"] is None

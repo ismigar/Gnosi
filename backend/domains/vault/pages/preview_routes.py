@@ -18,6 +18,7 @@ from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.patch_helpers import PatchReadResult
 from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
 from backend.domains.vault.schemas.trash import ResolveByTitleResponse
+from backend.utils.metadata_io import is_native_vault_file, read_vault_text, vault_file_snapshot_async
 from backend.utils.open_values import get_value
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
     return out
 
 
-async def _compute_preview(file_path: Path, page_id: str) -> PreviewDocument:
+async def _compute_preview(file_path: Path, page_id: str, *, background: bool = False) -> PreviewDocument:
     """Read the file and build the two responses (short + full) for the
     preview, along with the mtime for cache invalidation.
 
@@ -108,26 +109,33 @@ async def _compute_preview(file_path: Path, page_id: str) -> PreviewDocument:
       - `get_page_preview` (a single id, possible cache hit).
       - `bulk_warm_previews` (proactive warmup of a list of ids).
 
-    Materializes the file if it is online-only BEFORE attempting to read it,
-    thus avoiding the 4.55s retry queue; it only falls back to retry if the File
-    Provider takes longer than expected.
+    Native File Provider reads take place inside the coordinator. Other providers
+    can warm their backend mount before parsing.
 
     """
     try:
-        mtime = file_path.stat().st_mtime
+        mtime = (await asyncio.to_thread(file_path.stat)).st_mtime
     except OSError:
         mtime = 0.0
-    await _legacy._materialize_if_online_only(file_path, page_id)
+    native = await asyncio.to_thread(is_native_vault_file, file_path)
+    if not native:
+        await _legacy._materialize_if_online_only(file_path, page_id)
 
-    def _read_and_parse() -> tuple[PageMetadata, str, str]:
-        if _legacy._is_dashboard_file_path(file_path):
+    def _read_and_parse(source: Path) -> tuple[PageMetadata, str, str]:
+        dashboard = _legacy._is_dashboard_file_path(file_path)
+        if dashboard and not native:
             md, body = _legacy._read_dashboard_file(file_path)
             return (md, body, body)
         last_error = None
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         for attempt in range(len(delays) + 1):
             try:
-                raw_content = file_path.read_text(encoding="utf-8")
+                raw_content = source.read_text(encoding="utf-8")
+                if dashboard:
+                    from backend.domains.vault.pages.foundation import _parse_dashboard_text
+
+                    md, body = _parse_dashboard_text(raw_content, file_path)
+                    return md, body, body
                 md, body = _legacy.parse_frontmatter(raw_content, file_path)
                 _, body_full = _legacy.parse_frontmatter(
                     raw_content, file_path, render_snapshots=True
@@ -143,7 +151,19 @@ async def _compute_preview(file_path: Path, page_id: str) -> PreviewDocument:
             raise last_error
         return ({}, "", "")
 
-    metadata, body, body_full = await _legacy.asyncio.to_thread(_read_and_parse)
+    if native:
+        snapshot = await vault_file_snapshot_async(
+            file_path, root=_legacy.get_active_vault_path(), background=background
+        )
+        mtime = snapshot.stat_result.st_mtime
+
+        def parse_copy() -> tuple[PageMetadata, str, str]:
+            with snapshot:
+                return _read_and_parse(snapshot.path)
+
+        metadata, body, body_full = await asyncio.to_thread(parse_copy)
+    else:
+        metadata, body, body_full = await asyncio.to_thread(_read_and_parse, file_path)
     excerpt = _legacy._build_preview_excerpt(body)
     short: PreviewPayload = {
         "id": str(metadata.get("id") or page_id),
@@ -160,7 +180,9 @@ async def _compute_preview(file_path: Path, page_id: str) -> PreviewDocument:
     return (short, full_resp, mtime)
 
 
-async def _fetch_preview_with_cache(file_path: Path, page_id: str) -> PreviewDocument:
+async def _fetch_preview_with_cache(
+    file_path: Path, page_id: str, *, background: bool = False
+) -> PreviewDocument:
     """Wrapper with cache + in-flight dedup over `_compute_preview`.
 
     Single robust logic for `get_page_preview` and `bulk_warm_previews`:
@@ -183,30 +205,44 @@ async def _fetch_preview_with_cache(file_path: Path, page_id: str) -> PreviewDoc
     if cached_short is not None and cached_full is not None:
         return (cached_short, cached_full, mtime)
     loop = _legacy.asyncio.get_running_loop()
-    with _legacy._preview_inflight_lock:
-        existing = _legacy._preview_inflight.get(page_id)
-        if existing is None:
-            future: asyncio.Future[PreviewDocument] = loop.create_future()
-            _legacy._preview_inflight[page_id] = future
-            owner = True
-        else:
-            future = existing
-            owner = False
-    if not owner:
-        return await future
+    # Separate native speculation so an interactive opening can promote the
+    # same path in the shared provider queue. The coordinator shares its bytes.
+    speculative = background and await asyncio.to_thread(is_native_vault_file, file_path)
+    key = (loop, file_path, page_id, speculative)
+    while True:
+        with _legacy._preview_inflight_lock:
+            existing = _legacy._preview_inflight.get(key)
+            if existing is None:
+                future: asyncio.Future[PreviewDocument] = loop.create_future()
+                _legacy._preview_inflight[key] = future
+                break
+        try:
+            return await asyncio.shield(existing)
+        except asyncio.CancelledError:
+            task = asyncio.current_task()
+            if not existing.cancelled() or (task is not None and task.cancelling()):
+                raise
+            # A disconnected owner released this read. A surviving request can own it.
     try:
-        short, full_resp, real_mtime = await _compute_preview(file_path, page_id)
+        if speculative:
+            short, full_resp, real_mtime = await _compute_preview(file_path, page_id, background=True)
+        else:
+            short, full_resp, real_mtime = await _compute_preview(file_path, page_id)
         _legacy._preview_cache_set(page_id, real_mtime, short, full_resp)
         result = (short, full_resp, real_mtime)
         future.set_result(result)
         return result
+    except asyncio.CancelledError:
+        future.cancel()
+        raise
     except Exception as e:
         if not future.done():
             future.set_exception(e)
+            future.exception()  # The owner propagates it even when there are no waiters.
         raise
     finally:
         with _legacy._preview_inflight_lock:
-            _legacy._preview_inflight.pop(page_id, None)
+            _legacy._preview_inflight.pop(key, None)
 
 
 async def _bulk_warm_one(pid: str) -> str:
@@ -236,7 +272,7 @@ async def _bulk_warm_one(pid: str) -> str:
             mtime = 0.0
         if _legacy._preview_cache_get(pid, mtime, full=True) is not None:
             return "cached"
-        await _fetch_preview_with_cache(file_path, pid)
+        await _fetch_preview_with_cache(file_path, pid, background=True)
         return "warmed"
     except Exception as e:
         _legacy.log.debug(f"bulk warmup falla per {pid}: {e}")
@@ -422,7 +458,9 @@ def _validate_source_section(metadata: PageMetadata, table: PageMetadata | None,
     if table is None or section_property(table) is None:
         return
     if not metadata.get("id") and file_path is not None and file_path.exists():
-        original, _body = _legacy.parse_frontmatter(file_path.read_text(encoding="utf-8"), file_path)
+        original, _body = _legacy.parse_frontmatter(
+            read_vault_text(file_path, root=_legacy.get_active_vault_path()), file_path
+        )
         metadata["id"] = original.get("id")
     try:
         validate_source_section_metadata(metadata, table or {})
@@ -466,6 +504,8 @@ async def _prepare_patch_page_read(page_id: str) -> None:
     except OSError:
         provider.schedule_warmup(file_path)
         return
+    if is_native_vault_file(file_path, stat_result, provider=provider):
+        return  # The patch reader opens its own coordinated source revision.
     if await asyncio.to_thread(provider.is_online_only, file_path, stat_result):
         provider.schedule_warmup(file_path)
 

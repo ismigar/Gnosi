@@ -9,7 +9,7 @@ import secrets
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -17,6 +17,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from backend.domains.vault.registry.state import RegistryData
+from backend.services.path_resolver import path_resolver
 from backend.services.workspace_service import WorkspaceContext
 from backend.utils.safe_io import file_etag
 
@@ -24,6 +25,9 @@ from .markdown import SelectedNote, SnapshotMarkdown
 from .models import PublicationPreview, PublicationRevision, PublicationSite
 from .schemas import (PublicationBundle, PublicationCandidate, PublicationPreviewResponse,
                       PublicationSelection, PublicationSummary)
+
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import read_vault_bytes
 
 MAX_BUNDLE_BYTES = 2_000_000
 PREVIEW_LIFETIME = 15 * 60
@@ -34,6 +38,7 @@ class PublicationDependencies:
     parse: Callable[[str, Path], tuple[RegistryData, str]]
     validate_access: Callable[[], None] = lambda: None
     local_prefixes: tuple[str, ...] = ()
+    page_entries: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -52,7 +57,10 @@ def _owned(site: PublicationSite | PublicationPreview, scope: PublicationScope) 
     return (site.owner_id, site.workspace_id, site.vault_key) == (scope.owner_id, scope.workspace_id, scope.vault_key)
 
 
-def inventory(root: Path, dependencies: PublicationDependencies) -> dict[str, SelectedNote]:
+def inventory(
+    root: Path, dependencies: PublicationDependencies, selected_ids: set[str] | None = None
+) -> dict[str, SelectedNote]:
+    selected_paths = {path_resolver.find_path(page_id, root) for page_id in selected_ids or ()}
     root = root.resolve()
     notes: dict[str, SelectedNote] = {}
     total = 0
@@ -69,10 +77,28 @@ def inventory(root: Path, dependencies: PublicationDependencies) -> dict[str, Se
             if not path.resolve().is_relative_to(root):
                 raise HTTPException(409, "A note is outside the selected vault")
             try:
-                if path.stat().st_size > 4_000_000:
+                info = path.stat()
+                if info.st_size > 4_000_000:
                     continue
                 etag = file_etag(path)
-                raw = path.read_bytes()
+                entry = dependencies.page_entries.get(str(path), {})
+                indexed_id = None
+                if (not entry.get("_cloud_pending") and entry.get("mtime_ns") == info.st_mtime_ns
+                        and entry.get("size") == info.st_size and entry.get("id")):
+                    indexed_id = str(entry["id"])
+                if selected_ids and (path.stem in selected_ids or indexed_id in selected_ids or path in selected_paths):
+                    raw = read_vault_bytes(path, root=root)
+                elif is_cloud_placeholder(path, info):
+                    if selected_ids and indexed_id is None:
+                        raise HTTPException(409, "A note identity is unavailable for publication verification")
+                    identity = indexed_id or path.stem
+                    if identity in notes:
+                        raise HTTPException(409, "Resolve duplicate note identities before publishing")
+                    notes[identity] = SelectedNote(identity, str(entry.get("title") or path.stem),
+                                                   path.relative_to(root).as_posix(), (), "")
+                    continue
+                else:
+                    raw = path.read_bytes()
                 total += len(raw)
                 if total > 64_000_000 or len(notes) >= 20000:
                     raise HTTPException(409, "This vault exceeds the publication preview limit")
@@ -127,7 +153,7 @@ def preview(db: Session, scope: PublicationScope, root: Path, request: Publicati
         site = _site(db, request.site_id, scope)
         if site.revoked or site.revision != request.expected_revision or site.revision >= 100:
             raise HTTPException(409, "The publication changed or reached its revision limit; reload the list")
-    notes = inventory(root, dependencies)
+    notes = inventory(root, dependencies, set(request.page_ids))
     if any(page_id not in notes for page_id in request.page_ids):
         raise HTTPException(404, "A selected note is unavailable in this vault")
     selected = [notes[page_id] for page_id in request.page_ids]

@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 
 MAX_PAYLOAD_CHARS = 64_000
 MAX_ERROR_CHARS = 2_000
@@ -42,10 +42,7 @@ def _parse(value: Any) -> datetime:
 
 
 def queue_path() -> Path:
-    configured_root = load_params(strict_env=False).paths.get("LOCAL_DATA")
-    if configured_root is None:
-        raise RuntimeError("LOCAL_DATA is required for the durable job queue")
-    root = Path(configured_root)
+    root = resolve_data_dir()
     root.mkdir(parents=True, exist_ok=True)
     return root / "agent_jobs.sqlite3"
 

@@ -690,6 +690,17 @@
     "modified_column": "Last modified"
   },
   "dashboard": {
+    "cloud_files": {
+      "waiting": "Waiting",
+      "file": "the file",
+      "provider": "cloud storage",
+      "pending": "Waiting for {{provider}} to download {{file}}.",
+      "offline": "A connection to {{provider}} is needed to download {{file}}.",
+      "permission": "Permission is needed to read {{file}}.",
+      "no_space": "There is too little space on this device to download {{file}}.",
+      "unavailable": "{{provider}} could not provide {{file}}.",
+      "retry": "Next attempt on {{time}}."
+    },
     "status_title": "System Status",
     "memory_title": "Long-Term Memory",
     "memories_stored": "memories stored",

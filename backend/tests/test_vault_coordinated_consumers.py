@@ -1,0 +1,431 @@
+"""Synthetic native-provider reads at the note and file entry points."""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+from fastapi import BackgroundTasks, FastAPI
+from fastapi.testclient import TestClient
+
+from backend.api import vault_routes
+from backend.domains.vault.api import pages_queries
+from backend.domains.vault.assets import api as assets_api
+from backend.domains.vault.files import api as files_api, local_service, serving, thumbnails
+from backend.domains.vault.files.state import LocalLinkStore
+from backend.domains.vault.history.repository import HistoryRepository
+from backend.domains.vault.pages import (
+    foundation,
+    index_service,
+    patch_helpers,
+    preview_routes,
+    save_helpers,
+    save_service,
+)
+from backend.domains.vault.schemas.pages import PageInfo, PageSaveRequest
+from backend.platform.files import snapshots
+from backend.services.context_vars import active_vault_path
+from backend.utils import metadata_io
+
+
+@pytest.fixture
+def cloud(tmp_path, monkeypatch):
+    vault = tmp_path / "Vault"
+    vault.mkdir()
+    contents: dict[Path, bytes] = {}
+    reads: list[Path] = []
+    copies: list[Path] = []
+
+    def managed(path, _stat=None, **_kwargs):
+        return path in contents
+
+    async def copy(path, destination, timeout):
+        reads.append(path)
+        copies.append(Path(destination.name))
+        payload = contents[path]
+        destination.write(payload)
+        return path.stat()
+
+    for module in (metadata_io, pages_queries, serving, thumbnails, local_service, preview_routes):
+        monkeypatch.setattr(module, "is_native_vault_file", managed)
+    monkeypatch.setattr(snapshots, "copy_coordinated", copy)
+    monkeypatch.setattr(vault_routes, "get_active_vault_path", lambda: vault)
+
+    def source(relative: str, payload: bytes) -> Path:
+        path = vault / relative
+        path.parent.mkdir(exist_ok=True, parents=True)
+        path.write_bytes(b"!" * len(payload))
+        contents[path] = payload
+        return path
+
+    token = active_vault_path.set(vault)
+    try:
+        yield SimpleNamespace(vault=vault, source=source, reads=reads, copies=copies)
+    finally:
+        active_vault_path.reset(token)
+
+
+@pytest.mark.parametrize("group", ["raw", "assets", "images", "library", "linked"])
+def test_selected_files_stream_first_range_from_coordinated_bytes(cloud, monkeypatch, group):
+    folders = {
+        "raw": "Wiki",
+        "assets": "Assets",
+        "images": "Images",
+        "library": "Library",
+        "linked": "Links",
+    }
+    path = cloud.source(f"{folders[group]}/test.png", b"0123456789")
+    monkeypatch.setattr(
+        vault_routes,
+        "get_p",
+        lambda name: cloud.vault / "Assets" if name == "ASSETS" else cloud.vault,
+    )
+    monkeypatch.setattr(vault_routes, "_library_roots", lambda _vault: [cloud.vault / "Library"])
+    links = LocalLinkStore(lambda: cloud.vault / ".test")
+    token = links.token_for(str(path))
+    deps = files_api._deps()
+    monkeypatch.setattr(
+        files_api,
+        "_dependencies",
+        replace(deps, local_files=replace(deps.local_files, store=links)),
+    )
+    app = FastAPI()
+    endpoints = {
+        "raw": ("/{rel_path:path}", files_api.serve_vault_raw_file, "/Wiki/test.png"),
+        "assets": ("/{asset_path:path}", assets_api.get_asset, "/test.png"),
+        "images": ("/{image_path:path}", assets_api.serve_vault_image, "/test.png"),
+        "library": ("/{rel_path:path}", files_api.serve_library_file, "/test.png"),
+        "linked": ("/{token}", files_api.serve_local_file, f"/{token}"),
+    }
+    route, endpoint, url = endpoints[group]
+    app.add_api_route(route, endpoint, methods=["GET"], response_model=None)
+    with TestClient(app) as client:
+        first = client.get(url, headers={"Range": "bytes=2-5"})
+        assert first.status_code == 206 and first.content == b"2345"
+        assert first.headers["Content-Range"] == "bytes 2-5/10"
+        assert first.headers["Content-Type"] == "image/png"
+        if group != "linked":
+            assert first.headers["Cache-Control"] == "public, max-age=300"
+        tag = first.headers["ETag"]
+        second = client.get(url, headers={"Range": "bytes=8-", "If-Range": tag})
+        assert second.status_code == 206 and second.content == b"89"
+        stale = client.get(url, headers={"Range": "bytes=8-", "If-Range": '"old"'})
+        assert stale.status_code == 200 and stale.content == b"0123456789"
+        unsatisfied = client.get(url, headers={"Range": "bytes=99-"})
+        assert unsatisfied.status_code == 416
+    assert cloud.reads == [path] * 4
+    assert all(not copy.exists() for copy in cloud.copies)
+
+
+def test_disconnected_file_response_releases_its_copy(cloud):
+    path = cloud.source("media.wav", b"audio")
+
+    async def scenario():
+        response = await serving.serve_snapshot(path, cloud.vault)
+
+        async def disconnect(message):
+            if message["type"] == "http.response.body":
+                raise asyncio.CancelledError
+            assert message["type"] == "http.response.start"
+
+        async def receive():
+            return {"type": "http.disconnect"}
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "headers": [],
+            "extensions": {"http.response.pathsend": {}},
+        }
+        with pytest.raises(asyncio.CancelledError):
+            await response(scope, receive, disconnect)
+        assert not Path(response.path).exists()
+
+    asyncio.run(scenario())
+
+
+def test_native_thumbnail_keeps_selected_snapshot_and_original_validators(cloud, monkeypatch):
+    path = cloud.source("Assets/article.pdf", b"synthetic pdf")
+    deps = replace(files_api._deps().thumbnails, get_path=lambda _name: cloud.vault)
+
+    async def render(source, size, _timeout):
+        assert source != path and source.name == "article.pdf" and size == 128
+        assert source.read_bytes() == b"synthetic pdf"
+        return b"thumbnail"
+
+    monkeypatch.setattr(thumbnails, "_render_native_thumbnail", render)
+    response = asyncio.run(thumbnails.serve_thumb("assets/article.pdf", 128, "revision", deps))
+    assert response.body == b"thumbnail"
+    assert response.headers["Cache-Control"] == "public, max-age=86400, immutable"
+    assert response.headers["ETag"] == f'W/"{int(path.stat().st_mtime)}-128"'
+    assert cloud.reads == [path] and not cloud.copies[0].exists()
+
+
+def test_agent_note_and_pdf_read_the_coordinated_source_within_vault(cloud, monkeypatch):
+    import pypdf
+    from backend.agent import vault_tools
+
+    note = cloud.source("Wiki/note.md", b"native note")
+    pdf = cloud.source("Assets/report.pdf", b"native PDF")
+    monkeypatch.setattr(vault_tools, "_resolve_page_path", lambda _id: note)
+
+    def reader(source):
+        assert source.read() == b"native PDF"
+        return SimpleNamespace(pages=[SimpleNamespace(extract_text=lambda: "PDF contents")])
+
+    monkeypatch.setattr(pypdf, "PdfReader", reader)
+    assert vault_tools.read_page.func("note") == "native note"
+    assert vault_tools.read_pdf.func("Assets/report.pdf", 4) == "PDF "
+    assert vault_tools.read_pdf.func("../elsewhere.pdf").startswith("Access denied")
+    assert cloud.reads == [note, pdf]
+
+
+def test_open_preview_and_save_reads_use_authorized_source(cloud, monkeypatch):
+    note = cloud.source("Wiki/note.md", b"# coordinated body")
+
+    def parse(raw, path, **_kwargs):
+        assert path == note
+        return {"id": "note", "title": "A note"}, raw
+
+    async def unexpected_materialize(*_args):
+        pytest.fail("The selected native note was warmed separately")
+
+    deps = replace(
+        pages_queries._deps(),
+        find_page=lambda _id: note,
+        active_vault_path=lambda: cloud.vault,
+        materialize_page=unexpected_materialize,
+        is_dashboard=lambda _: False,
+        parse_frontmatter=parse,
+        resolve_title=None,
+        enrich_single_page=lambda metadata, *_: (metadata, "Wiki", None),
+    )
+    monkeypatch.setattr(pages_queries, "_dependencies", deps)
+    monkeypatch.setattr(vault_routes, "_is_dashboard_file_path", lambda _: False)
+    monkeypatch.setattr(vault_routes, "_materialize_if_online_only", unexpected_materialize)
+    monkeypatch.setattr(vault_routes, "parse_frontmatter", parse)
+    assert asyncio.run(pages_queries.get_page("note"))["content"] == "# coordinated body"
+    preview = asyncio.run(preview_routes._compute_preview(note, "note"))
+    assert preview[1]["body_md"] == "# coordinated body"
+    helpers = SimpleNamespace(
+        active_vault_path=lambda: cloud.vault,
+        parse_frontmatter=parse,
+        find_page_for_write=lambda _: note,
+        is_dashboard_file=lambda _: False,
+    )
+    assert save_helpers.read_save_page(note, helpers)[1] == "# coordinated body"
+    assert (
+        patch_helpers.find_and_read_patch_page("note", None, False, helpers)[2]
+        == "# coordinated body"
+    )
+    assert cloud.reads == [note] * 4
+
+
+def test_save_refuses_an_unavailable_previous_revision(tmp_path, monkeypatch):
+    note = tmp_path / "page.md"
+    note.write_text("previous revision")
+
+    def denied(path, *, root):
+        assert path == note and root == tmp_path
+        raise metadata_io.MetadataUnavailable("offline", path=path, reason="offline")
+
+    monkeypatch.setattr(save_helpers, "read_vault_text", denied)
+    helpers = SimpleNamespace(active_vault_path=lambda: tmp_path, parse_frontmatter=object())
+    with pytest.raises(metadata_io.MetadataUnavailable, match="offline"):
+        save_helpers.read_save_page(note, helpers)
+    assert note.read_text() == "previous revision"
+
+    from backend.tests.page_write_open_fixtures import _save_dependencies
+
+    ports = replace(
+        _save_dependencies(note, {}, []),
+        read_page=lambda path: save_helpers.read_save_page(path, helpers),
+        locate_file=lambda *_args: pytest.fail(
+            "The note moved before its previous revision was readable"
+        ),
+    )
+    with pytest.raises(metadata_io.MetadataUnavailable, match="offline"):
+        asyncio.run(
+            save_service.save_page(
+                "page",
+                PageSaveRequest(title="New name", content="New"),
+                BackgroundTasks(),
+                None,
+                ports,
+            )
+        )
+
+
+def test_selected_table_reads_requested_stub_without_downloading_neighbor(cloud, monkeypatch):
+    note = cloud.source("Rows/one.md", b"---\nid: one\ntitle: Selected\nstatus: read\n---\nBody")
+    cloud.source("Rows/neighbor.md", b"unselected")
+    page = PageInfo(id="one", title="One", last_modified="", size=0, path=str(note))
+    key = str(cloud.vault)
+    index = replace(
+        index_service._deps(),
+        active_vault_path=lambda: cloud.vault,
+        index_entries={key: {str(note): {"_cloud_pending": True}}},
+        id_to_path={},
+        index_version={},
+    )
+    monkeypatch.setattr(index_service, "_dependencies", index)
+    monkeypatch.setattr(
+        foundation,
+        "parse_frontmatter",
+        lambda raw, _path: (
+            {"title": "Selected", "id": "one", "status": "read"},
+            raw.split("---")[-1],
+        ),
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "_build_cache_entry_from_memory",
+        lambda path, stat, md, _body: {
+            "id": md["id"],
+            "title": md["title"],
+            "metadata": md,
+            "mtime_ns": stat.st_mtime_ns,
+        },
+    )
+    asyncio.run(pages_queries._materialize_metadata_pages([page]))
+    assert cloud.reads == [note]
+    assert page.title == "Selected" and page.metadata["status"] == "read"
+    assert "_cloud_pending" not in index.index_entries[key][str(note)]
+
+
+def test_note_history_preserves_bytes_and_timestamp_from_source_revision(cloud):
+    note = cloud.source("note.md", b"original note")
+    source_time = note.stat().st_mtime_ns
+    history = HistoryRepository(cloud.vault)
+    history.create_file_version("note-id", note)
+    (version,) = history.page_root("note-id").glob("*.md")
+    assert version.read_bytes() == b"original note"
+    assert version.stat().st_mtime_ns == source_time
+    assert cloud.reads == [note]
+
+
+
+def test_registry_and_folder_schema_return_coordinated_source(cloud, monkeypatch):
+    from backend.domains.vault.registry import runtime as registry
+    from backend.domains.vault.tables import routes
+
+    path = cloud.source("BD/vault_db_registry.json", b'{"databases":[{"id":"db","name":"Chosen"}],"tables":[],"views":[]}')
+    schema = cloud.source("BD/Chosen/schema.json", b'{"columns":["title"]}')
+    monkeypatch.setattr(vault_routes, "get_p", lambda key: path if key == "REGISTRY" else cloud.vault)
+    result = asyncio.run(registry.get_registry())
+    assert result["databases"] == [{"id": "db", "name": "Chosen"}]
+    assert asyncio.run(routes.get_schema("BD/Chosen")) == {"columns": ["title"]}
+    assert cloud.reads == [path, schema]
+
+
+def test_unavailable_registry_never_seeds_or_authorizes_an_empty_schema(cloud, monkeypatch):
+    from backend.app.errors import register_error_handlers
+    from backend.domains.vault.registry import runtime as registry
+
+    path = cloud.source("BD/vault_db_registry.json", b'{"tables":[{"id":"original"}]}')
+    original = path.read_bytes()
+    monkeypatch.setattr(vault_routes, "get_p", lambda key: path if key == "REGISTRY" else cloud.vault)
+
+    async def offline(path, destination, timeout):
+        raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+
+    monkeypatch.setattr(snapshots, "copy_coordinated", offline)
+    app = FastAPI()
+    register_error_handlers(app)
+    app.add_api_route("/registry", registry.get_registry, response_model=None)
+    with TestClient(app) as client:
+        response = client.get("/registry")
+    assert response.status_code == 503
+    assert response.json()["reason"] == "offline"
+    for operation in (
+        vault_routes.ensure_default_registry_structure,
+        registry.load_registry_for_write,
+        lambda: registry.save_registry({"databases": [], "tables": [], "views": []}),
+    ):
+        with pytest.raises(metadata_io.MetadataUnavailable):
+            operation()
+    assert path.read_bytes() == original
+    assert str(path) not in vault_routes.registry_repository.state.cache
+
+
+def test_rule_lookup_reads_related_page_without_materializing_table_scan(cloud, monkeypatch):
+    from backend.domains.vault.tables.rules import records
+    from backend.services.rule_engine import RuleEngine
+
+    selected = cloud.source("chosen.md", b"---\nid: chosen\ndatabase_table_id: t\nprice: 23\n---\n")
+    neighbor = cloud.source("ignored.md", b"---\nid: ignored\ndatabase_table_id: t\nprice: 99\n---\n")
+    monkeypatch.setattr(records, "is_cloud_placeholder", lambda path, stat: path in {selected, neighbor})
+    engine = RuleEngine(cloud.vault)
+    assert engine._lookup("t", "chosen", "price") == 23
+    assert engine._query("t", "True", "price") == []
+    assert cloud.reads == [selected]
+
+
+def test_composer_reads_selected_bytes_and_preserves_unavailable_backlinks(cloud, monkeypatch):
+    import yaml
+    from fastapi import HTTPException
+    from backend.domains.vault.composer import service as composer
+    from backend.domains.vault.composer.schemas import ComposerRequest
+
+    source = cloud.source("Wiki/source.md", b"---\nid: source\ntitle: Source\n---\nCoordinated body.\n")
+    sidecar = cloud.source(".gnosi/page_meta/source.json", b'{"is_template":true}')
+
+    def parse(text, path):
+        _, frontmatter, body = text.split("---\n", 2)
+        return yaml.safe_load(frontmatter), body
+
+    deps = composer.ComposerDependencies(parse=parse, save=lambda *args: None, refresh=lambda *args: None)
+    request = ComposerRequest(source_id="source", mode="extract", title="New")
+    plan = composer.build_plan(cloud.vault, request, deps)
+    assert plan.documents["source"].body == "Coordinated body.\n"
+    assert plan.documents["source"].metadata["is_template"] is True
+    assert cloud.reads == [source, sidecar]
+
+    neighbor = cloud.source("Wiki/unselected.md", b"Possible backlink")
+    monkeypatch.setattr(composer, "is_cloud_placeholder", lambda path, stat: path == neighbor)
+    with pytest.raises(HTTPException, match="backlinks"):
+        composer.build_plan(cloud.vault, request, deps)
+    assert neighbor not in cloud.reads
+    assert not (cloud.vault / ".history").exists()
+
+
+def test_drawing_catalog_is_lazy_and_selected_drawing_opens(cloud, monkeypatch):
+    from backend.domains.vault.drawings import routes, service
+
+    path = cloud.source("Drawings/one.tldraw.json", b'{"title":"One","data":{"strokes":[1]}}')
+    other = cloud.source("Drawings/two.tldraw.json", b'{"title":"Two","data":{}}')
+    monkeypatch.setattr(vault_routes, "get_p", lambda key: path.parent if key == "DIBUIXOS" else cloud.vault)
+    monkeypatch.setattr(service, "is_cloud_placeholder", lambda candidate, stat: candidate in {path, other})
+    assert {item["id"] for item in asyncio.run(routes.list_drawings())} == {"one", "two"}
+    assert cloud.reads == []
+    assert asyncio.run(routes.get_drawing("one")) == {"strokes": [1]}
+    assert cloud.reads == [path]
+
+
+
+def test_publication_preview_reads_selected_note_and_uses_index_for_evicted_neighbor(cloud, monkeypatch):
+    from backend.domains.vault.publishing import service
+
+    selected = cloud.source("Wiki/Filename.md", b"Only the selected body")
+    neighbor = cloud.source("Wiki/Other.md", b"Unselected body")
+    monkeypatch.setattr(service, "is_cloud_placeholder", lambda path, info: True)
+    entries = {
+        str(path): {
+            "id": identity, "title": identity.title(), "size": path.stat().st_size,
+            "mtime_ns": path.stat().st_mtime_ns,
+        }
+        for path, identity in ((selected, "selected"), (neighbor, "neighbor"))
+    }
+    deps = service.PublicationDependencies(
+        parse=lambda text, _path: ({"id": "selected", "title": "Selected"}, text),
+        page_entries=entries,
+    )
+    assert {item.id for item in service.candidates(cloud.vault, deps)} == {"selected", "neighbor"}
+    assert cloud.reads == []
+    notes = service.inventory(cloud.vault, deps, {"selected"})
+    assert notes["selected"].body == "Only the selected body"
+    assert notes["neighbor"].body == ""
+    assert cloud.reads == [selected]

@@ -358,7 +358,7 @@ async def patch_event(
                     detail="Invalid vault_path or path outside the Calendar directory",
                 )
             if p.exists():
-                calendar_mutations.patch_vault_event(p, patch, safe_write_text)
+                await asyncio.to_thread(calendar_mutations.patch_vault_event, p, patch, safe_write_text)
                 _invalidate_calendar_cache()
                 return {"status": "success"}
 

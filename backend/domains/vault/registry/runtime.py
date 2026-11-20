@@ -30,6 +30,7 @@ from backend.domains.vault.registry.contracts import (
 
 from backend.api import vault_routes as _legacy
 from backend.domains.vault.pages.runtime import OpenResourceRequest
+from backend.utils.metadata_io import read_vault_text
 router = _legacy.router
 _registry_cache = _legacy.registry_state.cache
 _registry_cache_mtime = _legacy.registry_state.cache_mtime
@@ -117,7 +118,7 @@ def load_registry_for_write() -> RegistryData:
     if not path.is_relative_to(vault):
         raise HTTPException(403, "Registry is outside the selected vault")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(read_vault_text(registry_path, root=vault))
     except OSError as exc:
         raise HTTPException(503, "Current table schema is unavailable") from exc
     except (ValueError, UnicodeError) as exc:

@@ -83,6 +83,7 @@ def test_tools_exported():
 
 
 def test_read_page_is_server_bounded(monkeypatch, tmp_path):
+    monkeypatch.setattr("backend.services.context_vars.get_active_vault_path", lambda: tmp_path)
     page = tmp_path / "large.md"
     page.write_text("x" * (MAX_PAGE_READ_CHARS + 500), encoding="utf-8")
     monkeypatch.setattr(

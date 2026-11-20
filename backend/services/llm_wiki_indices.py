@@ -11,6 +11,7 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Iterable, Optional, cast
 
+from backend.utils.metadata_io import read_vault_text
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import index_rendering as llm_wiki_index_rendering
 from backend.domains.llm_wiki import legacy_ports as llm_wiki_legacy_ports
@@ -690,7 +691,7 @@ def _save_existing_page(path: Path, metadata: PageMetadata, body: str) -> None:
 def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     if not path or not path.exists():
         return {}, ""
-    return llm_wiki_legacy_ports.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    return llm_wiki_legacy_ports.parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
 
 
 def _brain_pages(brain_table_id: object) -> list[object]:

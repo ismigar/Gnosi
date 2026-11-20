@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ from backend.domains.vault.assets.schemas import (
     IconUrlImportRequest,
 )
 from backend.domains.vault.assets.state import CustomIconStore
+from backend.utils.metadata_io import is_native_vault_file
 
 
 @dataclass(frozen=True)
@@ -166,9 +168,9 @@ async def serve_vault_image(image_path: str) -> FileResponse:
 async def get_custom_icons() -> dict[str, object]:
     """Returns the shared custom icon library for Vault icon picker."""
     icons_path = _deps().custom_icons.path()
-    if icons_path:
+    if icons_path and not is_native_vault_file(icons_path):
         await _deps().materialize(icons_path, "custom-icons")
-    return {"icons": _deps().custom_icons.load()}
+    return {"icons": await asyncio.to_thread(_deps().custom_icons.load)}
 
 
 async def save_custom_icons(request: CustomIconsRequest) -> dict[str, object]:

@@ -13,6 +13,7 @@ from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import execution_scope
 from backend.services.agent_team_models import TEAM_SKILL
 from backend.services.user_skill_store import UserSkillStore
+from backend.tests.cloud_file_fixtures import install_coordinated_reader
 from backend.utils import metadata_io
 
 
@@ -34,8 +35,6 @@ def test_greeting_waits_for_its_personal_skill_and_resolves_its_ancestry(tmp_pat
     unrelated = store.root / "user.other" / "skill.yaml"
     pending = {assigned, unrelated}
     downloads = []
-    monkeypatch.setattr(metadata_io, "_pending", {})
-    monkeypatch.setattr(metadata_io, "_failed", {})
     monkeypatch.setattr(metadata_io, "is_cloud_placeholder", lambda path, _: path in pending)
     owner = {"id": "principal", "skill_ids": ["user.personal"]}
     config = {"active_agent_id": "principal", "agents": [owner]}
@@ -61,7 +60,7 @@ def test_greeting_waits_for_its_personal_skill_and_resolves_its_ancestry(tmp_pat
             pending.remove(path)
             return True
 
-        monkeypatch.setattr(metadata_io, "_download", download)
+        install_coordinated_reader(monkeypatch, download)
         request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
         scope = ExecutionScope(user_id="u", workspace_id="w", role="owner", vault_path=str(vault))
         with execution_scope(scope, origin="chat"):
@@ -93,10 +92,8 @@ def test_a_local_profile_can_read_while_another_downloads(tmp_path, monkeypatch)
         pending.remove(path)
         return True
 
-    monkeypatch.setattr(metadata_io, "_pending", {})
-    monkeypatch.setattr(metadata_io, "_failed", {})
     monkeypatch.setattr(metadata_io, "is_cloud_placeholder", lambda path, _: path in pending)
-    monkeypatch.setattr(metadata_io, "_download", download)
+    install_coordinated_reader(monkeypatch, download)
     with ThreadPoolExecutor(max_workers=2) as pool:
         remote = pool.submit(store.load_referenced, ["user.remote"], {})
         try:

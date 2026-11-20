@@ -18,6 +18,8 @@ from backend.domains.vault.tables.rules.types import (
     RuleEngineDependencies,
 )
 from backend.utils.open_values import float_value
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 ParseMetadata = Callable[[Path], Metadata]
 FindRecordPath = Callable[[str], Path | None]
@@ -25,17 +27,18 @@ FindRecordPath = Callable[[str], Path | None]
 
 def load_registry(vault_path: Path, logger: logging.Logger) -> RegistryData:
     """Load the canonical or legacy Vault registry with an empty fallback."""
-    registry_path = vault_path / "BD" / "vault_db_registry.json"
-    if not registry_path.exists():
-        registry_path = vault_path / "vault_db_registry.json"
-    if not registry_path.exists():
-        return {"databases": [], "tables": [], "views": []}
-    try:
-        raw_registry: object = json.loads(registry_path.read_text(encoding="utf-8"))
-        return raw_registry if is_record(raw_registry) else {}
-    except Exception as error:
-        logger.error("Error loading registry in RuleEngine: %s", error)
-        return {"databases": [], "tables": [], "views": []}
+    for directory in (vault_path / "BD", vault_path):
+        try:
+            raw_registry: object = json.loads(
+                read_vault_text(directory / "vault_db_registry.json", root=vault_path)
+            )
+            return raw_registry if is_record(raw_registry) else {}
+        except FileNotFoundError:
+            continue
+        except (OSError, ValueError) as error:
+            logger.error("Error loading registry in RuleEngine: %s", error)
+            break
+    return {"databases": [], "tables": [], "views": []}
 
 
 def registry_tables(registry: RegistryData) -> list[RegistryData]:
@@ -74,9 +77,16 @@ def parse_metadata(
     path: Path,
     resolve_table_callback: Callable[[str], Metadata | None],
     dependencies: RuleEngineDependencies,
+    *,
+    root: Path | None = None,
 ) -> Metadata:
-    """Parse frontmatter and normalize schema-declared relation values."""
-    content = path.read_text(encoding="utf-8")
+    """Read a selected row, or probe only resident files during table discovery."""
+    if root is None:
+        if is_cloud_placeholder(path, path.stat()):
+            return {}
+        content = path.read_text(encoding="utf-8")
+    else:
+        content = read_vault_text(path, root=root)
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
     if not match:
         return {}
@@ -92,6 +102,8 @@ def parse_metadata(
             else None
         )
         return dependencies.strip_relation_wikilinks(metadata, relation_keys or None)
+    except MetadataUnavailable:
+        raise
     except Exception:
         return {}
 
@@ -143,6 +155,8 @@ def lookup(
             value = parse(record_path).get(property_name)
             cache[cache_key] = value
             _extend_result(results, value)
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             logger.warning("Error in lookup for %s: %s", raw_identifier, error)
             cache[cache_key] = None
@@ -181,6 +195,8 @@ def query(
                 )
                 if value:
                     results.append(value)
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
     cache[cache_key] = results
@@ -240,6 +256,8 @@ def _disk_column_values(
             value = _row_value(metadata, property_name)
             if value is not None and value != "":
                 values.append(value)
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
     return values

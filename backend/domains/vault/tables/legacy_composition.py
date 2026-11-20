@@ -225,6 +225,7 @@ from backend.services.workspace_service import WorkspaceContext, get_workspace_c
 registry_repository: RegistryRepository = RegistryRepository(
     dependencies=RegistryRepositoryDependencies(
         registry_path=lambda: _legacy.get_p("REGISTRY"),
+        vault_root=lambda: _legacy.get_p("VAULT"),
         normalize_folder=lambda value: _legacy._normalize_rel_folder(value),
         ensure_table_folder=lambda table, registry: _legacy._ensure_table_vault_folder(
             table, registry

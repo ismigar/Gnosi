@@ -168,19 +168,11 @@ def test_load_notes_normalizes_values_and_omits_incomplete_pages(
     ],
 )
 def test_read_body_strips_only_complete_leading_frontmatter(
-    monkeypatch: pytest.MonkeyPatch,
-    raw: str,
-    expected: str,
+    tmp_path: Path, raw: str, expected: str,
 ) -> None:
-    def read_text(path: Path, encoding: str) -> str:
-        assert path == Path("synthetic.md")
-        assert encoding == "utf-8"
-        return raw
-
-    with monkeypatch.context() as patch:
-        patch.setattr(Path, "read_text", read_text)
-        body = lint._read_body("synthetic.md")
-    assert body == expected
+    path = tmp_path / "synthetic.md"
+    path.write_text(raw, encoding="utf-8")
+    assert lint._read_body(str(path)) == expected
 
 
 def test_read_body_missing_paths_and_read_errors_are_empty(
@@ -193,7 +185,7 @@ def test_read_body_missing_paths_and_read_errors_are_empty(
         raise OSError("synthetic unreadable note")
 
     with monkeypatch.context() as patch:
-        patch.setattr(Path, "read_text", read_text)
+        patch.setattr(lint, "read_vault_text", read_text)
         assert lint._read_body(None) == ""
         assert lint._read_body("") == ""
         assert lint._read_body("unreadable.md") == ""

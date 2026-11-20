@@ -7,7 +7,6 @@ No adapter truncates source content.  LLM-sized chunking happens afterwards.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import mimetypes
@@ -27,6 +26,7 @@ from backend.domains.llm_wiki import origins as origin_domain
 from backend.domains.vault.registry.records import RecordReader
 from backend.services import llm_wiki_config
 from backend.services.optional_module_capabilities import module_available
+from backend.utils.metadata_io import MetadataUnavailable, vault_file_snapshot
 from backend.utils.open_values import append_value, iterable_values
 
 logger = get_logger(__name__)
@@ -123,19 +123,7 @@ def extract_resource_sources(
             if input_kind == "url":
                 extracted = _extract_url(value, input_order)
             else:
-                path = _resolve_attachment_path(value, Path(vault_root))
-                if not path:
-                    raise ExtractionError(
-                        f"Attachment not found or outside configured roots: {value}"
-                    )
-                _materialize(path)
-                extracted = _extract_path(path, input_order, label=Path(path).name)
-                # Keep the trusted resolved path only for this ingest process.
-                # Snapshot persistence intentionally excludes these private fields.
-                for origin in extracted:
-                    if origin.get("kind") == "pdf":
-                        origin["_annotation_source_uri"] = value
-                        origin["_annotation_pdf_path"] = str(path)
+                extracted = _extract_attachment(value, Path(vault_root), input_order)
             for origin in extracted:
                 # Distinguish same-named attachments without exposing their paths
                 # in section labels or depending on mutable content hashes.
@@ -143,6 +131,10 @@ def extract_resource_sources(
                     f"{input_kind}|{value}|{origin.get('kind')}".encode("utf-8")
                 ).hexdigest()
             origins.extend(extracted)
+        except MetadataUnavailable:
+            # Required input is still downloading. A body-only fallback would
+            # persist an incomplete source as a successful ingestion.
+            raise
         except Exception as exc:  # noqa: BLE001
             message = f"{input_kind} {value}: {exc}"
             logger.warning("llm_wiki source extraction skipped: %s", message)
@@ -223,36 +215,26 @@ def _resolve_attachment_path(raw: str, vault_root: Path) -> Optional[Path]:
     return target if target.exists() else None
 
 
-def _materialize(path: Path) -> None:
-    from backend.platform.files import get_files_provider
-
-    provider = get_files_provider()
-    if not provider.is_online_only(path):
-        return
-    try:
-        ok = asyncio.run(provider.materialize(path))
-    except RuntimeError:
-        # Extraction runs in a worker thread, but keep a safe fallback for tests
-        # that invoke it from an event-loop owner.
-        result: list[bool] = []
-
-        def _runner() -> None:
-            result.append(asyncio.run(provider.materialize(path)))
-
-        import threading
-
-        thread = threading.Thread(target=_runner, daemon=True)
-        thread.start()
-        thread.join()
-        ok = bool(result and result[0])
-    if not ok:
-        raise ExtractionError(f"Cloud file could not be materialized: {path.name}")
+def _extract_attachment(value: str, vault: Path, order: int) -> list[dict[str, object]]:
+    path = _resolve_attachment_path(value, vault)
+    if not path:
+        raise ExtractionError(f"Attachment not found or outside configured roots: {value}")
+    with vault_file_snapshot(path, root=path.parent) as snapshot:
+        origins = _extract_path(snapshot.path, order, label=path.name, source_path=path)
+    for origin in origins:
+        if origin.get("kind") == "pdf":
+            # Used by this ingestion only. Persisted origins omit private paths.
+            origin["_annotation_source_uri"] = value
+            origin["_annotation_pdf_path"] = str(path)
+    return origins
 
 
-def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict[str, object]]:
+def _extract_path(
+    path: Path, input_order: int, *, label: str = "", source_path: Path | None = None,
+) -> list[dict[str, object]]:
     suffix = path.suffix.lower()
     if suffix in PDF_EXTENSIONS:
-        kind, segments = "pdf", _extract_pdf(path)
+        kind, segments = "pdf", _extract_pdf(path, source_path=source_path)
     elif suffix in DOCX_EXTENSIONS:
         kind, segments = "docx", _extract_docx(path)
     elif suffix in EPUB_EXTENSIONS:
@@ -288,13 +270,14 @@ def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict
     ]
 
 
-def _extract_pdf(path: Path) -> list[dict[str, object]]:
+def _extract_pdf(path: Path, *, source_path: Path | None = None) -> list[dict[str, object]]:
     from backend.config.data_dir import resolve_data_dir
     from backend.domains.llm_wiki.pdf_extraction_cache import extract_cached_pdf
 
     return extract_cached_pdf(path, resolve_data_dir() / "llm_wiki" / "pdf-extractions",
                               lambda: document_domain.extract_pdf(path, run_tesseract=_run_tesseract,
-                                                                  temporary_root=_temporary_root, logger=logger))
+                                                                  temporary_root=_temporary_root, logger=logger),
+                              source_path=source_path)
 
 
 def _extract_docx(path: Path) -> list[dict[str, object]]:

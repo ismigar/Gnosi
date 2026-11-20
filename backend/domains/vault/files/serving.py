@@ -12,13 +12,54 @@ from pathlib import Path
 
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
+from starlette.types import Receive, Scope, Send
 
 from backend.domains.vault.files.state import FileServingState
 from backend.platform.files.base import FilesProvider
+from backend.utils.metadata_io import VaultFileSnapshot, is_native_vault_file, vault_file_snapshot_async
 
 log = logging.getLogger(__name__)
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
+
+
+class _SnapshotFileResponse(FileResponse):
+    """Keep the coordinated copy alive until Starlette finishes sending the body."""
+
+    def __init__(
+        self, snapshot: VaultFileSnapshot, media_type: str, headers: dict[str, str] | None
+    ) -> None:
+        super().__init__(
+            path=str(snapshot.path), stat_result=snapshot.stat_result, media_type=media_type,
+            headers=headers,
+        )
+        self.snapshot = snapshot
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            # A server accepting pathsend can open the path after send() returns.
+            # Stream this private copy here so its lifetime covers every read.
+            extensions = scope.get("extensions", {})
+            if "http.response.pathsend" in extensions:
+                scope = dict(scope, extensions={
+                    key: value for key, value in extensions.items() if key != "http.response.pathsend"
+                })
+            await super().__call__(scope, receive, send)
+        finally:
+            self.snapshot.close()
+
+
+async def serve_snapshot(
+    path: Path, root: Path, *, headers: dict[str, str] | None = None,
+) -> FileResponse:
+    """Serve the selected source's MIME type and validators from one coordinated read."""
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    snapshot = await vault_file_snapshot_async(path, root=root)
+    try:
+        return _SnapshotFileResponse(snapshot, media_type, headers)
+    except BaseException:
+        snapshot.close()
+        raise
 
 
 def image_error(
@@ -79,14 +120,8 @@ async def probe_readable(path: Path) -> OSError | None:
     return last_error
 
 
-async def serve_file_with_containment(
-    root_dir: Path,
-    rel_path: str,
-    *,
-    state: FileServingState,
-    provider: FilesProvider,
-) -> FileResponse:
-    """Serve one path contained below an explicitly selected root."""
+def _inspect_contained_file(root_dir: Path, rel_path: str) -> tuple[Path, Path, os.stat_result]:
+    """Resolve the selected root and inspect a regular file off the event loop."""
     if not root_dir or not root_dir.exists():
         raise HTTPException(status_code=404, detail="Root directory not available")
     try:
@@ -105,13 +140,32 @@ async def serve_file_with_containment(
         ):
             raise HTTPException(status_code=403, detail="Access denied")
 
-    if not requested.exists() or not requested.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
     try:
         stat_result = requested.stat()
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        raise HTTPException(status_code=404, detail="File not found") from exc
     except OSError as exc:
         log.warning("stat() failed for %s: %s", requested, exc)
         raise HTTPException(status_code=503, detail="File temporarily unavailable") from exc
+    if not stat.S_ISREG(stat_result.st_mode):
+        raise HTTPException(status_code=404, detail="File not found")
+    return root_resolved, requested, stat_result
+
+
+async def serve_file_with_containment(
+    root_dir: Path,
+    rel_path: str,
+    *,
+    state: FileServingState,
+    provider: FilesProvider,
+) -> FileResponse:
+    """Serve one path contained below an explicitly selected root."""
+    root_resolved, requested, stat_result = await asyncio.to_thread(_inspect_contained_file, root_dir, rel_path)
+    if is_native_vault_file(requested, stat_result, provider=provider):
+        async with state.semaphore:
+            return await serve_snapshot(
+                requested, root_resolved, headers={"Cache-Control": "public, max-age=300"}
+            )
     if stat_result.st_size == 0:
         raise HTTPException(
             status_code=404,
@@ -166,7 +220,7 @@ def _inspect_vault_image(
     vault_path: Path,
     image_path: str,
     provider: FilesProvider,
-) -> tuple[Path, os.stat_result, bool]:
+) -> tuple[Path, os.stat_result, bool, bool]:
     """Contain and inspect one image in a worker, including provider metadata."""
     if not vault_path:
         raise image_error(500, "Vault not configured")
@@ -194,13 +248,14 @@ def _inspect_vault_image(
         raise image_error(503, "Image temporarily unavailable") from exc
     if not stat.S_ISREG(stat_result.st_mode):
         raise image_error(404, "Image not found")
-    if stat_result.st_size == 0:
+    native = is_native_vault_file(requested, stat_result, provider=provider)
+    if stat_result.st_size == 0 and not native:
         log.warning(
             "☁️ Placeholder file detected (0 bytes): %s. Download it from OneDrive.", requested
         )
         raise image_error(404, "Image is an empty placeholder (OneDrive)")
 
-    return requested, stat_result, provider.is_online_only(requested, stat_result)
+    return requested, stat_result, native, not native and provider.is_online_only(requested, stat_result)
 
 
 async def serve_vault_image(
@@ -212,9 +267,13 @@ async def serve_vault_image(
 ) -> FileResponse:
     """Serve an image without blocking other routes on FileProvider metadata."""
     async with state.semaphore:
-        requested, stat_result, online_only = await asyncio.to_thread(
+        requested, stat_result, native, online_only = await asyncio.to_thread(
             _inspect_vault_image, vault_path, image_path, provider
         )
+        if native:
+            return await serve_snapshot(
+                requested, vault_path / "Images", headers={"Cache-Control": "public, max-age=300"}
+            )
         if online_only:
             raise schedule_image_download(provider, requested)
         last_error = await probe_readable(requested)

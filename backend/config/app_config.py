@@ -11,7 +11,7 @@ from .paths_config import get_paths
 from .schema_keys import get_schema_keys
 from .validation_runtime import validation_runtime_enabled
 from .yaml_cache import ConfigYamlCache
-from backend.utils.metadata_io import MetadataUnavailable
+from backend.utils.metadata_io import MetadataUnavailable, guard_missing_file
 
 log = logging.getLogger(__name__)
 
@@ -134,9 +134,13 @@ def _exists_tolerant(path: Path | None) -> bool:
     if path is None:
         return False
     try:
-        return path.exists()
+        path.stat()
+        return True
+    except (FileNotFoundError, NotADirectoryError):
+        guard_missing_file(path)
+        return False
     except OSError as error:
-        raise MetadataUnavailable("Configuration is not locally readable") from error
+        raise MetadataUnavailable.from_oserror(path, error) from error
 
 
 def _user_params_path(
@@ -187,7 +191,7 @@ def _merge_user_params(
         try:
             user_params = _CONFIG_YAML_CACHE.read(user_params_path, _CONFIG_YAML_LOADER)
         except OSError as error:
-            raise MetadataUnavailable("Configuration is not locally readable") from error
+            raise MetadataUnavailable.from_oserror(user_params_path, error) from error
         ai = user_params.get("ai")
         if isinstance(ai, dict) and isinstance(ai.get("agents"), list):
             disabled = {

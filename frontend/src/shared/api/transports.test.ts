@@ -20,10 +20,45 @@ beforeEach(() => {
 afterEach(() => {
   resetApiTestStorage();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 
 describe('transportFetch', () => {
+  it('finishes a pending file read with the original vault and response', async () => {
+    vi.useFakeTimers();
+    const pending = new Response('waiting', {
+      status: 503, headers: { 'X-Gnosi-File-Availability': 'pending', 'Retry-After': '2' },
+    });
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(pending).mockResolvedValueOnce(new Response('downloaded'));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = transportFetch('/api/vault/pages/fixture');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(await (await result).text()).toBe('downloaded');
+    expect(fetchMock.mock.calls[1]).toEqual(fetchMock.mock.calls[0]);
+  });
+
+  it('cancels pending reads and never replays a mutation', async () => {
+    vi.useFakeTimers();
+    const pending = () => new Response(null, {
+      status: 503, headers: { 'X-Gnosi-File-Availability': 'pending' },
+    });
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(pending()));
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await transportFetch('/api/reader/podcast/generate', { method: 'POST' })).status).toBe(503);
+    const aborter = new AbortController();
+    const result = transportFetch(new Request(`${location.origin}/api/vault/pages/cancel`, { signal: aborter.signal }));
+    const stopped = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.advanceTimersByTimeAsync(10);
+    aborter.abort();
+    await stopped;
+    await vi.advanceTimersByTimeAsync(45000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('canonicalizes same-origin Vault APIs and carries request context', async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve(new Response(null, { status: 204 })),

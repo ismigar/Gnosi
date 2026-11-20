@@ -22,6 +22,9 @@ from backend.domains.vault.links.schemas import (
     VaultLinkMentionsResponse,
     VaultUnlinkedMentionResponse,
 )
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 log = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ def _target_title(target_id: str, dependencies: LinkApiDependencies) -> str:
     if dependencies.is_dashboard(target_path):
         metadata, _body = dependencies.read_dashboard(target_path)
     else:
-        raw = target_path.read_text(encoding="utf-8")
+        raw = read_vault_text(target_path, root=active_vault_path.get())
         metadata, _body = dependencies.parse_frontmatter(raw, target_path)
     return str(metadata.get("title") or "").strip()
 
@@ -83,11 +86,16 @@ def _link_one_candidate(
             mtime_before = file_path.stat().st_mtime_ns
         except OSError:
             mtime_before = None
+        if not source_id and is_cloud_placeholder(file_path, file_path.stat()):
+            return None
         is_dashboard = dependencies.is_dashboard(file_path)
         if is_dashboard:
             metadata, body = dependencies.read_dashboard(file_path)
         else:
-            raw = file_path.read_text(encoding="utf-8")
+            raw = (
+                read_vault_text(file_path, root=active_vault_path.get())
+                if source_id else file_path.read_text(encoding="utf-8")
+            )
             metadata, body = dependencies.parse_frontmatter(raw, file_path)
         current_id = str(metadata.get("id") or file_path.stem)
         if current_id == target_id or (source_id and current_id != source_id):
@@ -128,6 +136,8 @@ def _link_one_candidate(
             "replacements": replacements,
             "_path": file_path,
         }
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         log.warning("Error linking unlinked mentions for %s: %s", file_path.name, exc)
         return None

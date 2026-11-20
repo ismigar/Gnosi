@@ -18,6 +18,7 @@ from typing import Any, cast
 import json
 import uuid
 
+from backend.utils.metadata_io import read_vault_text
 from backend.utils.safe_io import safe_write_json
 
 
@@ -41,7 +42,7 @@ class PlanningStorageUnavailable(RuntimeError):
 
 def _read_planning_text(path: Path) -> str | None:
     try:
-        return path.read_text(encoding="utf-8")
+        return read_vault_text(path, encoding="utf-8")
     except FileNotFoundError:
         return None
     except OSError as exc:

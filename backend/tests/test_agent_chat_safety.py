@@ -1057,3 +1057,27 @@ def test_explicit_model_context_limit_wins_over_catalog(monkeypatch):
         "openrouter:fixture/large": {"context_window": 1_050_000},
     })
     assert _model_context_window("openrouter", "fixture/large") == 16000
+
+
+def test_unavailable_chat_upload_is_retained_for_the_same_request_to_retry(tmp_path, monkeypatch):
+    from backend.domains.agent.routes import attachments
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    vault = tmp_path / "vault"
+    path = vault / ".gnosi/chat-attachments/scope/file.txt"
+    path.parent.mkdir(parents=True)
+    path.write_text("complete text")
+    ref = agent_routes.AttachmentRef(name=path.name, size=path.stat().st_size, type="text/plain",
+                                     path=str(path.relative_to(vault)))
+
+    def offline(candidate, *, root):
+        assert root == path.parent
+        raise MetadataUnavailable(path=candidate, reason="offline")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(attachments, "vault_file_snapshot", offline)
+        with pytest.raises(MetadataUnavailable) as error:
+            attachments._consume_attachment_context(vault, [ref], "scope")
+        assert error.value.path == path and path.read_text() == "complete text"
+    assert "complete text" in attachments._consume_attachment_context(vault, [ref], "scope")
+    assert not path.exists()

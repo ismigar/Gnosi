@@ -23,6 +23,8 @@ from backend.domains.vault.translation.request_contracts import (
 )
 from backend.domains.vault.translation.types import Metadata, Result
 from backend.utils.open_values import get_value, iterable_values
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import read_vault_text_async
 
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
@@ -387,7 +389,7 @@ async def execute_button_action(
     file_path = await _legacy.asyncio.to_thread(_legacy.find_page_path, note_id)
     if not file_path or not file_path.exists():
         raise _legacy.HTTPException(status_code=404, detail=f"Page not found (ID: {note_id})")
-    raw_content = await _legacy.asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    raw_content = await read_vault_text_async(file_path, root=active_vault_path.get())
     metadata, body = _legacy.parse_frontmatter(raw_content, file_path)
     title = metadata.get("title") or file_path.stem
     if button_action == "set_fields":

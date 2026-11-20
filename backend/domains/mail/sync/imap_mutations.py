@@ -11,6 +11,8 @@ import time
 from typing import Any, Optional
 
 from backend.domains.mail.sync.imap_core import ImapMailSyncCore
+from backend.domains.mail.repositories.vault import resident_messages
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.mail.sync.imap_protocol import (
     _TYPE_FOLDER_PREFERENCE,
     _decode_str,
@@ -158,7 +160,7 @@ class ImapMailMutationService(ImapMailSyncCore):
         if not vault_file:
             return False
 
-        meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+        meta = self._parse_meta(read_vault_text(vault_file, root=self.mail_folder.parent))
         uid = meta.get("imap_uid")
         from_folder = meta.get("imap_folder")
 
@@ -274,7 +276,7 @@ class ImapMailMutationService(ImapMailSyncCore):
         internet_message_id = message_id
 
         if vault_file:
-            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            meta = self._parse_meta(read_vault_text(vault_file, root=self.mail_folder.parent))
             uid = meta.get("imap_uid")
             from_folder = meta.get("imap_folder") or imap_folder
             internet_message_id = meta.get("internet_message_id") or message_id
@@ -319,7 +321,7 @@ class ImapMailMutationService(ImapMailSyncCore):
         internet_message_id = message_id
 
         if vault_file:
-            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            meta = self._parse_meta(read_vault_text(vault_file, root=self.mail_folder.parent))
             uid = meta.get("imap_uid")
             from_folder = meta.get("imap_folder") or imap_folder
             internet_message_id = meta.get("internet_message_id") or message_id
@@ -369,7 +371,7 @@ class ImapMailMutationService(ImapMailSyncCore):
         if not vault_file:
             return False
 
-        meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+        meta = self._parse_meta(read_vault_text(vault_file, root=self.mail_folder.parent))
         uid = meta.get("imap_uid")
         folder = meta.get("imap_folder")
 
@@ -414,7 +416,7 @@ class ImapMailMutationService(ImapMailSyncCore):
         folder: str | None = None
 
         if vault_file:
-            meta = self._parse_meta(vault_file.read_text(encoding="utf-8"))
+            meta = self._parse_meta(read_vault_text(vault_file, root=self.mail_folder.parent))
             uid = meta.get("imap_uid")
             folder = meta.get("imap_folder")
             self._update_vault_file(vault_file, {"is_read": is_read})
@@ -479,7 +481,7 @@ class ImapMailMutationService(ImapMailSyncCore):
 
                 # Cleanup local vault files
                 if self.mail_folder:
-                    for f in list(self.mail_folder.glob("*.md")):
+                    for f in resident_messages(self.mail_folder):
                         try:
                             content = f.read_text(encoding="utf-8")
                             if (

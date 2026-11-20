@@ -26,6 +26,7 @@ from backend.domains.vault.citations.request_contracts import (
     CitationFormattingRequest,
     request_payload,
 )
+from backend.utils.metadata_io import read_vault_text
 
 
 PANDOC_MISSING_MSG = (
@@ -171,7 +172,7 @@ def build_csl_items_for_keys(
                 page_id = entry.get("id")
                 page_path = dependencies.find_page(str(page_id or ""))
                 if page_path:
-                    raw = page_path.read_text(encoding="utf-8")
+                    raw = read_vault_text(page_path, root=Path(vault_path))
                     fallback_metadata, _body = dependencies.parse_frontmatter(
                         raw,
                         page_path,

@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from backend.domains.vault.registry.state import RegistryData
 from backend.services.reference_schema import bind_configured_roles
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 Metadata = RegistryData
@@ -42,7 +44,7 @@ def _read_existing_identity(
 ) -> tuple[str | None, object | None]:
     if not file_path.exists():
         return None, None
-    existing_raw = file_path.read_text(encoding="utf-8")
+    existing_raw = read_vault_text(file_path, root=active_vault_path.get())
     existing_metadata: Metadata = {}
     try:
         if dependencies.is_dashboard_file(file_path):
@@ -52,6 +54,8 @@ def _read_existing_identity(
                 existing_raw,
                 file_path,
             )
+    except MetadataUnavailable:
+        raise
     except Exception:
         pass
     normalized_metadata = existing_metadata or {}
@@ -78,6 +82,8 @@ def _ensure_identity(
     recovered_title: object | None = None
     try:
         recovered_id, recovered_title = _read_existing_identity(file_path, dependencies)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         dependencies.logger.warning(
             "save_page_md: could not recover the id for %s: %s",

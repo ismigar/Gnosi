@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -30,6 +29,7 @@ from backend.domains.vault.schemas.pages import (
     TablePagesSnapshot,
     _BulkWarmPayload,
 )
+from backend.utils.metadata_io import MetadataUnavailable, is_native_vault_file, read_vault_text_with_stat
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +104,7 @@ class PageQueryDependencies:
 
     get_pages_snapshot: SnapshotReader
     refresh_pages_metadata: Callable[[list[PageInfo]], None]
+    refresh_native_page: Callable[[PageInfo], None]
     page_index_cache_path: Callable[[], Path | None]
     get_pages_for_table: Callable[[str], list[PageInfo]]
     enrich_table_pages: Callable[[str, list[PageInfo]], None]
@@ -114,6 +115,7 @@ class PageQueryDependencies:
     find_page: PageFinder
     materialize_page: Callable[[Path, str], Awaitable[None]]
     read_dashboard: Callable[[Path], tuple[RegistryData, str]]
+    parse_dashboard: Callable[[str, Path], tuple[RegistryData, str]]
     is_dashboard: Callable[[Path], bool]
     parse_frontmatter: Callable[[str, Path | None], tuple[RegistryData, str]]
     enrich_single_page: Callable[
@@ -205,7 +207,11 @@ async def _materialize_metadata_pages(pages: list[PageInfo]) -> None:
 
     async def worker() -> None:
         for page in targets:
-            await dependencies.materialize_page(Path(str(page.path)), page.id)
+            path = Path(str(page.path))
+            if await asyncio.to_thread(is_native_vault_file, path):
+                await asyncio.to_thread(dependencies.refresh_native_page, page)
+                continue
+            await dependencies.materialize_page(path, page.id)
             # Publish each completed entry immediately; later attempts do not
             # need to download or parse earlier entries again.
             await asyncio.to_thread(dependencies.refresh_pages_metadata, [page])
@@ -371,23 +377,27 @@ async def get_page(page_id: str) -> dict[str, object]:
             status_code=404,
             detail=f"Page not found (ID: {page_id})",
         )
-    await dependencies.materialize_page(file_path, page_id)
+    native = await asyncio.to_thread(is_native_vault_file, file_path)
+    if not native:
+        await dependencies.materialize_page(file_path, page_id)
 
     def _read_and_parse() -> tuple[RegistryData, str, str | None]:
-        if dependencies.is_dashboard(file_path):
+        dashboard = dependencies.is_dashboard(file_path)
+        if dashboard and not native:
             metadata, body = dependencies.read_dashboard(file_path)
             return metadata, body, dependencies.file_etag(file_path)
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         last_error: OSError | None = None
         for attempt in range(len(delays) + 1):
             try:
-                with file_path.open(encoding="utf-8") as source:
-                    raw_content = source.read()
-                    stat = os.fstat(source.fileno())
+                raw_content, stat = read_vault_text_with_stat(
+                    file_path, root=dependencies.active_vault_path() if native else None
+                )
                 # Bind the revision to the opened file, even if a concurrent
                 # atomic save replaces or renames its path before responding.
                 etag = f"{stat.st_mtime_ns}-{stat.st_size}"
-                metadata, body = dependencies.parse_frontmatter(raw_content, file_path)
+                parse = dependencies.parse_dashboard if dashboard else dependencies.parse_frontmatter
+                metadata, body = parse(raw_content, file_path)
                 return metadata, body, etag
             except OSError as exc:
                 last_error = exc
@@ -419,6 +429,8 @@ async def get_page(page_id: str) -> dict[str, object]:
             "resolved_table_id": table_id,
             "etag": etag,
         }
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         log.error("Error reading page %s: %s", page_id, exc)
         raise HTTPException(status_code=500, detail="Error reading target file") from exc
@@ -450,6 +462,8 @@ async def get_page_preview(page_id: str, full: bool = False) -> PreviewPayload:
     try:
         short, full_response, _ = await dependencies.fetch_preview(file_path, page_id)
         return full_response if full else short
+    except MetadataUnavailable:
+        raise
     except OSError as exc:
         if exc.errno == 35:
             response: PreviewPayload = {

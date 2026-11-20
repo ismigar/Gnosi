@@ -120,7 +120,7 @@ def start_source_process(
     path = _source_page_path(vr, item_id) if estimate_only or estimate_id else vr.find_page_path(item_id)
     if not path or not path.exists():
         raise LlmWikiActionError(404, f"Resource {item_id} was not found")
-    metadata, body = vr.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    metadata, body = vr.parse_frontmatter(read_metadata_text(path, encoding="utf-8"), path)
     resolved_source_table_id = str(source_table_id or metadata.get("table_id") or "").strip()
     source_config = llm_wiki_config.get_source_config(resolved_source_table_id)
     source_table = vr._table_by_id(resolved_source_table_id)  # noqa: SLF001

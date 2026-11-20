@@ -8,6 +8,8 @@ import re
 
 import yaml
 
+from backend.utils.metadata_io import read_vault_text
+
 JsonObject = dict[str, object]
 
 
@@ -27,7 +29,7 @@ def patch_vault_event(
     patch: JsonObject,
     write_text: Callable[[Path, str], None],
 ) -> None:
-    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"))
+    metadata, body = parse_frontmatter(read_vault_text(path))
     allowed = {"date", "end_date", "title", "location", "description", "all_day"}
     for key, value in patch.items():
         if key in allowed:

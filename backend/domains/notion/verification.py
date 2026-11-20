@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
 import yaml
 
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 
@@ -75,7 +76,7 @@ def _page_verification(
     relation_keys_by_table: Dict[str, set[str]],
     relation_ids: Callable[[object], List[str]],
 ) -> JsonMap:
-    metadata, body = split_frontmatter(path.read_text(encoding="utf-8"))
+    metadata, body = split_frontmatter(read_vault_text(path, encoding="utf-8"))
     table_id = str(metadata.get("table_id") or "")
     relations: List[str] = []
     for key in relation_keys_by_table.get(table_id, set()):

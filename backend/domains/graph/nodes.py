@@ -6,6 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.graph.adapters import Graph
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.graph.scanning import (
@@ -62,7 +64,10 @@ def load_page_data(
     if cached and cached.get("mtime") == mtime:
         return cached
 
-    raw_content = file_path.read_text(encoding="utf-8")
+    # Building a graph can visit every note. Leave online-only bodies for a selected read.
+    if is_cloud_placeholder(file_path, file_path.stat()):
+        raise MetadataUnavailable(path=file_path, reason="pending")
+    raw_content = read_vault_text(file_path)
     raw_metadata, body = parse_frontmatter(raw_content, file_path)
     file_id = file_path.stem
     node_id = raw_metadata.get("id") or file_id

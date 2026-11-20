@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 from backend.services.agent_behavior import resource as behavior_resource
 
@@ -305,11 +305,10 @@ def resolve_model(
 def _detailed_persona(instructions_dir: Path, target_id: str) -> str:
     """Read the bounded profile Markdown without making startup fragile."""
     persona_file = instructions_dir / f"{target_id}.md"
-    if not persona_file.exists():
-        return ""
     try:
-        with metadata_path(persona_file).open("r", encoding="utf-8", errors="replace") as handle:
-            return handle.read()
+        return read_vault_text(persona_file, errors="replace", root=instructions_dir)
+    except FileNotFoundError:
+        return ""
     except MetadataUnavailable:
         raise
     except Exception as error:  # noqa: BLE001

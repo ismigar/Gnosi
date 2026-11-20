@@ -363,7 +363,7 @@ def test_desktop_patch_derived_files_require_exact_recorded_bytes(installation, 
             'stage', 'rollback-components', 'rollback-signature'}
 
 
-@pytest.mark.parametrize('names', [('frontend',), ('frontend', 'python'), ('app.asar',)])
+@pytest.mark.parametrize('names', [('frontend',), ('frontend', 'python'), ('native', 'python', 'frontend'), ('app.asar',)])
 def test_partial_component_installation_retains_verified_rollback(installation, names):
     root, run, app, _, _ = installation
     install = run / 'install'

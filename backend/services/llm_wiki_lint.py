@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.llm_wiki.lint_contracts import (
@@ -71,7 +72,9 @@ def _read_body(path: str | None) -> str:
     try:
         from pathlib import Path
 
-        raw = Path(path).read_text(encoding="utf-8")
+        raw = read_vault_text(Path(path), encoding="utf-8")
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return ""
     # Drop the frontmatter block so mentions/links are scanned in the body only.

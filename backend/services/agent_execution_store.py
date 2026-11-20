@@ -48,7 +48,7 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
     with connect() as db:
         if request.get("mode") == "job" and request.get("operation") == "podcast":
             db.execute("BEGIN IMMEDIATE")
-            if _podcast_busy(db, scope.vault_path):
+            if _podcast_busy(db, scope.vault_path, run.run_id):
                 raise ValueError("podcast_generation_already_running")
         if request.get("mode") == "job" and request.get("operation") == "meeting.minutes":
             db.execute("BEGIN IMMEDIATE")
@@ -69,6 +69,12 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
 
 def _podcast_busy(db: sqlite3.Connection, vault_path: str, exclude_run_id: str = "") -> bool:
     """Reserve the shared output without exposing another owner's job."""
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='podcast_occurrences'").fetchone():
+        reserved = db.execute("""SELECT 1 FROM podcast_occurrences WHERE vault_path=?
+            AND json_extract(payload,'$.run_id')!=?
+            AND json_extract(payload,'$.status') IN ('running','waiting')""", (vault_path, exclude_run_id)).fetchone()
+        if reserved:
+            return True
     active = db.execute("""SELECT request FROM agent_runs WHERE vault_path=? AND run_id!=?
         AND json_extract(request,'$.mode')='job' AND json_extract(request,'$.operation')='podcast'
         AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
@@ -184,9 +190,14 @@ def list_runs(scope: ExecutionScope, limit: int = 50) -> list[AgentRun]:
 
 def cancel(scope: ExecutionScope, run_id: str) -> AgentRun:
     with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
         row = _row(db, scope, run_id)
         run = AgentRun.model_validate_json(str(row["payload"]))
-        if run.status not in {"completed", "failed", "cancelled"}:
+        if run.status == "waiting":
+            now = time.time()
+            run = run.model_copy(update={"status": "cancelled", "updated_at": now, "closed_at": now})
+            db.execute("UPDATE agent_runs SET cancelled=1,payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
+        elif run.status not in {"completed", "failed", "cancelled"}:
             db.execute("UPDATE agent_runs SET cancelled=1 WHERE run_id=?", (run_id,))
     return read(scope, run_id)
 
@@ -208,7 +219,7 @@ def publication_guard(scope: ExecutionScope, run_id: str) -> Iterator[None]:
         yield
 
 
-def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def resume_data(scope: ExecutionScope, run_id: str, *, automatic: bool = False, retry_failed_podcast: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         row = _row(db, scope, run_id)
@@ -216,6 +227,9 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request_metadata = json.loads(str(row["request"]))
         if not run.resumable:
             raise ValueError("agent_run_requires_original_entrypoint")
+        retryable_error = retry_failed_podcast and request_metadata.get("operation") == "podcast" and run.status == "failed"
+        if automatic and (row["cancelled"] or (run.status not in {"interrupted", "waiting"} and not retryable_error)):
+            raise ValueError("agent_run_not_resumable")
         unchecked_podcast = False
         if (run.status == 'completed' and request_metadata.get('mode') == 'job'
                 and request_metadata.get('operation') == 'podcast'
@@ -228,13 +242,17 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
                 unchecked_podcast = review.get('mode') == 'brief' and (
                     review.get('final_narration_validated') is not True
                     or review.get('policy_revision') != policy_revision())
-        if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation"} and not unchecked_podcast:
+        if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation", "waiting"} and not unchecked_podcast:
             raise ValueError("agent_run_not_resumable")
         if request_metadata.get("operation") == "podcast" and _podcast_busy(db, scope.vault_path, run_id):
             raise ValueError("podcast_generation_already_running")
         saved_scope = _saved_snapshot(db, row).get("scope")
         if saved_scope != scope.model_dump():
             raise PermissionError("agent_execution_scope_changed")
+        if unchecked_podcast:
+            # Activity explicitly requested a new review. Old speech cannot satisfy it.
+            db.execute("""DELETE FROM agent_work_checkpoints WHERE run_id=? AND checkpoint_key IN
+                ('podcast-final-script','podcast-speech','podcast-publication')""", (run_id,))
         run = run.model_copy(update={"status": "resuming", "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET cancelled=0,payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         _claim_worker(db, run_id)

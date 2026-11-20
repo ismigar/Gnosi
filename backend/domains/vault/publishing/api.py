@@ -21,7 +21,10 @@ def dependencies(context: WorkspaceContext) -> service.PublicationDependencies:
     from backend.domains.vault.pages.creation_recovery import recovery_access_guard
     from backend.services.vault_routing import canonical_vault_browser_path
 
-    return service.PublicationDependencies(parse=vault.parse_frontmatter,
+    with vault._page_index_lock:
+        entries = dict(vault._page_index_entries.get(str(context.vault_path), {}))
+    return service.PublicationDependencies(parse=lambda text, _path: vault.parse_frontmatter(text),
+        page_entries=entries,
         validate_access=recovery_access_guard(context),
         local_prefixes=(canonical_vault_browser_path("knowledge", "page/"),))
 

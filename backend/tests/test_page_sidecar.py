@@ -105,10 +105,11 @@ def test_online_only_sidecar_is_not_opened(
     write_sidecar(vault, "online", {"title_manual": True})
     from backend.utils.metadata_io import MetadataUnavailable
 
-    def unavailable(_path):
-        raise MetadataUnavailable("Cloud metadata download failed; retry later")
+    def unavailable(path, *, root):
+        assert path == sidecar_path_for(vault, "online") and root == vault
+        raise MetadataUnavailable("Cloud metadata download failed; retry later", path=path)
 
-    monkeypatch.setattr(page_sidecar, "ensure_metadata_local", unavailable)
+    monkeypatch.setattr(page_sidecar, "read_vault_text", unavailable)
     with pytest.raises(MetadataUnavailable):
         read_sidecar(vault, "online")
     # An unavailable file remains present and unchanged, never defaults.

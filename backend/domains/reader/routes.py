@@ -50,6 +50,7 @@ from backend.domains.reader.schemas import (
 )
 from backend.models import reader as models
 from backend.domains.reader.source_registry import SourceRegistryError, source_transaction
+from backend.utils.metadata_io import MetadataUnavailable
 from backend.domains.reader.source_urls import canonical_source_url
 from backend.services.workspace_service import get_workspace_context, require_role
 
@@ -79,6 +80,8 @@ def _sources_transaction(db: Session, *, write: bool = False) -> Iterator[None]:
     try:
         with source_transaction(db, _require_active_vault(), write=write):
             yield
+    except MetadataUnavailable:
+        raise
     except SourceRegistryError as exc:
         raise HTTPException(status_code=503, detail="Reader sources are unavailable; retry later") from exc
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -21,6 +22,8 @@ from backend.config.logger_config import get_logger
 from backend.domains.vault.history.repository import HistoryRepository
 from backend.domains.vault.pages.cache import get_page_write_lock
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.registry.records import is_record
+from backend.services.path_resolver import path_resolver
 from backend.utils.safe_io import file_etag, safe_write_bytes
 
 from .markdown import anchor, anchors, rewrite_links, select
@@ -32,6 +35,9 @@ from .schemas import (
     ComposerRequest,
     ComposerResult,
 )
+
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_bytes
 
 log = get_logger(__name__)
 
@@ -77,13 +83,27 @@ def sidecar_path(root: Path, page_id: str) -> Path:
     return path
 
 
-def read_optional(path: Path) -> bytes | None:
-    return path.read_bytes() if path.exists() else None
+def inventory_bytes(path: Path, root: Path, selected: bool) -> bytes:
+    if selected:
+        return read_vault_bytes(path, root=root)
+    if is_cloud_placeholder(path, path.stat()):
+        raise HTTPException(409, "Composer needs all potential backlinks available to verify this change")
+    return path.read_bytes()
 
 
-def inventory(root: Path, dependencies: ComposerDependencies) -> dict[str, Document]:
+def read_optional(path: Path, root: Path, *, selected: bool = True) -> bytes | None:
+    try:
+        return inventory_bytes(path, root, selected)
+    except FileNotFoundError:
+        return None
+
+
+def inventory(
+    root: Path, dependencies: ComposerDependencies, selected_ids: set[str]
+) -> dict[str, Document]:
     documents: dict[str, Document] = {}
     total_size = 0
+    selected_paths = {path_resolver.find_path(page_id, root) for page_id in selected_ids}
 
     # Fresh reads deliberately bypass the link cache: apply must see newly added backlinks.
     def unreadable(error: OSError) -> None:
@@ -101,7 +121,8 @@ def inventory(root: Path, dependencies: ComposerDependencies) -> dict[str, Docum
                 raise HTTPException(409, "Composer cannot update links through symbolic links")
             try:
                 etag = file_etag(path)
-                raw = path.read_bytes()
+                selected = path in selected_paths or path.stem in selected_ids
+                raw = inventory_bytes(path, root, selected)
                 total_size += len(raw)
                 if total_size > 64_000_000 or len(documents) >= 20000:
                     raise HTTPException(
@@ -109,7 +130,16 @@ def inventory(root: Path, dependencies: ComposerDependencies) -> dict[str, Docum
                     )
                 metadata, body = dependencies.parse(raw.decode("utf-8"), path)
                 page_id = str(metadata.get("id") or metadata.get("migration_id") or path.stem)
-                sidecar = read_optional(sidecar_path(root, page_id))
+                sidecar = read_optional(
+                    sidecar_path(root, page_id), root, selected=selected or page_id in selected_ids
+                )
+                if sidecar:
+                    try:
+                        flags: object = json.loads(sidecar)
+                        if is_record(flags):
+                            metadata = {**metadata, **flags}
+                    except (ValueError, UnicodeError):
+                        log.warning("Ignoring malformed Composer metadata for %s", page_id)
                 if file_etag(path) != etag:
                     raise HTTPException(409, "A note changed while preparing the preview")
                 if page_id in documents:
@@ -233,7 +263,7 @@ def _prepare_target(
         path = root / "Wiki" / f"{target_id}.md"
         if not path.resolve().is_relative_to(root):
             raise HTTPException(409, "The destination folder is outside the selected vault")
-        if path.exists() or read_optional(sidecar_path(root, target_id)) is not None:
+        if path.exists() or read_optional(sidecar_path(root, target_id), root) is not None:
             raise HTTPException(409, "The new note already exists")
         # The ID is immutable; the standard page save flow can rename the file later.
         return Document(
@@ -287,7 +317,10 @@ def _moving_reference(
 def build_plan(root: Path, request: ComposerRequest, dependencies: ComposerDependencies) -> Plan:
     root = root.resolve()
     dependencies.validate_access()
-    documents = inventory(root, dependencies)
+    selected_ids = {request.source_id}
+    if request.target_id:
+        selected_ids.add(request.target_id)
+    documents = inventory(root, dependencies, selected_ids)
     source = documents.get(request.source_id)
     if source is None:
         raise HTTPException(404, "The source note no longer exists")
@@ -397,8 +430,8 @@ def build_plan(root: Path, request: ComposerRequest, dependencies: ComposerDepen
 def _verify_original(root: Path, document: Document) -> None:
     if (
         file_etag(document.path) != document.etag
-        or read_optional(document.path) != document.raw
-        or read_optional(sidecar_path(root, document.id)) != document.sidecar
+        or read_optional(document.path, root) != document.raw
+        or read_optional(sidecar_path(root, document.id), root) != document.sidecar
     ):
         raise HTTPException(409, "A note or its metadata changed; request a fresh preview")
 
@@ -415,7 +448,7 @@ def _backup(root: Path, document: Document) -> None:
     if len(versions) != 1:
         raise OSError("Could not retain a note version")
     version = versions.pop()
-    if version.read_bytes() != document.raw:
+    if read_vault_bytes(version, root=root) != document.raw:
         raise OSError("The retained version differs from the preview")
     if document.sidecar is not None:
         safe_write_bytes(version.with_suffix(".metadata.json"), document.sidecar)
@@ -442,67 +475,79 @@ async def apply_plan(
     root: Path, request: ComposerApplyRequest, dependencies: ComposerDependencies
 ) -> ComposerResult:
     root = root.resolve()
-    initial = build_plan(root, request.request, dependencies)
+    initial = await asyncio.to_thread(build_plan, root, request.request, dependencies)
     ids = sorted(change.id for change in initial.preview.changes)
     async with AsyncExitStack() as stack:
         for page_id in ids:
             await stack.enter_async_context(await get_page_write_lock(page_id))
-        plan = build_plan(root, request.request, dependencies)
+        plan = await asyncio.to_thread(build_plan, root, request.request, dependencies)
         if plan.preview.token != request.token or sorted(c.id for c in plan.preview.changes) != ids:
             raise HTTPException(
                 409, "Notes or links changed after the preview; review a fresh preview"
             )
-        changes = plan.preview.changes
-        for change in changes:
-            _verify_original(root, plan.documents[change.id])
+        # An interrupted HTTP request must keep its page locks until writes or rollback finish.
+        worker = asyncio.create_task(asyncio.to_thread(_apply_changes, root, request, plan, dependencies))
         try:
-            for change in changes:
-                _backup(root, plan.documents[change.id])
-        except OSError as error:
-            raise HTTPException(
-                503, "History could not be retained; no notes were changed"
-            ) from error
-        # Source is last: until it is saved the original selected Markdown remains available.
-        ordered = sorted(
-            changes, key=lambda c: (c.id == request.request.source_id, not c.created, c.id)
-        )
-        written: list[Document] = []
-        try:
-            for change in ordered:
-                dependencies.validate_access()
-                document = plan.documents[change.id]
-                _verify_original(root, document)
-                written.append(document)  # The writer may persist a sidecar before failing.
-                dependencies.save(document.path, deepcopy(document.metadata), change.after)
-        except Exception as error:
-            failures = _restore_written_documents(root, written)
-            if failures:
-                log.error("Composer rollback requires recovery for pages %s", failures)
-                raise HTTPException(
-                    500,
-                    {
-                        "message": (
-                            "Some notes could not be restored; recover their retained history"
-                        ),
-                        "page_ids": failures,
-                    },
-                ) from error
-            if isinstance(error, HTTPException):
-                raise
-            raise HTTPException(
-                503, "The operation failed; all affected notes were restored"
-            ) from error
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            await worker
+            raise
+
+
+def _apply_changes(
+    root: Path, request: ComposerApplyRequest, plan: Plan, dependencies: ComposerDependencies
+) -> ComposerResult:
+    changes = plan.preview.changes
+    for change in changes:
+        _verify_original(root, plan.documents[change.id])
+    try:
         for change in changes:
+            _backup(root, plan.documents[change.id])
+    except OSError as error:
+        raise HTTPException(
+            503, "History could not be retained; no notes were changed"
+        ) from error
+    # Source is last: until it is saved the original selected Markdown remains available.
+    ordered = sorted(
+        changes, key=lambda c: (c.id == request.request.source_id, not c.created, c.id)
+    )
+    written: list[Document] = []
+    try:
+        for change in ordered:
+            dependencies.validate_access()
             document = plan.documents[change.id]
-            try:
-                dependencies.refresh(document.path, document.metadata, change.after)
-            except Exception:
-                log.exception(
-                    "Composer saved page %s but its derived index needs refreshing", change.id
-                )
-            change.etag = file_etag(document.path)
-        return ComposerResult(
-            source_id=request.request.source_id,
-            target_id=plan.preview.request.target_id or "",
-            changes=changes,
-        )
+            _verify_original(root, document)
+            written.append(document)  # The writer may persist a sidecar before failing.
+            dependencies.save(document.path, deepcopy(document.metadata), change.after)
+    except Exception as error:
+        failures = _restore_written_documents(root, written)
+        if failures:
+            log.error("Composer rollback requires recovery for pages %s", failures)
+            raise HTTPException(
+                500,
+                {
+                    "message": (
+                        "Some notes could not be restored; recover their retained history"
+                    ),
+                    "page_ids": failures,
+                },
+            ) from error
+        if isinstance(error, (HTTPException, MetadataUnavailable)):
+            raise
+        raise HTTPException(
+            503, "The operation failed; all affected notes were restored"
+        ) from error
+    for change in changes:
+        document = plan.documents[change.id]
+        try:
+            dependencies.refresh(document.path, document.metadata, change.after)
+        except Exception:
+            log.exception(
+                "Composer saved page %s but its derived index needs refreshing", change.id
+            )
+        change.etag = file_etag(document.path)
+    return ComposerResult(
+        source_id=request.request.source_id,
+        target_id=plan.preview.request.target_id or "",
+        changes=changes,
+    )

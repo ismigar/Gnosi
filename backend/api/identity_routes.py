@@ -1,5 +1,5 @@
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 import asyncio
 import json
 import logging
@@ -46,13 +46,11 @@ async def get_identity() -> dict[str, Any]:
 def _read_identity() -> dict[str, Any]:
     """Read the synchronized identity document outside the event loop."""
     path = get_identity_path()
-    if not path.exists():
-        return IdentityProfile().model_dump()
-
     try:
-        with open(metadata_path(path), "r", encoding="utf-8") as f:
-            payload = json.load(f)
+        payload = json.loads(read_metadata_text(path))
         return IdentityReadResponse.model_validate(payload).model_dump(exclude_unset=True)
+    except FileNotFoundError:
+        return IdentityProfile().model_dump()
     except MetadataUnavailable:
         raise
     except Exception as e:

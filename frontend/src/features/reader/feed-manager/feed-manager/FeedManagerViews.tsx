@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { ReaderSource } from '../../../../shared/api/reader';
 import type { ScheduledTask } from '../../../../shared/api/scheduler';
+import { ScheduledFileStatus } from '../../../../shared/ui/loading/ScheduledFileStatus';
 import { taskInterval } from './feedManagerModel';
 
 
@@ -313,9 +314,10 @@ export function FeedSchedulerView({
                                                     'feed_manager.running',
                                                     'running...',
                                                 )
-                                                : task.status}
+                                                : task.status === 'waiting' ? t('dashboard.cloud_files.waiting') : task.status}
                                         </span>
                                     </div>
+                                    <ScheduledFileStatus task={task} className="feed-source-meta" />
                                     <span className="feed-source-meta">
                                         {t(
                                             'feed_manager.task_interval',

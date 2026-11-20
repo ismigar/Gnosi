@@ -49,15 +49,44 @@ def safe_error_detail(e: Exception, context: str = "") -> str:
     return f"Internal error [{error_id}]: {type_name}"
 
 
-def metadata_unavailable_detail(preferred_language: str) -> tuple[str, str]:
-    """Return a localized provider failure without paths or file contents."""
-    primary = preferred_language.partition(",")[0].partition(";")[0]
-    language = primary.partition("-")[0].strip().lower()
-    messages = {
+_FILE_MESSAGES = {
+    "pending": {
         "ca": "Les dades del núvol encara no estan disponibles. Torna-ho a provar d’aquí a uns segons.",
         "es": "Los datos de la nube aún no están disponibles. Vuelve a intentarlo en unos segundos.",
         "fr": "Les données du cloud ne sont pas encore disponibles. Réessayez dans quelques secondes.",
         "en": "Cloud data is not available yet. Retry shortly.",
-    }
+    },
+    "unavailable": {
+        "ca": "Ara mateix el servei de núvol no pot llegir el fitxer.",
+        "es": "El servicio en la nube no puede leer el archivo en este momento.",
+        "fr": "Le service cloud ne peut pas lire le fichier pour le moment.",
+        "en": "Cloud storage cannot read the file right now.",
+    },
+    "offline": {
+        "ca": "Cal connexió amb el servei de núvol per obtenir el fitxer.",
+        "es": "Se necesita conexión con el servicio en la nube para obtener el archivo.",
+        "fr": "Une connexion au service de stockage est nécessaire pour obtenir le fichier.",
+        "en": "Connect to cloud storage to download the file.",
+    },
+    "permission": {
+        "ca": "Cal permís per llegir el fitxer al dispositiu o al servei de núvol.",
+        "es": "Se necesita permiso para leer el archivo en el dispositivo o en el servicio en la nube.",
+        "fr": "Une autorisation est nécessaire pour lire le fichier sur cet appareil ou dans le cloud.",
+        "en": "Permission is needed to read the file on this device or in cloud storage.",
+    },
+    "no_space": {
+        "ca": "Falta espai al dispositiu per descarregar el fitxer.",
+        "es": "Falta espacio en el dispositivo para descargar el archivo.",
+        "fr": "L’espace disponible sur cet appareil est insuffisant pour télécharger le fichier.",
+        "en": "There is too little space on this device to download the file.",
+    },
+}
+
+
+def metadata_unavailable_detail(preferred_language: str, reason: str = "pending") -> tuple[str, str]:
+    """Return a localized provider failure without paths or file contents."""
+    primary = preferred_language.partition(",")[0].partition(";")[0]
+    language = primary.partition("-")[0].strip().lower()
+    messages = _FILE_MESSAGES.get(reason, _FILE_MESSAGES["pending"])
     language = language if language in messages else "en"
     return language, messages[language]

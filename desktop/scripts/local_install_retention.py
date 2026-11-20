@@ -24,7 +24,7 @@ import sys
 import tarfile
 
 LOCK = Path('/private/tmp/gnosi-desktop-install.lock')
-COMPONENTS = ('frontend', 'python', 'extensions/web-publishing')
+COMPONENTS = ('frontend', 'python', 'native', 'extensions/web-publishing')
 
 
 class RetentionError(RuntimeError):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from backend.domains.vault.schemas.history import (
     PageHistoryMutationResponse,
     PageHistoryVersion,
 )
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text_async
 
 FrontmatterParser = Callable[[str, Path | None], tuple[dict[str, object], str]]
 PageFinder = Callable[[str], Path | None]
@@ -77,14 +79,16 @@ async def get_page_version_content(page_id: str, timestamp: str) -> dict[str, ob
     if not version_path.exists():
         raise HTTPException(status_code=404, detail="Version not found")
     try:
-        raw_content = repository.read_version(safe_page_id, safe_timestamp)
-        metadata, body = dependencies.parse_frontmatter(raw_content, version_path)
+        raw_content = await asyncio.to_thread(repository.read_version, safe_page_id, safe_timestamp)
+        metadata, body = await asyncio.to_thread(dependencies.parse_frontmatter, raw_content, version_path)
         return {
             "id": safe_page_id,
             "version_id": safe_timestamp,
             "metadata": metadata,
             "content": body.strip(),
         }
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         log.error(
             "Error reading version %s of %s: %s",
@@ -112,12 +116,12 @@ async def restore_page_version(
     if not file_path:
         raise HTTPException(status_code=404, detail="Current page not found")
 
-    dependencies.create_page_version(safe_page_id, file_path, True)
+    await asyncio.to_thread(dependencies.create_page_version, safe_page_id, file_path, True)
     try:
-        repository.restore_version(safe_page_id, safe_timestamp, file_path)
+        await asyncio.to_thread(repository.restore_version, safe_page_id, safe_timestamp, file_path)
         log.info("Page %s restored to version %s", safe_page_id, safe_timestamp)
-        raw_content = file_path.read_text(encoding="utf-8")
-        metadata, _ = dependencies.parse_frontmatter(raw_content, file_path)
+        raw_content = await read_vault_text_async(file_path, root=repository.vault_root)
+        metadata, _ = await asyncio.to_thread(dependencies.parse_frontmatter, raw_content, file_path)
         table_id = dependencies.get_table_id(metadata)
         if table_id:
             background_tasks.add_task(
@@ -126,6 +130,8 @@ async def restore_page_version(
                 safe_page_id,
             )
         return {"status": "success", "message": "Page restored successfully"}
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         log.error(
             "Error restoring version %s of %s: %s",

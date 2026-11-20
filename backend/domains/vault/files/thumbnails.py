@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import httpx
 from fastapi import HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from backend.platform.files.base import FilesProvider
+from backend.utils.metadata_io import is_native_vault_file, vault_file_snapshot_async
 
 log = logging.getLogger(__name__)
+_native_quicklook_slot = asyncio.Semaphore(1)
 
 THUMB_ROOTS_MAP: dict[str, tuple[str, str | None]] = {
     "images": ("IMAGES", "Images"),
@@ -33,7 +37,7 @@ class ThumbnailDependencies:
     daemon_timeout: Callable[[], float]
 
 
-def resolve_thumb_source(rel_url: str, dependencies: ThumbnailDependencies) -> Path:
+def _thumb_source(rel_url: str, dependencies: ThumbnailDependencies) -> tuple[Path, Path]:
     """Resolve and contain one thumbnail source URL."""
     parts = rel_url.split("/", 1)
     if len(parts) != 2 or not parts[1]:
@@ -70,7 +74,11 @@ def resolve_thumb_source(rel_url: str, dependencies: ThumbnailDependencies) -> P
             raise HTTPException(status_code=403, detail="Access denied")
     if not requested.exists() or not requested.is_file():
         raise HTTPException(status_code=404, detail="Source file not found")
-    return requested
+    return root_resolved, requested
+
+
+def resolve_thumb_source(rel_url: str, dependencies: ThumbnailDependencies) -> Path:
+    return _thumb_source(rel_url, dependencies)[1]
 
 
 def container_to_host_path(container_path: Path) -> str | None:
@@ -117,6 +125,26 @@ def _response_body(response: httpx.Response) -> dict[str, object]:
     return {str(key): value for key, value in raw.items()}
 
 
+async def _render_native_thumbnail(source: Path, size: int, timeout: float) -> bytes:
+    with TemporaryDirectory(prefix="gnosi-quicklook-") as output:
+        process = await asyncio.create_subprocess_exec(
+            "/usr/bin/qlmanage", "-t", "-s", str(max(64, min(1024, size))),
+            "-o", output, str(source), stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            if await asyncio.wait_for(process.wait(), timeout) != 0:
+                raise OSError("QuickLook could not generate this thumbnail")
+            return await asyncio.to_thread((Path(output) / f"{source.name}.png").read_bytes)
+        finally:
+            if process.returncode is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                await process.wait()
+
+
 async def serve_thumb(
     rel_url: str,
     size: int,
@@ -124,14 +152,31 @@ async def serve_thumb(
     dependencies: ThumbnailDependencies,
 ) -> Response:
     """Fetch and serve one host-generated QuickLook thumbnail."""
-    requested = resolve_thumb_source(rel_url, dependencies)
+    root, requested = await asyncio.to_thread(_thumb_source, rel_url, dependencies)
     try:
-        stat_result = requested.stat()
+        stat_result = await asyncio.to_thread(requested.stat)
     except OSError as exc:
         log.warning("stat() failed for %s: %s", requested, exc)
         return thumb_no_store(503, "File temporarily unavailable")
 
     provider = dependencies.provider()
+    cache_header = (
+        "public, max-age=86400, immutable" if version else "public, max-age=300, must-revalidate"
+    )
+    if is_native_vault_file(requested, stat_result, provider=provider):
+        # The container daemon accepts host vault paths. On native macOS use
+        # QuickLook on the private coordinated copy while its lease is live.
+        async with _native_quicklook_slot:
+            with await vault_file_snapshot_async(requested, root=root, background=True) as snapshot:
+                try:
+                    data = await _render_native_thumbnail(snapshot.path, size, dependencies.daemon_timeout())
+                except (TimeoutError, OSError):
+                    return thumb_no_store(503, "Thumbnail temporarily unavailable")
+                return Response(data, media_type="image/png", headers={
+                    "Cache-Control": cache_header,
+                    "ETag": f'W/"{int(snapshot.stat_result.st_mtime)}-{size}"',
+                })
+
     if provider.is_online_only(requested, stat_result):
         provider.schedule_warmup(requested)
         log.info("☁️ Thumb: warmup en segon pla engegat per %s (503 pending)", requested)
@@ -169,12 +214,6 @@ async def serve_thumb(
     if not isinstance(host_thumb_path, str) or not Path(host_thumb_path).is_file():
         return thumb_no_store(500, "Thumb path missing or not readable")
 
-    has_version = version is not None and version != ""
-    cache_header = (
-        "public, max-age=86400, immutable"
-        if has_version
-        else "public, max-age=300, must-revalidate"
-    )
     return FileResponse(
         path=host_thumb_path,
         media_type="image/png",

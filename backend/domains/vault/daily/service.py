@@ -11,6 +11,7 @@ from pathlib import Path
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 Metadata = RegistryData
 DailySource = tuple[Metadata | None, Metadata | None]
@@ -86,12 +87,14 @@ def find_folder_note_id(
     if direct.exists():
         try:
             metadata, _body = dependencies.parse_frontmatter(
-                direct.read_text(encoding="utf-8"),
+                read_vault_text(direct, root=daily_directory),
                 direct,
             )
             page_id = metadata.get("id")
             if page_id:
                 return str(page_id)
+        except MetadataUnavailable:
+            raise
         except Exception:
             pass
     for file_path in daily_directory.glob("*.md"):

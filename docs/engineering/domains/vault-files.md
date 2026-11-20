@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-20
 source_paths:
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
@@ -18,6 +18,8 @@ source_paths:
   - backend/domains/vault/media/routes.py
   - backend/domains/media
   - backend/platform/files
+  - backend/utils/metadata_io.py
+  - desktop/native/file-access.m
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -117,6 +119,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_coordinated_consumers.py
   - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
@@ -651,23 +654,28 @@ code still works with `Path`; the adapter adds placeholder detection,
 hydration, availability, and path mapping. Set `GNOSI_FILES_PROVIDER`
 explicitly when automatic path detection is ambiguous.
 
-The files-on-demand runtime is provider-neutral. Native macOS defaults to a
-read-only `NSFileCoordinator` helper, built and signed into
-`Contents/Resources/native/gnosi-file-access`. Each invocation requests one
-file, reads at most 64 KiB, and returns no document content. Two concurrent
-downloads and per-path coalescing bound load; timeout/cancellation terminates
-the owned helper process. There is no GUI launch, pinning, recursive download,
-or cloud-client restart on this default path. Docker deployments retain their
-configured host helper. Legacy `open` and `direct` modes are explicit overrides;
-only the legacy OneDrive adapter can opt into vendor-specific recovery.
+On macOS, selected cloud files are read through the signed
+`Contents/Resources/native/gnosi-file-access` helper. It streams the bytes
+from the open file descriptor inside an `NSFileCoordinator` read, together
+with the source revision. Callers hold a private local snapshot while decoding
+a document, extracting text or serving HTTP ranges. Concurrent requests for
+the same revision share a download. The queue reserves capacity for active
+reads when background previews or warmup are pending. Coordinated reads
+select individual files and leave the Vault's pinning policy to its owner.
+Docker deployments retain their configured host helper. Legacy `open` and
+`direct` modes remain explicit overrides.
+
+The HTTP response carries a stable availability reason. Pending downloads and
+network outages return 503 with a retry delay. Missing permission returns 403,
+and a full disk returns 507. The frontend can retry a pending read within its
+request budget. Durable jobs handle their own retry and checkpoint policy.
 
 Index discovery uses dataless flags to retain addressable placeholders without
 opening every cloud document. Existing richer cache entries survive unreadable
 files; materialization does not have to change mtime to refresh a placeholder.
 An unsuccessful initial scan is not marked initialized. Sidebar navigation and
 the table requested by the user fetch the metadata they need, while page/asset
-reads materialize the selected file. Unavailable selected files return 503 with
-Retry-After rather than an empty successful read. Critical-tree bulk warmup is
+reads materialize the selected file. Critical-tree bulk warmup is
 disabled by default for native coordinated access.
 
 The September 14 source validation includes synthetic failure, cancellation,

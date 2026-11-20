@@ -6,6 +6,8 @@ import importlib as _legacy_importlib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from backend.utils.metadata_io import is_native_vault_file, read_vault_text, read_vault_text_with_stat
+
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
     from backend.domains.vault.trash.purge import PurgeResult
@@ -98,7 +100,7 @@ async def _materialize_trash_sidecar(page_id: str) -> None:
         sidecar = await _legacy.asyncio.to_thread(_existing_sidecar)
     except OSError:
         return
-    if sidecar is not None:
+    if sidecar is not None and not is_native_vault_file(sidecar):
         await _legacy._materialize_if_online_only(sidecar, f"trash/{page_id}")
 
 
@@ -212,7 +214,16 @@ def _add_page_to_index_cache(file_path: Path) -> None:
     v_str = str(v_path)
     try:
         stat_result = file_path.stat()
-        new_entry = _legacy._build_page_cache_entry(file_path, stat_result)
+        parsed = None
+        if is_native_vault_file(file_path, stat_result):
+            from backend.domains.vault.pages.foundation import _parse_dashboard_text
+
+            raw, stat_result = read_vault_text_with_stat(file_path, errors="ignore", root=v_path)
+            parse = _parse_dashboard_text if _legacy._is_dashboard_file_path(file_path) else _legacy.parse_frontmatter
+            parsed = parse(raw, file_path)
+            new_entry = _legacy._build_cache_entry_from_memory(file_path, stat_result, *parsed)
+        else:
+            new_entry = _legacy._build_page_cache_entry(file_path, stat_result)
     except Exception as e:
         _legacy.log.warning(f"_add_page_to_index_cache failed for {file_path}: {e}")
         return
@@ -223,8 +234,10 @@ def _add_page_to_index_cache(file_path: Path) -> None:
             _legacy._page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
     _legacy.path_resolver.add_file(v_path, new_id, file_path)
     try:
-        raw_content = file_path.read_text(encoding="utf-8", errors="ignore")
-        metadata, body = _legacy.parse_frontmatter(raw_content, file_path)
+        if parsed is None:
+            raw_content = read_vault_text(file_path, errors="ignore", root=v_path)
+            parsed = _legacy.parse_frontmatter(raw_content, file_path)
+        metadata, body = parsed
         path_str = str(file_path)
         with _legacy._iter_docs_lock:
             _dc_entry = _legacy._iter_docs_cache.get(v_str)

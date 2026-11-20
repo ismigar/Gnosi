@@ -16,6 +16,7 @@ Three levels, none of which ever applies input raw:
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.services.agent_behavior import task_input
 
 import json
@@ -52,11 +53,13 @@ def _glossary_path() -> Path:
 def load_glossary() -> List[Dict[str, str]]:
     """Confirmed (heard → meant) pairs, oldest first. Malformed → empty."""
     try:
-        data = json.loads(_glossary_path().read_text(encoding="utf-8"))
+        data = json.loads(read_vault_text(_glossary_path(), encoding="utf-8"))
         pairs = data.get("pairs") if isinstance(data, dict) else None
         if not isinstance(pairs, list):
             return []
         return [p for p in pairs if isinstance(p, dict) and p.get("heard") and p.get("meant")]
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return []
 

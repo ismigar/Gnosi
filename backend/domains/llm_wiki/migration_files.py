@@ -58,7 +58,7 @@ def json_text(value: object) -> str:
 
 
 def change(vault: Path, path: Path, text: str) -> dict[str, object] | None:
-    original = path.read_bytes() if path.exists() else None
+    original = read_metadata_bytes(path) if path.exists() else None
     if original == text.encode("utf-8"):
         return None
     return {
@@ -74,7 +74,7 @@ def _verify_sources(vault: Path, changes: list[dict[str, object]], *, resume: bo
         path = (vault / str(item["path"])).resolve()
         if not path.is_relative_to(vault.resolve()):
             raise ValueError("Migration target escapes the vault")
-        actual = digest(path.read_bytes()) if path.exists() else None
+        actual = digest(read_metadata_bytes(path)) if path.exists() else None
         permitted = {item["before_sha256"]}
         if resume:
             permitted.add(item["after_sha256"])
@@ -118,12 +118,12 @@ def apply(vault: Path, output: Path, changes: list[dict[str, object]]) -> dict[s
     assert isinstance(applied, list)
     for item in changes:
         path = vault / str(item["path"])
-        actual = digest(path.read_bytes()) if path.exists() else None
+        actual = digest(read_metadata_bytes(path)) if path.exists() else None
         if actual != item["after_sha256"]:
             if actual != item["before_sha256"]:
                 raise ValueError("File changed while applying migration")
             safe_write_text(path, str(item["text"]))
-            if digest(path.read_bytes()) != item["after_sha256"]:
+            if digest(read_metadata_bytes(path)) != item["after_sha256"]:
                 raise ValueError("Migration write verification failed")
         if item["path"] not in applied:
             applied.append(item["path"])
@@ -140,7 +140,7 @@ def rollback(vault: Path, output: Path, changes: list[dict[str, object]]) -> Non
     with tarfile.open(str(journal["backup"])) as archive:
         for item in changes:
             path = vault / str(item["path"])
-            actual = digest(path.read_bytes()) if path.exists() else None
+            actual = digest(read_metadata_bytes(path)) if path.exists() else None
             if actual not in {item["before_sha256"], item["after_sha256"]}:
                 raise ValueError("Cannot overwrite a concurrent edit during rollback")
         for item in changes:

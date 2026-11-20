@@ -213,14 +213,14 @@ def _unavailable_response(
     language = _response_language(chat_req.message)
     if isinstance(error, MetadataUnavailable):
         error_code = "metadata_unavailable"
-        language, message = metadata_unavailable_detail(request.headers.get("Accept-Language") or language)
+        language, message = metadata_unavailable_detail(request.headers.get("Accept-Language") or language, error.reason)
     else:
         if error.status_code != 503:
             raise error
         error_code = str(error.detail.get("code")) if isinstance(error.detail, dict) else "service_unavailable"
         message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
         message = failure_message(language, message_key)
-    recovery = recovery_metadata(error_code)
+    recovery = recovery_metadata(error_code, retryable=error.retryable if isinstance(error, MetadataUnavailable) else None)
 
     async def unavailable_generator() -> AsyncIterator[str]:
         yield json.dumps({
@@ -311,11 +311,9 @@ async def chat_endpoint(
                     detail="This turn has already been accepted or is still running.",
                 )
 
-        # 1. Build bounded attachment context and delete the temporary files
-        # before provider selection. This cleanup therefore also covers model
-        # configuration and workflow-construction failures.
-        user_content, untrusted_context_flags = _chat_user_content(
-            chat_req,
+        # Attachments can require a coordinated file download before model selection.
+        user_content, untrusted_context_flags = await asyncio.to_thread(
+            _chat_user_content, chat_req,
             vault=vault,
             vault_scope=vault_scope,
             workspace_context=workspace_context,

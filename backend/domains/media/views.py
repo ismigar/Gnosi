@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import metadata_path
+from backend.utils.metadata_io import metadata_path, read_metadata_text
 
 import json
 import logging
@@ -56,12 +56,13 @@ def ensure_views_loaded(
             return
         path = saved_views_path()
         loaded: ViewStore = {"version": 1, "items": []}
-        if path and path.exists():
+        if path is not None:
             try:
-                with metadata_path(path).open("r", encoding="utf-8") as handle:
-                    raw = cast(object, json.load(handle))
+                raw = cast(object, json.loads(read_metadata_text(path)))
                 if isinstance(raw, dict) and isinstance(raw.get("items"), list):
                     loaded = cast(ViewStore, raw)
+            except FileNotFoundError:
+                pass
             except (OSError, json.JSONDecodeError) as error:
                 logger.warning(f"media_views.json corrupte ({path}): {error} — reinicialitzant")
         service._views = loaded

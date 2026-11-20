@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
+import stat
+from collections.abc import Iterator
 import time
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -14,6 +16,9 @@ import yaml
 from fastapi import HTTPException
 
 from backend.services.context_vars import get_active_vault_path, get_primary_vault_path
+from backend.platform.files import get_files_provider
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
@@ -58,6 +63,20 @@ def _find_message_files(mail_path: Path, message_id: str) -> list[Path]:
     return files
 
 
+def resident_messages(mail_path: Path) -> Iterator[Path]:
+    """Background UID, flag and address scans only inspect resident mail."""
+    if mail_path.is_symlink():
+        return
+    provider = get_files_provider()
+    for path in mail_path.glob("*.md"):
+        try:
+            info = path.lstat()
+            if stat.S_ISREG(info.st_mode) and not is_cloud_placeholder(path, info) and not provider.is_online_only(path, info):
+                yield path
+        except OSError:
+            continue
+
+
 def _sanitize_yaml_string(val: str) -> str:
     """Escape problematic characters to make a string safe for YAML.
 
@@ -88,7 +107,7 @@ def _naive_metadata_from_text(yaml_text: str) -> dict[str, Any]:
     return out
 
 
-def _repair_file(file_path: Path, yaml_text: str, body: str) -> Any:
+def _repair_file(file_path: Path, yaml_text: str, body: str) -> str:
     """Attempt to rewrite a mailbox file with safe frontmatter.
 
     ``yaml_text`` is the raw text of the frontmatter (between the ``---``
@@ -103,8 +122,10 @@ def _repair_file(file_path: Path, yaml_text: str, body: str) -> Any:
         if isinstance(v, str):
             metadata[k] = _sanitize_yaml_string(v)
     new_front = yaml.dump(metadata, default_flow_style=False, sort_keys=False, allow_unicode=True)
-    safe_write_text(file_path, f"---\n{new_front}---\n\n{body}\n")
+    repaired = f"---\n{new_front}---\n\n{body}\n"
+    safe_write_text(file_path, repaired)
     log.info(f"Rewrote malformed mail frontmatter in {file_path}")
+    return repaired
 
 
 def parse_frontmatter(content: str, file_path: Optional[Path] | None = None) -> Any:
@@ -129,10 +150,10 @@ def parse_frontmatter(content: str, file_path: Optional[Path] | None = None) -> 
             # try to repair the file contents so future reads succeed
             if file_path:
                 try:
-                    _repair_file(file_path, match.group(1), match.group(2))
-                    # after rewriting the file we can safely parse again and return
-                    fixed = file_path.read_text(encoding="utf-8")
-                    return parse_frontmatter(fixed, file_path)
+                    fixed = _repair_file(file_path, match.group(1), match.group(2))
+                    return parse_frontmatter(fixed)
+                except MetadataUnavailable:
+                    raise
                 except Exception as rerr:
                     log.debug(f"Failed to repair {file_path}: {rerr}")
 
@@ -165,7 +186,7 @@ def _load_vault_drafts(account_email: str) -> list[Any]:
     drafts = []
     for f in mail_path.glob("draft_*.md"):
         try:
-            content = f.read_text(encoding="utf-8")
+            content = read_vault_text(f, root=mail_path.parent)
             metadata, body = parse_frontmatter(content, f)
             if metadata.get("type") != "Draft":
                 continue
@@ -193,6 +214,8 @@ def _load_vault_drafts(account_email: str) -> list[Any]:
                     "source": "vault",
                 }
             )
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
     drafts.sort(key=lambda d: d.get("timestamp", 0), reverse=True)

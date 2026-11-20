@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-20
 source_paths:
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
@@ -18,6 +18,8 @@ source_paths:
   - backend/domains/vault/media/routes.py
   - backend/domains/media
   - backend/platform/files
+  - backend/utils/metadata_io.py
+  - desktop/native/file-access.m
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -117,6 +119,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_coordinated_consumers.py
   - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
@@ -686,16 +689,21 @@ l'adaptador hi afegeix detecció de marcadors de posició, hidratació,
 disponibilitat i mapatge de rutes. Establiu `GNOSI_FILES_PROVIDER`
 explícitament quan la detecció automàtica de rutes sigui ambigua.
 
-El sistema d'execució de fitxers a demanda és independent del proveïdor. A macOS
-s'utilitza per defecte un auxiliar de només lectura basat en `NSFileCoordinator`,
-compilat i signat a `Contents/Resources/native/gnosi-file-access`. Cada invocació
-demana un fitxer, llegeix com a màxim 64 KiB i no retorna contingut del document.
-El límit de dues descàrregues simultànies i la unificació de peticions per camí
-acoten la càrrega; el temps límit o la cancel·lació finalitzen el procés auxiliar.
-Aquest camí no obre aplicacions gràfiques, fixa fitxers al disc, descarrega
-recursivament ni reinicia clients de núvol. Docker conserva l'auxiliar configurat
-a l'amfitrió. Els modes antics `open` i `direct` requereixen una selecció explícita;
-només l'adaptador antic de OneDrive pot activar una recuperació específica.
+Al macOS, Gnosi llegeix els fitxers del núvol seleccionats mitjançant l’auxiliar
+signat `Contents/Resources/native/gnosi-file-access`. Amb `NSFileCoordinator`
+obté els bytes i la revisió del mateix fitxer obert. Els consumidors disposen
+d’una còpia local privada mentre descodifiquen un document, n’extreuen el text
+o serveixen intervals HTTP. Les peticions simultànies per a la mateixa revisió
+comparteixen la descàrrega. La cua reserva capacitat per a les lectures actives
+quan hi ha previsualitzacions o precàrregues pendents. Cada lectura demana
+un fitxer i respecta la política de conservació del Vault. Docker conserva
+l’auxiliar de l’amfitrió. Els modes `open` i `direct` es poden triar explícitament.
+
+La resposta HTTP indica la causa de la indisponibilitat. Una descàrrega pendent
+o una desconnexió retornen 503 amb el temps d’espera. La falta de permís
+retorna 403 i un disc ple retorna 507. La interfície pot reintentar una lectura
+pendent dins del seu termini. Cada feina persistent gestiona els seus reintents
+i punts de represa.
 
 La detecció de l'índex utilitza els indicadors de fitxer sense dades per conservar
 marcadors accessibles sense obrir tots els documents del núvol. Les entrades
@@ -703,8 +711,7 @@ existents més completes es conserven si un fitxer no es pot llegir; la descàrr
 no necessita canviar el mtime per actualitzar un marcador. Una exploració inicial
 fallida no es marca com a inicialitzada. La navegació lateral i la taula demanada
 obtenen les metadades necessàries, mentre que les lectures de pàgines i adjunts
-materialitzen el fitxer seleccionat. Els fitxers no disponibles retornen 503 amb
-Retry-After en lloc d'una lectura buida correcta. L'escalfament massiu de l'arbre
+materialitzen el fitxer seleccionat. L'escalfament massiu de l'arbre
 crític està desactivat per defecte amb l'accés coordinat natiu.
 
 La validació del codi del 14 de setembre inclou proves sintètiques de fallada,

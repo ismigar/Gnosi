@@ -14,6 +14,8 @@ from fastapi import HTTPException
 from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import read_vault_text
 
 
 Metadata = dict[str, object]
@@ -168,7 +170,7 @@ def _candidate_extra_pages(
             if not page_path:
                 continue
             metadata, _body = dependencies.parse_frontmatter(
-                page_path.read_text(encoding="utf-8"),
+                read_vault_text(page_path, root=active_vault_path.get()),
                 page_path,
             )
             extras = metadata.get("Zotero Extras")
@@ -194,7 +196,7 @@ def _promote_one_extra(
         return conflict
     try:
         metadata, body = dependencies.parse_frontmatter(
-            page_path.read_text(encoding="utf-8"),
+            read_vault_text(page_path, root=active_vault_path.get()),
             page_path,
         )
         extras = metadata.get("Zotero Extras")
@@ -296,7 +298,7 @@ def _bulk_update_one(
         return conflict
     try:
         metadata, body = dependencies.parse_frontmatter(
-            page_path.read_text(encoding="utf-8"),
+            read_vault_text(page_path, root=active_vault_path.get()),
             page_path,
         )
         next_metadata = apply_metadata_patch(metadata, updates, remove_keys)
@@ -361,7 +363,7 @@ def _read_template(
     if not template_path or not template_path.exists():
         return None
     metadata, body = dependencies.parse_frontmatter(
-        template_path.read_text(encoding="utf-8"),
+        read_vault_text(template_path, root=active_vault_path.get()),
         template_path,
     )
     return metadata, body or ""
@@ -401,7 +403,7 @@ def _apply_template_one(
     if conflict:
         return conflict
     metadata, current_body = dependencies.parse_frontmatter(
-        page_path.read_text(encoding="utf-8"),
+        read_vault_text(page_path, root=active_vault_path.get()),
         page_path,
     )
     if metadata.get("is_template") is True:

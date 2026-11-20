@@ -10,6 +10,7 @@ from typing import TypedDict
 
 from backend.domains.vault.comments.repository import PageCommentMap
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 Metadata = PageMetadata
@@ -58,12 +59,14 @@ def _relation_metadata(
 ) -> tuple[Metadata | None, str | None]:
     try:
         page_path = entry_directory / "page.md"
-        if not page_path.exists():
-            return None, None
-        raw = page_path.read_text(encoding="utf-8")
+        raw = read_vault_text(page_path, root=dependencies.vault_root())
         metadata, _body = dependencies.parse_frontmatter(raw, page_path)
         table_id = metadata.get("table_id") or metadata.get("database_table_id")
         return metadata, str(table_id) if table_id else None
+    except FileNotFoundError:
+        return None, None
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         dependencies.logger.debug(
             "purge: could not read relationships for %s: %s",

@@ -18,6 +18,7 @@ from backend.domains.vault.tables.rules.types import (
     RuleEngineDependencies,
 )
 from backend.services.unified_dates import formula_date_value
+from backend.utils.metadata_io import MetadataUnavailable
 
 
 def _first(value: object) -> object:
@@ -199,6 +200,8 @@ class RuleEngine:
             result = self._evaluate_expression(str(expression))
             updated_metadata[property_name] = result
             self.evaluator.names[property_name] = result
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             self.dependencies.logger.error(
                 "Error evaluating formula '%s' for field '%s': %s",
@@ -236,7 +239,9 @@ class RuleEngine:
         if not record_path:
             return None
         try:
-            return self._parse_metadata(record_path)
+            return self._parse_selected_metadata(record_path)
+        except MetadataUnavailable:
+            raise
         except Exception:
             return None
 
@@ -274,6 +279,8 @@ class RuleEngine:
             result = self._evaluate_rollup_definition(definition, updated_metadata)
             updated_metadata[name] = result
             self.evaluator.names[name] = result
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             self.dependencies.logger.warning(
                 "Error evaluating rollup for field '%s': %s",
@@ -293,7 +300,7 @@ class RuleEngine:
             property_name,
             self._lookup_cache,
             self._find_record_path,
-            self._parse_metadata,
+            self._parse_selected_metadata,
             self.dependencies.logger,
         )
 
@@ -397,6 +404,9 @@ class RuleEngine:
     def _find_record_path(self, record_id: str) -> Path | None:
         return records.find_record_path(self.vault_path, record_id, self.dependencies)
 
+    def _parse_selected_metadata(self, path: Path) -> Metadata:
+        return records.parse_metadata(path, self._resolve_table_by_id, self.dependencies, root=self.vault_path)
+
     def _parse_metadata(self, path: Path) -> Metadata:
         return records.parse_metadata(path, self._resolve_table_by_id, self.dependencies)
 
@@ -484,6 +494,8 @@ class RuleEngine:
             for action in actions:
                 if is_record(action):
                     self._apply_automation_action(action, updated_metadata)
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             self.dependencies.logger.error(
                 "Error processing automation %s: %s",

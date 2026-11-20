@@ -23,6 +23,8 @@ from backend.domains.vault.translation.types import (
     TranslateText,
 )
 from backend.utils.open_values import iterable_values, list_values
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import is_native_vault_file, read_vault_text_async
 
 
 @dataclass(frozen=True)
@@ -324,7 +326,7 @@ async def _persist_translation(
     existing_id: object = getattr(existing, "id", None) if existing is not None else None
     if existing_id:
         existing_path = await asyncio.to_thread(dependencies.find_page, str(existing_id))
-        if existing_path:
+        if existing_path and not is_native_vault_file(existing_path):
             await dependencies.materialize(
                 existing_path,
                 f"translate-patch/{existing_id}",
@@ -432,7 +434,7 @@ async def translate_row(
     file_path = await asyncio.to_thread(dependencies.find_page, item_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail=f"Page not found (ID: {item_id})")
-    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    raw_content = await read_vault_text_async(file_path, root=active_vault_path.get())
     metadata, body = dependencies.parse_frontmatter(raw_content, file_path)
     table_id = dependencies.table_id(metadata)
     table = dependencies.table_by_id(table_id) if table_id else None

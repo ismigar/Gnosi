@@ -41,14 +41,50 @@ function canonicalInput(
 }
 
 
+function waitForDownload(milliseconds: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    }, milliseconds);
+    function abort() {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    }
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+}
+
+async function readResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const request = input instanceof Request ? input : undefined;
+  const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
+  const signal = init?.signal ?? request?.signal;
+  let response = await globalThis.fetch(input, init);
+  if (method !== 'GET' && method !== 'HEAD') return response;
+
+  // A synchronous reader on the server can hand a coordinated download to
+  // its next read. Keep the original vault headers and cancellation signal.
+  const deadline = Date.now() + 45_000;
+  for (const minimum of [1000, 2000, 4000, 8000, 16000]) {
+    if (response.status !== 503 || response.headers.get('X-Gnosi-File-Availability') !== 'pending') break;
+    const retry = Number(response.headers.get('Retry-After'));
+    const delay = Math.max(minimum, Number.isFinite(retry) ? retry * 1000 : 0);
+    if (Date.now() + delay > deadline) break;
+    await response.body?.cancel();
+    await waitForDownload(delay, signal);
+    response = await globalThis.fetch(input, init);
+  }
+  return response;
+}
+
 export const transportFetch: typeof globalThis.fetch = (input, init) => {
   const parsed = requestUrl(input);
-  if (!isSameOriginApi(parsed) || input instanceof Request) {
-    return globalThis.fetch(input, init);
-  }
+  if (!isSameOriginApi(parsed)) return globalThis.fetch(input, init);
+  if (input instanceof Request) return readResponse(input, init);
   const headers = new Headers(init?.headers);
   applyRequestContext(headers);
-  return globalThis.fetch(canonicalInput(input, headers), {
+  return readResponse(canonicalInput(input, headers), {
     ...init,
     credentials: init?.credentials ?? 'include',
     headers,

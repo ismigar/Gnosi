@@ -5,10 +5,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
+
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text, vault_file_snapshot
 
 JsonObject = dict[str, object]
 DrawingSummary = dict[str, object]
@@ -44,8 +49,9 @@ class DrawingDependencies:
     backup_cooldown: float = 600.0
 
 
-def _read_object(file_path: Path) -> JsonObject:
-    loaded: object = json.loads(file_path.read_text(encoding="utf-8"))
+def _read_object(file_path: Path, root: Path | None = None) -> JsonObject:
+    raw = read_vault_text(file_path, root=root) if root is not None else file_path.read_text(encoding="utf-8")
+    loaded: object = json.loads(raw)
     if not isinstance(loaded, dict):
         raise ValueError("drawing payload must be a JSON object")
     return cast(JsonObject, loaded)
@@ -72,7 +78,7 @@ def _list_drawings(dependencies: DrawingDependencies) -> list[DrawingSummary]:
         seen_ids.add(drawing_id)
         try:
             stat_result = file_path.stat()
-            payload = _read_object(file_path)
+            payload = {} if is_cloud_placeholder(file_path, stat_result) else _read_object(file_path)
             drawings.append(
                 {
                     "id": drawing_id,
@@ -93,7 +99,7 @@ def _list_drawings(dependencies: DrawingDependencies) -> list[DrawingSummary]:
             continue
         try:
             stat_result = file_path.stat()
-            payload = _read_object(file_path)
+            payload = {} if is_cloud_placeholder(file_path, stat_result) else _read_object(file_path)
             raw_metadata = payload.get("metadata")
             metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
             drawings.append(
@@ -124,10 +130,10 @@ async def get_drawing(drawing_id: str, dependencies: DrawingDependencies) -> obj
     """Return the inner Tldraw data or the complete legacy Excalidraw payload."""
     try:
         payload = await asyncio.to_thread(
-            lambda: _read_object(_drawing_path(drawing_id, dependencies))
+            lambda: _read_object(_drawing_path(drawing_id, dependencies), dependencies.vault_root())
         )
         return payload["data"] if "data" in payload else payload
-    except DrawingNotFoundError:
+    except (DrawingNotFoundError, MetadataUnavailable):
         raise
     except Exception as error:
         dependencies.logger.error(
@@ -160,8 +166,15 @@ def backup_drawing_version(
             pass
     version_path = history_directory / f"{dependencies.timestamp_label()}.tldraw.json"
     try:
-        dependencies.copy_file(file_path, version_path)
+        with vault_file_snapshot(file_path, root=dependencies.vault_root()) as source:
+            dependencies.copy_file(source.path, version_path)
+            if source.is_private:
+                info = source.stat_result
+                os.chmod(version_path, stat.S_IMODE(info.st_mode))
+                os.utime(version_path, ns=(info.st_atime_ns, info.st_mtime_ns))
         dependencies.logger.info("Drawing version created: %s", version_path)
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         dependencies.logger.warning(
             "Could not create drawing version for %s: %s",
@@ -189,6 +202,8 @@ async def save_drawing(
     try:
         await asyncio.to_thread(write)
         return {"status": "success", "id": drawing_id}
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         dependencies.logger.error(
             "Error saving drawing %s: %s",
@@ -205,7 +220,9 @@ def _delete_drawing(
     file_path = _drawing_path(drawing_id, dependencies)
     title = ""
     try:
-        title = str(_read_object(file_path).get("title") or "")
+        title = str(_read_object(file_path, dependencies.vault_root()).get("title") or "")
+    except MetadataUnavailable:
+        raise
     except Exception:
         pass
     sidecar = dependencies.move_to_trash(drawing_id, file_path)

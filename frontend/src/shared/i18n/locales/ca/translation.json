@@ -646,6 +646,17 @@
     "modified_column": "Última modificació"
   },
   "dashboard": {
+    "cloud_files": {
+      "waiting": "En espera",
+      "file": "el fitxer",
+      "provider": "el servei de núvol",
+      "pending": "Esperant que {{provider}} descarregui {{file}}.",
+      "offline": "Cal connexió amb {{provider}} per descarregar {{file}}.",
+      "permission": "Cal permís per llegir {{file}}.",
+      "no_space": "Falta espai al dispositiu per descarregar {{file}}.",
+      "unavailable": "Ara no es pot obtenir {{file}} de {{provider}}.",
+      "retry": "Proper intent el {{time}}."
+    },
     "status_title": "Estat del Sistema",
     "memory_title": "Memòria a Llarg Termini",
     "memories_stored": "memòries emmagatzemades",

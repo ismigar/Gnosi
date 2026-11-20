@@ -4451,6 +4451,17 @@
     "records_restore_failed_many": "Impossible de restaurer {{count}} enregistrements (codes : {{reasons}})"
   },
   "dashboard": {
+    "cloud_files": {
+      "waiting": "En attente",
+      "file": "le fichier",
+      "provider": "le service de stockage",
+      "pending": "En attente du téléchargement de {{file}} par {{provider}}.",
+      "offline": "Une connexion avec {{provider}} est nécessaire pour télécharger {{file}}.",
+      "permission": "Une autorisation est nécessaire pour lire {{file}}.",
+      "no_space": "L’espace disponible sur cet appareil est insuffisant pour télécharger {{file}}.",
+      "unavailable": "{{provider}} ne peut pas fournir {{file}} pour le moment.",
+      "retry": "Prochaine tentative le {{time}}."
+    },
     "actions": "Actions",
     "active": "Actif",
     "add_member": "Ajouter un membre",

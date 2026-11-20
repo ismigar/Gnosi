@@ -646,6 +646,17 @@
     "modified_column": "Última modificación"
   },
   "dashboard": {
+    "cloud_files": {
+      "waiting": "En espera",
+      "file": "el archivo",
+      "provider": "el servicio en la nube",
+      "pending": "Esperando a que {{provider}} descargue {{file}}.",
+      "offline": "Se necesita conexión con {{provider}} para descargar {{file}}.",
+      "permission": "Se necesita permiso para leer {{file}}.",
+      "no_space": "Falta espacio en el dispositivo para descargar {{file}}.",
+      "unavailable": "Ahora no se puede obtener {{file}} desde {{provider}}.",
+      "retry": "Próximo intento el {{time}}."
+    },
     "status_title": "Estado del Sistema",
     "memory_title": "Memoria a Largo Plazo",
     "memories_stored": "memorias guardadas",

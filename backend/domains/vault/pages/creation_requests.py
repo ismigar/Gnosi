@@ -27,6 +27,7 @@ from backend.domains.vault.schemas.pages import PageSaveRequest
 from backend.domains.vault.pages.creation_steps import CreationSteps, OperationTasks, PlanningTasks
 from backend.domains.vault.pages.creation_inputs import CreationInputs
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 def validate_key(key: str) -> None:
@@ -228,7 +229,7 @@ class CreationRequests:
             path = Path(row["file_path"]).resolve()
             if not path.is_relative_to(vault_path.resolve()) or path.suffix != ".md":
                 return False
-            metadata, _ = dependencies.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            metadata, _ = dependencies.parse_frontmatter(read_vault_text(path, root=vault_path), path)
             if dependencies.canonicalize_id(metadata.get("id")) != dependencies.canonicalize_id(row["page_id"]):
                 return False
             # The creator may have died before registering its saved document.
@@ -239,6 +240,8 @@ class CreationRequests:
                     or (dependencies.verify_index_created is not None and not dependencies.verify_index_created(row["page_id"], path))):
                 dependencies.index_created_page(row["page_id"], path)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception:
             return False
 

@@ -18,6 +18,7 @@ from typing import Any, List, Optional, cast
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict
 
+from backend.utils.metadata_io import read_vault_text
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
 from backend.utils.errors import safe_error_detail
@@ -103,7 +104,7 @@ def _load_registry(vault_path: Path) -> tuple[dict[str, Any], Path]:
         registry_path = vault_path / "vault_db_registry.json"
     if not registry_path.exists():
         raise FileNotFoundError(f"Registry no trobat: {registry_path}")
-    payload: Any = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload: Any = json.loads(read_vault_text(registry_path, encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Vault registry root must be an object")
     registry = cast(dict[str, Any], payload)

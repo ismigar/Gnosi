@@ -128,7 +128,7 @@ async def stream_error_events(
     local_error_code = _agent_stream_error_code(error)
     response_language = _response_language(chat_req.message)
     if isinstance(error, MetadataUnavailable):
-        response_language, friendly_error = metadata_unavailable_detail(preferred_language or response_language)
+        response_language, friendly_error = metadata_unavailable_detail(preferred_language or response_language, error.reason)
     else:
         friendly_error = _friendly_stream_error(
             error,
@@ -180,7 +180,7 @@ async def stream_error_events(
     except Exception:  # noqa: BLE001
         log.exception("Failed to record agent quality telemetry.")
 
-    recovery = recovery_metadata(stable_error_code)
+    recovery = recovery_metadata(stable_error_code, retryable=error.retryable if isinstance(error, MetadataUnavailable) else None)
     error_payload = {
         "type": "error",
         "code": stable_error_code,

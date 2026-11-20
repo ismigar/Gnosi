@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -27,7 +29,7 @@ class TaskUpdate(BaseModel):
 @router.get("", response_model=list[ScheduledTaskResponse])
 async def list_tasks() -> list[ScheduledTaskResponse]:
     """Get all scheduled tasks."""
-    return [ScheduledTaskResponse.model_validate(task) for task in scheduler_manager.get_tasks()]
+    return [ScheduledTaskResponse.model_validate(task) for task in await asyncio.to_thread(scheduler_manager.get_tasks)]
 
 
 @router.delete(
@@ -73,7 +75,7 @@ async def get_history(
 @router.get("/{name}", response_model=ScheduledTaskResponse)
 async def get_task(name: str) -> ScheduledTaskResponse:
     """Get a specific task."""
-    task = scheduler_manager.get_task(name)
+    task = await asyncio.to_thread(scheduler_manager.get_task, name)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
     return ScheduledTaskResponse.model_validate(task)
@@ -110,7 +112,7 @@ async def run_task(name: str) -> TaskRunResponse:
     """Run a task immediately in the background."""
     try:
         # Check if task exists
-        if not scheduler_manager.get_task(name):
+        if not await asyncio.to_thread(scheduler_manager.get_task, name):
             raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
 
         accepted = scheduler_manager.submit_task(name)

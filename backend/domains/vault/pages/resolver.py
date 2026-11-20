@@ -11,6 +11,8 @@ from pathlib import Path
 
 from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
 from backend.domains.vault.registry.state import RegistryData
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 Metadata = RegistryData
@@ -188,8 +190,17 @@ def _full_scan_path(
         return None
     for markdown_path in vault_root.rglob("*.md"):
         try:
-            raw = markdown_path.read_text(encoding="utf-8")
+            if dependencies.canonicalize_id(markdown_path.stem) == canonical_target:
+                raw = read_vault_text(markdown_path, root=vault_root)
+            elif is_cloud_placeholder(markdown_path, markdown_path.stat()):
+                continue
+            else:
+                raw = markdown_path.read_text(encoding="utf-8")
             metadata, _body = dependencies.parse_frontmatter(raw, markdown_path)
+        except MetadataUnavailable:
+            if dependencies.canonicalize_id(markdown_path.stem) == canonical_target:
+                raise
+            continue
         except Exception:
             continue
         if dependencies.canonicalize_id(metadata.get("id", "")) != canonical_target:

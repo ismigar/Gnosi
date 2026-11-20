@@ -25489,8 +25489,16 @@ export interface components {
             name: string;
             /** Next Run */
             next_run?: string | null;
+            /** Retry At */
+            retry_at?: string | null;
             /** Status */
             status: string;
+            /** Wait Reason */
+            wait_reason?: string | null;
+            /** Waiting File */
+            waiting_file?: string | null;
+            /** Waiting Provider */
+            waiting_provider?: string | null;
         };
         /** SchedulePublishRequest */
         SchedulePublishRequest: {

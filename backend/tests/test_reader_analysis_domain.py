@@ -4,30 +4,35 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Callable
 
 import pytest
 
 from backend.domains.reader import analysis, service, storage
-from backend.services import durable_job_queue, reader_analysis
+from backend.services import reader_analysis
 
 
 @pytest.fixture()
-def reader_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def reader_paths(isolated_validation_runtime: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep jobs, queue state and the vault entirely below pytest's temp tree."""
-    local_data = tmp_path / "local-data"
-    vault_path = tmp_path / "vault"
-    vault_path.mkdir()
-
-    def temp_params(*, strict_env: bool = False) -> SimpleNamespace:
-        del strict_env
-        return SimpleNamespace(paths={"LOCAL_DATA": local_data})
-
     monkeypatch.setattr(analysis, "canonical_vault_browser_path", lambda section, path: f"/vault/test/{section}/{path}")
-    monkeypatch.setattr(storage, "load_params", temp_params)
-    monkeypatch.setattr(durable_job_queue, "load_params", temp_params)
-    return vault_path
+    return isolated_validation_runtime / "vault"
+
+
+def test_local_checkpoints_remain_available_with_unreadable_vault_configuration(reader_paths, monkeypatch):
+    from backend.config import app_config
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    params = reader_paths / ".gnosi/params.yaml"
+    params.parent.mkdir(exist_ok=True)
+    params.write_text("settings: {language: ca}")
+    def unavailable(*_args):
+        raise MetadataUnavailable(path=params, reason="offline")
+    monkeypatch.setattr(app_config._CONFIG_YAML_CACHE, "read", unavailable)
+    job_id = "a" * 32
+    saved = storage._save_job(reader_paths, {"job_id": job_id, "state": "running"})
+    assert storage._load_json(storage._job_path(reader_paths, job_id)) == saved
+    assert storage._job_path(reader_paths, job_id).is_relative_to(reader_paths.parent / "data")
 
 
 def _article() -> dict[str, Any]:

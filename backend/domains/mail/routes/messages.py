@@ -38,6 +38,7 @@ from backend.services.google_mail_service import (
 from backend.services.vault_mail_sync_service import sync_service
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
@@ -54,6 +55,8 @@ async def _read_message_provider(function: Callable[..., Any], *args: Any, **kwa
         return await asyncio.wait_for(
             asyncio.to_thread(function, *args, **kwargs), timeout=_MESSAGE_READ_TIMEOUT_S,
         )
+    except MetadataUnavailable:
+        raise
     except (OSError, RuntimeError) as error:
         raise HTTPException(
             status_code=503,
@@ -288,7 +291,7 @@ def _get_saved_message(message_id: str, account_email: str | None = None) -> Any
         raise HTTPException(status_code=404, detail="Message not found")
 
     for file_path in files:
-        content = file_path.read_text(encoding="utf-8")
+        content = read_vault_text(file_path, root=mail_path.parent)
         metadata, body = parse_frontmatter(content, file_path)
         if account_email and str(metadata.get("account", "")).casefold() != account_email.casefold():
             continue
@@ -298,7 +301,10 @@ def _get_saved_message(message_id: str, account_email: str | None = None) -> Any
     else:
         raise HTTPException(status_code=404, detail="Message not found")
     html_path = file_path.with_suffix(".html")
-    body_html = html_path.read_text(encoding="utf-8") if html_path.exists() else None
+    try:
+        body_html = read_vault_text(html_path, root=mail_path.parent)
+    except FileNotFoundError:
+        body_html = None
     date_val = metadata.get("date")
     return {
         "id": metadata.get("id") or message_id,
@@ -529,13 +535,17 @@ async def update_message(
     update: mail_schemas.MailMessageUpdateRequest,
 ) -> Any:
     """Updates metadata fields in Vault and propagates flag changes to IMAP server."""
+    return await asyncio.to_thread(_update_saved_message, message_id, update)
+
+
+def _update_saved_message(message_id: str, update: mail_schemas.MailMessageUpdateRequest) -> Any:
     mail_path = get_mail_vault_path()
     files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
     file_path = files[0]
-    content = file_path.read_text(encoding="utf-8")
+    content = read_vault_text(file_path, root=mail_path.parent)
     metadata, body = parse_frontmatter(content, file_path)
 
     update_values = update.model_dump(exclude_unset=True)

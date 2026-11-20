@@ -32,6 +32,10 @@ class ScheduledTaskResponse(BaseModel):
     last_run: str | None = None
     next_run: str | None = None
     status: str
+    waiting_file: str | None = None
+    waiting_provider: str | None = None
+    wait_reason: str | None = None
+    retry_at: str | None = None
 
 
 class TaskUpdateResponse(BaseModel):

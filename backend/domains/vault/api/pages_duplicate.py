@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.schemas.pages import PageDuplicateResponse
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text_async
 
 Metadata = dict[str, Any]
 
@@ -63,10 +66,10 @@ async def duplicate_page(
     try:
         is_dashboard = dependencies.is_dashboard(source_path)
         if is_dashboard:
-            metadata, body = dependencies.read_dashboard(source_path)
+            metadata, body = await asyncio.to_thread(dependencies.read_dashboard, source_path)
         else:
-            raw_content = source_path.read_text(encoding="utf-8")
-            metadata, body = dependencies.parse_frontmatter(raw_content, source_path)
+            raw_content = await read_vault_text_async(source_path, root=active_vault_path.get())
+            metadata, body = await asyncio.to_thread(dependencies.parse_frontmatter, raw_content, source_path)
 
         new_page_id = dependencies.new_id()
         new_metadata = metadata.copy()
@@ -97,6 +100,8 @@ async def duplicate_page(
             "message": "Page duplicated",
             "title": new_title,
         }
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         log.error("Error duplicating page %s: %s", page_id, exc)
         raise HTTPException(

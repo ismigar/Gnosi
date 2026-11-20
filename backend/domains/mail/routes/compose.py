@@ -25,6 +25,7 @@ from backend.domains.mail.cache import (
 from backend.domains.mail.repositories.vault import (
     _find_message_files,
     _validate_message_id,
+    resident_messages,
     get_mail_vault_path,
     parse_frontmatter,
 )
@@ -52,6 +53,7 @@ from backend.services.mail_inline_images import (
 )
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
+from backend.utils.metadata_io import read_vault_text
 from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
@@ -179,7 +181,7 @@ def _sent_recipient_history(
     mail_path = get_mail_vault_path()
     if not mail_path.exists():
         return recipient_freq, co_map
-    for file_path in mail_path.glob("*.md"):
+    for file_path in resident_messages(mail_path):
         try:
             metadata, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"), file_path)
             if metadata.get("type") != "Sent":
@@ -653,13 +655,17 @@ async def snooze_message(
     if not snooze_until:
         raise HTTPException(status_code=400, detail="Missing snooze_until")
 
+    return await asyncio.to_thread(_snooze_saved_message, message_id, snooze_until)
+
+
+def _snooze_saved_message(message_id: str, snooze_until: str) -> Any:
     mail_path = get_mail_vault_path()
     files = _find_message_files(mail_path, message_id)
     if not files:
         raise HTTPException(status_code=404, detail="Message not found")
 
     file_path = files[0]
-    content = file_path.read_text(encoding="utf-8")
+    content = read_vault_text(file_path, root=mail_path.parent)
     metadata, body = parse_frontmatter(content, file_path)
     metadata["snoozed_until"] = snooze_until
 

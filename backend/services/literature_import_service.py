@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable, Iterable, cast
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.vault.registry.records import RecordReader
 from backend.services.context_vars import active_vault_path, get_primary_vault_path
 from backend.services.literature_models import (
@@ -198,7 +199,9 @@ def _existing_resources(table_id: str) -> dict[str, dict[str, Any]]:
         return existing
     for path in folder.glob("*.md"):
         try:
-            metadata, _ = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            metadata, _ = parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
+        except MetadataUnavailable:
+            raise
         except Exception:  # noqa: BLE001
             continue
         key = str(metadata.get("Literature Work Key") or _resource_key(metadata))

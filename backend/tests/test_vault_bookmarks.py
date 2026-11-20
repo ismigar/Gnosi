@@ -264,7 +264,8 @@ def test_local_cloud_directories_do_not_block_bookmark_synchronization(client, m
 
     monkeypatch.setattr(metadata_io, "is_cloud_placeholder", cloud_directory_stat)
     downloads = []
-    monkeypatch.setattr(metadata_io, "_download", lambda path: downloads.append(path) or False)
+    from backend.tests.cloud_file_fixtures import install_coordinated_reader
+    install_coordinated_reader(monkeypatch, lambda path: downloads.append(path) or False)
     response = client.put("/api/vault/bookmarks/items/one", json=entry())
     assert response.status_code == 200, response.text
     assert client.get("/api/vault/bookmarks").json()["entries"][0]["target"] == "one"
