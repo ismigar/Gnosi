@@ -141,6 +141,11 @@ def test_team_artifacts_are_private(team_runtime):
     scope, snapshot, _, _ = team_runtime
     store.create(AgentRun(run_id="root", agent_id="director", skill_id="", operation="team", origin="chat", status="running", created_at=0, updated_at=0), scope, {}, snapshot.model_dump())
     artifacts.put(scope, "root", "private", "temporary", {"private": True})
+    assert artifacts.list_artifacts(scope, "temporary", "root") == [{"private": True}]
+    assert artifacts.list_artifacts(scope, "temporary", "unknown") == []
+    for field in ("user_id", "workspace_id", "vault_path"):
+        foreign_scope = scope.model_copy(update={field: "other"})
+        assert artifacts.list_artifacts(foreign_scope, "temporary", "root") == []
     other = scope.model_copy(update={"user_id": "bob"})
     assert artifacts.list_artifacts(other, "temporary") == []
     with pytest.raises(LookupError):
