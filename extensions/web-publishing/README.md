@@ -81,6 +81,9 @@ CMS connection or database operation in the publishing path.
 `GNOSI_WEBSITE_IMPORT_ROOT` optionally selects a static archive for a new import.
 The previous `GNOSI_WEB_PUBLISH_DRIVER` setting is accepted only to locate that
 archive and its registration file; the named Python file need not exist.
+When that older registration omits `remote_root`, Gnosi resolves `webapps/web`
+under the authenticated Suweb account’s home and verifies the `web` directory
+before using the destination.
 Archived pages, assets and translations remain available as imported data.
 Native records override matching public identities, and internal resource
 exclusions remain. Private service data stays outside the document root.

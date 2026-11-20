@@ -3,6 +3,7 @@ import contextlib
 import json
 import os
 import shutil
+import subprocess
 from types import SimpleNamespace
 
 import pexpect
@@ -11,7 +12,7 @@ from fastapi import HTTPException
 
 from backend.domains.sites import pangea, runtime
 from backend.domains.sites.models import SiteConfig, SiteTarget
-from backend.domains.sites.bounded_bridge import BoundedBridge
+from backend.domains.sites.bounded_bridge import BoundedBridge, PangeaTransportInterrupted
 from backend.domains.sites.bounded_child import DeadlineChild
 from backend.domains.sites.pangea_driver import PangeaDriver
 
@@ -26,7 +27,7 @@ def registration(tmp_path, monkeypatch):
     monkeypatch.delenv('GNOSI_WEB_PUBLISH_DRIVER', raising=False)
     for key, value in {'SSH_HOST': 'host.invalid', 'SSH_USER': 'operator', 'SSH_PASSWORD': 'synthetic-login', 'SSH_SUWEB_PASSWORD': 'synthetic-web'}.items():
         monkeypatch.setenv(key, value)
-    return SimpleNamespace(vault=vault), config
+    return SimpleNamespace(vault=vault, private_root=tmp_path / 'sites'), config
 
 
 def test_registered_native_driver_needs_no_pilot_scripts(registration):
@@ -56,7 +57,71 @@ def test_old_registration_location_is_data_only_and_never_executes_scripts(regis
     assert pangea.driver(store).CONFIG == registered
 
 
-@pytest.mark.parametrize('mutation,status', [({'vault_paths': []}, 403), ({'target': 'unregistered'}, 409)])
+@pytest.fixture
+def legacy_registration(registration, tmp_path, monkeypatch):
+    store, _ = registration
+    archive = tmp_path / 'archive'
+    registered = archive / '.local/web-publishing/config.json'
+    registered.parent.mkdir(parents=True)
+    registered.write_text(json.dumps({'target': 'staging', 'vault_paths': [str(store.vault)]}))
+    monkeypatch.delenv('GNOSI_PANGEA_CONFIG')
+    monkeypatch.setenv('GNOSI_WEBSITE_IMPORT_ROOT', str(archive))
+    return store
+
+
+@pytest.mark.parametrize('bounded', [False, True])
+def test_legacy_registration_discovers_the_effective_suweb_account_root(legacy_registration, tmp_path, monkeypatch, bounded):
+    store = legacy_registration
+    home = tmp_path / 'web-account'
+    root = home / 'webapps/web'
+    (root / 'web').mkdir(parents=True)
+    getent = tmp_path / 'getent'
+    getent.write_text('#!/bin/sh\n[ "$1" = passwd ] && [ "$2" = "$(id -u)" ] || exit 1\n'
+                      'printf "web:x:%s:1::%s:/bin/sh\\n" "$2" "$TEST_SUWEB_HOME"\n')
+    getent.chmod(0o700)
+    env = {**os.environ, 'PATH': str(tmp_path) + os.pathsep + os.environ['PATH'], 'TEST_SUWEB_HOME': str(home)}
+
+    def run_local_discovery(bridge, command):
+        assert bridge.settings['WORKING_DIRECTORY'] == '/'
+        return subprocess.check_output(['/bin/sh', '-ec', command], env=env, text=True)
+
+    monkeypatch.setattr(BoundedBridge, 'run', run_local_discovery)
+    with pangea.connection(store, bounded=bounded) as (driver, bridge):
+        pangea.paths(driver, SiteConfig(name='Fixture'), bridge=bridge)
+        assert driver.REMOTE_ROOT == str(root.resolve())
+        assert bridge.settings['WORKING_DIRECTORY'] == driver.REMOTE_ROOT
+    (root / 'web').rmdir()
+    with pytest.raises(HTTPException) as failure, pangea.connection(store, bounded=bounded) as (driver, bridge):
+        pangea.paths(driver, SiteConfig(name='Fixture'), bridge=bridge)
+    assert failure.value.status_code == 409
+
+
+def test_legacy_status_recovers_an_interrupted_directory_lookup(legacy_registration, monkeypatch):
+    site = SiteConfig(name='Fixture')
+    target = SiteTarget(id='pangea-staging', environment='staging', adapter='legacy-pangea',
+                        base_url='https://temenosismael.org/_gnosi-proves/webs/' + site.id + '/current')
+    site.targets.append(target)
+    attempts = []
+
+    def discover(bridge, command):
+        attempts.append(bridge)
+        if len(attempts) == 1:
+            raise PangeaTransportInterrupted()
+        return '/owned/recovered'
+
+    def status(transport, bridge, public, private, owner, action, request):
+        assert public.startswith('/owned/recovered/web/') and action == 'status'
+        return {'test_mode': True}
+
+    monkeypatch.setattr(BoundedBridge, 'run', discover)
+    monkeypatch.setattr(pangea, '_service_request', status)
+    monkeypatch.setattr(pangea.time, 'sleep', lambda _: None)
+    assert pangea.service(legacy_registration, site, target.id, 'status', {}) == {'test_mode': True}
+    assert len(attempts) == 2 and attempts[0] is attempts[1]
+
+
+@pytest.mark.parametrize('mutation,status', [({'vault_paths': []}, 403), ({'target': 'unregistered'}, 409),
+                                             ({'remote_root': None}, 409), ({'remote_root': '../other'}, 409)])
 def test_native_driver_retains_registration_boundaries(registration, mutation, status):
     store, config = registration
     config.write_text(json.dumps({**json.loads(config.read_text()), **mutation}))
@@ -90,7 +155,7 @@ def test_current_webs_probe_uses_native_runtime_check(registration, monkeypatch,
 
 
 @pytest.mark.skipif(not shutil.which('php'), reason='PHP is required')
-@pytest.mark.parametrize('data', [b'', bytes(range(256)) * 1000])
+@pytest.mark.parametrize('data', [b'', bytes(range(256)) * 1000], ids=['empty', 'multi-chunk-binary'])
 def test_native_transfer_streams_exact_bytes_over_real_local_pty(tmp_path, data):
     source, destination = tmp_path / 'source.bin', tmp_path / "destination 'quoted'.bin"
     source.write_bytes(data)

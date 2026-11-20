@@ -85,7 +85,7 @@ def test_recovers_only_before_login_then_sends_private_command_once(monkeypatch)
         assert bridge.run("private-operation") == '{"ok":true}'
     assert waits == [10.0, 20.0] and launches == [45.0, 35.0, 15.0]
     assert children[0].sent == children[1].sent == []
-    assert children[2].sent[:3] == ["synthetic-password", "suweb", "stty -echo"]
+    assert children[2].sent[:3] == ["synthetic-password", "suweb; exit $?", "stty -echo"]
     assert len([value for child in children for value in child.sent if "GNOSI_SITE_READ_" in value]) == 1
     assert all(child.closed for child in children)
 
@@ -114,6 +114,15 @@ def test_does_not_retry_after_sending_password(monkeypatch):
         bridge.run("private-operation")
     assert len(launches) == 1 and waits == []
     assert child.sent == ["synthetic-password"] and child.closed
+
+
+def test_rejected_suweb_password_ends_login_without_sending_a_site_command(monkeypatch):
+    child = Session([(2, "operator@host:~$ "), (0, "Password:"), (1, "Authentication failure")])
+    bridge, _, waits, launches = harness(monkeypatch, [child])
+    with pytest.raises(HTTPException):
+        bridge.run("true")
+    assert child.sent == ["suweb; exit $?", "synthetic-suweb"]
+    assert child.closed and len(launches) == 1 and waits == []
 
 
 def test_does_not_retry_failed_suweb_or_replay_uncertain_command(monkeypatch):

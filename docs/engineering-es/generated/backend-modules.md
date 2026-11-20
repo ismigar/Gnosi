@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 214 |
-| `domains` | 637 | 124798 |
+| `domains` | 637 | 124825 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1141 modules** and **216156 source lines**.
+Total: **1141 modules** and **216183 source lines**.
 
 ## agent
 
@@ -536,7 +536,7 @@ Total: **1141 modules** and **216156 source lines**.
 | [`backend/domains/sites/asset_files.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_files.py) | 384 | 4 | 16 | 0 | 10 | Bounded immutable copies of explicitly selected public attachments. |
 | [`backend/domains/sites/asset_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_generation.py) | 37 | 1 | 1 | 0 | 1 | Descriptor-bound Darwin content generations without reading cloud bytes. |
 | [`backend/domains/sites/asset_versions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/asset_versions.py) | 105 | 0 | 5 | 0 | 0 | Preview-only reuse of verified private snapshots of unchanged local files. |
-| [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 142 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
+| [`backend/domains/sites/bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_bridge.py) | 145 | 2 | 0 | 0 | 2 | Deadline-bound read sessions using the maintained SSH/Suweb login procedure. |
 | [`backend/domains/sites/bounded_child.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_child.py) | 85 | 2 | 0 | 0 | 1 | Apply a single SSH deadline even when the maintained driver uses the child directly. |
 | [`backend/domains/sites/bounded_pty.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/bounded_pty.py) | 32 | 0 | 1 | 0 | 0 | Nonblocking PTY writes with one caller-owned absolute deadline. |
 | [`backend/domains/sites/connection_credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/connection_credentials.py) | 55 | 0 | 4 | 0 | 0 | Device-only website connection secrets, scoped to the exact remote account. |
@@ -553,8 +553,8 @@ Total: **1141 modules** and **216156 source lines**.
 | [`backend/domains/sites/newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/newsletter.py) | 223 | 6 | 10 | 0 | 0 | Private newsletter drafts composed from an immutable published projection. |
 | [`backend/domains/sites/note_parse_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/note_parse_cache.py) | 121 | 0 | 6 | 0 | 3 | Authenticated private YAML parse reuse; original bytes are always read afresh. |
 | [`backend/domains/sites/page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/page_editor.py) | 121 | 0 | 3 | 0 | 2 | Non-destructive editorial projections of imported static pages. |
-| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 346 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
-| [`backend/domains/sites/pangea_driver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea_driver.py) | 131 | 1 | 2 | 0 | 1 | Native registered SSH/Suweb publishing, independent of former site tooling. |
+| [`backend/domains/sites/pangea.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea.py) | 351 | 2 | 15 | 0 | 0 | Native website releases through the existing administrator-bound Suweb bridge. |
+| [`backend/domains/sites/pangea_driver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/pangea_driver.py) | 150 | 1 | 3 | 0 | 1 | Native registered SSH/Suweb publishing, independent of former site tooling. |
 | [`backend/domains/sites/paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/paths.py) | 13 | 0 | 1 | 0 | 0 | Locate the website runtime in a checkout or an immutable desktop package. |
 | [`backend/domains/sites/preview_note_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/preview_note_reads.py) | 114 | 0 | 4 | 0 | 0 | Authenticated Markdown bytes reused only after fresh source version checks. |
 | [`backend/domains/sites/preview_render_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/sites/preview_render_cache.py) | 152 | 0 | 6 | 0 | 3 | Authenticated, disposable renderer reuse for local previews only. |

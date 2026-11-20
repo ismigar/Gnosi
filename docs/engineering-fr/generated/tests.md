@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3571 |
-| pytest | 826 | 6452 |
+| pytest | 826 | 6455 |
 
 ## Fichiers
 
@@ -1411,7 +1411,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_sites.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites.py) | 41 | Python AST |
 | pytest | [`backend/tests/test_sites_asset_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_asset_clone.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_sites_asset_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_asset_generation.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_sites_bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_bounded_bridge.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_sites_bounded_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_bounded_bridge.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_captured.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_captured.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_sites_catalogue_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_catalogue_snapshot.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_contact_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_contact_retry.py) | 3 | Python AST |
@@ -1429,7 +1429,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_sites_newsletter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_newsletter.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_page_editor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_page_editor.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_connections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_connections.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_sites_pangea_driver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_driver.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_sites_pangea_driver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_driver.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_incremental_upload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_incremental_upload.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_pty_writes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_pty_writes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_sites_pangea_read_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_sites_pangea_read_recovery.py) | 7 | Python AST |
