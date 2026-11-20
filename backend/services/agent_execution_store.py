@@ -240,6 +240,16 @@ def publication_guard(scope: ExecutionScope, run_id: str) -> Iterator[None]:
         yield
 
 
+def reading_job_snapshot(scope: ExecutionScope, job_id: str) -> dict[str, Any] | None:
+    """Read the original execution for checkpoint compatibility without resuming it."""
+    with connect() as db:
+        row = _row(db, scope, job_id)
+        request = json.loads(row["request"])
+        if request.get("mode") == "job" and request.get("operation") == "knowledge.process-source":
+            return _saved_snapshot(db, row)
+        return None
+
+
 @contextmanager
 def _resume_transaction(scope: ExecutionScope, run_id: str, *, automatic: bool = False,
         retry_failed_podcast: bool = False) -> Iterator[tuple[sqlite3.Connection, dict[str, Any], dict[str, Any]]]:

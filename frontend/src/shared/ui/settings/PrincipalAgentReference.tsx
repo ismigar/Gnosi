@@ -14,7 +14,7 @@ const operationPlugins: Readonly<Record<string, string>> = {
     writing: 'ai-platform', tables: 'ai-platform', capture: 'ai-platform', learning: 'ai-platform',
     reader: 'feeds-reader', podcast: 'feeds-reader', notebook: 'grounded-notebooks',
     literature: 'resources', mail: 'mail', social: 'social-publishing', meeting: 'calendar',
-    translation: 'translation', knowledge: 'llm-wiki',
+    translation: 'translation', knowledge: 'llm-wiki', 'reading-review': 'llm-wiki',
 };
 
 /** Show the profile that actually executes this feature. */
@@ -32,8 +32,11 @@ export function PrincipalAgentReference({ operation, profileId }: { readonly ope
             if (!isRecord(ai)) return;
             const profiles: unknown[] = Array.isArray(ai.agents) ? ai.agents : [];
             const plugin = operationPlugins[operation];
-            const principal = profiles.find(profile => isRecord(profile) && (profileId
-                ? profile.id === profileId
+            const binding = isRecord(ai.operation_bindings) ? ai.operation_bindings[operation] : undefined;
+            const assignedId = profileId || (isRecord(binding) && typeof binding.agent_id === 'string' ? binding.agent_id : undefined)
+                || (operation === 'reading-review' ? 'builtin.llm-wiki.reviewer' : undefined);
+            const principal = profiles.find(profile => isRecord(profile) && (assignedId
+                ? profile.id === assignedId
                 : plugin ? profile.managed_by === `builtin:${plugin}` : profile.id === ai.active_agent_id));
             setProfile(isRecord(principal) && typeof principal.id === 'string' ? {
                 id: principal.id, name: typeof principal.name === 'string' ? principal.name : principal.id,

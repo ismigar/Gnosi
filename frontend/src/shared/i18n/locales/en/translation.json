@@ -3262,6 +3262,7 @@
         "automation_help": "This skill will use the {{name}} profile. You can edit it in assistant settings.",
         "no_skills": "Assign skills to this bot on its card in Settings → Plugins → AI → Assistants before scheduling them.",
         "builtin_profiles": {
+          "llm-wiki-reviewer": "Reading reviewer",
           "translation": "Translation",
           "ai-platform": "Writing and knowledge capture",
           "feeds-reader": "Feeds and podcasts",
@@ -6545,6 +6546,9 @@
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
     "estimate_calculation": "How this is calculated",
+    "reader_tariff": "Reader {{model}} · {{provider}} per million tokens · {{input}} input and {{output}} output",
+    "reviewer_tariff": "Reviewer {{model}} · {{provider}} per million tokens · {{input}} input and {{output}} output",
+    "review_with_model": "Review with {{model}} · {{provider}}",
     "processing_tier_flex": "Flex",
     "estimate_flex": "Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Reservations include the maximum output and cache-write cost; there is no automatic switch to Standard.",
     "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",

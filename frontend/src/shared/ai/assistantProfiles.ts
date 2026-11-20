@@ -17,17 +17,18 @@ const builtinProfileNames: Readonly<Record<string, string>> = {
     'ai-platform': 'Writing and knowledge capture', 'feeds-reader': 'Feeds and podcasts',
     'grounded-notebooks': 'Grounded notebooks', resources: 'Literature assistance',
     mail: 'Mail', 'social-publishing': 'Social publishing', calendar: 'Meetings',
-    translation: 'Translation', 'llm-wiki': 'Knowledge',
+    translation: 'Translation', 'llm-wiki': 'Knowledge', 'llm-wiki-reviewer': 'Reading reviewer',
 };
 
 export function profileDisplayName(
-    profile: { name?: string; managed_by?: string },
+    profile: { id?: string; name?: string; managed_by?: string },
     t: (key: string, options: { defaultValue: string }) => string,
 ): string {
     const name = profile.name || '';
     const owner = profile.managed_by?.startsWith('builtin:') ? profile.managed_by.slice(8) : '';
-    return owner && builtinProfileNames[owner] === name
-        ? t(`settings.ai.assistant.builtin_profiles.${owner}`, { defaultValue: name }) : name;
+    const key = owner === 'llm-wiki' && profile.id === 'builtin.llm-wiki.reviewer' ? 'llm-wiki-reviewer' : owner;
+    return key && builtinProfileNames[key] === name
+        ? t(`settings.ai.assistant.builtin_profiles.${key}`, { defaultValue: name }) : name;
 }
 
 /** Include the assigned route beside a profile wherever users choose it. */

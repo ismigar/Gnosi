@@ -172,6 +172,18 @@ describe('Book budget currency', () => {
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: .5 }));
     });
 
+    it('shows each role with its own provider tariff in a paired run', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
+            provider: 'openai', model: 'gpt-5.6-luna', cost_in_per_million_usd: .20, cost_out_per_million_usd: 1.20,
+            review_provider: 'openrouter', review_model: 'openai/gpt-6.2-sol',
+            review_cost_in_per_million_usd: 3, review_cost_out_per_million_usd: 15 });
+        const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(dialog.textContent).toContain('Reader gpt-5.6-luna · openai per million tokens · $0.20 input and $1.20 output');
+        expect(dialog.textContent).toContain('Reviewer openai/gpt-6.2-sol · openrouter per million tokens · $3.00 input and $15.00 output');
+        expect(dialog.textContent).not.toContain('Other providers');
+    });
+
     it('converts an edited currency amount to USD without replacing the stored budget on a rerender', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,

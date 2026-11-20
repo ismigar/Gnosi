@@ -8,6 +8,11 @@ files directly.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+
 import datetime as dt
 import re
 import threading
@@ -396,6 +401,7 @@ def process_resource(
     batch_size: int = 4,
     expected_reading_identity: str = "",
     reuse_results: bool = True,
+    review_runtime: ReadingRuntime | None = None,
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.domains.llm_wiki.chunking import reading_chunk_budget, reading_chunks
@@ -403,8 +409,16 @@ def process_resource(
 
     runtime = prepare_reading_runtime(vault_root)
     runtime.reuse_results = reuse_results
+    if review_runtime is None and getattr(runtime, "reading_engine", "legacy") == "semantic":
+        from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
+        review_runtime = prepare_review_runtime(vault_root, runtime.snapshot)
+    if review_runtime:
+        review_runtime.reuse_results = reuse_results
+    execution = dict(runtime.metadata)
+    if review_runtime:
+        execution["reviewer"] = review_runtime.metadata
     if job_id:
-        llm_wiki_storage.update_job(job_id, execution=runtime.metadata)
+        llm_wiki_storage.update_job(job_id, execution=execution)
 
     dependencies = llm_wiki_ingestion.IngestionDependencies(
         load_config=llm_wiki_config.load_config,
@@ -415,7 +429,7 @@ def process_resource(
         save_snapshot=llm_wiki_storage.save_snapshot,
         chunk_origins=partial(
             reading_chunks,
-            budget=reading_chunk_budget(runtime.input_budget),
+            budget=reading_chunk_budget(min(runtime.input_budget, review_runtime.input_budget) if review_runtime else runtime.input_budget),
             count=getattr(runtime, "count_tokens", token_bound),
         ),
         load_brain_index=_load_brain_index,
@@ -430,7 +444,9 @@ def process_resource(
         semantic_reading=bool(
             getattr(runtime, "snapshot", None) and runtime.snapshot.behavior_resources
         ),
-        execution_metadata=runtime.metadata,
+        execution_metadata=execution,
+        reviewer=review_runtime,
+        legacy_reader_revision=getattr(runtime, "compatible_legacy_revision", None),
         input_budget=runtime.input_budget,
         count_tokens=getattr(runtime, "count_tokens", token_bound),
         parse_plan=_parse_plan,
@@ -535,6 +551,8 @@ def start_ingest(
     snapshot = prepare_snapshot(SKILL_ID)
     if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
         raise PermissionError("agent_execution_vault_mismatch")
+    from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
+    review_runtime = prepare_review_runtime(vault_root, snapshot) if snapshot.behavior_resources else None
     from backend.services import reading_budget
     budget_id = reading_budget.configure(max_cost_usd, str(previous.get("budget_id") or "") if resume_job_id else "")
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
@@ -544,6 +562,8 @@ def start_ingest(
         job_id, budget_id=budget_id, batch_size=batch_size, resume_lineage=previous.get("resume_lineage") if resume_job_id else job_id,
     )
     snapshot = create_job_run(snapshot, job_id, "knowledge.process-source")
+    if review_runtime:
+        review_runtime.snapshot = review_runtime.snapshot.model_copy(update={"parent_run_id": job_id})
     active_vault = cv.get_active_vault_path()
 
     def _worker() -> None:
@@ -568,6 +588,7 @@ def start_ingest(
                 batch_size=batch_size,
                 expected_reading_identity=expected_reading_identity,
                 reuse_results=not force,
+                review_runtime=review_runtime,
             )
             llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(

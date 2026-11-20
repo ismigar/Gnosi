@@ -736,6 +736,8 @@ makes a handler executable.
 
 Knowledge uses its dedicated plugin profile. The historical `agent_id` setting is preserved but does not override the plugin profile. The old managed `llm-wiki` profile remains retired; the new profile retains migrated Knowledge companion instructions. Settings link to the plugin profile and its skills.
 
+Activating Knowledge creates two editable bot profiles. Knowledge reads the entire resource and checks its drafts. Its initial model is GPT-5.6 Luna. Reading reviewer uses GPT-6.2 Sol at medium reasoning to check selected originals for omissions and misattribution, then produces the final synthesis. Gnosi samples each section and includes passages flagged during extraction. Both agents use the spending limit shown before processing. Each completed review is saved so an interrupted review can resume.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.
@@ -1222,7 +1224,9 @@ Plugin suspension remains authoritative on the server and blocks execution. A su
 
 ## Reasoning effort
 
-Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRouter model choices through `GET /api/ai/model-reasoning`; absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls. Other model defaults are unchanged.
+Profiles persist optional `reasoning_effort`. The editor reads the choices for each OpenAI or OpenRouter model through `GET /api/ai/model-reasoning`. Direct OpenAI GPT-6.1 Sol and GPT-6.2 Sol support `low`, `medium`, `high`, `xhigh` and `max`. An explicit effort is sent through the Responses API with `store=false`.
+
+For OpenRouter, absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls.
 
 ## Optional team help
 

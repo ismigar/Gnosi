@@ -847,6 +847,8 @@ gestionnaire exécutable.
 
 Connaissances utilise son profil de plugin. Le paramètre historique `agent_id` est conservé mais ne remplace pas le profil du plugin. L’ancien profil géré `llm-wiki` reste retiré ; le nouveau profil conserve les instructions complémentaires de Connaissances migrées. Les paramètres renvoient au profil du plugin et à ses compétences.
 
+Activer Connaissances crée deux assistants modifiables. Connaissances lit la ressource entière et vérifie ses brouillons avec GPT-5.6 Luna comme modèle initial. Le Réviseur de lecture utilise GPT-6.2 Sol avec un raisonnement moyen pour examiner un échantillon de chaque section et les passages signalés pendant la lecture. Il peut ajouter des idées omises en citant le texte original et rédige la synthèse finale. Les deux assistants partagent le plafond de dépense de la ressource. Chaque vérification est enregistrée pour permettre la reprise.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion
@@ -1419,7 +1421,9 @@ Après un changement de plugin, les caches de configuration sont invalidés et l
 
 ## Niveau de raisonnement
 
-Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les choix exacts d’OpenRouter via `GET /api/ai/model-reasoning` : des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
+Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les niveaux de chaque modèle OpenAI ou OpenRouter via `GET /api/ai/model-reasoning`. Avec OpenAI en accès direct, GPT-6.1 Sol et GPT-6.2 Sol prennent en charge `low`, `medium`, `high`, `xhigh` et `max`. Lorsqu’un niveau est choisi, Gnosi le transmet à l’API Responses avec `store=false`.
+
+Chez OpenRouter, des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
 
 ## Aide facultative de l’équipe
 

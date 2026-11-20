@@ -838,6 +838,8 @@ que un manejador sea ejecutable.
 
 Conocimiento utiliza su perfil de plugin. El parámetro histórico `agent_id` se conserva pero no sustituye el perfil del plugin. El antiguo perfil gestionado `llm-wiki` sigue retirado; el perfil nuevo conserva las instrucciones complementarias de Conocimiento migradas. La configuración enlaza al perfil del plugin y sus habilidades.
 
+Al activar Conocimiento, Gnosi crea dos bots editables. Conocimiento lee todo el recurso y comprueba los borradores con GPT-5.6 Luna como modelo inicial. El Revisor de lectura utiliza GPT-6.2 Sol con razonamiento medio para contrastar una muestra de cada sección y los pasajes que han planteado dudas. Puede añadir ideas omitidas con una cita del original y elabora la síntesis final. Ambos comparten el límite de gasto del recurso. Gnosi guarda cada revisión para poder reanudarla.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan
@@ -1396,7 +1398,9 @@ Tras un cambio de plugin se invalidan las cachés de configuración y se avisa a
 
 ## Nivel de razonamiento
 
-Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opciones exactas de OpenRouter con `GET /api/ai/model-reasoning`: sin metadatos no ofrece opciones, null explícito admite los niveles de la pasarela y el razonamiento obligatorio excluye `none`. La caché se guarda fuera del vault e incluye una alternativa verificada de Luna para el primer uso sin conexión. El guardado rechaza opciones incompatibles. Las fábricas del modelo predeterminado y del flujo solo propagan el nivel cuando proveedor y modelo coinciden con el perfil. El razonamiento explícito de OpenRouter y el predeterminado de Luna usan Responses sin estado, `store=false`, historial completo y razonamiento cifrado entre llamadas de herramientas. Se conservan los valores predeterminados de los demás modelos.
+Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opciones de cada modelo de OpenAI y OpenRouter mediante `GET /api/ai/model-reasoning`. Con OpenAI directo, GPT-6.1 Sol y GPT-6.2 Sol admiten `low`, `medium`, `high`, `xhigh` y `max`. Cuando se elige un nivel, Gnosi lo envía a la API Responses con `store=false`.
+
+En OpenRouter, sin metadatos no ofrece opciones, null explícito admite los niveles de la pasarela y el razonamiento obligatorio excluye `none`. La caché se guarda fuera del vault e incluye una alternativa verificada de Luna para el primer uso sin conexión. El guardado rechaza opciones incompatibles. Las fábricas del modelo predeterminado y del flujo solo propagan el nivel cuando proveedor y modelo coinciden con el perfil. El razonamiento explícito de OpenRouter y el predeterminado de Luna usan Responses sin estado, `store=false`, historial completo y razonamiento cifrado entre llamadas de herramientas. Se conservan los valores predeterminados de los demás modelos.
 
 ## Ayuda opcional del equipo
 

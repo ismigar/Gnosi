@@ -198,9 +198,9 @@ class UsageCallback(BaseCallbackHandler):
                 state.get("service_tier") or response_meta.get("service_tier"), state.get("cache_options"))
             if pricing is not None and source != "reported":
                 cost, source = Decimal(pricing["cost_usd"]), "estimated"
-            from backend.services.openai_usage_pricing import SOL
+            from backend.services.openai_usage_pricing import reading_model
             observed = state.get("actual_model", "")
-            same_model = observed == self.model or (self.model == "gpt-6.1-sol" and bool(SOL.fullmatch(observed)))
+            same_model = observed == self.model or (bool(observed) and self.model == reading_model(self.provider, observed))
             if error is not None or not same_model:
                 pricing = None  # Keep the full hold for failed/changed-model calls.
             # A wallet charge of zero does not mean subscription credits were
