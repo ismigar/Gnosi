@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3569 |
-| pytest | 825 | 6429 |
+| pytest | 825 | 6434 |
 
 ## Fitxers
 
@@ -1301,7 +1301,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_podcast_digest_membership.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_digest_membership.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_podcast_edit_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_edit_transport.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_podcast_editorial_digest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_editorial_digest.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_podcast_episode_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_episode_recovery.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_podcast_episode_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_episode_recovery.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_podcast_feedback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback_repair.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_podcast_feedback_repair_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_podcast_feedback_repair_transport.py) | 1 | Python AST |
@@ -1522,7 +1522,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_vault_citation_request_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_citation_request_contracts.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_comments_links_citations_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_comments_links_citations_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_content_search.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_content_search.py) | 24 | Python AST |
-| pytest | [`backend/tests/test_vault_coordinated_consumers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_coordinated_consumers.py) | 17 | Python AST |
+| pytest | [`backend/tests/test_vault_coordinated_consumers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_coordinated_consumers.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_vault_core_typed_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_core_typed_composition.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_vault_creation_membership.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_creation_membership.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_vault_daily_notes_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_daily_notes_domain_contract.py) | 4 | Python AST |

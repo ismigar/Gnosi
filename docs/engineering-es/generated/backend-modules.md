@@ -16,19 +16,19 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 214 |
-| `domains` | 633 | 124121 |
+| `domains` | 633 | 124217 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
 | `platform` | 15 | 1695 |
-| `scheduler` | 9 | 1479 |
+| `scheduler` | 9 | 1520 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 285 | 55605 |
+| `services` | 285 | 55625 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1136 modules** and **215179 source lines**.
+Total: **1136 modules** and **215336 source lines**.
 
 ## agent
 
@@ -621,7 +621,7 @@ Total: **1136 modules** and **215179 source lines**.
 | [`backend/domains/vault/citations/export_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/export_routes.py) | 617 | 0 | 47 | 1 | 17 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/citations/exporting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/exporting.py) | 234 | 2 | 8 | 2 | 5 | Pandoc-backed Vault page export with resolved CSL citations. |
 | [`backend/domains/vault/citations/formatting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/formatting.py) | 530 | 10 | 9 | 0 | 5 | CSL item construction and Pandoc formatting routes. |
-| [`backend/domains/vault/citations/io_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/io_api.py) | 483 | 8 | 6 | 1 | 2 | Bibliographic import/export and CSL catalog HTTP adapters. |
+| [`backend/domains/vault/citations/io_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/io_api.py) | 579 | 8 | 11 | 1 | 2 | Bibliographic import/export and CSL catalog HTTP adapters. |
 | [`backend/domains/vault/citations/keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys.py) | 198 | 0 | 8 | 0 | 0 | Deterministic Better BibTeX-style citation keys. |
 | [`backend/domains/vault/citations/keys_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys_api.py) | 57 | 2 | 1 | 0 | 1 | Citation-key generation HTTP adapter. |
 | [`backend/domains/vault/citations/lookup_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py) | 785 | 4 | 33 | 6 | 26 | Typed Vault domain extracted from the historical route facade. |
@@ -917,9 +917,9 @@ Total: **1136 modules** and **215179 source lines**.
 | [`backend/scheduler/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/__init__.py) | 1 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/scheduler/bounded_executor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/bounded_executor.py) | 138 | 4 | 0 | 0 | 2 | Bounded daemon worker pool dedicated to scheduled application work. |
 | [`backend/scheduler/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/contracts.py) | 28 | 2 | 0 | 0 | 2 | Typed scheduler configuration contracts. |
-| [`backend/scheduler/execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/execution.py) | 148 | 0 | 7 | 0 | 3 | Record attempts and report outcomes for work dispatched by the scheduler. |
+| [`backend/scheduler/execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/execution.py) | 188 | 0 | 9 | 0 | 5 | Record attempts and report outcomes for work dispatched by the scheduler. |
 | [`backend/scheduler/literature_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/literature_tasks.py) | 53 | 0 | 3 | 0 | 3 | Vault-aware scheduler adapters for academic literature maintenance. |
-| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 759 | 1 | 0 | 0 | 1 | Manage scheduled tasks using APScheduler. |
+| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/manager.py) | 760 | 1 | 0 | 0 | 1 | Manage scheduled tasks using APScheduler. |
 | [`backend/scheduler/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/notifications.py) | 7 | 0 | 0 | 0 | 0 | Compatibility facade for the scheduler notification boundary. |
 | [`backend/scheduler/startup_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/startup_policy.py) | 23 | 0 | 2 | 0 | 2 | Startup policy for automatic scheduler dispatch. |
 | [`backend/scheduler/task_handlers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scheduler/task_handlers.py) | 322 | 1 | 9 | 0 | 10 | Large scheduler task handlers kept outside the lifecycle manager. |
@@ -1032,7 +1032,7 @@ Total: **1136 modules** and **215179 source lines**.
 | [`backend/services/ai_usage_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_transport.py) | 290 | 3 | 8 | 0 | 2 | Observe raw provider responses before LangChain/tool output conversion. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 744 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |
-| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 775 | 3 | 30 | 0 | 21 | Generate the daily Reader podcast script and publish its audio atomically. |
+| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 780 | 3 | 30 | 0 | 21 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 230 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/automation_history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/automation_history.py) | 21 | 0 | 1 | 0 | 0 | Scoped, paginated automation history for the activity centre. |
@@ -1169,7 +1169,7 @@ Total: **1136 modules** and **215179 source lines**.
 | [`backend/services/podcast_coverage_checks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_coverage_checks.py) | 58 | 0 | 2 | 0 | 0 | Require an explicit editorial coverage decision for each supplied day summary. |
 | [`backend/services/podcast_edit_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_edit_transport.py) | 160 | 1 | 1 | 0 | 0 | Address immutable reviewed clauses by IDs without copying literal anchors. |
 | [`backend/services/podcast_editorial_digest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_editorial_digest.py) | 38 | 0 | 1 | 0 | 0 | Condense a broad day by its checked themes before writing listener prose. |
-| [`backend/services/podcast_episode.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_episode.py) | 236 | 2 | 16 | 0 | 6 | Local daily episode identity and dispatch state, including before a parent run exists. |
+| [`backend/services/podcast_episode.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_episode.py) | 251 | 2 | 17 | 0 | 6 | Local daily episode identity and dispatch state, including before a parent run exists. |
 | [`backend/services/podcast_feedback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback.py) | 85 | 0 | 4 | 0 | 0 | Bounded writing guidance for every retained, independently confirmed finding. |
 | [`backend/services/podcast_feedback_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_feedback_repair.py) | 134 | 0 | 6 | 0 | 0 | Repair all invalid internal guides without rewriting validated corrections. |
 | [`backend/services/podcast_length_edits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/podcast_length_edits.py) | 254 | 0 | 10 | 0 | 3 | Shorten immutable grouped compositions through atomic model-proposed edits. |

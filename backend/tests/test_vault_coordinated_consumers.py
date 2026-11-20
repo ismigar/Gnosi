@@ -591,3 +591,129 @@ def test_cloud_reference_survives_export_and_prevents_duplicate_import(cloud, mo
         assert result["created"] == 0 and result["skipped"] == 2
         assert result["skip_summary"]["doi"] == result["skip_summary"]["isbn"] == 1
     assert writes == [] and set(cloud.reads) == {selected}
+
+
+
+@pytest.mark.parametrize("loaded", [False, True])
+def test_selected_citation_export_skips_offline_same_table_neighbor(cloud, monkeypatch, loaded):
+    import json
+    from fastapi import APIRouter
+    from backend.app.errors import register_error_handlers
+    from backend.domains.vault.citations import export_routes, io_api
+
+    offline = cloud.source("Refs/Unselected.md", b"unavailable")
+    metadata = {"Citation Key": "selected", "Title": "Selected reference", "Item Type": "book"}
+    selected = cloud.source("Refs/Chosen.md", json.dumps(metadata).encode())
+    pages = [
+        SimpleNamespace(id="other", path=str(offline), metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="chosen", path=str(selected), metadata=metadata if loaded else {}, resolved_table_id="refs"),
+    ]
+    old_copy = snapshots.copy_coordinated
+    async def copy(path, destination, timeout):
+        if path == offline:
+            cloud.reads.append(path)
+            raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+        return await old_copy(path, destination, timeout)
+    monkeypatch.setattr(snapshots, "copy_coordinated", copy)
+    deps = replace(
+        export_routes._REFERENCES_IO_DEPENDENCIES, active_vault_path=lambda: cloud.vault,
+        page_snapshot=lambda: pages,
+        resolve_ensure_index=lambda: (lambda _: pytest.fail("A complete selection needs no index rebuild")
+                                        if loaded else {"selected": {"id": "chosen"}}),
+        find_page=lambda identifier: selected if identifier == "chosen" else offline,
+        parse_frontmatter=lambda text, _: (json.loads(text), ""),
+    )
+    app, router = FastAPI(), APIRouter()
+    io_api.register_catalog_export_routes(router, upload_dependencies=[], export_dependencies=[], dependencies=deps)
+    app.include_router(router)
+    register_error_handlers(app)
+    with TestClient(app) as client:
+        response = client.get("/export-references?table_id=refs&keys=selected")
+        assert response.status_code == 200 and "Selected reference" in response.text
+        assert cloud.reads == ([] if loaded else [selected])
+        full = client.get("/export-references?table_id=refs")
+    assert full.status_code == 503 and full.json()["reason"] == "offline"
+
+
+def test_selected_reference_export_recovers_stale_index_in_table_and_keeps_order_and_duplicates(cloud, monkeypatch):
+    import json
+    from backend.domains.vault.citations import export_routes, io_api
+
+    bad = cloud.source("Refs/offline.md", b"unavailable")
+    stale = cloud.source("Refs/moved.md", b'{"Citation Key":"second","database_table_id":"elsewhere"}')
+    good = cloud.source("Refs/good.md", b'{"Citation Key":"second","Title":"recovered"}')
+    outside = cloud.source("Other/outside.md", b'{"Citation Key":"second","Title":"secret"}')
+    paths = {"offline": bad, "moved": stale, "good": good, "outside": outside}
+    first = {"Citation Key": "first", "Title": "first match"}
+    duplicate = {"Citation Key": "first", "Title": "duplicate match"}
+    pages = [
+        SimpleNamespace(id="first", metadata=first, resolved_table_id="refs"),
+        SimpleNamespace(id="offline", path=bad, metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="outside", path=outside, metadata={}, resolved_table_id="other"),
+        SimpleNamespace(id="moved", path=stale, metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="good", path=good, metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="duplicate", metadata=duplicate, resolved_table_id="refs"),
+    ]
+    old_copy = snapshots.copy_coordinated
+    async def copy(path, destination, timeout):
+        if path == bad:
+            cloud.reads.append(path)
+            raise metadata_io.MetadataUnavailable(path=path, reason="offline")
+        return await old_copy(path, destination, timeout)
+    monkeypatch.setattr(snapshots, "copy_coordinated", copy)
+    deps = replace(
+        export_routes._REFERENCES_IO_DEPENDENCIES, active_vault_path=lambda: cloud.vault,
+        resolve_ensure_index=lambda: (lambda _: {"second": {"id": "outside", "path": str(stale)}}),
+        find_page=lambda identifier: outside if identifier == "moved" else paths.get(identifier),
+        page_snapshot=lambda: pages,
+        parse_frontmatter=lambda raw, _: (json.loads(raw), ""),
+    )
+    result = io_api.collect_table_reference_metas("refs", {"first", "second"}, deps)
+    assert [item["Title"] for item in result] == ["first match", "recovered", "duplicate match"]
+    assert cloud.reads == [stale, bad, good]
+    with pytest.raises(metadata_io.MetadataUnavailable) as failure:
+        io_api.collect_table_reference_metas("refs", {"absent"}, deps)
+    assert failure.value.reason == "offline" and outside not in cloud.reads
+
+
+
+@pytest.mark.parametrize("stored_table, expected_count", [("refs", 1), ("other", 0), (None, 0)])
+def test_relocated_selected_reference_verifies_current_table(cloud, stored_table, expected_count):
+    import json
+    from backend.domains.vault.citations import export_routes, io_api
+
+    metadata = {"Citation Key": "requested", "table_id": stored_table}
+    moved = cloud.source("Renamed/note.md", json.dumps(metadata).encode())
+    page = SimpleNamespace(id="old", path="Missing/old.md", metadata={}, resolved_table_id="refs")
+    deps = replace(
+        export_routes._REFERENCES_IO_DEPENDENCIES, active_vault_path=lambda: cloud.vault,
+        resolve_ensure_index=lambda: (lambda _: {"requested": {"id": "old"}}),
+        find_page=lambda _: moved, page_snapshot=lambda: [page],
+        parse_frontmatter=lambda raw, _: (json.loads(raw), ""),
+    )
+    result = io_api.collect_table_reference_metas("refs", {"requested"}, deps)
+    assert result == [metadata] * expected_count
+    assert cloud.reads == [moved]
+
+
+def test_loaded_citation_keeps_indexed_duplicate_without_inspecting_unknowns(cloud, monkeypatch):
+    import json
+    from backend.domains.vault.citations import export_routes, io_api
+
+    duplicate = cloud.source("Refs/duplicate.md", b'{"Citation Key":"edition","Title":"Indexed first"}')
+    skipped = cloud.source("Refs/unknown.md", b"unrelated")
+    pages = [
+        SimpleNamespace(id="unknown", path=skipped, metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="duplicate", path=duplicate, metadata={}, resolved_table_id="refs"),
+        SimpleNamespace(id="loaded", metadata={"Citation Key": "edition", "Title": "Loaded last"}, resolved_table_id="refs"),
+    ]
+    monkeypatch.setitem(io_api.citation_index_state.indexes, str(cloud.vault), {"edition": {"id": "duplicate"}})
+    deps = replace(
+        export_routes._REFERENCES_IO_DEPENDENCIES, active_vault_path=lambda: cloud.vault,
+        resolve_ensure_index=lambda: pytest.fail("A complete selection needs no index rebuild"),
+        find_page=lambda page_id: duplicate if page_id == "duplicate" else skipped,
+        page_snapshot=lambda: pages, parse_frontmatter=lambda raw, _: (json.loads(raw), ""),
+    )
+    result = io_api.collect_table_reference_metas("refs", {"edition"}, deps)
+    assert [item["Title"] for item in result] == ["Indexed first", "Loaded last"]
+    assert cloud.reads == [duplicate]

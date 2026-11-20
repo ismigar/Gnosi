@@ -69,6 +69,11 @@ def current(vault_path: str | Path) -> Episode | None:
         return _read(db, str(Path(vault_path).resolve()))
 
 
+def recorded_occurrences() -> list[Episode]:
+    with _connection() as db:
+        return [Episode(**json.loads(row[0])) for row in db.execute("SELECT payload FROM podcast_occurrences")]
+
+
 def for_scope(scope: ExecutionScope | None) -> Episode | None:
     """Only the verified owner of the selected vault can read its private wait details."""
     if scope is None:
@@ -143,7 +148,11 @@ def claim(vault_path: str | Path, *, source: Literal["reader", "scheduler", "con
             return episode
         if source == "control" and episode.source == "scheduler":
             episode.source = "control"
-        return _reserve(db, episode, retry_terminal=retry_terminal)
+        _reserve(db, episode, retry_terminal=retry_terminal)
+    if source == "reader":
+        from backend.scheduler.execution import sync_podcast_history
+        sync_podcast_history(episode)
+    return episode
 
 
 def _reserve(db: sqlite3.Connection, episode: Episode, *, retry_terminal: bool) -> Episode:
@@ -193,9 +202,12 @@ def bind(episode: Episode, scope: ExecutionScope) -> None:
         _update(episode, scope=scope.model_dump())
 
 
-def finish(episode: Episode, status: str) -> None:
+def finish(episode: Episode, status: str, *, language: str | None = None, duration: float | None = None) -> None:
+    from backend.scheduler.execution import sync_podcast_history
+
     _update(episode, status=status, worker={}, waiting_file=None, waiting_provider=None,
             wait_reason=None, retry_at=None)
+    sync_podcast_history(episode, language=language, duration=duration)
 
 
 def _provider(path: Path) -> str | None:
@@ -214,7 +226,9 @@ def _provider(path: Path) -> str | None:
     return None
 
 
-def cloud_failure(episode: Episode, error: MetadataUnavailable) -> None:
+def cloud_failure(episode: Episode, error: MetadataUnavailable, *, language: str | None = None) -> None:
+    from backend.scheduler.execution import sync_podcast_history
+
     reason = error.reason
     path = error.path
     filename = "".join(c for c in PureWindowsPath(path.name).name if c.isprintable())[:120] if path else None
@@ -224,6 +238,7 @@ def cloud_failure(episode: Episode, error: MetadataUnavailable) -> None:
     _update(episode, status="waiting" if retryable else "error", attempts=episode.attempts + 1,
             wait_reason=reason, waiting_file=filename or None, waiting_provider=_provider(path) if path else None,
             retry_at=retry, worker={})
+    sync_podcast_history(episode, language=language)
 
 
 def recoverable_reader_episodes(now: datetime) -> list[Episode]:

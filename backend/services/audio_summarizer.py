@@ -603,14 +603,16 @@ def _generate_daily_podcast() -> str | None:
 
 
 def _run_reader_episode(episode: episodes.Episode | None, snapshot: AgentExecutionSnapshot) -> None:
+    from time import monotonic
     from backend.services import agent_execution_store as store
 
+    started = monotonic()
     token = _episode.set(episode)
     try:
         generate_daily_podcast(snapshot)
         if episode:
             job = store.read(snapshot.scope, snapshot.parent_run_id)
-            episodes.finish(episode, "success" if job.status == "completed" else "error")
+            episodes.finish(episode, "success" if job.status == "completed" else "error", duration=monotonic() - started)
     except MetadataUnavailable as error:
         if episode:
             episodes.cloud_failure(episode, error)
@@ -750,6 +752,9 @@ def resume_podcast(snapshot: AgentExecutionSnapshot, *, episode: episodes.Episod
     """Continue the same authorized source snapshot and private work state."""
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution_scope import current_scope, revalidate_scope
+    if episode:
+        from backend.scheduler.execution import sync_podcast_history
+        sync_podcast_history(episode)
     scope = current_scope()
     try:
         if (scope.user_id != snapshot.scope.user_id or scope.workspace_id != snapshot.scope.workspace_id

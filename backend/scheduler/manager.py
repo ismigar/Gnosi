@@ -405,6 +405,7 @@ class SchedulerManager:
 
         log = get_logger(__name__)
         if wait_before_automatic_dispatch(self._stop_event): return
+        execution.recover_podcast_history()
         while self._running:
             try:
                 now = datetime.now()

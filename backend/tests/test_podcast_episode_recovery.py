@@ -367,6 +367,93 @@ def test_activity_resume_keeps_daily_wait_and_recovers_on_next_clock(monkeypatch
     assert len(list(Path(scope.vault_path).rglob("*.mp3"))) == 1
 
 
+@pytest.mark.parametrize("scheduled", [True, False], ids=["existing-scheduler-history", "reader-only"])
+def test_activity_worker_updates_only_existing_scheduler_history(monkeypatch, isolated_validation_runtime, scheduled):
+    import asyncio
+    from threading import Event
+    from sqlalchemy.orm import Session
+    from backend.models.scheduler import TaskExecutionHistory
+    from backend.scheduler import execution as scheduled_execution
+
+    root = isolated_validation_runtime
+    scope, manager, engine = runtime(monkeypatch, root)
+    monkeypatch.setattr(execution, "revalidate_scope", lambda selected: selected == scope or pytest.fail("scope changed"))
+    monkeypatch.setattr(scheduled_execution, "get_mgmt_session", lambda: Session(engine))
+    monkeypatch.setattr("backend.scheduler.manager.scheduler_manager._language", "en")
+    entered, release, finished = Event(), Event(), Event()
+    original_worker = audio._run_reader_episode
+    original_generation = audio._generate_daily_podcast
+    def observe(*args):
+        try:
+            original_worker(*args)
+        finally:
+            finished.set()
+    monkeypatch.setattr(audio, "_run_reader_episode", observe)
+
+    def failure(reason):
+        raise MetadataUnavailable(path=Path(scope.vault_path) / "OneDrive" / "private-input.md", reason=reason)
+
+    def assert_history(expected):
+        with Session(engine) as db:
+            rows = db.query(TaskExecutionHistory).all()
+            if not scheduled:
+                assert not rows
+                return
+            assert len(rows) == 1 and rows[0].id == episode.run_id and rows[0].status == expected
+            row = rows[0]
+            if expected == "running":
+                assert row.message is None and row.finished_at is None and row.duration_seconds is None
+            else:
+                assert row.message == scheduled_execution.podcast_history_message(expected)
+                assert row.finished_at is not None
+                if expected == "success":
+                    assert row.duration_seconds > 0
+
+    with execution_scope(scope):
+        monkeypatch.setattr(audio, "_generate_daily_podcast", lambda: failure("offline"))
+        if scheduled:
+            assert manager.run_task_now("generate_podcast", automatic=True)["status"] == "waiting"
+        else:
+            assert audio.start_generation_async() and finished.wait(10)
+        episode = episodes.current(scope.vault_path)
+        assert_history("waiting")
+        for blocked, expected in (("pending", "waiting"), ("no_space", "error"), (None, "success")):
+            entered.clear()
+            release.clear()
+            finished.clear()
+            def generate():
+                entered.set()
+                assert release.wait(10)
+                return failure(blocked) if blocked else original_generation()
+            monkeypatch.setattr(audio, "_generate_daily_podcast", generate)
+            asyncio.run(execution.resume_run(episode.run_id))
+            try:
+                assert entered.wait(10)
+                assert_history("running")
+            finally:
+                release.set()
+            assert finished.wait(10)
+            assert episodes.current(scope.vault_path).status == expected
+            assert_history(expected)
+    # A delayed projection carrying the initial 'waiting' snapshot cannot undo publication.
+    scheduled_execution.sync_podcast_history(episode)
+    assert_history("success")
+    assert store.read(scope, episode.run_id).status == "completed"
+    assert len(list(Path(scope.vault_path).rglob("*.mp3"))) == 1
+    if scheduled:
+        # Simulate a stop in between committing the occurrence and updating its separate history DB.
+        with Session(engine) as db:
+            db.query(TaskExecutionHistory).filter_by(id=episode.run_id).update({"status": "waiting", "message": "old"})
+            db.commit()
+        from backend.scheduler import manager as scheduler
+        monkeypatch.setattr(scheduler, "wait_before_automatic_dispatch", lambda _: False)
+        manager._running = False
+        manager._run_loop()
+        with Session(engine) as db:
+            restored = db.get(TaskExecutionHistory, episode.run_id)
+            assert restored.status == "success" and restored.message == scheduled_execution.podcast_history_message("success")
+
+
 def test_activity_resume_and_occurrence_claim_roll_back_together(monkeypatch, isolated_validation_runtime):
     import asyncio
     scope, _, _ = runtime(monkeypatch, isolated_validation_runtime)
