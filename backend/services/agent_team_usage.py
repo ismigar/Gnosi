@@ -51,6 +51,8 @@ def record_team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
 
 def _calls(scope: ExecutionScope, identifiers: set[str]) -> dict[str, list[dict[str, Any]]]:
     """Read the existing provider ledger, including retries and reported billing."""
+    if not identifiers:
+        return {}
     path = resolve_data_dir(create=False) / "llm_usage.sqlite"
     if not path.exists():
         return {}
@@ -102,7 +104,7 @@ def team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
             WHERE e.kind='tool.request' AND r.user_id=? AND r.workspace_id=? AND r.vault_path=?""",
             (run_id, scope.user_id, scope.workspace_id, scope.vault_path)).fetchone()[0]
     runs = [AgentRun.model_validate_json(row[0]) for row in rows]
-    calls = _calls(scope, {run.run_id for run in runs})
+    calls = _calls(scope, {run.run_id for run in runs if run.model_calls})
     phases: dict[str, list[AgentRun]] = {key: [] for key in ("planning", "execution", "synthesis", "repair")}
     for run in runs:
         phase = {"team.plan": "planning", "team.replan": "planning", "team.view_edit": "planning", "team.synthesis": "synthesis", "team.repair": "repair"}.get(run.operation, "execution")
