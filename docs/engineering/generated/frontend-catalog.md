@@ -54,7 +54,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `app` | 22 | 2662 | 0 |
 | `features` | 1309 | 138328 | 57 |
 | `generated` | 3 | 57974 | 599 |
-| `shared` | 355 | 37572 | 514 |
+| `shared` | 355 | 37571 | 514 |
 
 ## app
 
@@ -1493,7 +1493,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/api/system.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/system.ts) | 149 | `browseFilesystem`, `clearSystemNotifications`, `createSystemNotification`, `fetchNativePickAvailability`, `fetchSystemGraphVisualization`, `fetchSystemHealth`, `fetchSystemNotifications`, `fetchSystemStats`, `invalidateSystemHealth`, `pickNativeFilesystemEntry`, `searchFilesystem` | `/api/health`, `/api/system/browse`, `/api/system/graph/visualization`, `/api/system/native-pick`, `/api/system/native-pick/available`, `/api/system/notifications`, `/api/system/search`, `/api/system/stats` |
 | [`frontend/src/shared/api/tokens.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/tokens.ts) | 44 | `createApiToken`, `fetchApiTokens`, `revokeApiToken` | `/api/tokens`, `/api/tokens/{token_id}` |
 | [`frontend/src/shared/api/translation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/translation.ts) | 74 | `translateVaultPage`, `translateVaultRow`, `translateVaultRows` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
-| [`frontend/src/shared/api/transports.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/transports.ts) | 92 | `transportFetch` | — |
+| [`frontend/src/shared/api/transports.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/transports.ts) | 91 | `transportFetch` | — |
 | [`frontend/src/shared/api/use-api.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/use-api.ts) | 86 | `useApi` | — |
 | [`frontend/src/shared/api/useCalendarData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useCalendarData.ts) | 102 | `calendarQueryKeys`, `useCalendarEvents`, `useCalendarList`, `useDismissMeetingReminder`, `useMeetingReminderSettings`, `useMeetingReminders`, `useUpdateMeetingReminderSettings` | — |
 | [`frontend/src/shared/api/useContactsData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/useContactsData.ts) | 69 | `contactQueryKeys`, `useContacts`, `useCreateContact`, `useDeleteContact`, `useUpdateContact` | — |

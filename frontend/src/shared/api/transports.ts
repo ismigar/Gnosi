@@ -41,19 +41,18 @@ function canonicalInput(
 }
 
 
-function waitForDownload(milliseconds: number, signal?: AbortSignal | null): Promise<void> {
-  return new Promise((resolve, reject) => {
-    signal?.throwIfAborted();
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', abort);
-      resolve();
-    }, milliseconds);
-    function abort() {
+async function waitForDownload(milliseconds: number, signal?: AbortSignal | null): Promise<void> {
+  signal?.throwIfAborted();
+  await new Promise<void>((resolve) => {
+    function finish() {
       clearTimeout(timer);
-      reject(signal?.reason);
+      signal?.removeEventListener('abort', finish);
+      resolve();
     }
-    signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(finish, milliseconds);
+    signal?.addEventListener('abort', finish, { once: true });
   });
+  signal?.throwIfAborted();
 }
 
 async function readResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
