@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 
 def audit_schema(size: int, dimensions: list[dict[str, object]], *, bound_sources: bool = False) -> dict[str, Any]:
     replacement = note_schema(dimensions)
-    if not bound_sources:
+    if bound_sources:
+        replacement["properties"]["quote_segment_ids"] = TEXTS
+    else:
         replacement["properties"].pop("quote_source_keys", None)  # Provenance is bound locally.
     change = obj({"position": {"type": "integer", "minimum": 0, "maximum": size},
                   "reason": TEXT, "replacement": {"anyOf": [replacement, {"type": "null"}]}})
@@ -38,22 +40,28 @@ def bound_changes(answer: dict[str, object], primary: dict[str, object], sources
         if change["replacement"] is not None:
             replacement = record(change["replacement"])
             note = bind_note(replacement, primary, sources, dimensions)
-            change["replacement"] = {**replacement, "quote_source_keys": [
-                keys[str(c["segment_id"])] for c in records(note["citations"])]}
+            identifiers = [str(c["segment_id"]) for c in records(note["citations"])]
+            change["replacement"] = {**replacement, "quote_segment_ids": identifiers,
+                                     "quote_source_keys": [keys[identifier] for identifier in identifiers]}
     return changes
 
 
-def synthesis_changes(answer: dict[str, object], sources: list[dict[str, object]]) -> list[dict[str, object]]:
+def synthesis_changes(answer: dict[str, object], sources: list[dict[str, object]],
+                      document_numbers: dict[str, int] | None = None) -> list[dict[str, object]]:
     """Expose corrected text and human-readable locations to the final synthesis."""
     from backend.domains.llm_wiki.semantic_quote_contracts import source_key
-    locations = {source_key(source_view(s)): {"document": s.get("origin_label", ""), "location": s.get("locator", {})} for s in sources}
+    locations = {(str(s["id"]), source_key(source_view(s))): {
+        "document": s.get("origin_label", ""), "location": s.get("locator", {}),
+        **({"document_number": document_numbers[str(s["id"])]} if document_numbers and str(s["id"]) in document_numbers else {})
+    } for s in sources}
     changes = records(answer["changes"])
     for change in changes:
         if change["replacement"] is not None:
             replacement = record(change["replacement"])
             keys = replacement.pop("quote_source_keys", [])
-            if isinstance(keys, list):
-                change["citation_locations"] = [locations[str(k)] for k in keys]
+            identifiers = replacement.pop("quote_segment_ids", [])
+            if isinstance(keys, list) and isinstance(identifiers, list) and len(keys) == len(identifiers):
+                change["citation_locations"] = [locations[str(identifier), str(key)] for identifier, key in zip(identifiers, keys)]
             change["replacement"] = replacement
     return changes
 
@@ -83,7 +91,10 @@ def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], pr
             revised[position - 1] = None
             replaced.add(position)
             continue
-        note = bind_note(record(change["replacement"]), primary, evidence, dimensions)
+        replacement = record(change["replacement"])
+        identifiers = replacement.get("quote_segment_ids")
+        note = bind_note(replacement, primary, evidence, dimensions,
+                         verified_segment_ids=identifiers if isinstance(identifiers, list) else None)
         if position:
             revised[position - 1] = note
             replaced.add(position)
@@ -169,6 +180,8 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
     worker = replace(reader, models=[], report_progress=False)
     selected = selected_passages(reader.chunks, engine.state)
     adjacent = adjacent_originals(reader.chunks)
+    document_numbers = {str(s["id"]): number for number, origin in enumerate(reader.origins, start=1)
+                        for s in records(origin.get("segments"))}
     if engine.state.get("independent_revision") != reviewer.identity:
         engine.state.update(independent_revision=reviewer.identity, independent_reviews={}, independent_synthesis=None)
     results = engine.state["independent_reviews"]
@@ -208,7 +221,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                 plan["evidence_segments"] = list({s["id"]: s for s in [*records(plan.get("evidence_segments")), *evidence]}.values())
             findings.append({"document": primary["origin_label"], "location": primary.get("locator"),
                              "assessment": answer["assessment"], "quote": answer["evidence_quote"],
-                             "corrections": synthesis_changes(answer, evidence)})
+                             "corrections": synthesis_changes(answer, evidence, document_numbers)})
         plan["notes"] = notes
     from backend.domains.llm_wiki.review_synthesis import synthesize
     return synthesize(engine, worker, reviewer, global_map, notes_map, findings)

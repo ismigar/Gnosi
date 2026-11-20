@@ -214,21 +214,24 @@ def test_six_notes_on_one_original_can_resume_a_partly_completed_audit():
     assert completed == claims and attempts[-1] == []
 
 
-def test_same_support_quote_preserves_its_batch_source_in_the_merged_notes_and_synthesis():
+@pytest.mark.parametrize("identical_source_views", [False, True])
+def test_same_support_quote_preserves_its_batch_source_in_the_merged_notes_and_synthesis(identical_source_views):
     from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage, synthesis_changes
     from backend.domains.llm_wiki.semantic_contracts import bind_note
     primary = {"id": "primary", "text": "Two studies use independent observations.", "locator": {"page": 1}, "origin_label": "Studies"}
     repeated = "Replication is required."
     support = [{"id": name, "text": f"{name} findings. {repeated}", "locator": {"page": i}, "origin_label": "Studies"}
                for i, name in enumerate(("Spring", "Autumn"), start=2)]
+    if identical_source_views:
+        support[1] = {**support[0], "id": support[1]["id"]}
     evidence = [primary, *support]
     drafts = [bind_note({"title": s["id"], "body_md": "The study compares independent observations and preserves the stated qualifications. " * 9,
-                         "quotes": [primary["text"], s["text"]], "properties": {}}, primary, evidence, []) for s in support]
+                         "quotes": [primary["text"], s["text"]], "properties": {}}, primary, [primary, s], []) for s in support]
     plan = {"coverage": [{"segment_id": "primary", "reason": "Two experimental series."}]}
     calls = []
     def review(prompt, validate, timeout):
         request = json.loads(prompt)
-        assert "quote_source_keys" not in prompt
+        assert "quote_source_keys" not in prompt and "quote_segment_ids" not in prompt
         notes = request["drafts"]
         changes = []
         if notes:
@@ -246,9 +249,10 @@ def test_same_support_quote_preserves_its_batch_source_in_the_merged_notes_and_s
     key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan, {}, None)
     accepted = apply_changes(answer, drafts, primary, evidence, [])
     assert [[c["segment_id"] for c in n["citations"]] for n in accepted] == [["primary", "Spring"], ["primary", "Autumn"]]
-    findings = synthesis_changes(answer, evidence)
-    assert "quote_source_keys" not in json.dumps(findings)
-    assert [change["citation_locations"][-1]["location"]["page"] for change in findings] == [2, 3]
+    findings = synthesis_changes(answer, evidence, {"primary": 1, "Spring": 2, "Autumn": 3})
+    assert all(key not in json.dumps(findings) for key in ("quote_source_keys", "quote_segment_ids"))
+    assert [change["citation_locations"][-1]["location"]["page"] for change in findings] == ([2, 2] if identical_source_views else [2, 3])
+    assert [change["citation_locations"][-1]["document_number"] for change in findings] == [2, 3]
     resumed, _, _ = setup(count=1, checkpoints=checkpoints, resume="new")
     assert audit_passage(resumed, reviewer, primary, drafts, evidence, plan, {"key": key, "answer": answer}, None) == (key, answer)
     assert calls == [1, 1, 0]
