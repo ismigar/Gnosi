@@ -101,7 +101,7 @@ def test_selected_files_stream_first_range_from_coordinated_bytes(cloud, monkeyp
         "linked": ("/{token}", files_api.serve_local_file, f"/{token}"),
     }
     route, endpoint, url = endpoints[group]
-    app.add_api_route(route, endpoint, methods=["GET"], response_model=None)
+    app.add_api_route(route, endpoint, methods=["GET"])
     with TestClient(app) as client:
         first = client.get(url, headers={"Range": "bytes=2-5"})
         assert first.status_code == 206 and first.content == b"2345"
@@ -335,7 +335,7 @@ def test_unavailable_registry_never_seeds_or_authorizes_an_empty_schema(cloud, m
     monkeypatch.setattr(snapshots, "copy_coordinated", offline)
     app = FastAPI()
     register_error_handlers(app)
-    app.add_api_route("/registry", registry.get_registry, response_model=None)
+    app.add_api_route("/registry", registry.get_registry, response_model=registry.VaultRegistryResponse)
     with TestClient(app) as client:
         response = client.get("/registry")
     assert response.status_code == 503
