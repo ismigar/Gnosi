@@ -692,7 +692,7 @@ a = Analysis(
     pathex=[{str(repository)!r}],
     binaries=[], datas=plan.datas + voice_data, hiddenimports=hiddenimports,
     hookspath=[], runtime_hooks=[],
-    excludes=['tkinter', 'test', 'matplotlib', 'pandas', 'scipy'],
+    excludes=['tkinter', 'test', 'matplotlib', 'pandas'],
     noarchive=False,
 )
 validate_analysis(a.datas, a.pure, a.binaries, plan)

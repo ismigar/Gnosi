@@ -859,6 +859,8 @@ The effective vault selected by header, query or cookie is also the identity use
 
 Opening the drawing canvas does not automatically download or load an OCR model. Status distinguishes missing weights, downloading, downloaded, loading, cancellation and failure. Download cancellation is scoped to its owner and applies to transfer, not active inference. Files become cache-visible only after size and checksum verification; partial files are removed. The UI shows transferred size and localized status. Synthetic transfer and canvas tests verify these contracts, not recognition accuracy on real handwriting or cloud files that are not materialized.
 
+The desktop backend includes SciPy so Transformers can load the handwriting model on the CPU. For the default TrOCR checkpoint, Gnosi reads the original RoBERTa vocabulary and merge rules and processes stroke images with Pillow. The packaged backend smoke test checks that recognition is available even when the model cache is empty.
+
 ## Generated knowledge notes, readable references, and review
 
 Idea type is a default AI assignment by property ID, independently of index fields. The existing dimension contract carries allowed localized labels and a brief `classification_reason`; empty values represent explained abstention. Explicit copied, fixed and empty assignments take precedence. Interpretation, review and persistence retain the value, and `llm_wiki_idea_classification` records its version, method and provenance. Reprocessing preserves a manually changed value. Missing legacy classification requires completion instead of an implicit Concept.

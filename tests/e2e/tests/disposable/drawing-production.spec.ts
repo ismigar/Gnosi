@@ -48,6 +48,10 @@ test('the production drawing editor can draw, save and reopen after startup', as
   await expect(pen).toBeVisible({ timeout: 20_000 });
   const releaseNotes = page.getByRole('button', { name: /Tanca les notes de la versió/i });
   if (await releaseNotes.count()) await releaseNotes.click();
+  const importCanvas = page.getByText('Importa .canvas', { exact: true });
+  const exportCanvas = page.getByRole('button', { name: 'Exporta .canvas' });
+  await expect(exportCanvas).toHaveCSS('font-size', await importCanvas.evaluate(el => getComputedStyle(el).fontSize));
+  await expect(exportCanvas).toHaveCSS('line-height', await importCanvas.evaluate(el => getComputedStyle(el).lineHeight));
   // The reported regression left the toolbar usable only for the first five seconds.
   await page.waitForTimeout(6_000);
   const iconMask = (tool: string) => page.getByTestId(tool).locator('.tlui-icon')
