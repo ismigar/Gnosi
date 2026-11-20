@@ -394,6 +394,11 @@ campos gestionados y campos del usuario. La reconciliación de plugins es
 idempotente: desactivar un plugin suspende su contribución gestionada sin
 eliminar las personalizaciones del usuario.
 
+El chat lee las habilidades personales asignadas a cada perfil que participa y sigue
+sus enlaces `derived_from`. Gnosi descarga en segundo plano los archivos de la nube
+que necesita mientras el chat espera. Si alguno sigue sin estar disponible, el chat
+permite volver a intentarlo.
+
 Las traducciones de filas y páginas utilizan la
 operación compartida `translation`. Los botones seleccionan el perfil del plugin
 de Traducción; las acciones dentro de una conversación heredan el perfil del

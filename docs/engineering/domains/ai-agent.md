@@ -372,6 +372,10 @@ and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
 
+A chat reads the personal skills assigned to each participating profile and follows their
+`derived_from` links. Gnosi downloads the required cloud files in the background
+while the chat waits. If a required file remains unavailable, the chat offers a manual retry.
+
 Row and page translations use the shared `translation`
 operation. UI buttons select the Translation plugin's profile; actions within a
 conversation inherit the running agent's profile. That profile governs the

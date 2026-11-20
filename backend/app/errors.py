@@ -9,6 +9,7 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from backend.utils.errors import metadata_unavailable_detail
 from backend.utils.metadata_io import MetadataUnavailable
 
 from backend.platform.notifications import notify as _notify_fn
@@ -46,19 +47,11 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 async def metadata_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Expose a retryable provider failure without paths or file contents."""
-    language = request.headers.get("Accept-Language", "en").split(",", 1)[0].split("-", 1)[0].lower()
-    messages = {
-        "ca": "Les dades del núvol encara no estan disponibles. Torna-ho a provar d’aquí a uns segons.",
-        "es": "Los datos de la nube aún no están disponibles. Vuelve a intentarlo en unos segundos.",
-        "fr": "Les données du cloud ne sont pas encore disponibles. Réessayez dans quelques secondes.",
-        "en": "Cloud data is not available yet. Retry shortly.",
-    }
+    _, detail = metadata_unavailable_detail(request.headers.get("Accept-Language", "en"))
     return JSONResponse(
         status_code=503,
         headers={"Retry-After": "30"},
-        content={"detail": messages.get(language, messages["en"]),
-                 "code": "metadata_unavailable"},
+        content={"detail": detail, "code": "metadata_unavailable"},
     )
 
 

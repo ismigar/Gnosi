@@ -49,7 +49,8 @@ def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None 
     if selected_skill.startswith("user."):
         from backend.services.agent_skill_catalog import get_skill_catalog
         from backend.services.agent_behavior_bindings import canonical_id
-        entries = {entry.descriptor.id: entry for entry in get_skill_catalog().list_entries(Path(current_scope().vault_path))}
+        catalog = get_skill_catalog().list_entries(Path(current_scope().vault_path), profile_skill_ids=[selected_skill])
+        entries = {entry.descriptor.id: entry for entry in catalog}
         selected_skill = canonical_id(selected_skill, entries)
 
     inherited = _snapshot.get()
@@ -246,10 +247,12 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
         return
     scope = current_scope()
     revalidate_scope(scope)
-    snapshot = snapshot or prepare_snapshot("", active_skill_ids=inputs.get("active_skill_ids"))
-    if snapshot.scope != scope:
+    execution_snapshot = snapshot if snapshot is not None else await asyncio.to_thread(
+        prepare_snapshot, "", active_skill_ids=inputs.get("active_skill_ids"),
+    )
+    if execution_snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")
-    snapshot = snapshot.model_copy(update={"origin": origin})
+    snapshot = execution_snapshot.model_copy(update={"origin": origin})
     run_id = str(inputs.get("trace_id") or uuid.uuid4().hex)
     selection = selection or {}
     row = AgentRun(run_id=run_id, parent_run_id=snapshot.parent_run_id, agent_id=snapshot.agent_id,
@@ -444,7 +447,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
-    snapshot, ai, runtime = _operation_context(request, snapshot)
+    context = await asyncio.to_thread(_operation_context, request, snapshot)
+    snapshot, ai, runtime = context
     parent_id = request.parent_run_id or snapshot.parent_run_id or _run.get()
     checkpoint_key = hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
     cached = None if private_result else _checked_checkpoint(request, snapshot, parent_id, checkpoint_key, output_validator)

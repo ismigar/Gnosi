@@ -429,7 +429,9 @@ def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
     def timeout(remaining):
         timeout_budgets.append(remaining)
         return asyncio.timeout(remaining)
-    monkeypatch.setattr(execution, "asyncio", SimpleNamespace(timeout=timeout, CancelledError=asyncio.CancelledError))
+    monkeypatch.setattr(execution, "asyncio", SimpleNamespace(
+        timeout=timeout, CancelledError=asyncio.CancelledError, to_thread=asyncio.to_thread,
+    ))
     class Application:
         async def astream(self, inputs, **kwargs):
             calls.append(inputs)

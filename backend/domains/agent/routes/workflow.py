@@ -55,7 +55,8 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
     )
 
     refresh_mcp_tool_contributions(tools_list, mcp_client)
-    ai_cfg, agent_data, runtime_capabilities = prepare_agent_runtime(
+    ai_cfg, agent_data, runtime_capabilities = await asyncio.to_thread(
+        prepare_agent_runtime,
         agent_id,
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
