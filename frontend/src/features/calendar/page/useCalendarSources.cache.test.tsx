@@ -91,7 +91,7 @@ describe('calendar source continuity', () => {
         let saved = { ...settings };
         api.fetchIntegrations.mockImplementation(() => Promise.resolve(saved));
         api.fetchCalendarEvents.mockResolvedValue(eventsFor(['Foundation', 'Moon', 'Other']));
-        const firstWrite = deferred<void>();
+        const firstWrite = deferred<boolean>();
         api.updateCalendarSelection.mockImplementation(async (preference: IntegrationsDocument['calendar_selection']) => {
             await firstWrite.promise;
             saved = { ...saved, calendar_selection: preference };
@@ -103,7 +103,7 @@ describe('calendar source continuity', () => {
         expect(current.selectedCalendars).not.toContain(foundation);
         expect(current.selectedCalendars).not.toContain(moon);
         expect(api.updateCalendarSelection).toHaveBeenCalledTimes(1);
-        await update(() => { firstWrite.resolve(); });
+        await update(() => { firstWrite.resolve(true); });
         await ready(() => { expect(api.updateCalendarSelection).toHaveBeenCalledTimes(2); });
         await update(() => { root.render(null); });
         client.clear();
@@ -119,9 +119,9 @@ describe('calendar source continuity', () => {
     it('restores an explicitly empty visible calendar after reopening and rolls back a failed save', async () => {
         let saved: IntegrationsDocument = { ...settings, calendar_selection: ['Appointments'] };
         api.fetchIntegrations.mockImplementation(() => Promise.resolve(saved));
-        api.updateCalendarSelection.mockImplementation(async (preference: IntegrationsDocument['calendar_selection']) => {
+        api.updateCalendarSelection.mockImplementation((preference: IntegrationsDocument['calendar_selection']) => {
             saved = { ...saved, calendar_selection: preference };
-            return { status: 'success' };
+            return Promise.resolve({ status: 'success' });
         });
         await mount();
         await ready(() => { expect([...current.selectedCalendars]).toEqual(['Appointments']); });

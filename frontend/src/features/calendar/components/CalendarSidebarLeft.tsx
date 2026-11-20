@@ -98,7 +98,7 @@ export const CalendarSidebarLeft = ({
     const sourceGroups = groupCalendarSources(availableCalendars, calendarConfigs);
 
     return (
-        <div className="w-64 flex-shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] flex flex-col h-full overflow-y-auto hidden md:flex text-sm text-[var(--text-secondary)]">
+        <div className="w-full flex-shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] flex flex-col h-full overflow-y-auto text-sm text-[var(--text-secondary)]">
             {/* Mini Calendar Header */}
             <div className="p-4 pb-2 flex items-center justify-between">
                 <button 
@@ -260,7 +260,7 @@ export const CalendarSidebarLeft = ({
                                             </div>
 
                                             {!isEditing && (
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                                <div className="flex items-center gap-1 lg:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                                     <button
                                                         className={`p-1 hover:bg-[var(--bg-tertiary)] rounded transition-colors ${defaultCalendar === source ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
                                                         onClick={(e) => {
