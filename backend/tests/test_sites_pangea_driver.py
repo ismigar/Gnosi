@@ -155,7 +155,7 @@ def test_current_webs_probe_uses_native_runtime_check(registration, monkeypatch,
 
 
 @pytest.mark.skipif(not shutil.which('php'), reason='PHP is required')
-@pytest.mark.parametrize('data', [b'', bytes(range(256)) * 1000])
+@pytest.mark.parametrize('data', [b'', bytes(range(256)) * 1000], ids=['empty', 'multi-chunk-binary'])
 def test_native_transfer_streams_exact_bytes_over_real_local_pty(tmp_path, data):
     source, destination = tmp_path / 'source.bin', tmp_path / "destination 'quoted'.bin"
     source.write_bytes(data)
