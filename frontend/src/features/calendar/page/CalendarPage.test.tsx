@@ -71,11 +71,11 @@ describe('calendar page controller', () => {
         expect(container.textContent).toContain('Local appointment');
         expect([...page().selectedCalendars]).toEqual(['Appointments']);
         await run(() => { page().toggleCalendar('Appointments'); });
-        expect(updateCalendarSelection).toHaveBeenCalledWith({selection: []});
+        expect(updateCalendarSelection).toHaveBeenCalledWith({default_sources: ['Appointments'], hidden_sources: ['Appointments'], shown_sources: []});
         await run(() => { client.setQueryData(calendarQueryKeys.calendars(), {items: [{id: 'late', account: 'caldav@example.test', name: 'Later', provider: 'caldav'}], authError: ''}); });
         expect(page().selectedCalendars.size).toBe(0);
         await run(() => { page().toggleCalendar('caldav@example.test'); });
-        expect(updateCalendarSelection).toHaveBeenLastCalledWith({selection: ['caldav@example.test']});
+        expect(updateCalendarSelection).toHaveBeenLastCalledWith({default_sources: ['Appointments'], hidden_sources: ['Appointments'], shown_sources: ['caldav@example.test']});
     });
     it('inherits a saved account selection for sub-calendars discovered asynchronously', async () => {
         vi.mocked(fetchIntegrations).mockResolvedValue({

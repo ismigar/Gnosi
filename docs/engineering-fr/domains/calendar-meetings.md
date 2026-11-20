@@ -77,6 +77,8 @@ web ne rafraîchit plus ce miroir hérité.
 
 Au survol d’un rendez-vous d’un calendrier connecté, le calendrier affiche son titre, son horaire et les détails disponibles, y compris si le rendez-vous est modifiable. Les pages locales du coffre disposent d’un aperçu de page.
 
+Chaque calendrier peut être masqué séparément. Les choix explicites sont conservés à la réouverture de la page et priment sur la visibilité héritée du compte lors de la découverte de nouveaux calendriers.
+
 La couche de routes résout le contexte du workspace et les intégrations sélectionnées, puis normalise les événements des fournisseurs et les événements Markdown locaux dans une réponse commune. Les identifiants restent associés au compte et au calendrier d'origine ; un identifiant seul n'est pas suffisamment unique globalement pour effectuer une mutation.
 
 Le masquage des événements est une surcouche locale. Il ne supprime pas l'événement chez le fournisseur. Le réaffichage retire cette surcouche pour que l'agrégation suivante inclue à nouveau l'événement.

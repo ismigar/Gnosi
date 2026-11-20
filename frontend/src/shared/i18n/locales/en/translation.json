@@ -349,6 +349,8 @@
     "saved": "Saved",
     "event_save_error": "Error sending the appointment.",
     "calendar_renamed_success": "Calendar renamed",
+    "calendar_visibility": "Visibility of {{name}}",
+    "visibility_save_error": "Could not save calendar visibility.",
     "calendar_rename_error": "Error renaming calendar",
     "error_loading_event_data": "Error loading event data.",
     "no_event_selected": "No event selected.",

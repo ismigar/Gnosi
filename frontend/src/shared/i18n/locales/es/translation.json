@@ -301,6 +301,8 @@
     "saved": "Guardado",
     "event_save_error": "Error enviando la cita.",
     "calendar_renamed_success": "Calendario renombrado",
+    "calendar_visibility": "Visibilidad de {{name}}",
+    "visibility_save_error": "No se ha podido guardar la visibilidad del calendario.",
     "calendar_rename_error": "Error al renombrar el calendario",
     "error_loading_event_data": "Error cargando los datos del evento.",
     "no_event_selected": "No hay ningún evento seleccionado.",
