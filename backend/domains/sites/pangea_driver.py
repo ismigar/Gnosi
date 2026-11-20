@@ -34,6 +34,12 @@ def import_root() -> Path:
     return root
 
 
+def _registered_root(value: object) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"/[a-zA-Z0-9_./-]+", value) or ".." in Path(value).parts:
+        raise HTTPException(409, "Invalid registered Pangea web root")
+    return value
+
+
 @dataclass
 class PangeaDriver:
     REMOTE_ROOT: str
@@ -43,7 +49,22 @@ class PangeaDriver:
     def bridge(self) -> BoundedBridge:
         return BoundedBridge(self.settings, timeout=600)
 
+    def resolve_legacy_root(self, bridge: Bridge) -> None:
+        # Suweb may use a different account from the SSH login. Resolve its home
+        # on the authenticated session before constructing any destination paths.
+        root = bridge.run(
+            'account_home=$(getent passwd "$(id -u)" | cut -d: -f6); '
+            'if test -n "$account_home" && cd -P -- "$account_home/webapps/web" 2>/dev/null && test -d web; '
+            'then pwd -P; fi'
+        )
+        self.REMOTE_ROOT = _registered_root(root.strip())
+        self.settings["WORKING_DIRECTORY"] = self.REMOTE_ROOT
+        if isinstance(bridge, BoundedBridge):
+            bridge.settings["WORKING_DIRECTORY"] = self.REMOTE_ROOT
+
     def php(self, bridge: Bridge, code: str) -> str:
+        if not self.REMOTE_ROOT:
+            self.resolve_legacy_root(bridge)
         return bridge.run("php -r " + shlex.quote(code))
 
     def put(self, bridge: Bridge, source: Path, destination: str) -> None:
@@ -115,13 +136,11 @@ def load_driver(store: SiteStore) -> PangeaDriver:
     vaults = config.get("vault_paths", [])
     if not isinstance(vaults, list) or str(store.vault) not in [str(Path(value).resolve()) for value in vaults if isinstance(value, str)]:
         raise HTTPException(403, "This vault is not registered with the Pangea bridge")
-    # Existing registrations predate the explicit remote_root setting.
-    remote = config.get("remote_root", "/home/ismigar/webapps/web" if not configured else "")
-    if not isinstance(remote, str) or not re.fullmatch(r"/[a-zA-Z0-9_./-]+", remote) or ".." in Path(remote).parts:
-        raise HTTPException(409, "Invalid registered Pangea web root")
+    # Only a registration in the former archive can predate the explicit root.
+    remote = "" if not configured and "remote_root" not in config else _registered_root(config.get("remote_root"))
     settings = {name: os.environ.get(name, "") for name in ("SSH_HOST", "SSH_USER", "SSH_PASSWORD", "SSH_SUWEB_PASSWORD")}
     settings["SSH_PORT"] = os.environ.get("SSH_PORT", "22")
-    settings["WORKING_DIRECTORY"] = remote
+    settings["WORKING_DIRECTORY"] = remote or "/"
     for name, credential in (("SSH_PASSWORD", "ssh_password"), ("SSH_SUWEB_PASSWORD", "ssh_suweb_password")):
         if not settings[name]:
             from backend.security.keychain_manager import get_keychain
