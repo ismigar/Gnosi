@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from collections import Counter
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, passage_sources, verified_legacy_answer
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
+from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue, PendingPassagesRemaining
 from backend.domains.llm_wiki.reading_quality import adjacent_originals, validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
-from backend.domains.llm_wiki.review_selection import passage_key, selected_passages
+from backend.domains.llm_wiki.review_selection import passage_key, passage_occurrence, selected_passages
 from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 from backend.domains.llm_wiki.semantic_contracts import (
     TEXT, TEXTS, bind_note, bind_note_sources, fields, note_schema, obj, semantic_note, validate_schema,
@@ -88,7 +90,8 @@ def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], pr
                   evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
     validate_schema(answer, audit_schema(len(drafts), dimensions, bound_sources=True))
     if answer["unresolved_issues"]:
-        raise ValueError("The independent reviewer must resolve outstanding source issues before acceptance")
+        raise ValueError("The independent reviewer must resolve outstanding source issues before acceptance: "
+                         + "; ".join(cast(list[str], answer["unresolved_issues"])))
     quote = str(answer["evidence_quote"])
     if not quote.strip() or quote not in str(primary["text"]):
         raise ValueError("The assessment must cite an exact quotation from the primary passage")
@@ -186,8 +189,11 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
             raise ValueError("Review corrections must use valid source citations")
 
     def validate_transport(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
-        validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
-        validate(answer, subset, sources)
+        try:
+            validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
+            validate(answer, subset, sources)
+        except ValueError as error:
+            raise PassageReviewIssue(str(error)) from error
 
     matches = saved.get("key") == state_key or (scope and saved.get("key") == key and (
         scope.matches_legacy(worker.resume_job_id) or verified_legacy_answer(worker, primary, drafts, original_sources, saved, key)))
@@ -222,6 +228,8 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
     if engine.state.get("independent_revision") != reviewer.identity:
         engine.state.update(independent_revision=reviewer.identity, independent_reviews={}, independent_synthesis=None)
     results = engine.state["independent_reviews"]
+    pending = engine.state.setdefault("pending_audits", {})
+    occurrences = Counter(passage_key(s) for chunk, _ in reviewed for s in records(chunk["segments"]))
     findings: list[dict[str, object]] = []
     reader.phase("reviewing", 73)
     for chunk, plan in reviewed:
@@ -229,19 +237,36 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
         for segment in records(chunk["segments"]):
             identifier = str(segment["id"])
             checkpoint_id = passage_key(segment)
-            if checkpoint_id not in selected:
+            occurrence = passage_occurrence(chunk, segment)
+            if checkpoint_id not in selected and occurrence not in pending:
                 continue
             primary = {**segment, "origin_label": chunk.get("origin_label", "")}
             drafts = [n for n in notes if n["source_segment_id"] == identifier]
             support, evidence = passage_sources(primary, drafts, plan, adjacent.get(identifier, []))
-            saved = results.get(checkpoint_id, {})
-            key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan,
-                                        saved, engine.deps.citation_issues)
-            if key != saved.get("key"):
-                results[checkpoint_id] = {"key": key, "answer": answer}
+            result_key = occurrence if occurrences[checkpoint_id] > 1 else checkpoint_id
+            saved = results.get(result_key, results.get(checkpoint_id, {}))
+            prior = pending.get(occurrence, {})
+            worker.checkpoint_owners = tuple(prior.get("review_jobs", []))
+            if prior and reader.job_id and reader.job_id not in worker.checkpoint_owners:
+                prior["review_jobs"] = worker.checkpoint_jobs
+                engine.save()
+            try:
+                key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan,
+                                            saved, engine.deps.citation_issues)
+            except PassageReviewIssue as issue:
+                pending[occurrence] = {"chunk_id": chunk["id"], "locator": primary.get("locator"),
+                                          "reason": str(issue), "review_jobs": worker.checkpoint_jobs}
+                engine.state["completed"] = False
+                engine.save()
+                continue
+            was_pending = pending.pop(occurrence, None)
+            if key != saved.get("key") or result_key not in results:
+                results[result_key] = {"key": key, "answer": answer}
                 engine.state["step"] += 1
                 reader.models.extend(worker.models)
                 worker.models.clear()
+                engine.save()
+            elif was_pending:
                 engine.save()
             if answer["changes"]:
                 context = page_context(worker.pdf_edges, evidence, [primary, *support])
@@ -260,5 +285,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                              "assessment": answer["assessment"], "quote": answer["evidence_quote"],
                              "corrections": synthesis_changes(answer, evidence, document_numbers)})
         plan["notes"] = notes
+    if count := engine.pending_count():
+        raise PendingPassagesRemaining(count)
     from backend.domains.llm_wiki.review_synthesis import synthesize
     return synthesize(engine, worker, reviewer, global_map, notes_map, findings)

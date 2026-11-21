@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
-from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
+from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue, ReadingInputTooLarge
 from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
 from backend.domains.llm_wiki.reading_skill import MAP_CONTRACT, NOTE_CONTRACT, REQUEST_CONTRACT
 from backend.domains.llm_wiki.recovery import call_with_retry
@@ -25,6 +25,20 @@ from backend.domains.llm_wiki.recovery import call_with_retry
 
 def fingerprint(value: object) -> str:
     return hashlib.sha256(encoded(value).encode()).hexdigest()
+
+
+def _reading_answer(raw: str) -> dict[str, object]:
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+    answer = json.loads(cleaned)
+    if not isinstance(answer, dict):
+        raise ValueError("Return a JSON object")
+    return answer
+
+
+def _invalid_answer(phase: str, reason: Exception) -> Exception:
+    if isinstance(reason, PassageReviewIssue) or phase in {"source-repair", "source-audit"}:
+        return PassageReviewIssue(str(reason))
+    return RuntimeError(f"The reading skill returned an invalid {phase} result: {reason}")
 
 
 class ReadingCheckpointUnavailable(LookupError):
@@ -51,6 +65,7 @@ class ContextualReader:
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
+    checkpoint_owners: tuple[str, ...] = ()
     historical_audits: dict[str, dict[str, HistoricalAudit]] = field(default_factory=dict, init=False, repr=False)
 
     @property
@@ -79,20 +94,25 @@ class ContextualReader:
                 fields["progress"] = progress
             self.dependencies.update_job(self.job_id, **fields)
 
+    @property
+    def checkpoint_jobs(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(job for job in (self.job_id, self.resume_job_id, *self.checkpoint_owners) if job))
+
     def has_checkpoint(self, key: str) -> bool:
         return any(isinstance(self.dependencies.load_checkpoint(job, key), dict)
-                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job)
+                   for job in self.checkpoint_jobs)
 
     def _restore_checkpoint(
         self, slots: tuple[str, str, str], identity: str, request: dict[str, object],
         validate: Callable[[dict[str, object]], None], checkpoint_scope: CheckpointScope | None,
         restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None,
+        checkpoint_jobs: tuple[str, ...] = (),
     ) -> dict[str, object] | None:
         key, _, legacy_key = slots
         # A sibling may settle a reservation while this batch is retrying in
         # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
         for slot in dict.fromkeys(slots):
-            saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+            saved = next((value for job in dict.fromkeys((*self.checkpoint_jobs, *checkpoint_jobs)) if job
                           if isinstance(value := self.dependencies.load_checkpoint(job, slot), dict)
                           and value.get("identity") == identity
                           and (slot == key or not checkpoint_scope or checkpoint_scope.matches_legacy(job))), None)
@@ -108,6 +128,10 @@ class ContextualReader:
                     if restore_legacy and "pdf_page_context" not in saved:
                         answer = restore_legacy(answer)
                     validate(answer)
+                except PassageReviewIssue:
+                    # A previously cached provisional answer can fail a current
+                    # source check. Reopen that operation on explicit resume.
+                    continue
                 except ValueError:
                     if slot != key:
                         continue
@@ -152,6 +176,7 @@ class ContextualReader:
         restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
         checkpoint_only: bool = False,
         checkpoint_scope: CheckpointScope | None = None,
+        checkpoint_jobs: tuple[str, ...] = (),
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -189,7 +214,7 @@ class ContextualReader:
             ]
         )
         recovered = self._restore_checkpoint((key, context_key, legacy_key), identity, request,
-                                             validate, checkpoint_scope, restore_legacy)
+                                             validate, checkpoint_scope, restore_legacy, checkpoint_jobs)
         if recovered is not None:
             return recovered
         if checkpoint_only:
@@ -228,11 +253,15 @@ class ContextualReader:
                 source_bytes=self.source_bytes,
             )
             try:
-                cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
-                answer = json.loads(cleaned)
-                if not isinstance(answer, dict):
-                    raise ValueError("Return a JSON object")
+                answer = _reading_answer(raw)
                 validate(answer)
+            except (ValueError, TypeError, KeyError) as exc:
+                if attempt == attempts - 1:
+                    raise _invalid_answer(phase, exc) from exc
+                # Reissue the full evidence with the actual validation finding.
+                request["correction"] = str(exc)[:400]
+                prompt = encoded(request)
+            else:
                 self.models.append(model)
                 if self.job_id:
                     self.dependencies.save_checkpoint(
@@ -247,14 +276,6 @@ class ContextualReader:
                         },
                     )
                 return answer
-            except (ValueError, TypeError, KeyError) as exc:
-                if attempt == attempts - 1:
-                    raise RuntimeError(
-                        f"The reading skill returned an invalid {phase} result: {exc}"
-                    ) from exc
-                # Reissue the full evidence, not a lossy summary of a bad answer.
-                request["correction"] = str(exc)[:400]
-                prompt = encoded(request)
         raise AssertionError("unreachable")
 
     def map(self, key: str, phase: str, material: object, *, summary_limit: int | None = None) -> str:

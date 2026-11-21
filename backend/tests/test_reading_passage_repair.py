@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.domains.llm_wiki.chunking import encoded
+from backend.domains.llm_wiki.reading_batch_recovery import PendingPassagesRemaining
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services import reading_budget
 from backend.tests.test_semantic_reading import response, setup
@@ -119,9 +120,13 @@ def test_reviewer_must_resolve_the_defect_and_ground_its_answer_in_the_primary()
             {**valid["passages"][0]["notes"][0], "quotes": ["A quotation absent from the original"]}]}]})
         pytest.fail("An ungrounded correction must not pass validation")
     attach_reviewer(reader, reviewer)
-    with pytest.raises(ValueError, match="verbatim"):
+    with pytest.raises(PendingPassagesRemaining):
         reader.run()
-    assert len(checkpoints["new", "semantic-state"]["plans"]) == 4
+    state = checkpoints["new", "semantic-state"]
+    assert len(state["plans"]) == 4
+    draft, = state["review_drafts"].values()
+    issue, = draft["issues"].values()
+    assert "verbatim" in issue["reason"]
 
 
 def test_oversized_correction_is_rejected_before_caching_and_retried_alone():
@@ -150,8 +155,11 @@ def test_oversized_correction_is_rejected_before_caching_and_retried_alone():
         return SemanticReader(book)
 
     book, _, checkpoints = setup(count=3, generate=draft)
-    with pytest.raises(ValueError, match="exceed the reviewer's context"):
+    with pytest.raises(PendingPassagesRemaining):
         engine(book).extract("Argument")
+    pending, = checkpoints["new", "semantic-state"]["review_drafts"].values()
+    issue, = pending["issues"].values()
+    assert "exceed the reviewer's context" in issue["reason"]
     assert not any(key.startswith("passage-repair-") for _, key in checkpoints)
     resumed, reader_calls, _ = setup(count=3, checkpoints=checkpoints, resume="new", generate=draft)
     resumed.job_id = "resumed"

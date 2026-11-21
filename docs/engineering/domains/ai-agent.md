@@ -744,6 +744,8 @@ If a whole PDF quotation cannot be highlighted, the reviewer can select shorter 
 
 When a passage under review or one of its cited sources reaches a physical PDF page break, Gnosi supplies the passages on both sides in reading order. The reviewer checks whether the argument continues and can cite each page separately. The pair comes from the same file, even when attachments share a title. Each additional passage is sent once per request. On resume, Gnosi reuses a paid audit when it can verify which originals the drafts cited. If identical quotations from different files make an older record ambiguous, Gnosi checks the saved upstream decisions and requests a new audit only when it cannot establish the attribution or the cited original has changed.
 
+If the reviewer still cannot resolve a passage, Gnosi saves its location, the review finding and the reader’s draft, then continues with other passages within the same spending limit. Resuming reuses accepted work. Final synthesis and publication require every outstanding passage to pass review.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.

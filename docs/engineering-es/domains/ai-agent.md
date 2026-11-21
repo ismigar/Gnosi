@@ -846,6 +846,8 @@ Cuando Gnosi no puede resaltar una cita completa del PDF, el Revisor de lectura 
 
 Cuando un pasaje en revisión o una de las fuentes que cita llega a un salto de página del PDF, Gnosi facilita los pasajes de ambas páginas en orden de lectura. El revisor comprueba si el argumento continúa y puede citar cada página por separado. Ambos pasajes proceden del mismo archivo, incluso cuando hay adjuntos con el mismo título. Cada pasaje adicional se envía una sola vez por petición. Al reanudar la lectura, Gnosi reutiliza una revisión pagada cuando puede verificar los originales que citaban las notas. Si una cita idéntica en dos archivos hace ambiguo un registro antiguo, Gnosi consulta las decisiones guardadas y solicita una nueva revisión si no puede establecer la atribución o ha cambiado el original citado.
 
+Si el revisor deja un pasaje pendiente, Gnosi guarda su ubicación, el motivo y el borrador del lector. La lectura continúa con otros pasajes dentro del mismo límite de gasto. Al reanudarla, Gnosi aprovecha el trabajo ya validado. La síntesis final y la publicación requieren que todos los pasajes hayan superado la revisión.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan

@@ -855,6 +855,8 @@ Lorsque Gnosi ne peut pas surligner une citation entière du PDF, le Réviseur d
 
 Lorsqu’un passage examiné ou l’une de ses sources citées atteint un saut de page du PDF, Gnosi fournit les passages des deux pages dans l’ordre de lecture. Le réviseur vérifie si le raisonnement se poursuit et peut citer chaque page séparément. Les deux passages proviennent du même fichier, même si plusieurs pièces jointes portent le même titre. Chaque passage supplémentaire est envoyé une seule fois par requête. À la reprise, Gnosi réutilise une révision payée lorsqu’il peut vérifier les originaux cités par les notes. Si une citation identique dans deux fichiers rend un ancien enregistrement ambigu, Gnosi consulte les décisions enregistrées et demande une nouvelle révision lorsque l’attribution reste incertaine ou que la source citée a changé.
 
+Si un passage reste en attente de révision, Gnosi conserve son emplacement, le motif et le brouillon du lecteur. La lecture se poursuit sur les autres passages dans la même limite de dépenses. À la reprise, Gnosi réutilise le travail déjà validé. La synthèse finale et la publication exigent la validation de tous les passages.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion

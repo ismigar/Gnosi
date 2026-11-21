@@ -152,6 +152,11 @@ export function ProcessResourceModalView({
                                         )}
                                     </div>
                                 ) : null}
+                                {(job?.pending_passages ?? 0) > 0 ? (
+                                    <div className="text-xs text-[var(--text-secondary)]">
+                                        {translate('reading_pending_count', '{{count}} passages awaiting review', { count: job?.pending_passages ?? 0 })}
+                                    </div>
+                                ) : null}
                                 {touched > 0 ? (
                                     <div className="text-xs text-[var(--text-secondary)]/70">
                                         {translate(

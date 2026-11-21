@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import pytest
 
+from backend.domains.llm_wiki.reading_batch_recovery import PendingPassagesRemaining
 from backend.domains.llm_wiki.reading_quality import prose_issues, validate_reviewed_prose
 from backend.tests.test_semantic_reading import response, setup
 from backend.tests.test_semantic_review_parallel import prepared
@@ -25,6 +26,19 @@ def test_coverage_accepts_supported_claim_without_inventing_tail():
     from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage
     validate_boundary_coverage('Preserves the complete theoretical limit and its stated example; no extra list item inferred.')
     validate_boundary_coverage('Detached connector without an independent proposition.')
+
+
+@pytest.mark.parametrize('reason', [
+    'La cita se conserva como paráfrasis porque el texto presenta cortes y erratas.',
+    'El fragmento explica que la mitad de los árboles se cortan antes del invierno.',
+    'The passage compares truncated distributions. Each estimate has incomplete data.',
+    'Le texte décrit les cartes coupées pour préparer les échantillons.',
+    'Una cita curta il·lustra el càlcul. La sèrie truncada conserva els quatre primers termes.',
+])
+def test_subject_matter_and_transcription_comments_are_not_missing_source(reason):
+    from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage
+    validate_boundary_coverage(reason)
+    assert not prose_issues({'body_md': reason}, [], 'Catalan')
 
 
 def test_interpretation_rejects_boundary_loss_before_checkpoint_save():
@@ -68,9 +82,12 @@ def test_review_cannot_turn_complete_claims_into_a_truncation_omission():
             answer['changes'] = [{'note': 1, 'omit_reason': 'The passage is truncated, so no complete claim can be retained.'}]
         return answer
     reader, _, checkpoints = setup(count=1, generate=bad_review)
-    with pytest.raises(ValueError, match='source-grounded review'):
+    with pytest.raises(PendingPassagesRemaining):
         reader.run()
-    assert not checkpoints['new', 'semantic-state'].get('completed')
+    state = checkpoints['new', 'semantic-state']
+    assert not state.get('completed')
+    pending, = state['pending_review_groups'].values()
+    assert 'source-grounded review' in pending['reason']
 
 
 def test_cached_review_omission_is_revalidated_when_bound():
@@ -162,8 +179,10 @@ def test_unchanged_corrupt_note_cannot_pass_review_or_be_marked_complete(body):
     engine, gm, nm, calls, checkpoints = prepared(count=2)
     plan = next(iter(engine.state['plans'].values()))
     plan['notes'][0]['body_md'] = body
-    with pytest.raises(ValueError, match='Reading quality validation failed'):
+    with pytest.raises(PendingPassagesRemaining):
         engine.review(gm, nm)
+    pending, = engine.state['pending_review_groups'].values()
+    assert 'Reading quality validation failed' in pending['reason']
     assert not engine.state.get('completed')
     assert not engine.state['reviewed_groups']
     assert next(c for c in calls if c['phase'] == 'verify')['notes'][0]['validation_issues']
@@ -176,8 +195,10 @@ def test_explicit_unresolved_evidence_stops_before_publication():
             answer['unresolved_issues'] = ['note_1: the cited conclusion cannot be established from this evidence.']
         return answer
     reader, _, checkpoints = setup(count=2, generate=generate)
-    with pytest.raises(ValueError, match='reading_quality_unresolved'):
+    with pytest.raises(PendingPassagesRemaining):
         reader.run()
+    pending, = checkpoints['new', 'semantic-state']['pending_review_groups'].values()
+    assert 'reading_quality_unresolved' in pending['reason']
     state = checkpoints['new', 'semantic-state']
     assert state['plans'] and not state.get('completed') and not state['reviewed_groups']
 
@@ -276,8 +297,10 @@ def test_pdf_geometry_findings_reach_review_and_unchanged_bad_citations_cannot_p
         result = engine.review(gm, nm)
         assert result[0][1]['notes'][0]['citations'][0]['quote'] == 'innate knowledge'
     else:
-        with pytest.raises(ValueError, match='ambiguous PDF citation'):
+        with pytest.raises(PendingPassagesRemaining):
             engine.review(gm, nm)
+        pending, = engine.state['pending_review_groups'].values()
+        assert 'ambiguous PDF citation' in pending['reason']
         assert not checkpoints['new', 'semantic-state']['reviewed_groups']
 
 
