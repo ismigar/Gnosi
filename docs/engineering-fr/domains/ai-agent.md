@@ -849,6 +849,8 @@ Connaissances utilise son profil de plugin. Le paramètre historique `agent_id` 
 
 Activer Connaissances crée deux assistants modifiables. Connaissances lit la ressource entière et vérifie ses brouillons avec GPT-5.6 Luna comme modèle initial. Le Réviseur de lecture utilise GPT-6.2 Sol avec un raisonnement moyen pour examiner un échantillon de chaque section et les passages signalés pendant la lecture. Il peut ajouter des idées omises en citant le texte original et rédige la synthèse finale. Les deux assistants partagent le plafond de dépense de la ressource. Chaque vérification est enregistrée pour permettre la reprise.
 
+Si Gnosi rejette l’interprétation d’un passage, le Réviseur de lecture reçoit l’original, les passages voisins, le brouillon et le motif du rejet. Il doit résoudre le problème et citer l’original pour que Gnosi puisse valider le fragment. À la reprise, Gnosi peut réutiliser les autres brouillons et les corrections enregistrées. Les passages corrigés font aussi partie de la révision finale.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion

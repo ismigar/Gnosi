@@ -738,6 +738,8 @@ Knowledge uses its dedicated plugin profile. The historical `agent_id` setting i
 
 Activating Knowledge creates two editable bot profiles. Knowledge reads the entire resource and checks its drafts. Its initial model is GPT-5.6 Luna. Reading reviewer uses GPT-6.2 Sol at medium reasoning to check selected originals for omissions and misattribution, then produces the final synthesis. Gnosi samples each section and includes passages flagged during extraction. Both agents use the spending limit shown before processing. Each completed review is saved so an interrupted review can resume.
 
+When a passage draft fails a grounding or coverage check during extraction, the reading reviewer receives the original, its neighbours, the rejected draft and the validation error. The reviewer must cite the original and resolve the defect before Gnosi counts the chunk as complete. The reader's other drafts and completed corrections can be reused on resume. Corrected passages also participate in the final review.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.

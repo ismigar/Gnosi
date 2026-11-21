@@ -106,8 +106,11 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         extra_calls = max(0, possible_reviews + extra_batches + int(not completed) - review_calls)
         if possible_reviews > 1:
             extra_calls += possible_reviews  # Includes intermediate evidence syntheses.
+        # Each remaining passage can also need a source-grounded correction
+        # during extraction, before its independent final audit.
         review_low, review_high, _ = _quote(reviewer, review_rates, True, review_input, review_output, review_bound,
-            {"evidence_input_token_bound": extra_calls * input_per_call, "evidence_output_token_bound": extra_calls * 16384})
+            {"evidence_input_token_bound": extra_calls * input_per_call + remaining_segments * reviewer.input_budget,
+             "evidence_output_token_bound": (extra_calls + remaining_segments) * 16384})
         low = low + review_low if low is not None and review_low is not None else None
         high = high + review_high if high is not None and review_high is not None else None
         priced = priced and review_rates is not None

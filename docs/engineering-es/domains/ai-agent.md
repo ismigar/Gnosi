@@ -840,6 +840,8 @@ Conocimiento utiliza su perfil de plugin. El parámetro histórico `agent_id` se
 
 Al activar Conocimiento, Gnosi crea dos bots editables. Conocimiento lee todo el recurso y comprueba los borradores con GPT-5.6 Luna como modelo inicial. El Revisor de lectura utiliza GPT-6.2 Sol con razonamiento medio para contrastar una muestra de cada sección y los pasajes que han planteado dudas. Puede añadir ideas omitidas con una cita del original y elabora la síntesis final. Ambos comparten el límite de gasto del recurso. Gnosi guarda cada revisión para poder reanudarla.
 
+Si Gnosi rechaza la interpretación de un pasaje, el Revisor de lectura recibe el original, los pasajes contiguos, el borrador y el motivo del rechazo. Debe resolver el problema y citar el original para que Gnosi dé el fragmento por completado. Al reanudar la lectura, Gnosi puede reutilizar los demás borradores y las correcciones guardadas. Los pasajes corregidos también forman parte de la revisión final.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan

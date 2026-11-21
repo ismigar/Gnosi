@@ -116,23 +116,44 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     return note
 
 
+class RejectedPassage(ValueError):
+    """Identify a single invalid draft in an otherwise well-formed interpretation."""
+
+    def __init__(self, position: int, cause: ValueError) -> None:
+        super().__init__(str(cause))
+        self.position = position
+
+
+def bind_passage(passage: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
+                 dimensions: list[dict[str, object]], language: str = "") -> list[dict[str, object]]:
+    validate_boundary_coverage(passage["reason"])
+    if not str(passage["reason"]).strip():
+        raise ValueError("Explain the claims retained or the reason for omitting this passage")
+    notes = [bind_note(note, primary, evidence, dimensions) for note in records(passage["notes"])]
+    validate_reviewed_prose(notes, evidence, language)
+    return notes
+
+
 def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object]],
                         evidence: list[dict[str, object]], dimensions: list[dict[str, object]],
                         *, flag_review: bool = False) -> dict[str, Any]:
     primary = [s for c in chunks for s in records(c.get("segments"))]
     validate_schema(answer, interpretation_schema(len(primary), dimensions, flag_review=flag_review))
-    passages = iter(records(answer["passages"]))
+    passages = enumerate(records(answer["passages"]))
     plans = {}
     for chunk in chunks:
         notes: list[dict[str, object]] = []
         coverage = []
         for segment in records(chunk.get("segments")):
-            passage = next(passages)
-            validate_boundary_coverage(passage['reason'])
-            notes.extend(bind_note(n, segment, evidence, dimensions) for n in records(passage["notes"]))
+            position, passage = next(passages)
+            try:
+                notes.extend(bind_passage(passage, segment, evidence, dimensions))
+            except ValueError as error:
+                if flag_review:
+                    raise RejectedPassage(position, error) from error
+                raise
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
-        validate_reviewed_prose(notes, evidence)
         validate_notes(plan, records(chunk.get("segments")), evidence)
         plans[str(chunk["id"])] = plan
     return plans
