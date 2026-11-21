@@ -125,7 +125,7 @@ class SkillWorkers:
         worker.close()
 
     def _worker(self, helper: Path) -> _Worker:
-        worker = getattr(self._local, "worker", None)
+        worker = getattr(self._local, "worker", None)  # type: _Worker | None
         if worker is not None:
             if worker.helper == helper and worker.process.poll() is None:
                 return worker

@@ -13,7 +13,7 @@ from backend.services.agent_team_models import TeamPlan, TeamTask
 from backend.services.agent_team_policy import select_executor
 
 
-def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, raw_request=None):
+def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, raw_request=None, message_metadata=None):
     from backend.agent.factory import create_agent_workflow
     from backend.services.agent_execution import stream_workflow
     from backend.services.agent_execution_scope import execution_scope
@@ -28,7 +28,7 @@ def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, 
         graph, selection = await create_agent_workflow([], None, agent_id=profile["id"],
             user_message=raw_request or message, prepared_ai_cfg=config, prepared_agent_data=profile,
             runtime_capabilities=teams._runtime(profile, scope), vault_path=scope.vault_path)
-        state = {"messages": [*history, HumanMessage(content=message)],
+        state = {"messages": [*history, HumanMessage(content=message, additional_kwargs=message_metadata or {})],
                  "user_request": raw_request or message,
                  "active_skill_ids": snapshot.skill_ids, "turn_authorized_tool_names": list(grants),
                  "current_user_role": scope.role}

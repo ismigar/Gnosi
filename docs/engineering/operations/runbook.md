@@ -21,6 +21,9 @@ source_paths:
   - backend/config/paths_config.py
   - backend/platform/files/__init__.py
   - backend/platform/files/local.py
+  - backend/platform/files/coordinated.py
+  - backend/platform/files/skill_worker.py
+  - desktop/native/file-access.m
   - backend/platform/files/on_demand.py
   - backend/platform/files/onedrive.py
   - scripts/migrate-data-dir.py
@@ -707,6 +710,13 @@ Start with the selected adapter in `backend/platform/files`.
 `GNOSI_FILES_PROVIDER` selects a known provider explicitly; otherwise detection
 uses `VAULT_HOST_PATH`. `LocalProvider` performs no hydration. A provider name
 or shared interface does not certify every cloud client's behavior on every OS.
+
+Gnosi uses up to two `gnosi-file-access` processes to read the
+`skill.yaml` and `SKILL.md` files of personal agent skills on macOS File
+Provider volumes. Each read obtains a fresh grant from the provider. To measure
+chat latency, time the interval from sending the message to `model.request`,
+then from `model.request` to `model.response`, and record when the reply
+appears in the window.
 
 On macOS File Provider storage, `EDEADLK` or `EAGAIN` can indicate unavailable
 online-only files. These errors alone do not prove a provider fault or a

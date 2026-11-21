@@ -453,6 +453,12 @@ async def chat_endpoint(
         inputs["messages"][0].additional_kwargs.update(
             gnosi_visible_content=original_message, gnosi_assistant_profile=assistant_profile,
         )
+        from backend.services.agent_team_contracts import is_greeting
+        if (is_greeting(original_message) and user_content == original_message
+                and chat_req.active_skill_ids is None
+                and not (command_selected or notebook_turn or turn_context_refs
+                         or chat_req.mentions or chat_req.attachments or learning_project_id)):
+            inputs["messages"][0].additional_kwargs["gnosi_plain_greeting"] = True
 
         # 3. Configure memory thread (per agent + session)
         thread_id = _chat_thread_id(

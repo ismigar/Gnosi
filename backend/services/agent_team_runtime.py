@@ -250,7 +250,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
             options={"economical_planning": allow_response and operation == "team.plan" and economical_planning(planning_data)},
-            output_schema=schema, max_model_calls=2 if plan_validator or (operation == "team.synthesis" and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
+            output_schema=schema, max_model_calls=2 if plan_validator or (operation in {"team.greeting", "team.synthesis"} and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
             timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)
         return result.result
@@ -511,7 +511,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
-                "current_user_role": scope.role, **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
+                "current_user_role": scope.role, **({"greeting_reply": True} if state.get("greeting_reply") else {}),
+                **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
             "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
@@ -519,6 +520,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         answer, metadata = await review_direct_response(owner=owner, root_id=root_id, scope=scope,
             quality=quality, original=original, state=state, candidate=plan.response,
             output_schema=result_schema, available=root_snapshot is not None)
+        if state.get("greeting_reply"):
+            metadata = {**metadata, "gnosi_greeting_reply": True}
         return {"messages": [AIMessage(content=answer, additional_kwargs=metadata)]}
     results: dict[str, Any] = {}
     pending = list(plan.tasks)
