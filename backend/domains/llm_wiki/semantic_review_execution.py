@@ -8,11 +8,13 @@ from dataclasses import dataclass, replace
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
-from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.contextual_reading import ContextualReader, ReadingCheckpointUnavailable, fingerprint
+from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
-from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
+from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge, _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, validate_reviewed_prose
 from backend.domains.llm_wiki import semantic_review_evidence as evidence_lookup
 
@@ -137,11 +139,20 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     retained = partial_citations([t[2] for t in batch.targets], batch.evidence) if reviewer else []
     seen: set[str] = set()
     for round_number in range(evidence_lookup.MAX_EVIDENCE_ROUNDS + 1):
+        context = None
+        expanded = batch
+        if batch.pdf_reviewer:
+            cited = {c["segment_id"] for target in batch.targets for c in records(target[2].get("citations"))}
+            anchors = [t[3] for t in batch.targets] + [s for s in batch.evidence if s["id"] in cited]
+            context = page_context(reader.pdf_edges, batch.evidence, anchors)
+            expanded = replace(batch, retrieved=[*batch.retrieved, *context.additions])
         answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
                             {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
-                            lambda value: validate_answer(value, batch, worker), batch.schema,
+                            lambda value: validate_answer(value, expanded, worker), batch.schema,
                             executor=reviewer if batch.pdf_reviewer else None,
-                            quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained), pdf_citations=retained)
+                            quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained),
+                            pdf_citations=retained, page_context=context)
+        batch = expanded
         requests = records(answer.get("evidence_requests"))
         if not requests:
             if answer["unresolved_issues"]:
@@ -153,7 +164,7 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
         seen.add(identity)
         found, reports = evidence_lookup.retrieve(evidence_lookup.originals(reader.chunks), requests, batch.evidence,
                                                   reader.dependencies.count_tokens, reader.budget // 4)
-        retrieved = list({str(s["id"]): s for s in [*batch.retrieved, *found]}.values())
+        retrieved = list({segment_source_key(s): s for s in [*batch.retrieved, *found]}.values())
         batch = replace(batch, retrieved=retrieved, payload={**batch.payload,
             "retrieved_originals": [source_view(s) for s in retrieved], "evidence_lookup": reports,
             "provisional_review": answer, "evidence_rounds_remaining": evidence_lookup.MAX_EVIDENCE_ROUNDS - round_number - 1})
@@ -184,7 +195,7 @@ def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Excep
             # the SDK must reserve again; a wave without new progress splits.
             continue
         elif len(batch.entries) > 1 and (
-            _has_answer_tokens(error) or reservation_rejected
+            _has_answer_tokens(error) or reservation_rejected or isinstance(error, ReadingInputTooLarge)
         ):
             # A pre-transmission reservation can reject a large group while a
             # complete smaller group fits. Keep every note and its full maps;
@@ -250,7 +261,8 @@ def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> Review
 
 
 def review_batches(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
-                   global_map: str, notes_map: str, pdf_repairs: set[int]) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
+                   global_map: str, notes_map: str, pdf_repairs: set[int], *,
+                   checkpoints_only: bool = False) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
     checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations])
     checkpoints.recover_unique_ranges(engine.state)
@@ -264,7 +276,10 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
             batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map, pdf_repairs, checkpoints)
             batches.append(batch)
             end += len(batch.entries)
-        if not run_wave(engine, batches):
+        if checkpoints_only:
+            if any(b.key not in engine.state["reviewed_groups"] for b in batches):
+                raise ReadingCheckpointUnavailable("The original joint review is incomplete")
+        elif not run_wave(engine, batches):
             continue
         for batch in batches:
             saved_sources = engine.state.get("review_sources", {}).get(batch.key)

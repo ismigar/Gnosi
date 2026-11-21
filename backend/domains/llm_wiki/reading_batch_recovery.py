@@ -5,6 +5,10 @@ import re
 from typing import Any
 
 
+class ReadingInputTooLarge(RuntimeError):
+    """The local input check refused the request before a provider call."""
+
+
 class IncompleteReadingBatch(ValueError):
     """A structured answer ended before its JSON was complete."""
 

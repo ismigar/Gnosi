@@ -11,10 +11,13 @@ from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from backend.domains.llm_wiki.audit_checkpoint_provenance import HistoricalAudit
     from backend.domains.llm_wiki.ingestion import IngestionDependencies, ReviewRuntime
+    from backend.domains.llm_wiki.pdf_page_context import PageContext, PageEdge
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
+from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
 from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
 from backend.domains.llm_wiki.reading_skill import MAP_CONTRACT, NOTE_CONTRACT, REQUEST_CONTRACT
 from backend.domains.llm_wiki.recovery import call_with_retry
@@ -22,6 +25,16 @@ from backend.domains.llm_wiki.recovery import call_with_retry
 
 def fingerprint(value: object) -> str:
     return hashlib.sha256(encoded(value).encode()).hexdigest()
+
+
+class ReadingCheckpointUnavailable(LookupError):
+    """The requested operation has no reusable, verified answer."""
+
+
+@dataclass(frozen=True)
+class CheckpointScope:
+    identity: str
+    matches_legacy: Callable[[str], bool]
 
 
 @dataclass
@@ -38,6 +51,7 @@ class ContextualReader:
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
+    historical_audits: dict[str, dict[str, HistoricalAudit]] = field(default_factory=dict, init=False, repr=False)
 
     @property
     def budget(self) -> int:
@@ -48,12 +62,82 @@ class ContextualReader:
         return sum(len(str(segment.get("text", "")).encode("utf-8"))
                    for origin in self.origins for segment in records(origin.get("segments")))
 
+    @cached_property
+    def pdf_edges(self) -> dict[str, list[PageEdge]]:
+        from backend.domains.llm_wiki.pdf_page_context import page_edges
+        return page_edges(self.chunks)
+
+    @cached_property
+    def ambiguous_pdf_segments(self) -> set[str]:
+        from backend.domains.llm_wiki.pdf_page_context import ambiguous_pdf_segments
+        return ambiguous_pdf_segments(self.chunks)
+
     def phase(self, phase: str, progress: int | None = None) -> None:
         if self.job_id and self.report_progress:
             fields: dict[str, object] = {"phase": phase}
             if progress is not None:
                 fields["progress"] = progress
             self.dependencies.update_job(self.job_id, **fields)
+
+    def has_checkpoint(self, key: str) -> bool:
+        return any(isinstance(self.dependencies.load_checkpoint(job, key), dict)
+                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job)
+
+    def _restore_checkpoint(
+        self, slots: tuple[str, str, str], identity: str, request: dict[str, object],
+        validate: Callable[[dict[str, object]], None], checkpoint_scope: CheckpointScope | None,
+        restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None,
+    ) -> dict[str, object] | None:
+        key, _, legacy_key = slots
+        # A sibling may settle a reservation while this batch is retrying in
+        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
+        for slot in dict.fromkeys(slots):
+            saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+                          if isinstance(value := self.dependencies.load_checkpoint(job, slot), dict)
+                          and value.get("identity") == identity
+                          and (slot == key or not checkpoint_scope or checkpoint_scope.matches_legacy(job))), None)
+            if not isinstance(saved, dict):
+                continue
+            if slot == legacy_key and slot != key:
+                from backend.domains.llm_wiki.pdf_page_context import identifies_legacy_primaries
+                if not identifies_legacy_primaries(self.chunks, request):
+                    continue
+            answer = saved.get("answer")
+            if isinstance(answer, dict):
+                try:
+                    if restore_legacy and "pdf_page_context" not in saved:
+                        answer = restore_legacy(answer)
+                    validate(answer)
+                except ValueError:
+                    if slot != key:
+                        continue
+                    raise
+                self.models.append(str(saved.get("model") or ""))
+                if self.job_id:
+                    self.dependencies.save_checkpoint(self.job_id, key, saved)
+                return answer
+        return None
+
+    def _review_request(
+        self, request: dict[str, object], phase: str, page_context: PageContext | None,
+        quote_evidence: list[dict[str, object]], bindings: list[tuple[str, str]],
+        offer_excerpts: bool, pdf_citations: list[tuple[str, str]] | None,
+    ) -> dict[str, object]:
+        from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
+        # Accepted answers were already checked against the originals. Enrich
+        # fresh reviews after lookup so a new context option never rebills them.
+        if page_context and page_context.pairs:
+            request = page_context.prompt(request, audit=phase == "source-audit")
+            if quote_evidence:
+                quote_evidence = [*quote_evidence, *page_context.additions]
+                bindings = quote_bindings(quote_evidence)
+                request["pdf_quote_sources"] = bindings
+        finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
+        if offer_excerpts and quote_evidence and finder:
+            excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
+            if excerpts:
+                request = {**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings}
+        return request
 
     def ask(
         self,
@@ -64,6 +148,10 @@ class ContextualReader:
         contract: dict[str, object] | None = None,
         *, executor: ReviewRuntime | None = None, quote_evidence: list[dict[str, object]] | None = None,
         offer_excerpts: bool = False, pdf_citations: list[tuple[str, str]] | None = None,
+        page_context: PageContext | None = None,
+        restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        checkpoint_only: bool = False,
+        checkpoint_scope: CheckpointScope | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -84,6 +172,14 @@ class ContextualReader:
             # Visually identical passages in different attachments need separate
             # choices and a source-specific checkpoint even when both quotes are whole.
             request["pdf_quote_sources"] = bindings
+        legacy_key = key
+        if page_context and any(s in self.ambiguous_pdf_segments for pair in page_context.bindings for s in pair):
+            # Parallel operations may have identical visible inputs but different
+            # page continuations. Give those paid answers distinct durable slots.
+            key += "-" + fingerprint(page_context.bindings)[:20]
+        context_key = key
+        if checkpoint_scope:
+            key = legacy_key + "-" + checkpoint_scope.identity[:20]
         prompt = encoded(request)
         identity = fingerprint(
             [
@@ -92,26 +188,15 @@ class ContextualReader:
                 prompt,
             ]
         )
-        # A sibling may settle a reservation while this batch is retrying in
-        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
-        saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
-                      if isinstance(value := self.dependencies.load_checkpoint(job, key), dict)
-                      and value.get("identity") == identity), None)
-        if isinstance(saved, dict) and saved.get("identity") == identity:
-            answer = saved.get("answer")
-            if isinstance(answer, dict):
-                validate(answer)
-                self.models.append(str(saved.get("model") or ""))
-                if self.job_id:
-                    self.dependencies.save_checkpoint(self.job_id, key, saved)
-                return answer
-        # Saved answers retain their literal quotes. Discover additional verified
-        # choices only for a fresh review that needs them.
-        finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
-        if offer_excerpts and quote_evidence and finder:
-            excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
-            if excerpts:
-                prompt = encoded({**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings})
+        recovered = self._restore_checkpoint((key, context_key, legacy_key), identity, request,
+                                             validate, checkpoint_scope, restore_legacy)
+        if recovered is not None:
+            return recovered
+        if checkpoint_only:
+            raise ReadingCheckpointUnavailable(key)
+        request = self._review_request(request, phase, page_context, quote_evidence or [], bindings,
+                                       offer_excerpts, pdf_citations)
+        prompt = encoded(request)
         display_phase = (
             "reviewing"
             if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
@@ -124,8 +209,15 @@ class ContextualReader:
         capacity = executor.input_budget if executor else self.budget
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):
-            if count(prompt) > capacity:
-                raise RuntimeError("The reading phase exceeds the selected model's input budget")
+            size = count(prompt)
+            if size > capacity and page_context and page_context.additions and phase == "source-repair":
+                # Keep both originals and individually retained notes when the
+                # rejected draft would crowd them out of the reviewer's context.
+                request["rejected_draft"] = {"omitted": "Reconstruct the passage from the supplied originals and return concise notes."}
+                prompt = encoded(request)
+                size = count(prompt)
+            if size > capacity:
+                raise ReadingInputTooLarge("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
                 lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(
                     prompt, user_message=self.title, timeout=timeout
@@ -150,6 +242,8 @@ class ContextualReader:
                             "identity": identity,
                             "answer": answer,
                             "model": model,
+                            **({"pdf_page_context": fingerprint(page_context.bindings)}
+                               if page_context and page_context.pairs else {}),
                         },
                     )
                 return answer

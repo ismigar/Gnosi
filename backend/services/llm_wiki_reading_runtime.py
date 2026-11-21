@@ -163,7 +163,8 @@ class ReadingRuntime:
             # full contract. Keep canonical checkpoints/repair input unchanged.
             operation_prompt = compact_structured_input(operation_prompt)
         if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
-            raise RuntimeError("The reading input exceeds the selected model's context budget")
+            from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
+            raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
             answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
             if not isinstance(answer, dict):
@@ -202,6 +203,9 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.services.agent_output_repair import OutputRepair
+        if selection and selection.phase == "source-audit":
+            # Retry the same audit contract with its original source numbers.
+            return None
         if selection and isinstance(error, json.JSONDecodeError):
             # Some providers report stop even when a long structured answer
             # ends inside a value, including short review prefixes. Retrying
