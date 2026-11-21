@@ -178,7 +178,7 @@ class SemanticReader:
         paired = reviewer is not None
         schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
         draft_schema = deepcopy(schema)
-        draft_schema["properties"]["passages"]["items"] = {"type": "object"}
+        draft_schema["properties"]["passages"]["items"] = {}
         def validate(answer: dict[str, object]) -> None:
             if paired:
                 # This is only a staged draft. Each passage must pass its

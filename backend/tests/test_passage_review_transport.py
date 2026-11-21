@@ -22,7 +22,8 @@ from backend.tests.test_semantic_reading import setup
 
 
 @pytest.mark.parametrize("defect,interrupted", [
-    ("wrong", False), ("mixed", False), ("mixed", True), ("unknown", False), ("missing", False), ("reason", False)])
+    ("wrong", False), ("mixed", False), ("mixed", True), ("unknown", False), ("missing", False), ("reason", False),
+    ("omitted-slot", False), ("null-slot", False), ("misnamed-slot", False)])
 def test_rejected_passage_reaches_only_the_reviewer_even_after_length_failure(runtime, monkeypatch, tmp_path, defect, interrupted):
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     scope, reader = runtime
@@ -66,7 +67,7 @@ def test_rejected_passage_reaches_only_the_reviewer_even_after_length_failure(ru
                     allowed = outer["output_schema"]["properties"]["passages"]["properties"][key]
                     assert foreign not in allowed["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]["items"]["enum"]
                     ids = {"mixed": [*ids, foreign], "wrong": [foreign], "unknown": [999999],
-                           "missing": [], "reason": ids}[defect]
+                           "missing": []}.get(defect, ids)
                 note = {"title": "An objection", "body_md": span["text"], "properties": {},
                         "primary_quote_ids": ids, "context_quote_ids": []}
                 passages[key] = {"reason": "The author qualifies an objection using experience.", "notes": [note]}
@@ -75,6 +76,12 @@ def test_rejected_passage_reaches_only_the_reviewer_even_after_length_failure(ru
                     if defect == "reason" and key == "passage_1":
                         passages[key]["reason"] = ""
             if phase == "interpret":
+                if defect == "omitted-slot":
+                    del passages["passage_1"]
+                elif defect == "null-slot":
+                    passages["passage_1"] = None
+                elif defect == "misnamed-slot":
+                    passages["unassigned"] = passages.pop("passage_1")
                 raw = encoded(dict(passages=passages, themes=[], contradictions=[], questions=[], warnings=[]))
             else:
                 assert "Invalid" in prompt["validation_error"]

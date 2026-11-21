@@ -113,7 +113,11 @@ def bind_reviewed_interpretation(
     reader: ContextualReader, reviewer: ReviewRuntime, chunks: list[dict[str, object]],
     evidence: list[dict[str, object]], answer: dict[str, object],
 ) -> tuple[dict[str, Any], dict[str, object]]:
-    passages = records(answer["passages"])
+    items = answer["passages"]
+    if not isinstance(items, list):
+        raise ValueError("The reader must return an ordered batch of passages")
+    passages = [p if isinstance(p, dict) else {"reader_validation_error": "The reader supplied no passage object",
+                                              "reader_output": p} for p in items]
     candidate = {**answer, "passages": passages}
     primary = [s for chunk in chunks for s in records(chunk["segments"])]
     available = list(evidence)
