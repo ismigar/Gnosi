@@ -40,6 +40,10 @@ def runtime(patch, root, fault=""):
     patch.setattr(scheduled_execution, "notify", lambda *args, **kwargs: None)
     patch.setattr(agent_execution_scope, "personal_scheduler_scope", lambda: execution_scope(scope, origin="automation"))
     patch.setattr(agent_execution_scope, "revalidate_scope", lambda selected: selected == scope or pytest.fail("scope changed"))
+    async def check_activity_scope(selected):
+        execution.revalidate_scope(selected)
+
+    patch.setattr(execution, "revalidate_scope_async", check_activity_scope)
     patch.setattr(audio, "_resolve_podcast_language", lambda: ("ca", "Catalan") if fault else ("fr", "French"))
 
     def record(event):

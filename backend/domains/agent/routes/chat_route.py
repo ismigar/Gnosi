@@ -382,18 +382,22 @@ async def chat_endpoint(
             **({"memory_project_id": learning_project_id} if learning_project_id else {}),
         }
         _require_active_turn(cancel_token)
-        workflow, llm_selection = await get_agent_workflow(
-            request,
-            profile_id,
-            llm_mode="agent_default",
-            user_message=chat_req.message,
-            vault_scope=vault_scope,
-            vault_path=vault,
-            active_skill_ids=requested_skill_ids,
-            turn_context_refs=turn_context_refs,
-            memory_user_id=workspace_context.user_id,
-            **workflow_options,
-        )
+        from backend.services.agent_catalog_snapshot import team_metadata_catalog
+
+        # Share discovery between the principal and its roster only while preparing this request.
+        with team_metadata_catalog():
+            workflow, llm_selection = await get_agent_workflow(
+                request,
+                profile_id,
+                llm_mode="agent_default",
+                user_message=chat_req.message,
+                vault_scope=vault_scope,
+                vault_path=vault,
+                active_skill_ids=requested_skill_ids,
+                turn_context_refs=turn_context_refs,
+                memory_user_id=workspace_context.user_id,
+                **workflow_options,
+            )
         workflow_ready_at = time.monotonic()
 
         authorized_tool_names = _explicit_brain_write_tool_names(
