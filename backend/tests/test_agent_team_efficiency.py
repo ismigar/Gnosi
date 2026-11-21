@@ -35,6 +35,11 @@ def test_standalone_greeting_uses_director_then_reopens_specialists_when_request
     assert answer.additional_kwargs["gnosi_team_usage"]["routing"]["reason"] == "standalone_greeting"
     prompts = config["_model_messages"][0][1]
     assert "Profile sources" in prompts[-1].text
+    request = json.loads(json.loads(prompts[-1].text)["input"])
+    assert "members" not in request and "capabilities" not in request
+    assert request["team_discovery"]["status"] == "deferred"
+    configured = {row["id"]: row["assigned_skill_ids"] for row in request["team_discovery"]["configured_members"]}
+    assert configured["worker"] == fixture[3]["agents"][1]["skill_ids"]
 
     config["_phase_responses"] = {"team.greeting": [AIMessage(content='{"response":null}')],
         "team.plan": [AIMessage(content=plan_for().model_dump_json())]}
@@ -62,13 +67,22 @@ def test_greeting_requires_a_plain_request_and_verified_history():
 
 def test_director_can_defer_the_first_greeting_in_an_empty_chat(optional_runtime):
     fixture, _ = optional_runtime
-    fixture[1].profile["persona"] = "Ask the writing specialist to compose my welcome."
+    fixture[3]["agents"][0]["persona"] = "Ask the writing specialist to compose my welcome."
     fixture[3]["_phase_responses"] = {"team.greeting": [AIMessage(content='{"response":null}')],
         "team.plan": [AIMessage(content=plan_for().model_dump_json())]}
     fixture[3]["_responses"] = {"worker": [AIMessage(content="A welcome from the writer")]}
     messages, _ = run_chat(fixture, "Hola", message_metadata={"gnosi_plain_greeting": True})
     assert fixture[2] == ["director", "director", "worker"]
     assert messages[-1].content == "A welcome from the writer"
+
+
+def test_explicit_skill_in_director_instructions_starts_with_full_discovery(optional_runtime):
+    fixture, _ = optional_runtime
+    fixture[3]["agents"][0]["persona"] = "Have the core.gnosi-operation-writing specialist greet me."
+    fixture[3]["_phase_responses"] = {"team.plan": [AIMessage(content=plan_for().model_dump_json())]}
+    fixture[3]["_responses"] = {"worker": [AIMessage(content="The assigned welcome")]}
+    messages, _ = run_chat(fixture, "Hola", message_metadata={"gnosi_plain_greeting": True})
+    assert fixture[2] == ["director", "worker"] and messages[-1].content == "The assigned welcome"
 
 
 def seed(fixture):
