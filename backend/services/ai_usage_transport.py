@@ -153,6 +153,18 @@ def price(provider: str, model: str, tokens: dict[str, Any], raw: dict[str, Any]
     return None, "unknown"
 
 
+def _attach_provider_timing(messages: list[Any], state: dict[str, Any]) -> None:
+    if "sdk_returned" not in state:
+        return
+    timing: dict[str, int] = {
+        "before_sdk_ms": round((state["sdk_started"] - state["started_monotonic"]) * 1000),
+        "sdk_roundtrip_ms": round((state["sdk_returned"] - state["sdk_started"]) * 1000),
+    }
+    timing.update((key, state[key]) for key in ("http_roundtrip_ms", "provider_processing_ms") if key in state)
+    for item in messages:
+        item.response_metadata["gnosi_provider_timing"] = timing
+
+
 class UsageCallback(BaseCallbackHandler):
     run_inline = True
     raise_error = True
@@ -180,14 +192,11 @@ class UsageCallback(BaseCallbackHandler):
             state["rates"] = rates
             profile = row.get("profile")
             if not profile:
-                from backend.services.artificial_analysis import _read_cache
-                cached = _read_cache() or {}
-                profile = next((item.get("profile") for item in cached.get("models", [])
-                    if any(route.get("provider") == self.provider and route.get("model_id") == self.model
-                           for route in item.get("routes", []))), None)
+                from backend.services.artificial_analysis import route_profiles
+                state["profile_lookup"] = route_profiles()
             state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
-            state["rates"] = None
+            state.setdefault("rates", None)
         parameters = kwargs.get("invocation_params") or {}
         state["cache_options"] = parameters.get("prompt_cache_options")
         reading_budget.reserve(str(run_id), messages, parameters, state.get("rates"), self.provider, self.model)
@@ -201,14 +210,7 @@ class UsageCallback(BaseCallbackHandler):
             return
         try:
             messages = [g.message for group in getattr(result, "generations", []) for g in group if hasattr(g, "message")]
-            if "sdk_returned" in state:
-                timing: dict[str, int] = {
-                    "before_sdk_ms": round((state["sdk_started"] - state["started_monotonic"]) * 1000),
-                    "sdk_roundtrip_ms": round((state["sdk_returned"] - state["sdk_started"]) * 1000),
-                }
-                timing.update((key, state[key]) for key in ("http_roundtrip_ms", "provider_processing_ms") if key in state)
-                for item in messages:
-                    item.response_metadata["gnosi_provider_timing"] = timing
+            _attach_provider_timing(messages, state)
             message = messages[0] if messages else None
             metadata = getattr(message, "usage_metadata", None) or {}
             raw = state["raw_usage"] or _mapping(getattr(result, "llm_output", None)).get("token_usage") or _mapping(getattr(message, "response_metadata", None)).get("token_usage") or {}
@@ -229,6 +231,13 @@ class UsageCallback(BaseCallbackHandler):
             same_model = observed == self.model or (bool(observed) and self.model == reading_model(self.provider, observed))
             if error is not None or not same_model:
                 pricing = None  # Keep the full hold for failed/changed-model calls.
+            lookup = state.get("profile_lookup")
+            if lookup is not None and lookup.done():
+                try:
+                    state["attribution"]["profile"] = lookup.result().get((self.provider, self.model), "unrated")
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    pass  # A missing classification must not interrupt cost accounting.
+                lookup = None
             # A wallet charge of zero does not mean subscription credits were
             # unused. Keep the direct provider's measured consumption separate.
             defer_budget = self.provider in {'openrouter', 'openai'} and state.get('reading_budget_active', False)
@@ -238,6 +247,8 @@ class UsageCallback(BaseCallbackHandler):
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
                 metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget,
                 pricing_details=pricing, refine_budget=self.provider == 'openai' and state.get('reading_budget_active', False))
+            if added and lookup is not None:
+                ledger.complete_call_profile(state["id"], (self.provider, self.model), lookup)
             funding_confirmed = False
             if added and defer_budget and self.provider == 'openrouter':
                 from backend.services.ai_usage_openrouter import budget_cost

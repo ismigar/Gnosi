@@ -214,7 +214,9 @@ def test_native_structured_validation_failure_preserves_raw_cost(runtime):
 
 def test_model_profile_uses_cached_exact_provider_route(runtime, monkeypatch):
     from backend.services import artificial_analysis
-    monkeypatch.setattr(artificial_analysis, '_read_cache', lambda: {'models':[{'profile':'expert','routes':[{'provider':'p1','model_id':'same'}]},{'profile':'worker','routes':[{'provider':'p2','model_id':'same'}]}]})
+    report = runtime / 'model-profiles.json'
+    report.write_text(json.dumps({'models':[{'profile':'expert','routes':[{'provider':'p1','model_id':'same'}]},{'profile':'worker','routes':[{'provider':'p2','model_id':'same'}]}]}))
+    monkeypatch.setattr(artificial_analysis, '_cache_path', lambda: report)
     for provider in ['p1','p2']:
         callback=UsageCallback(provider,'same');callback.on_chat_model_start({},[],run_id=provider)
         callback.on_llm_error(RuntimeError('test'),run_id=provider)

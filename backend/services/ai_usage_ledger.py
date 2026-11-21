@@ -6,9 +6,10 @@ import logging
 import os
 import shutil
 import sqlite3
+from concurrent.futures import Future
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -149,6 +150,20 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                 if bound is not None:
                     refine_reservation(db, identifier, max(bound, cost or Decimal(0)))
         return bool(cursor.rowcount)
+
+
+def complete_call_profile(call_id: str, route: tuple[str, str], profiles: Future[dict[tuple[str, str], str]]) -> None:
+    """Only enrich the recorded call's label when the local comparison is ready."""
+    database = resolve_data_dir(create=False) / "llm_usage.sqlite"
+    def finished(result: Future[dict[tuple[str, str], str]]) -> None:
+        try:
+            label = result.result().get(route)
+            if label and label != "unrated":
+                with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True)) as db, db:
+                    db.execute("UPDATE usage_calls SET profile=? WHERE id=? AND profile='unrated'", (label, call_id))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error):
+            pass  # Token counts, cost and the original attribution were already committed.
+    profiles.add_done_callback(finished)
 
 
 def monthly() -> dict[str, dict[str, dict[str, Any]]]:

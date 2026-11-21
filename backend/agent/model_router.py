@@ -322,7 +322,7 @@ def load_registry(with_catalog_prices: bool = True, *, configured_only: bool = F
         from backend.agent.model_catalog import published_cloud_model
         row = published_cloud_model(*route)
         if row is not None:
-            metadata = {f"{route[0]}:{route[1]}": row}
+            metadata = {f"{route[0].strip().lower()}:{(route[1] or '').strip()}": row}
     registry = hydrate_registry_metadata(registry, metadata)
     if not with_catalog_prices:
         return registry

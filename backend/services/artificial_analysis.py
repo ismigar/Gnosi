@@ -8,13 +8,15 @@ single page is only a partial model list.
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from concurrent.futures import Future, ThreadPoolExecutor
 import json
 import math
 import os
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, BinaryIO, Dict, List, Optional
 
 import requests
 
@@ -71,6 +73,54 @@ def _read_cache() -> Optional[Dict[str, Any]]:
     except (OSError, ValueError, TypeError):
         return None
     return payload if isinstance(payload, dict) and payload.get("models") else None
+
+
+_profiles_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="model-profiles")
+_profiles_lock = threading.Lock()
+_profiles_source: tuple[Path, int, int, int, int, int] | None = None
+_profiles_future: Future[dict[tuple[str, str], str]] | None = None
+
+
+def _read_route_profiles(report: BinaryIO) -> dict[tuple[str, str], str]:
+    """Retain just the first published classification of each exact provider route."""
+    index: dict[tuple[str, str], str] = {}
+    with report:
+        models = json.load(report)["models"]
+    for model in models:
+        if not isinstance(model, dict):
+            continue
+        for route in model.get("routes") or []:
+            if isinstance(route, dict) and isinstance(route.get("provider"), str) and isinstance(route.get("model_id"), str):
+                index.setdefault((route["provider"], route["model_id"]), str(model.get("profile") or "unrated"))
+    return index
+
+
+def route_profiles() -> Future[dict[tuple[str, str], str]] | None:
+    """Share one local report read while callers dispatch their model requests."""
+    global _profiles_source, _profiles_future
+    path = _cache_path()
+    if path is None:
+        return None
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    identity = (path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    with _profiles_lock:
+        pending = _profiles_future
+        if pending is None or identity != _profiles_source or (pending.done() and pending.exception() is not None):
+            try:
+                report = path.open("rb")
+            except OSError:
+                return None
+            try:
+                stat = os.fstat(report.fileno())
+                _profiles_future = _profiles_worker.submit(_read_route_profiles, report)
+                _profiles_source = (path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+            except BaseException:
+                report.close()
+                raise
+        return _profiles_future
 
 
 def _write_cache(payload: Dict[str, Any]) -> None:

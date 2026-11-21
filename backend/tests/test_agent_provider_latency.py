@@ -32,6 +32,10 @@ def test_current_cloud_tariff_needs_no_live_discovery(tmp_path, monkeypatch):
     path.write_text(json.dumps(catalog))
     assert model_catalog.catalog_model_cost("remote", "custom", True) is None
     assert discoveries == [1]
+    catalog["providers"] = [{"id": "openai", "models": None}]
+    path.write_text(json.dumps(catalog))
+    monkeypatch.setattr(model_catalog, "load_catalog", lambda: {"providers": [{"id": "remote", "models": [model]}]})
+    assert model_catalog.catalog_model_cost("remote", "custom", True) == {"cost_in": 4, "cost_out": 7}
 
 
 def test_selected_route_uses_published_metadata_and_preserves_overrides(tmp_path, monkeypatch):
@@ -43,14 +47,18 @@ def test_selected_route_uses_published_metadata_and_preserves_overrides(tmp_path
     monkeypatch.setattr(model_catalog, "_cache_path", lambda: path)
     monkeypatch.setattr(model_catalog, "_mem_cache", None)
     monkeypatch.setattr(model_catalog, "load_catalog", lambda: pytest.fail("Unnecessary live discovery"))
-    row = {"provider": "remote", "model_id": "custom"}
-    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(get=lambda *_: {"models": [row]}))
+    rows = []
+    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(get=lambda *_: {"models": rows}))
     assert _model_context_window("remote", "custom") == 65000
     assert _model_supports_tools("remote", "custom", {})
+    row = {"provider": "Remote", "model_id": "custom"}
+    rows.append(row)
+    assert _model_context_window("Remote", "custom") == 65000
+    assert _model_supports_tools("Remote", "custom", {})
     row.update(context_window=9000, tags=[])
-    assert _model_context_window("remote", "custom") == 9000
-    assert not _model_supports_tools("remote", "custom", {})
-    assert _model_supports_tools("remote", "custom", {"capabilities": ["tools"]})
+    assert _model_context_window("Remote", "custom") == 9000
+    assert not _model_supports_tools("Remote", "custom", {})
+    assert _model_supports_tools("Remote", "custom", {"capabilities": ["tools"]})
 
 
 @pytest.mark.parametrize("asynchronous", [True, False])
@@ -114,3 +122,62 @@ def test_configured_metering_skips_hydration_and_protected_calls_keep_it(monkeyp
         assert state["attribution"]["profile"] == "manual"
     assert lookups == [True, False]
     assert hydrated == [True]
+
+
+def test_slow_statistics_follow_the_response_and_stay_with_the_original_call(tmp_path, monkeypatch):
+    from concurrent.futures import Future
+    from backend.services import artificial_analysis
+    class PendingProfile(Future):
+        def result(self, timeout=1):
+            return super().result(timeout)
+    pending = PendingProfile()
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(artificial_analysis, "route_profiles", lambda: pending)
+    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: {"cost_in": 2, "cost_out": 7})
+    monkeypatch.setattr(model_router, "load_registry", lambda **_: [])
+    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: dict.fromkeys(
+        ("agent_id", "agent_name", "operation", "origin", "run_id", "workspace_id", "user_id", "profile"), ""))
+    callback = ai_usage_transport.UsageCallback("remote", "model")
+    callback.on_chat_model_start({}, [], run_id="first")
+    callback.on_llm_error(RuntimeError("fixture"), run_id="first")
+    with ai_usage_ledger.connect() as db:
+        before = dict(db.execute("SELECT * FROM usage_calls WHERE id='first'").fetchone())
+    assert before["profile"] == "unrated" and before["status"] == "failed"
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "other"))
+    pending.set_result({("remote", "model"): "expert"})
+    assert not (tmp_path / "other").exists()
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    with ai_usage_ledger.connect() as db:
+        after = dict(db.execute("SELECT * FROM usage_calls WHERE id='first'").fetchone())
+    assert after == {**before, "profile": "expert"}
+
+
+def test_concurrent_profile_lookups_share_one_read_per_report(tmp_path, monkeypatch):
+    import threading
+    from backend.services import artificial_analysis as analysis
+    report = tmp_path / "comparison.json"
+    monkeypatch.setattr(analysis, "_cache_path", lambda: report)
+    data = {"models": [{"profile": "first", "routes": [{"provider": "p", "model_id": "m"}]}]}
+    report.write_text(json.dumps(data))
+    read = analysis._read_route_profiles
+    proceed = threading.Event()
+    reads = []
+    def delayed(stream):
+        reads.append(1)
+        assert proceed.wait(3)
+        return read(stream)
+    monkeypatch.setattr(analysis, "_read_route_profiles", delayed)
+    try:
+        first = analysis.route_profiles()
+        assert analysis.route_profiles() is first
+        data["models"][0]["profile"] = "second"
+        replacement = tmp_path / "replacement.json"
+        replacement.write_text(json.dumps(data))
+        replacement.replace(report)
+        second = analysis.route_profiles()
+        assert second is not first
+    finally:
+        proceed.set()
+    assert first.result(3) == {("p", "m"): "first"}
+    assert second.result(3) == {("p", "m"): "second"}
+    assert len(reads) == 2

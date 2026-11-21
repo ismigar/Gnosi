@@ -612,8 +612,15 @@ def catalog_model_metadata_index() -> Dict[str, Dict[str, Any]]:
 def _disk_model_catalog(path: Path, stamp: tuple[int, ...]) -> Dict[str, Any]:
     """Share the published cloud model rows until the file changes."""
     catalog = _read_json(path)
-    if not catalog or not isinstance(catalog.get("providers"), list):
+    if not catalog or not _is_fresh(catalog) or not isinstance(catalog.get("providers"), list):
         raise ValueError("No published model catalog")
+    # A damaged or older cache must fall back to discovery before applying the
+    # built-in offers, whose transformation expects a valid catalog.
+    for provider in catalog["providers"]:
+        if not isinstance(provider, dict) or not isinstance(provider.get("models"), list):
+            raise ValueError("Invalid published provider")
+        if any(not isinstance(model, dict) for model in provider["models"]):
+            raise ValueError("Invalid published model")
     from backend.agent.reading_model_catalog import supply_reading_models
     supply_reading_models(catalog)
     return catalog
@@ -638,13 +645,14 @@ def _published_cloud_catalog() -> Optional[Dict[str, Any]]:
 def published_cloud_model(provider_id: str, model_id: str | None) -> Optional[Dict[str, Any]]:
     """A known exact route needs neither a remote refresh nor an Ollama probe."""
     wanted = provider_id.strip().lower()
+    model_id = (model_id or "").strip()
     if wanted == "ollama" or not model_id:
         return None
     snapshot = _published_cloud_catalog()
     for provider in (snapshot or {}).get("providers", []):
         if isinstance(provider, dict) and provider.get("id") == wanted:
-            for model in provider.get("models", []):
-                if model.get("id") == model_id:
+            for model in provider.get("models") or []:
+                if isinstance(model, dict) and model.get("id") == model_id:
                     return {**model, "is_local": bool(provider.get("is_local"))}
     return None
 
