@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3574 |
-| pytest | 825 | 6405 |
+| pytest | 825 | 6407 |
 
 ## Fichiers
 
@@ -1361,7 +1361,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_reading_passage_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_passage_repair.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_performance.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_quality.py) | 25 | Python AST |
-| pytest | [`backend/tests/test_reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_result_cache.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_result_cache.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_record_title_roundtrip.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_record_title_roundtrip.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_recursos_csl_mapping.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_recursos_csl_mapping.py) | 22 | Python AST |
 | pytest | [`backend/tests/test_reference_config_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reference_config_migration.py) | 24 | Python AST |
