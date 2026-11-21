@@ -355,7 +355,7 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     ai = dict(load_params(strict_env=False).ai)
     if snapshot.profile.get("_team_execution"):
         from backend.services.agent_team_runtime import execution_profile
-        current = execution_profile(snapshot, config=ai)
+        current: dict[str, Any] | None = execution_profile(snapshot, config=ai)
     else:
         current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
     if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
