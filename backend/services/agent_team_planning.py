@@ -26,6 +26,17 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     from backend.services.agent_gauntlet_policy import needs_planning
     operation = str(json.loads(original).get("operation") or "").split(".")[0] if operation_mode else chat_operation(original)
     route = next((r for r in team.direct_routes if r.operation == operation), None)
+    saved = artifacts.list_artifacts(scope, "plan", root_id)
+    from backend.services.agent_team_greeting import director_greeting, greeting_exchange
+    from backend.domains.agent.title_replacements import active_title_scope
+    if not (operation_mode or route or saved) and greeting_exchange(original, state) and not active_title_scope(refs):
+        greeting = await director_greeting(owner, scope, root_id, state, original, refs)
+        if greeting is not None:
+            greeting_metrics = {"version": 1, "mode": "director", "reason": "standalone_greeting",
+                           "full_planning_calls_avoided": 1}
+            artifacts.put(scope, root_id, "routing", "routing", greeting_metrics)
+            record("team.route", greeting_metrics)
+            return greeting, {**state, "greeting_reply": True}, [], None, False
     semantic_plan = needs_planning(original, refs, state, operation_mode=operation_mode)
     required = [skill_id(operation)] if route else []
     direct, reason, cost = (
@@ -36,7 +47,6 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     )
     include_owner = not operation_mode and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id")
     catalog = await asyncio.to_thread(planning_catalog, owner, scope, original, include_owner=include_owner)
-    saved = artifacts.list_artifacts(scope, "plan", root_id)
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))

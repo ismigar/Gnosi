@@ -11,6 +11,55 @@ from backend.tests.test_agent_team import optional_runtime, team_runtime  # noqa
 from backend.tests.test_principal_agent_routing import plan_for, run_chat
 
 
+def test_standalone_greeting_uses_director_then_reopens_specialists_when_requested(optional_runtime, monkeypatch):
+    from backend.services import agent_team_planning
+    fixture, _ = optional_runtime
+    config = fixture[3]
+    refs = [{"type": "internal", "ref": "reader", "name": "Profile sources"}]
+    marked = {"gnosi_plain_greeting": True}
+    planned = []
+    original = agent_team_planning.planning_catalog
+
+    def observe(*args, **kwargs):
+        planned.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(agent_team_planning, "planning_catalog", observe)
+    config["_phase_responses"] = {"team.greeting": [AIMessage(content='{"response":"My personal welcome."}')]}
+    responses, metadata = run_chat(fixture, "Hola!", refs=refs, message_metadata=marked)
+    answer = responses[-1]
+    assert answer.content == "My personal welcome."
+    assert metadata["context_refs"] == refs
+    assert answer.additional_kwargs["gnosi_greeting_reply"] is True
+    assert fixture[2] == ["director"] and not planned
+    assert answer.additional_kwargs["gnosi_team_usage"]["routing"]["reason"] == "standalone_greeting"
+    prompts = config["_model_messages"][0][1]
+    assert "Profile sources" in prompts[-1].text
+
+    config["_phase_responses"] = {"team.greeting": [AIMessage(content='{"response":null}')],
+        "team.plan": [AIMessage(content=plan_for().model_dump_json())]}
+    config["_responses"] = {"worker": [AIMessage(content="Specialist result")]}
+    history = [HumanMessage(content="Hola!", additional_kwargs=marked), answer]
+    messages, _ = run_chat(fixture, "Bon dia", refs=refs, history=history, message_metadata=marked)
+    assert messages[-1].content == "Specialist result"
+    assert fixture[2] == ["director", "director", "director", "worker"] and planned == [1]
+
+
+def test_greeting_requires_a_plain_request_and_verified_history():
+    from backend.services.agent_team_greeting import greeting_exchange
+    hello = HumanMessage(content="Hola", additional_kwargs={"gnosi_plain_greeting": True})
+    answer = AIMessage(content="Bonjour", additional_kwargs={"gnosi_greeting_reply": True})
+    assert greeting_exchange("Hola", {"messages": [hello, answer, hello]})
+    for state in ({"messages": [HumanMessage(content="Hola")]},
+                  {"messages": [hello], "title_edit": {"scope": "view"}},
+                  {"messages": [hello], "turn_authorized_tool_names": ["update"]},
+                  {"messages": [hello, AIMessage(content="Which file?"), hello]},
+                  {"messages": [HumanMessage(content="Translate this"), answer, hello]},
+                  {"messages": [hello.model_copy(update={"content": "Hola\nAttached document"})]}):
+        assert not greeting_exchange("Hola", state)
+    assert not greeting_exchange("Hola, tradueix això", {"messages": [hello]})
+
+
 def seed(fixture):
     fixture[1].profile["team"]["direct_routes"] = []
     fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())],

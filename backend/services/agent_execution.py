@@ -437,7 +437,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "team.greeting", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else review_output)
@@ -453,7 +453,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
             "off_if_optional" if request.operation in {"podcast.coverage.briefs", "podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
             "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
-            "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
+            "one_step_lower" if (request.operation == "team.greeting" or
+                                 request.operation == "team.plan" and request.options.get("economical_planning"))
             and not validation_retry else None),
         output_schema=request.output_schema,
         operation_reading_performance=(request.operation == "knowledge.process-source.phase"

@@ -17,10 +17,13 @@ def required_operation(operation: str, active_skills: list[str]) -> str:
     return family if family in OPERATIONS and skill_id(family) in active_skills else ""
 
 
+def is_greeting(text: str) -> bool:
+    return text.strip().casefold().rstrip(".!? ") in {"hola", "hello", "hi", "bonjour", "salut", "bon dia", "buenos días"}
+
+
 def initial_greeting(data: dict[str, Any]) -> bool:
-    text = str(data.get("request") or "").strip().casefold().rstrip(".!? ")
     refs = data.get("context_refs") or {}
-    return (text in {"hola", "hello", "hi", "bonjour", "salut", "bon dia", "buenos días"}
+    return (is_greeting(str(data.get("request") or ""))
             and not data.get("recent_conversation") and not data.get("current_message_has_source_context")
             and not data.get("authorized_tool_names") and isinstance(refs, dict) and not refs.get("count"))
 

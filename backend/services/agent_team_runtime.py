@@ -511,7 +511,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
-                "current_user_role": scope.role, **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
+                "current_user_role": scope.role, **({"greeting_reply": True} if state.get("greeting_reply") else {}),
+                **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
             "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
@@ -519,6 +520,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         answer, metadata = await review_direct_response(owner=owner, root_id=root_id, scope=scope,
             quality=quality, original=original, state=state, candidate=plan.response,
             output_schema=result_schema, available=root_snapshot is not None)
+        if state.get("greeting_reply"):
+            metadata = {**metadata, "gnosi_greeting_reply": True}
         return {"messages": [AIMessage(content=answer, additional_kwargs=metadata)]}
     results: dict[str, Any] = {}
     pending = list(plan.tasks)
