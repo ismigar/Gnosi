@@ -853,6 +853,8 @@ Si Gnosi rejette l’interprétation d’un passage, le Réviseur de lecture re�
 
 Lorsque Gnosi ne peut pas surligner une citation entière du PDF, le Réviseur de lecture peut choisir des extraits littéraux plus courts dont Gnosi a vérifié la position sur la même page. Il voit la phrase originale complète. Avant d’enregistrer la correction, Gnosi vérifie la source de chaque extrait retenu et sa position dans le PDF. À la reprise, le réviseur corrige également les citations des brouillons enregistrés qui échouent à cette vérification. Une révision ordinaire peut conserver un extrait court vérifié lorsqu’elle modifie la note.
 
+Lorsqu’un passage examiné ou l’une de ses sources citées atteint un saut de page du PDF, Gnosi fournit les passages des deux pages dans l’ordre de lecture. Le réviseur vérifie si le raisonnement se poursuit et peut citer chaque page séparément. Les deux passages proviennent du même fichier, même si plusieurs pièces jointes portent le même titre. Chaque passage supplémentaire est envoyé une seule fois par requête. À la reprise, Gnosi réutilise une révision payée lorsqu’il peut vérifier les originaux cités par les notes. Si une citation identique dans deux fichiers rend un ancien enregistrement ambigu, Gnosi consulte les décisions enregistrées et demande une nouvelle révision lorsque l’attribution reste incertaine ou que la source citée a changé.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion

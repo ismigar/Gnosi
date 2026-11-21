@@ -844,6 +844,8 @@ Si Gnosi rechaza la interpretación de un pasaje, el Revisor de lectura recibe e
 
 Cuando Gnosi no puede resaltar una cita completa del PDF, el Revisor de lectura puede elegir citas literales más cortas que Gnosi ha localizado en la misma página. El revisor ve la frase original completa. Antes de guardar la corrección, Gnosi comprueba que cada cita conserva su fuente y se puede resaltar en el PDF. Al reanudar la lectura, el revisor también corrige las citas de los borradores guardados que no superan esta comprobación. Una revisión ordinaria puede conservar la cita corta verificada al modificar la nota.
 
+Cuando un pasaje en revisión o una de las fuentes que cita llega a un salto de página del PDF, Gnosi facilita los pasajes de ambas páginas en orden de lectura. El revisor comprueba si el argumento continúa y puede citar cada página por separado. Ambos pasajes proceden del mismo archivo, incluso cuando hay adjuntos con el mismo título. Cada pasaje adicional se envía una sola vez por petición. Al reanudar la lectura, Gnosi reutiliza una revisión pagada cuando puede verificar los originales que citaban las notas. Si una cita idéntica en dos archivos hace ambiguo un registro antiguo, Gnosi consulta las decisiones guardadas y solicita una nueva revisión si no puede establecer la atribución o ha cambiado el original citado.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan

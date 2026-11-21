@@ -791,6 +791,8 @@ Si Gnosi rebutja l’extracció d’un passatge, el Revisor de lectura rep l’o
 
 Quan Gnosi no pot ressaltar una cita sencera del PDF, el Revisor de lectura pot triar cites literals més curtes que Gnosi ha localitzat a la mateixa pàgina. El revisor veu la frase original completa. Abans de desar la correcció, Gnosi comprova que cada cita triada conserva la font i es pot ressaltar al PDF. En reprendre una lectura, el revisor també corregeix les cites dels esborranys desats que no superen aquesta comprovació. Una revisió ordinària pot conservar la cita curta verificada quan modifica la nota.
 
+Quan un passatge en revisió o una de les fonts que cita arriba a un salt de pàgina del PDF, Gnosi facilita els passatges de les dues pàgines en ordre de lectura. El revisor comprova si l’argument continua i pot citar cada pàgina per separat. Tots dos passatges provenen del mateix fitxer, fins i tot quan hi ha adjunts amb el mateix títol. Cada passatge addicional s’envia una sola vegada per petició. En reprendre la lectura, Gnosi reutilitza una revisió pagada quan pot verificar quins originals citaven les notes. Si una cita idèntica en dos fitxers fa ambigu un registre antic, Gnosi consulta les decisions desades i demana una nova revisió si no pot establir l’atribució o ha canviat l’original citat.
+
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
 resum a la mateixa vista i propostes de connexió amb IA que actualitzen i obren
