@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 
 import jsonschema
 
-from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionScope
+from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun
 
 CACHE_VERSION = 1
 
@@ -45,7 +45,7 @@ def lookup(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: str,
 
 
 async def reuse(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: str, provider: str, model: str,
-                row: AgentRun, validate: Callable[[str], Awaitable[str]], revalidate: Callable[[ExecutionScope], None]) -> AgentRun | None:
+                row: AgentRun, validate: Callable[[str], Awaitable[str]], require_active: Callable[[], None]) -> AgentRun | None:
     cached = lookup(request, snapshot, key, provider, model)
     if cached is None:
         return None
@@ -53,11 +53,9 @@ async def reuse(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: 
         restored = await validate(cached.result)
     except (ValueError, jsonschema.ValidationError):
         return None
-    revalidate(snapshot.scope)
+    finally:
+        require_active()
     from backend.services import agent_execution_store as store
-    from backend.services.agent_cancellation import AgentTurnCancelled
-    if store.cancelled(snapshot.scope, row.run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
-        raise AgentTurnCancelled("agent_run_cancelled")
     from backend.services.agent_execution_trace import record
     record("reading.result_cache.reused", {"source_run_id": cached.run_id})
     return store.update(snapshot.scope, row.run_id, status="completed", result=restored)
