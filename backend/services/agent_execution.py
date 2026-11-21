@@ -26,6 +26,7 @@ from backend.services.agent_execution_scope import current_origin, current_scope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
+from backend.services.structured_output_diagnostics import ModelOutputError, ModelOutputJSONError
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
@@ -314,12 +315,12 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
 
 
 def _reject_json_constant(value: str) -> None:
-    raise ValueError(f"Non-finite number in structured output: {value}")
+    raise ModelOutputError(f"Non-finite number in structured output: {value}")
 
 
 def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
     if not text.strip():
-        raise ValueError("agent_empty_result")
+        raise ModelOutputError("agent_empty_result")
     if schema is None:
         return text
     cleaned = text.strip()
@@ -330,7 +331,6 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
     try:
         value = json.loads(cleaned, parse_constant=_reject_json_constant)
     except json.JSONDecodeError as error:
-        from backend.services.structured_output_diagnostics import ModelOutputJSONError
         if error.msg != "Extra data":
             raise ModelOutputJSONError(error.msg, error.doc, error.pos) from error
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
