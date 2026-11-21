@@ -842,6 +842,8 @@ Al activar Conocimiento, Gnosi crea dos bots editables. Conocimiento lee todo el
 
 Si Gnosi rechaza la interpretación de un pasaje, el Revisor de lectura recibe el original, los pasajes contiguos, el borrador y el motivo del rechazo. Debe resolver el problema y citar el original para que Gnosi dé el fragmento por completado. Al reanudar la lectura, Gnosi puede reutilizar los demás borradores y las correcciones guardadas. Los pasajes corregidos también forman parte de la revisión final.
 
+Cuando Gnosi no puede resaltar una cita completa del PDF, el Revisor de lectura puede elegir citas literales más cortas que Gnosi ha localizado en la misma página. El revisor ve la frase original completa. Antes de guardar la corrección, Gnosi comprueba que cada cita conserva su fuente y se puede resaltar en el PDF.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan

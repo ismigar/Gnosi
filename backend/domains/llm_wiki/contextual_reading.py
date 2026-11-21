@@ -62,7 +62,7 @@ class ContextualReader:
         payload: dict[str, object],
         validate: Callable[[dict[str, object]], None],
         contract: dict[str, object] | None = None,
-        *, executor: ReviewRuntime | None = None,
+        *, executor: ReviewRuntime | None = None, pdf_evidence: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -98,6 +98,13 @@ class ContextualReader:
                 if self.job_id:
                     self.dependencies.save_checkpoint(self.job_id, key, saved)
                 return answer
+        # Saved answers contain literal quotes and are revalidated above. Only
+        # a fresh specialist call needs a model-facing catalog of PDF excerpts.
+        finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
+        if pdf_evidence and finder:
+            excerpts = finder(pdf_evidence, self.origins)
+            if excerpts:
+                prompt = encoded({**request, "verified_pdf_excerpts": excerpts})
         display_phase = (
             "reviewing"
             if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
