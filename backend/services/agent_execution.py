@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
@@ -480,6 +481,18 @@ async def _operation_output(text: str, request: AgentOperation, validator: Calla
     return check()
 
 
+async def _build_output_repair(request: AgentOperation, builder: RepairBuilder | None, text: str,
+                               error: Exception, require_active: Callable[[], None]) -> OutputRepair | None:
+    if builder is None:
+        return None
+    if request.operation != "knowledge.process-source.phase":
+        return builder(text, error)
+    try:
+        return await asyncio.to_thread(builder, text, error)
+    finally:
+        require_active()
+
+
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
@@ -496,6 +509,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     if cached is not None:
         return cached
     run_id = uuid.uuid4().hex
+    require_active = partial(_require_active, snapshot.scope, run_id, parent_id)
     row = AgentRun(run_id=run_id, parent_run_id=parent_id,
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
@@ -527,7 +541,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         reused = await reading_cached_result(request, snapshot, reading_cache_key,
             str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
             lambda text: _operation_output(_validate_output(text, initial_schema), request, output_validator),
-            lambda: _require_active(snapshot.scope, run_id, row.parent_run_id))
+            require_active)
         if reused is not None:
             return reused
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
@@ -560,7 +574,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     text = _validate_output(text, response_schema)
                     text = await _operation_output(text, request, output_validator, partial_repair)
                 finally:
-                    _require_active(snapshot.scope, run_id, row.parent_run_id)
+                    require_active()
                 completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
@@ -580,14 +594,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                         "Return the same patch contract, not a rewritten reading action.\n" +
                         json.dumps({"validation_error": diagnostic}, ensure_ascii=False))]
                     continue
-                if output_repair is not None:
-                    if request.operation == "knowledge.process-source.phase":
-                        try:
-                            partial_repair = await asyncio.to_thread(output_repair, text, validation_error)
-                        finally:
-                            _require_active(snapshot.scope, run_id, row.parent_run_id)
-                    else:
-                        partial_repair = output_repair(text, validation_error)
+                partial_repair = await _build_output_repair(request, output_repair, text, validation_error, require_active)
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema
                     repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})
