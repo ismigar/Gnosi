@@ -131,11 +131,11 @@ def references(sources: list[dict[str, object]]) -> list[dict[str, object]]:
 
 
 def restore(sources: list[dict[str, object]], saved: Any) -> list[dict[str, object]]:
-    index = {str(s["id"]): s for s in sources}
+    index = {(str(s["id"]), source_key(source_view(s))): s for s in sources}
     result = []
     for ref in records(saved):
-        source = index.get(str(ref["id"]))
-        if source is None or source_key(source_view(source)) != ref["key"]:
+        source = index.get((str(ref["id"]), str(ref["key"])))
+        if source is None:
             raise RuntimeError("reading_quality_unresolved: saved review evidence changed")
         result.append(source)
     return result

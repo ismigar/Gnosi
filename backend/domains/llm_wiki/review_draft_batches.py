@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review
+from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
 
 if TYPE_CHECKING:
@@ -69,6 +70,7 @@ def additional_review_calls(reviewer: ReviewRuntime, chunks: list[dict[str, obje
                             selected: set[str], dimensions: list[dict[str, object]], title: str, language: str) -> int:
     from backend.domains.llm_wiki.review_selection import passage_key
     extra = 0
+    edges = page_edges(chunks)
     def fits(payload: dict[str, object]) -> bool:
         return fits_review(reviewer, "source-audit", title, language, payload)
     for chunk in chunks:
@@ -83,10 +85,13 @@ def additional_review_calls(reviewer: ReviewRuntime, chunks: list[dict[str, obje
             coverage = [r["reason"] for r in records(plan.get("coverage")) if r["segment_id"] == segment["id"]]
             cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
             support = [s for s in records(plan.get("evidence_segments")) if s["id"] != primary["id"] and s["id"] in cited]
-            if fits(audit_payload(primary, [semantic_note(n, dimensions) for n in drafts], support, coverage, dimensions)):
+            originals = [primary, *support]
+            payload = audit_payload(primary, [semantic_note(n, dimensions) for n in drafts], support, coverage, dimensions)
+            if fits(page_context(edges, originals, originals).prompt(payload, audit=True)):
                 continue
             def request_for(subset: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
-                return note_batch_request(primary, subset, support, coverage, dimensions)
+                candidate, sources = note_batch_request(primary, subset, support, coverage, dimensions)
+                return page_context(edges, sources, sources).prompt(candidate, audit=True), sources
             start = 0
             while start < len(drafts):
                 start, _, _ = note_batch_end(start, drafts, request_for, fits)
@@ -98,7 +103,8 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
                     drafts: list[dict[str, object]], support: list[dict[str, object]], coverage: list[object],
                     key: str, validate: Validate) -> dict[str, object]:
     def request_for(subset: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
-        return note_batch_request(primary, subset, support, coverage, worker.dimensions)
+        payload, sources = note_batch_request(primary, subset, support, coverage, worker.dimensions)
+        return page_context(worker.pdf_edges, sources, sources).prompt(payload, audit=True), sources
 
     def fits(payload: dict[str, object]) -> bool:
         return fits_review(reviewer, "source-audit", worker.title, worker.language, payload)
@@ -107,14 +113,17 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     claims: list[dict[str, object]] = []
     start = 0
     while start < len(drafts):
-        end, payload, sources = note_batch_end(start, drafts, request_for, fits)
+        end, _, _ = note_batch_end(start, drafts, request_for, fits)
         subset = drafts[start:end]
+        payload, sources = note_batch_request(primary, subset, support, coverage, worker.dimensions)
+        context = page_context(worker.pdf_edges, sources, sources)
+        sources = [*sources, *context.additions]
         def check_batch(answer: dict[str, object]) -> None:
             validate(answer, subset, sources)
             if any(change["position"] == 0 for change in records(answer["changes"])):
                 raise ValueError("Only the full-passage coverage check may add notes")
         answer = worker.ask(f"audit-notes-{key[:24]}-{start}", "source-audit", payload, check_batch,
-                            record(payload["output_schema"]), executor=reviewer)
+                            record(payload["output_schema"]), executor=reviewer, page_context=context)
         accepted = apply_changes(answer, subset, primary, sources, worker.dimensions)
         claims.append({"assessment": answer["assessment"], "retained": [n["title"] for n in accepted]})
         changes.extend({**change, "position": int(str(change["position"])) + start} for change in bound_changes(answer, primary, sources, worker.dimensions))
@@ -123,12 +132,15 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     payload = audit_payload(primary, [], [], coverage, worker.dimensions)
     payload["instruction"] = ("Check the whole original for omissions against the claims already accepted in the review. "
         "Add only missing substantive claims at position 0 with exact primary quotations. Record remaining issues.")
+    context = page_context(worker.pdf_edges, [primary], [primary])
+    coverage_sources = [primary, *context.additions]
     def coverage_fits(items: list[dict[str, object]]) -> bool:
-        return fits({**payload, "reviewed_claims": items})
+        return fits(context.prompt({**payload, "reviewed_claims": items}, audit=True))
     if not coverage_fits(claims):
         from backend.domains.llm_wiki.review_synthesis import reduce_for_context
         claims = reduce_for_context(worker, reviewer, claims, coverage_fits)
     payload["reviewed_claims"] = claims
     coverage_answer = worker.ask(f"audit-coverage-{key[:24]}", "source-audit", payload,
-                                 lambda result: validate(result, [], [primary]), record(payload["output_schema"]), executor=reviewer)
-    return {**coverage_answer, "changes": [*changes, *bound_changes(coverage_answer, primary, [primary], worker.dimensions)]}
+                                 lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
+                                 executor=reviewer, page_context=context)
+    return {**coverage_answer, "changes": [*changes, *bound_changes(coverage_answer, primary, coverage_sources, worker.dimensions)]}

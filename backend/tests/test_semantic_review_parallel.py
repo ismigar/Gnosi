@@ -125,13 +125,16 @@ def test_truncation_splits_only_failed_range_with_later_success_retained():
     assert checkpoints['new', 'semantic-state']['reviewed_ranges'] == {'0': 2, '2': 2, '4': 4}
 
 
-@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
-def test_reservation_rejection_splits_complete_review_without_dropping_notes(reason):
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted', 'input_capacity'])
+def test_pretransmission_rejection_splits_complete_review_without_dropping_notes(reason):
+    from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
     from backend.services.reading_budget import ReadingBudgetError
     accepted = []
     def generate(request):
         if request['phase'] == 'verify':
             if len(request['notes']) > 2:
+                if reason == 'input_capacity':
+                    raise ReadingInputTooLarge("The reviewer's context cannot fit this group.")
                 raise ReadingBudgetError(reason)
             accepted.extend(n['note']['title'] for n in request['notes'])
         return response(request)

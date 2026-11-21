@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.pdf_page_context import PageContext, page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.independent_review import fits_review
 from backend.domains.llm_wiki.passage_repair_notes import amended_passage, amendment_schema
@@ -52,7 +53,8 @@ def audited_draft_notes(reader: ContextualReader, reviewer: ReviewRuntime, prima
 
 
 def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
-                   draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str) -> dict[str, object]:
+                   draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str,
+                   context: PageContext) -> dict[str, object]:
     retained = []
     supported_notes = []
     contract = note_schema(reader.dimensions)
@@ -103,14 +105,14 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         if not quote.strip() or quote not in str(primary["text"]):
             raise ValueError("The correction must cite an exact quotation from the primary passage")
         passage = amended_passage(answer, retained, primary)
-        notes = audited_draft_notes(reader, reviewer, primary, passage, evidence)
+        notes = audited_draft_notes(reader, reviewer, primary, passage, [*evidence, *context.additions])
         citation_issues = getattr(reader.dependencies, "citation_issues", None)
         if citation_issues and any(citation_issues(notes, reader.origins)):
             raise ValueError("The corrected notes must cite valid locations in their originals")
 
     key = "passage-repair-" + fingerprint([reviewer.identity, draft, payload])[:24]
     answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, quote_evidence=evidence, offer_excerpts=True,
-                        pdf_citations=partial_citations(supported_notes, evidence))
+                        pdf_citations=partial_citations(supported_notes, evidence), page_context=context)
     return {**amended_passage(answer, retained, primary), "needs_specialist": True}
 
 
@@ -161,6 +163,8 @@ def bind_reviewed_interpretation(
         for position in sorted(rejected):
             source, draft = primary[position], passages[position]
             sources = repair_sources(source, draft, neighbours[passage_key(source)], evidence)
-            passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position])
-            available = list({segment_source_key(s): s for s in [*available, *sources]}.values())
+            cited = repair_sources(source, draft, [], sources)
+            context = page_context(reader.pdf_edges, sources, cited)
+            passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position], context)
+            available = list({segment_source_key(s): s for s in [*available, *sources, *context.additions]}.values())
     return bind_interpretation(candidate, chunks, available, reader.dimensions, flag_review=True), candidate
