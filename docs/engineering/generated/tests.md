@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3574 |
-| pytest | 826 | 6413 |
+| pytest | 826 | 6415 |
 
 ## Files
 
@@ -1264,7 +1264,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_pdf_composition_harness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_composition_harness.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_pdf_extraction_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_extraction_cache.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_pdf_quote_matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_quote_matching.py) | 11 | Python AST |
-| pytest | [`backend/tests/test_pdf_review_excerpts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_review_excerpts.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_pdf_review_excerpts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_review_excerpts.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_pipeline_ai_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_ai_client.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_naming.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_naming.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_skill_classification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_skill_classification.py) | 1 | Python AST |
