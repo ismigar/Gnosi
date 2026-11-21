@@ -103,21 +103,21 @@ def retrieve(sources: list[dict[str, object]], requests: list[dict[str, object]]
              existing: list[dict[str, object]], count: Callable[[str], int], limit: int) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Explicit pages are all-or-error; lexical searches return bounded complete passages."""
     selected: dict[str, dict[str, object]] = {}
-    present = {str(s["id"]) for s in existing}
+    present = {segment_source_key(s) for s in existing}
     reports = []
     for request in requests:
         document, pages, query = str(request["document"]), cast(list[int], request["pages"]), str(request["query"]).strip()
         scope = [s for s in sources if not document or s.get("origin_label", "") == document]
         matches = [s for s in scope if record(s.get("locator")).get("page") in pages] if pages else []
         for source in matches:
-            selected[str(source["id"])] = source
+            selected[segment_source_key(source)] = source
         if count(encoded(list(selected.values()))) > limit:
             raise RuntimeError("reading_quality_unresolved: requested complete pages exceed the evidence budget")
         if query:
             candidates = [dict(s, search_text=encoded(source_view(s))) for s in scope
-                          if str(s["id"]) not in present | selected.keys()]
+                          if segment_source_key(s) not in present | selected.keys()]
             found = relevant(candidates, query, count, max(0, limit - count(encoded(list(selected.values())))), text_key="search_text")[:6]
-            selected.update((str(s["id"]), {k: v for k, v in s.items() if k != "search_text"}) for s in found)
+            selected.update((segment_source_key(s), {k: v for k, v in s.items() if k != "search_text"}) for s in found)
             matches.extend(found)
         available_pages = {record(s.get("locator")).get("page") for s in scope}
         reports.append({"request": request, "matched_passages": len(matches),

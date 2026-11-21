@@ -8,6 +8,7 @@ from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review
 from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
@@ -19,7 +20,8 @@ Validate = Callable[[dict[str, object], list[dict[str, object]], list[dict[str, 
 def note_batch_request(primary: dict[str, object], subset: list[dict[str, object]], support: list[dict[str, object]],
                        coverage: list[object], dimensions: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
     cited = {c["segment_id"] for note in subset for c in records(note.get("citations"))}
-    sources = [s for s in support if s["id"] in cited and s["id"] != primary["id"]]
+    primary_key = segment_source_key(primary)
+    sources = [s for s in support if s["id"] in cited and segment_source_key(s) != primary_key]
     payload = audit_payload(primary, [semantic_note(n, dimensions) for n in subset], sources, coverage, dimensions)
     payload["instruction"] = ("Check these notes against the original. Return only corrections or exclusions "
         "at their one-based positions, each with a source-grounded reason. The separate coverage pass checks for omissions. "
@@ -84,7 +86,9 @@ def additional_review_calls(reviewer: ReviewRuntime, chunks: list[dict[str, obje
             drafts = [n for n in records(plan.get("notes")) if n["source_segment_id"] == segment["id"]]
             coverage = [r["reason"] for r in records(plan.get("coverage")) if r["segment_id"] == segment["id"]]
             cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
-            support = [s for s in records(plan.get("evidence_segments")) if s["id"] != primary["id"] and s["id"] in cited]
+            primary_key = segment_source_key(primary)
+            support = [s for s in records(plan.get("evidence_segments"))
+                       if s["id"] in cited and segment_source_key(s) != primary_key]
             originals = [primary, *support]
             payload = audit_payload(primary, [semantic_note(n, dimensions) for n in drafts], support, coverage, dimensions)
             if fits(page_context(edges, originals, originals).prompt(payload, audit=True)):

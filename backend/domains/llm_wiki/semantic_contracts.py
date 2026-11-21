@@ -82,8 +82,16 @@ def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
 
 def bind_note(value: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
               dimensions: list[dict[str, object]], *, verified_segment_ids: list[str] | None = None) -> dict[str, object]:
+    note, _ = bind_note_sources(value, primary, evidence, dimensions, verified_segment_ids=verified_segment_ids)
+    return note
+
+
+def bind_note_sources(value: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
+                      dimensions: list[dict[str, object]], *, verified_segment_ids: list[str] | None = None,
+                      ) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Never fix or guess a quote. Prefer its known primary; reject ambiguous support."""
     citations = []
+    sources = []
     quotes = value.get("quotes", [])
     keys = value.get("quote_source_keys")
     if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
@@ -104,6 +112,7 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
         if len(identifiers) != 1:
             raise ValueError("Quote must occur verbatim in the supplied original and identify one source passage")
         citations.append({"segment_id": next(iter(identifiers)), "quote": quote})
+        sources.append(matches[0])
     properties = record(value.get("properties"))
     note = {"title": value.get("title"), "body_md": value.get("body_md"),
             "source_segment_id": primary["id"], "citations": citations,
@@ -113,7 +122,7 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     plan: dict[str, object] = {"notes": [note], "coverage": [{"segment_id": primary["id"], "reason": "interpreted"}]}
     validate_notes(plan, [primary], evidence)
     validate_note_dimensions(plan, dimensions)
-    return note
+    return note, sources
 
 
 def bind_passage(passage: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],

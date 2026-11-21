@@ -14,6 +14,7 @@ from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge, _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 from backend.domains.llm_wiki.reading_quality import REVIEW_QUALITY_VERSION, validate_reviewed_prose
 from backend.domains.llm_wiki import semantic_review_evidence as evidence_lookup
 
@@ -163,7 +164,7 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
         seen.add(identity)
         found, reports = evidence_lookup.retrieve(evidence_lookup.originals(reader.chunks), requests, batch.evidence,
                                                   reader.dependencies.count_tokens, reader.budget // 4)
-        retrieved = list({str(s["id"]): s for s in [*batch.retrieved, *found]}.values())
+        retrieved = list({segment_source_key(s): s for s in [*batch.retrieved, *found]}.values())
         batch = replace(batch, retrieved=retrieved, payload={**batch.payload,
             "retrieved_originals": [source_view(s) for s in retrieved], "evidence_lookup": reports,
             "provisional_review": answer, "evidence_rounds_remaining": evidence_lookup.MAX_EVIDENCE_ROUNDS - round_number - 1})

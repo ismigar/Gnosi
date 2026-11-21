@@ -11,8 +11,9 @@ from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.reading_quality import adjacent_originals, validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.review_selection import passage_key, selected_passages
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 from backend.domains.llm_wiki.semantic_contracts import (
-    TEXT, TEXTS, bind_note, fields, note_schema, obj, semantic_note, validate_schema,
+    TEXT, TEXTS, bind_note, bind_note_sources, fields, note_schema, obj, semantic_note, validate_schema,
 )
 
 if TYPE_CHECKING:
@@ -35,15 +36,14 @@ def bound_changes(answer: dict[str, object], primary: dict[str, object], sources
                   dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
     """Retain the exact original resolved in this batch across all later merges."""
     from backend.domains.llm_wiki.semantic_quote_contracts import source_key
-    keys = {str(s["id"]): source_key(source_view(s)) for s in [*sources, primary]}
     changes = records(answer["changes"])
     for change in changes:
         if change["replacement"] is not None:
             replacement = record(change["replacement"])
-            note = bind_note(replacement, primary, sources, dimensions)
+            note, originals = bind_note_sources(replacement, primary, sources, dimensions)
             identifiers = [str(c["segment_id"]) for c in records(note["citations"])]
             change["replacement"] = {**replacement, "quote_segment_ids": identifiers,
-                                     "quote_source_keys": [keys[identifier] for identifier in identifiers]}
+                                     "quote_source_keys": [source_key(source_view(s)) for s in originals]}
     return changes
 
 
@@ -140,7 +140,8 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
                   ) -> tuple[str, dict[str, object]]:
     coverage = [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == primary["id"]]
     notes = [semantic_note(n, worker.dimensions) for n in drafts]
-    support = [s for s in evidence if s["id"] != primary["id"]]
+    primary_key = segment_source_key(primary)
+    support = [s for s in evidence if segment_source_key(s) != primary_key]
     payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
     cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
     if not fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
@@ -158,7 +159,7 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
             raise ValueError("Review corrections must use valid source citations")
 
     def validate_transport(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
-        validate_schema(answer, audit_schema(len(subset), worker.dimensions))
+        validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
         validate(answer, subset, sources)
 
     answer = saved.get("answer") if saved.get("key") == key else None
@@ -201,7 +202,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
             drafts = [n for n in notes if n["source_segment_id"] == identifier]
             cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
             support = [s for s in records(plan.get("evidence_segments")) if s["id"] in cited]
-            evidence = list({s["id"]: s for s in [*support, *adjacent.get(identifier, []), primary]}.values())
+            evidence = list({segment_source_key(s): s for s in [*support, *adjacent.get(identifier, []), primary]}.values())
             saved = results.get(checkpoint_id, {})
             key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan,
                                         saved, engine.deps.citation_issues)
@@ -223,7 +224,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                     if row["segment_id"] == identifier:
                         row["reason"] = answer["assessment"]
                 plan["coverage"] = coverage
-                plan["evidence_segments"] = list({s["id"]: s for s in [*records(plan.get("evidence_segments")), *evidence]}.values())
+                plan["evidence_segments"] = list({segment_source_key(s): s for s in [*records(plan.get("evidence_segments")), *evidence]}.values())
             findings.append({"document": primary["origin_label"], "location": primary.get("locator"),
                              "assessment": answer["assessment"], "quote": answer["evidence_quote"],
                              "corrections": synthesis_changes(answer, evidence, document_numbers)})
