@@ -26,7 +26,9 @@ def original_spans(text: str) -> list[str]:
     return spans
 
 
-def quote_choices(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[int, str], list[int]]:
+def quote_choices(sources: list[dict[str, Any]], *,
+                 pdf_excerpts: dict[str, dict[str, list[tuple[int, int]]]] | None = None,
+                 ) -> tuple[list[dict[str, Any]], dict[int, str], list[int]]:
     """Index complete original text in contiguous spans; never synthesize a quote."""
     catalog: list[dict[str, Any]] = []
     quotes: dict[int, str] = {}
@@ -37,10 +39,21 @@ def quote_choices(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
         if identity not in identities:
             identities[identity] = len(catalog) + 1
             spans = []
-            for text in original_spans(str(source["text"])):
-                number = len(quotes) + 1
-                quotes[number] = text
-                spans.append({"quote_id": number, "text": text})
+            ranges = pdf_excerpts.get(source_key(source), {}) if pdf_excerpts else {}
+            for i, text in enumerate(original_spans(str(source["text"]))):
+                choices = []
+                for start, end in ranges.get(str(i), []):
+                    if not 0 <= start < end <= len(text):
+                        raise ValueError("The PDF excerpt must be within its original quotation")
+                    number = len(quotes) + 1
+                    quotes[number] = text[start:end]
+                    choices.append({"quote_id": number, "text": quotes[number]})
+                if choices:
+                    spans.append({"text": text, "verified_excerpts": choices})
+                else:
+                    number = len(quotes) + 1
+                    quotes[number] = text
+                    spans.append({"quote_id": number, "text": text})
             catalog.append({"source": identities[identity],
                             **{k: v for k, v in source.items() if k != "text"}, "quotes": spans})
         source_ids.append(identities[identity])

@@ -458,6 +458,7 @@ def process_resource(
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
         citation_issues=llm_wiki_pdf_annotations.reading_citation_issues,
+        pdf_quote_excerpts=llm_wiki_pdf_annotations.reading_pdf_quote_excerpts,
         load_manifest=llm_wiki_storage.load_manifest,
         save_manifest=llm_wiki_storage.save_manifest,
         clock=time.time,

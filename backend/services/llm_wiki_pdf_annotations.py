@@ -488,14 +488,10 @@ def _persist_managed_annotations(
     return created, updated, removed
 
 
-def reading_citation_issues(
+def _reading_citation_geometry(
     notes: list[dict[str, object]], origins: list[dict[str, object]],
-) -> list[list[str]]:
-    """Check full PDF geometry before review accepts notes, without writing highlights.
-
-    Match each citation against its original segment and share page indexes
-    across the batch. PDFium is serialized because reviews run concurrently.
-    """
+) -> tuple[list[dict[str, _CitationCandidate]], set[str]]:
+    """Resolve each original segment in the batch with the same PDF highlight matcher."""
     segments = {str(segment["id"]): (origin, segment) for origin in origins
                 for segment in iterable_values(origin.get("segments") or []) if isinstance(segment, dict)}
     groups = []
@@ -511,9 +507,32 @@ def reading_citation_issues(
         groups.append(_citation_candidates([{"citations": citations}], origins, "reading-review"))
     candidates = {key: value for group in groups for key, value in group.items()}
     if not candidates:
-        return [[] for _ in notes]
+        return groups, set()
     with _READING_GEOMETRY_LOCK:
         resolved, _ = _resolve_annotation_candidates(candidates, None)
+    return groups, set(resolved)
+
+
+def reading_pdf_quote_excerpts(
+    evidence: list[dict[str, object]], origins: list[dict[str, object]],
+) -> dict[str, dict[str, list[tuple[int, int]]]]:
+    """Discover literal alternatives without writing annotations or changing the source."""
+    from backend.domains.llm_wiki.pdf_review_excerpts import verified_excerpts
+
+    def locate(choices: list[tuple[str, str]]) -> list[bool | None]:
+        notes: list[dict[str, object]] = [
+            {"citations": [{"segment_id": segment, "quote": quote}]} for segment, quote in choices]
+        groups, resolved = _reading_citation_geometry(notes, origins)
+        return [set(group).issubset(resolved) if group else None for group in groups]
+
+    return verified_excerpts(evidence, locate)
+
+
+def reading_citation_issues(
+    notes: list[dict[str, object]], origins: list[dict[str, object]],
+) -> list[list[str]]:
+    """Check full PDF geometry before review accepts notes, without writing highlights."""
+    groups, resolved = _reading_citation_geometry(notes, origins)
     return [[f"PDF citation on page {item['page']} cannot be located as one complete, unambiguous highlight: "
              f"{item['quote']!r}. Select a meaningful exact original quote that can be located, or remove this"
              " redundant citation while retaining the note's substantive evidence. Do not discard the idea"

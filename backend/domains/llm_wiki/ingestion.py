@@ -129,6 +129,8 @@ class IngestionDependencies:
     citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None = None
     input_budget: int = 24000
     count_tokens: Callable[[str], int] = lambda text: len(text.encode("utf-8"))
+    pdf_quote_excerpts: Callable[[list[dict[str, object]], list[dict[str, object]]],
+                                 dict[str, dict[str, list[tuple[int, int]]]]] | None = None
 
 
 @dataclass(frozen=True)
