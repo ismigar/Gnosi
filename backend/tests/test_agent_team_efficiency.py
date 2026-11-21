@@ -60,6 +60,17 @@ def test_greeting_requires_a_plain_request_and_verified_history():
     assert not greeting_exchange("Hola, tradueix això", {"messages": [hello]})
 
 
+def test_director_can_defer_the_first_greeting_in_an_empty_chat(optional_runtime):
+    fixture, _ = optional_runtime
+    fixture[1].profile["persona"] = "Ask the writing specialist to compose my welcome."
+    fixture[3]["_phase_responses"] = {"team.greeting": [AIMessage(content='{"response":null}')],
+        "team.plan": [AIMessage(content=plan_for().model_dump_json())]}
+    fixture[3]["_responses"] = {"worker": [AIMessage(content="A welcome from the writer")]}
+    messages, _ = run_chat(fixture, "Hola", message_metadata={"gnosi_plain_greeting": True})
+    assert fixture[2] == ["director", "director", "worker"]
+    assert messages[-1].content == "A welcome from the writer"
+
+
 def seed(fixture):
     fixture[1].profile["team"]["direct_routes"] = []
     fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for().model_dump_json())],

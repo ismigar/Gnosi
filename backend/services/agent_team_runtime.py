@@ -250,7 +250,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
             options={"economical_planning": allow_response and operation == "team.plan" and economical_planning(planning_data)},
-            output_schema=schema, max_model_calls=2 if plan_validator or (operation == "team.synthesis" and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
+            output_schema=schema, max_model_calls=2 if plan_validator or (operation in {"team.greeting", "team.synthesis"} and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
             timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)
         return result.result

@@ -29,7 +29,8 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     saved = artifacts.list_artifacts(scope, "plan", root_id)
     from backend.services.agent_team_greeting import director_greeting, greeting_exchange
     from backend.domains.agent.title_replacements import active_title_scope
-    if not (operation_mode or route or saved) and greeting_exchange(original, state) and not active_title_scope(refs):
+    try_greeting = not (operation_mode or route or saved) and greeting_exchange(original, state) and not active_title_scope(refs)
+    if try_greeting:
         greeting = await director_greeting(owner, scope, root_id, state, original, refs)
         if greeting is not None:
             greeting_metrics = {"version": 1, "mode": "director", "reason": "standalone_greeting",
@@ -93,6 +94,8 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                            prior_run_id=prior_run_id, planning_calls_avoided=1)
     else:
         data, sizes = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
+        if try_greeting:
+            data["specialist_planning_requested"] = True
         if route is not None:
             data["execution_route"] = route.model_dump()
         snapshot = _snapshot.get()
@@ -101,6 +104,7 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
             operation_hint = operation_hint or operation_for_output_keys(explicit_output_keys(original), catalog)
         if operation_hint:
             data["required_operation"] = operation_hint
+        if operation_hint or try_greeting:
             sizes["sent_context_chars"] = len(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
         measurement.update(mode="director", reason=reason, **sizes)
         artifacts.put(scope, root_id, "routing", "routing", measurement)

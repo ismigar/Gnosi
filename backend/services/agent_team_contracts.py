@@ -24,6 +24,7 @@ def is_greeting(text: str) -> bool:
 def initial_greeting(data: dict[str, Any]) -> bool:
     refs = data.get("context_refs") or {}
     return (is_greeting(str(data.get("request") or ""))
+            and not data.get("specialist_planning_requested")
             and not data.get("recent_conversation") and not data.get("current_message_has_source_context")
             and not data.get("authorized_tool_names") and isinstance(refs, dict) and not refs.get("count"))
 

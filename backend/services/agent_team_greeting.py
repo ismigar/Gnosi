@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jsonschema import ValidationError
-
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_team_context import planning_input
 from backend.services.agent_team_contracts import is_greeting
@@ -37,15 +35,8 @@ async def director_greeting(owner: dict[str, Any], scope: ExecutionScope, root_i
     schema = {"type": "object", "required": ["response"], "additionalProperties": False,
               "properties": {"response": {"type": ["string", "null"],
                   "description": "Reply to the greeting in the user's language. Return null if the conversation or your instructions require sources, an action, or specialist planning."}}}
-    try:
-        raw = await _phase(owner, root_id, scope, json.dumps(data, ensure_ascii=False, separators=(",", ":")),
-                           schema, "team.greeting")
-    except (json.JSONDecodeError, ValidationError):
-        return None
-    except ValueError as error:
-        if str(error) == "agent_empty_result":
-            return None
-        raise
+    raw = await _phase(owner, root_id, scope, json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+                       schema, "team.greeting")
     reply = json.loads(raw)["response"]
     if not isinstance(reply, str) or not reply.strip() or len(reply) > 12000 or reply.lstrip().startswith(("{", "[", "```")):
         return None
