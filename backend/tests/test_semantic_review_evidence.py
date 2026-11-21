@@ -307,7 +307,8 @@ def test_governed_review_correction_keeps_successful_changes_from_the_first_answ
     assert 'proposed_review' in feedback and 'Preserved correction' in feedback
 
 
-def test_malformed_model_json_defers_one_range_after_governed_repair(runtime, monkeypatch):
+@pytest.mark.parametrize("raw", ["not JSON", "  ", '{"confidence":NaN}'])
+def test_malformed_model_json_defers_one_range_after_governed_repair(runtime, monkeypatch, raw):
     from dataclasses import replace
     from backend.domains.llm_wiki.reading_skill import SKILL_ID
     from backend.services import agent_execution as governed
@@ -320,7 +321,7 @@ def test_malformed_model_json_defers_one_range_after_governed_repair(runtime, mo
     snapshot.skill_ids.append(SKILL_ID)
     monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
         replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
-    calls = install_workflow(monkeypatch, ['not JSON', 'still not JSON'])
+    calls = install_workflow(monkeypatch, [raw, raw])
     engine, overview, notes_map, _, _ = prepared(count=4, size=1)
     ordinary = engine.deps.generate_structured
     with execution_scope(scope):

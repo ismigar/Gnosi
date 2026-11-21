@@ -6,7 +6,11 @@ import json
 from typing import Any
 
 
-class ModelOutputJSONError(json.JSONDecodeError):
+class ModelOutputError(ValueError):
+    """A response was received and its contents failed local output validation."""
+
+
+class ModelOutputJSONError(json.JSONDecodeError, ModelOutputError):
     """Malformed JSON in a returned model answer, distinct from a transport decoding failure."""
 
 

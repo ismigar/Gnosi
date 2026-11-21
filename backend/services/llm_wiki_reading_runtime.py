@@ -147,7 +147,7 @@ class ReadingRuntime:
         from backend.services.agent_execution import run_sync
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
-        from backend.services.structured_output_diagnostics import ModelOutputJSONError, repair_diagnostic
+        from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
         try:
             envelope = json.loads(prompt)
         except ValueError:
@@ -200,7 +200,7 @@ class ReadingRuntime:
                 output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3),
                 snapshot=self.snapshot, output_validator=checked, output_repair=repair,
                 **({"draft_schema": draft_schema} if draft_schema is not None else {}))
-        except (ModelOutputJSONError, jsonschema.ValidationError) as error:
+        except (ModelOutputError, jsonschema.ValidationError) as error:
             if source_review:
                 raise PassageReviewIssue(repair_diagnostic(error)) from error
             if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
