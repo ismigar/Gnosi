@@ -6,6 +6,10 @@ import json
 from typing import Any
 
 
+class ModelOutputJSONError(json.JSONDecodeError):
+    """Malformed JSON in a returned model answer, distinct from a transport decoding failure."""
+
+
 def reading_error(error: Exception, output: str, schema: dict[str, Any] | None) -> Exception:
     """Diagnose the chosen action, not jsonschema's unrelated anyOf branch."""
     if not isinstance(error, jsonschema.ValidationError) or not schema:

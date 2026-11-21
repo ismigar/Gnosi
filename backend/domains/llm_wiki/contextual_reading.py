@@ -36,7 +36,9 @@ def _reading_answer(raw: str) -> dict[str, object]:
 
 
 def _invalid_answer(phase: str, reason: Exception) -> Exception:
-    if isinstance(reason, PassageReviewIssue) or phase in {"source-repair", "source-audit"}:
+    if isinstance(reason, PassageReviewIssue):
+        return reason
+    if phase in {"source-repair", "source-audit"}:
         return PassageReviewIssue(str(reason))
     return RuntimeError(f"The reading skill returned an invalid {phase} result: {reason}")
 
@@ -156,6 +158,10 @@ class ContextualReader:
                 quote_evidence = [*quote_evidence, *page_context.additions]
                 bindings = quote_bindings(quote_evidence)
                 request["pdf_quote_sources"] = bindings
+        if phase == "verify" and "instruction" in request:
+            request["instruction"] = str(request["instruction"]) + (
+                " Prefix a finding limited to a specific note with its one-based label, such as note_2:. "
+                "For a finding affecting the whole batch, state the shared issue without a note label.")
         finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
         if offer_excerpts and quote_evidence and finder:
             excerpts = finder(quote_evidence, self.origins, pdf_citations or [])

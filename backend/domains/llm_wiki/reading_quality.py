@@ -15,7 +15,8 @@ REVALIDATABLE_REVIEW_VERSIONS = {REVIEW_QUALITY_VERSION}
 _SOURCE_UNIT = r"(?:fragments?|fragmentos?|passatges?|pasajes?|passages?|excerpts?|texts?|textos?|textes?|original(?:es|s)?|citas?|citations?|oracion(?:es)?|frases?|phrases?|sentences?)"
 _CUT_STATE = r"(?:incomplet\w*|inconclu\w*|truncad\w*|truncat\w*|tronqu\w*|interrumpid\w*|interromp\w*|interrupt\w*|cortad\w*|talla[dt]\w*|coupee?s?|cut (?:off|short))"
 _UNIT_MODIFIERS = r"(?:\s+(?:disponibles?|facilitad[oa]s?|originals?|posterior|siguiente|seguent|suivant\w*|final|available|supplied|provided|itself))*"
-_LINKING_VERB = r"(?:is|was|remains?|ends?|esta|es|queda|resta|est|reste|se ve|ha quedad[oa])"
+_LINKING_VERB = (r"(?:is|was|were|are|remains?|ends?|(?:has|have|had) been|esta|es|queda|resta|est|reste|se ve"
+                 r"|(?:ha|han) (?:sido|estat|quedad[oa]s?|quedats?)|(?:a|ont) ete)")
 _UNFINISHED_SOURCE = re.compile(
     rf"\b{_SOURCE_UNIT}\b{_UNIT_MODIFIERS}\s+(?:"
     rf"(?:{_LINKING_VERB}\s+)?{_CUT_STATE}\b"

@@ -13,7 +13,7 @@ from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.reading_batch_recovery import (
     PassageReviewIssue, PendingPassagesRemaining, ReadingInputTooLarge, _has_answer_tokens,
 )
-from backend.domains.llm_wiki.review_selection import passage_occurrence
+from backend.domains.llm_wiki.semantic_review_findings import defer_review, isolate_findings
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
@@ -163,18 +163,30 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
             anchors = [t[3] for t in batch.targets] + [s for s in batch.evidence if s["id"] in cited]
             context = page_context(reader.pdf_edges, batch.evidence, anchors)
             expanded = replace(batch, retrieved=[*batch.retrieved, *context.additions])
+        failed_answers: list[tuple[dict[str, object], PassageReviewIssue]] = []
         def check_round(value: dict[str, object]) -> None:
-            validate_answer(value, expanded, worker)
+            try:
+                validate_answer(value, expanded, worker)
+            except PassageReviewIssue as issue:
+                failed_answers.append((value, issue))
+                raise
             requested = records(value.get("evidence_requests"))
             if requested and (round_number == evidence_lookup.MAX_EVIDENCE_ROUNDS or fingerprint(requested) in seen):
                 raise PassageReviewIssue("reading_quality_unresolved: evidence requests did not converge: " + encoded(requested))
 
-        answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
-                            {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
-                            check_round, batch.schema,
-                            executor=reviewer if batch.pdf_reviewer else None,
-                            quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained),
-                            pdf_citations=retained, page_context=context)
+        try:
+            answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
+                                {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
+                                check_round, batch.schema,
+                                executor=reviewer if batch.pdf_reviewer else None,
+                                quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained),
+                                pdf_citations=retained, page_context=context)
+        except PassageReviewIssue as error:
+            if failed_answers and failed_answers[-1][1] is error:
+                partial = isolate_findings(failed_answers[-1][0], expanded, worker, validate_answer, error)
+                if partial:
+                    raise partial from error
+            raise
         batch = expanded
         requests = records(answer.get("evidence_requests"))
         if not requests:
@@ -235,7 +247,8 @@ def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Excep
     return not failures
 
 
-def run_wave(engine: SemanticReader, batches: list[ReviewBatch], deferred: set[str]) -> bool:
+def run_wave(engine: SemanticReader, batches: list[ReviewBatch], deferred: set[str],
+             checkpoints: evidence_lookup.ReviewCheckpointKeys) -> bool:
     pending = [checked for batch in batches if batch.key not in deferred
                if (checked := revalidate_saved_batch(engine, batch)) is not None]
     if not pending:
@@ -257,17 +270,7 @@ def run_wave(engine: SemanticReader, batches: list[ReviewBatch], deferred: set[s
             try:
                 result = future.result()
             except PassageReviewIssue as issue:
-                # A joint finding can cover several notes. Keep its original
-                # range pending until a successful review covers every target.
-                engine.state.setdefault("pending_review_groups", {})[batch.key] = {
-                    "passages": {passage_occurrence(engine.reader.chunks[t[0]], t[3]): t[3].get("locator") for t in batch.targets},
-                    "offset": batch.offset, "size": len(batch.entries), "reason": str(issue),
-                    "review_jobs": list(dict.fromkeys(job for job in
-                        (*batch.checkpoint_owners, engine.reader.resume_job_id, engine.reader.job_id) if job)),
-                }
-                engine.state["completed"] = False
-                deferred.add(batch.key)
-                engine.save()
+                defer_review(engine, batch, issue, deferred, checkpoints)
             except Exception as error:
                 failures.append((batch, error))
             else:
@@ -303,7 +306,8 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
                    checkpoints_only: bool = False) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
     deferred: set[str] = set()
-    checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations])
+    checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations],
+                                                      engine.state.setdefault("positioned_review_notes", {}))
     checkpoints.recover_unique_ranges(engine.state)
     while offset < len(entries):
         engine.reader.phase("reviewing", 55 + round(18 * offset / max(1, len(entries))))
@@ -318,7 +322,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         if checkpoints_only:
             if any(b.key not in engine.state["reviewed_groups"] for b in batches):
                 raise ReadingCheckpointUnavailable("The original joint review is incomplete")
-        elif not run_wave(engine, batches, deferred):
+        elif not run_wave(engine, batches, deferred, checkpoints):
             continue
         for batch in batches:
             if batch.key in deferred:

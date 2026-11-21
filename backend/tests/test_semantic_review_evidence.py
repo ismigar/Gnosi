@@ -266,8 +266,8 @@ def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_d
                 with pytest.raises(PendingPassagesRemaining):
                     engine.review(gm, nm)
                 pending, = engine.state['pending_review_groups'].values()
-                assert 'reading_quality_unresolved' in pending['reason']
-                assert not checkpoints['new', 'semantic-state']['reviewed_groups']
+                assert 'note_1: unsupported attribution' in pending['reason'] and pending['size'] == 1
+                assert len(checkpoints['new', 'semantic-state']['reviewed_groups']) == 1
     assert len(calls) == 2
     feedback = str(calls[1]['messages'][-1].content)
     assert 'unsupported attribution' in feedback and 'evidence_requests' in feedback
@@ -305,3 +305,33 @@ def test_governed_review_correction_keeps_successful_changes_from_the_first_answ
     assert len(calls) == 2
     feedback = str(calls[1]['messages'][-1].content)
     assert 'proposed_review' in feedback and 'Preserved correction' in feedback
+
+
+def test_malformed_model_json_defers_one_range_after_governed_repair(runtime, monkeypatch):
+    from dataclasses import replace
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services import agent_execution as governed
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+
+    scope, snapshot = runtime
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    calls = install_workflow(monkeypatch, ['not JSON', 'still not JSON'])
+    engine, overview, notes_map, _, _ = prepared(count=4, size=1)
+    ordinary = engine.deps.generate_structured
+    with execution_scope(scope):
+        frozen = governed.create_job_run(snapshot, 'malformed-review-parent', 'knowledge.process-source')
+        wire = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, frozen)
+        def dispatch(prompt, validate, timeout):
+            request = json.loads(prompt)
+            if request['notes'][0]['note']['title'].startswith('Argument 0:'):
+                return wire.generate_structured(prompt, validate, timeout)
+            return ordinary(prompt, validate, timeout)
+        engine.deps.generate_structured = dispatch
+        with governed.operation_session(frozen), pytest.raises(PendingPassagesRemaining, match='reading_passages_pending: 1'):
+            engine.review(overview, notes_map)
+    assert len(calls) == 2 and len(engine.state['reviewed_groups']) == 3

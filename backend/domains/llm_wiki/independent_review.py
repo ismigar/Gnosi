@@ -107,6 +107,7 @@ def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], pr
         if not str(change["reason"]).strip():
             raise ValueError("Explain how the evidence justifies each change")
         if change["replacement"] is None:
+            validate_boundary_coverage(change["reason"])
             if position == 0:
                 raise ValueError("An exclusion must identify an existing note")
             revised[position - 1] = None
