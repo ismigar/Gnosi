@@ -46,18 +46,19 @@ class ReviewBatch:
 
 
 def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
-                  offset: int, global_map: str, notes_map: str, pdf_repairs: set[int]) -> ReviewBatch:
+                  offset: int, global_map: str, notes_map: str, pdf_repairs: set[int],
+                  checkpoint_entries: list[dict[str, object]]) -> ReviewBatch:
     reader = engine.reader
     maximum = engine.state.get("review_size_limit", len(entries))
     batch = groups(entries[offset:], engine.deps.count_tokens, reader.budget // 3, maximum)[0]
     previous_size = engine.state.get("reviewed_ranges", {}).get(str(offset))
-    if previous_size and fingerprint(entries[offset:offset + previous_size]) in engine.state["reviewed_groups"]:
+    if previous_size and fingerprint(checkpoint_entries[offset:offset + previous_size]) in engine.state["reviewed_groups"]:
         batch = entries[offset:offset + previous_size]
     else:
         for start, size in engine.state.get("reviewed_ranges", {}).items():
             position = int(start)
             if (offset < position < offset + len(batch)
-                    and fingerprint(entries[position:position + size]) in engine.state["reviewed_groups"]):
+                    and fingerprint(checkpoint_entries[position:position + size]) in engine.state["reviewed_groups"]):
                 batch = batch[:position - offset]
         for position in range(offset + 1, offset + len(batch)):
             if (position in pdf_repairs) != (offset in pdf_repairs):
@@ -93,7 +94,8 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         " Another supplied note may cover the point, but verify that its body actually explains it.")
     return ReviewBatch(offset, batch, targets, retrieved, payload,
                        review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True),
-                       fingerprint(batch), any(i in pdf_repairs for i in range(offset, offset + len(batch))))
+                       fingerprint(checkpoint_entries[offset:offset + len(batch)]),
+                       any(i in pdf_repairs for i in range(offset, offset + len(batch))))
 
 
 def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: ContextualReader) -> None:
@@ -250,6 +252,7 @@ def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> Review
 def review_batches(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
                    global_map: str, notes_map: str, pdf_repairs: set[int]) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
+    checkpoint_entries = evidence_lookup.checkpoint_entries(entries, [t[4] for t in destinations])
     while offset < len(entries):
         engine.reader.phase("reviewing", 55 + round(18 * offset / max(1, len(entries))))
         batches = []
@@ -257,7 +260,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         for _ in range(REVIEW_WORKERS):
             if end >= len(entries):
                 break
-            batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map, pdf_repairs)
+            batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map, pdf_repairs, checkpoint_entries)
             batches.append(batch)
             end += len(batch.entries)
         if not run_wave(engine, batches):

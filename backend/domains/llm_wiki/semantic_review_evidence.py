@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded, record, records
+from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
 from backend.domains.llm_wiki.semantic_context import relevant, source_view
 from backend.domains.llm_wiki.semantic_quote_contracts import source_key
 
@@ -30,6 +31,22 @@ REVIEW_CONTEXT_INSTRUCTION = (
 
 def originals(chunks: list[dict[str, object]]) -> list[dict[str, object]]:
     return [{**s, "origin_label": c.get("origin_label", "")} for c in chunks for s in records(c.get("segments"))]
+
+
+def checkpoint_entries(entries: list[dict[str, object]], sources: list[list[dict[str, object]]]) -> list[dict[str, object]]:
+    """Keep historical keys for unique views; disambiguate identical-looking documents across batches."""
+    bindings = [quote_bindings(group) for group in sources]
+    owners: dict[str, set[str]] = {}
+    for group in bindings:
+        for visible, bound in group:
+            owners.setdefault(visible, set()).add(bound)
+    keys = []
+    for entry, group in zip(entries, bindings, strict=True):
+        if any(len(owners[visible]) > 1 for visible, _ in group):
+            keys.append({**entry, "original_source_keys": [bound for _, bound in group]})
+        else:
+            keys.append(entry)
+    return keys
 
 
 def catalog(sources: list[dict[str, object]], count: Callable[[str], int], limit: int) -> dict[str, object]:
