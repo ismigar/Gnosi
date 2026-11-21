@@ -9,7 +9,7 @@ import uuid
 
 import jsonschema
 from openai import APIConnectionError, InternalServerError, RateLimitError
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
@@ -364,12 +364,15 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     return snapshot, ai, runtime
 
 
-def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validator: Callable[[str], str] | None) -> AgentRun | None:
+async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validate: Callable[[str], Awaitable[str]]) -> AgentRun | None:
     cached = store.phase_checkpoint(snapshot.scope, parent_id, key)
     if cached is not None:
         _validate_output(cached.result, schema)
-        if validator is not None:
-            validator(cached.result)
+        await validate(cached.result)
+        revalidate_scope(snapshot.scope)
+        if store.cancelled(snapshot.scope, parent_id):
+            from backend.services.agent_cancellation import AgentTurnCancelled
+            raise AgentTurnCancelled("agent_run_cancelled")
         report_run(cached.run_id)
     return cached
 
@@ -459,10 +462,16 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
     return workflow.compile(), selection
 
 
-def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None) -> str:
-    if repair is not None:
-        text = _validate_output(repair.restore(text), request.output_schema)
-    return validator(text) if validator is not None else text
+async def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None = None) -> str:
+    def check() -> str:
+        restored = _validate_output(repair.restore(text), request.output_schema) if repair is not None else text
+        return validator(restored) if validator is not None else restored
+
+    # Reading validators may need to wait for a coordinated original PDF.
+    # Keep the event loop free and propagate the authenticated vault and budget.
+    if request.operation == "knowledge.process-source.phase" and (validator is not None or repair is not None):
+        return await asyncio.to_thread(check)
+    return check()
 
 
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
@@ -476,7 +485,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     # The provider still generates against the original per-passage schema.
     initial_schema = request.output_schema if draft_schema is None else draft_schema
     checkpoint_key = hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
-    cached = None if private_result else _checked_checkpoint(initial_schema, snapshot, parent_id, checkpoint_key, output_validator)
+    cached = None if private_result else await _checked_checkpoint(initial_schema, snapshot, parent_id, checkpoint_key,
+        lambda text: _operation_output(text, request, output_validator))
     if cached is not None:
         return cached
     run_id = uuid.uuid4().hex
@@ -508,9 +518,9 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
-        reused = reading_cached_result(request, snapshot, reading_cache_key,
+        reused = await reading_cached_result(request, snapshot, reading_cache_key,
             str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
-            lambda text: _operation_output(_validate_output(text, initial_schema), request, output_validator, None),
+            lambda text: _operation_output(_validate_output(text, initial_schema), request, output_validator),
             revalidate_scope)
         if reused is not None:
             return reused
@@ -541,7 +551,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 continue
             try:
                 text = _validate_output(text, response_schema)
-                text = _operation_output(text, request, output_validator, partial_repair)
+                text = await _operation_output(text, request, output_validator, partial_repair)
                 revalidate_scope(snapshot.scope)
                 if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
                     raise AgentTurnCancelled("agent_run_cancelled")
@@ -564,7 +574,9 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                         "Return the same patch contract, not a rewritten reading action.\n" +
                         json.dumps({"validation_error": diagnostic}, ensure_ascii=False))]
                     continue
-                partial_repair = output_repair(text, validation_error) if output_repair is not None else None
+                if output_repair is not None:
+                    partial_repair = (await asyncio.to_thread(output_repair, text, validation_error)
+                        if request.operation == "knowledge.process-source.phase" else output_repair(text, validation_error))
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema
                     repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})

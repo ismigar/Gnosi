@@ -7,7 +7,7 @@ import pytest
 
 from backend.services import agent_execution as execution, agent_execution_store as store
 from backend.services.agent_execution_models import AgentOperation
-from backend.services.agent_execution_scope import execution_scope
+from backend.services.agent_execution_scope import current_scope, execution_scope
 from backend.services.reading_result_cache import result_key
 from backend.tests.test_agent_execution import install_workflow, runtime as runtime
 
@@ -34,6 +34,30 @@ def test_validated_phase_reused_in_new_job_with_zero_new_model_calls(runtime, mo
     assert first.result == second.result and first.run_id != second.run_id
     assert second.parent_run_id == "second-book-job"
     assert second.status == "completed" and second.model_calls == second.input_tokens == second.output_tokens == 0
+
+
+def test_pdf_checks_can_wait_for_the_source_on_fresh_and_reused_readings(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"answer":"An exact citation."}'])
+    checked = []
+
+    def check_pdf(text):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            checked.append(current_scope())
+            return text
+        pytest.fail("A coordinated PDF snapshot cannot wait on the event loop")
+
+    phase = request(snapshot)
+    with execution_scope(scope):
+        original = execution.create_job_run(snapshot, "original-book", "knowledge.process-source")
+        resumed = execution.create_job_run(snapshot, "resumed-book", "knowledge.process-source")
+        fresh = execution.run_sync(phase, snapshot=original, output_validator=check_pdf)
+        checkpoint = execution.run_sync(phase, snapshot=original, output_validator=check_pdf)
+        cached = execution.run_sync(phase, snapshot=resumed, output_validator=check_pdf)
+    assert checkpoint.run_id == fresh.run_id != cached.run_id
+    assert len(calls) == 1 and cached.model_calls == 0 and checked == [scope] * 3
 
 
 @pytest.mark.parametrize("change", ["user", "vault", "workspace", "role", "model", "reasoning", "instructions", "policy", "originals", "schema"])

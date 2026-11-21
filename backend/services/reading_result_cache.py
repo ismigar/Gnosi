@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 import jsonschema
 
@@ -44,13 +44,13 @@ def lookup(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: str,
         return None
 
 
-def reuse(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: str, provider: str, model: str,
-          row: AgentRun, validate: Callable[[str], str], revalidate: Callable[[ExecutionScope], None]) -> AgentRun | None:
+async def reuse(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: str, provider: str, model: str,
+                row: AgentRun, validate: Callable[[str], Awaitable[str]], revalidate: Callable[[ExecutionScope], None]) -> AgentRun | None:
     cached = lookup(request, snapshot, key, provider, model)
     if cached is None:
         return None
     try:
-        restored = validate(cached.result)
+        restored = await validate(cached.result)
     except (ValueError, jsonschema.ValidationError):
         return None
     revalidate(snapshot.scope)
