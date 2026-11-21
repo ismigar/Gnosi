@@ -154,7 +154,7 @@ def test_slow_statistics_follow_the_response_and_stay_with_the_original_call(tmp
         writer.execute("BEGIN IMMEDIATE")
         pending.set_result({("remote", "model"): "expert"})
         writer.commit()
-    ai_usage_ledger._profile_updates.submit(lambda: None).result(timeout=3)
+    ai_usage_ledger.flush_call_profiles()
     assert not (tmp_path / "other").exists()
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     with ai_usage_ledger.connect() as db:

@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | `agent` | 54 | 9652 |
 | `api` | 40 | 13640 |
-| `app` | 8 | 830 |
+| `app` | 8 | 832 |
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 287 | 56436 |
+| `services` | 287 | 56441 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1149 modules** and **218394 source lines**.
+Total: **1149 modules** and **218401 source lines**.
 
 ## agent
 
@@ -143,7 +143,7 @@ Total: **1149 modules** and **218394 source lines**.
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 66 | 0 | 3 | 2 | 2 | Global HTTP error translation and private diagnostic notification. |
 | [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 92 | 0 | 4 | 2 | 3 | Typed construction of the Gnosi FastAPI application. |
 | [`backend/app/health_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/health_contracts.py) | 54 | 3 | 0 | 0 | 3 | Typed response contracts for liveness and Google OAuth diagnostics. |
-| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 356 | 1 | 13 | 5 | 14 | Application startup, maintenance and shutdown lifecycle. |
+| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 358 | 1 | 13 | 5 | 14 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 37 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
 | [`backend/app/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 175 | 0 | 1 | 0 | 1 | Single ordered registry for every public Gnosi router. |
 
@@ -1040,7 +1040,7 @@ Total: **1149 modules** and **218394 source lines**.
 | [`backend/services/agent_workspace_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_workspace_store.py) | 81 | 2 | 0 | 0 | 0 | Durable, principal-scoped workbench state. No vault content is executed on the host. |
 | [`backend/services/agent_workspace_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_workspace_tools.py) | 160 | 11 | 2 | 0 | 2 | Governed tools bound to authenticated runtime scope and trusted conversation config. |
 | [`backend/services/ai_usage_dashboard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_dashboard.py) | 191 | 1 | 9 | 0 | 0 | Filtered projections and CSV for the provider-independent usage ledger. |
-| [`backend/services/ai_usage_ledger.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_ledger.py) | 237 | 0 | 9 | 0 | 5 | Durable metadata-only accounting shared by every model provider. |
+| [`backend/services/ai_usage_ledger.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_ledger.py) | 242 | 0 | 10 | 0 | 6 | Durable metadata-only accounting shared by every model provider. |
 | [`backend/services/ai_usage_openrouter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_openrouter.py) | 113 | 0 | 5 | 0 | 1 | Reconcile billed costs through metadata-only GETs, outside model execution. |
 | [`backend/services/ai_usage_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_transport.py) | 327 | 3 | 9 | 0 | 2 | Observe raw provider responses before LangChain/tool output conversion. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |

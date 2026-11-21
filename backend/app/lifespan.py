@@ -300,13 +300,15 @@ async def _shutdown_runtime(
         idle_manager.stop_all()
     except Exception:
         pass
-    if not hasattr(app.state, "mcp_client"):
-        return
-    try:
-        await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
-        log.info("✅ MCP Client stopped.")
-    except Exception as error:
-        log.warning("⚠️ MCP Client stop timed out/failed: %s", error)
+    if hasattr(app.state, "mcp_client"):
+        try:
+            await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
+            log.info("✅ MCP Client stopped.")
+        except Exception as error:
+            log.warning("⚠️ MCP Client stop timed out/failed: %s", error)
+    # Uvicorn may re-raise SIGTERM after the lifespan ends, before Python's exit hooks.
+    from backend.services.ai_usage_ledger import flush_call_profiles
+    await asyncio.to_thread(flush_call_profiles)
 
 
 @asynccontextmanager

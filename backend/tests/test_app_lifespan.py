@@ -19,6 +19,7 @@ from backend.scheduler.manager import scheduler_manager
 from backend.server import app
 from backend.server import lifespan as legacy_lifespan
 from backend.services import (
+    ai_usage_ledger,
     auth_service,
     durable_job_worker,
     imap_idle_service,
@@ -231,6 +232,8 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         lambda: record("imap.stop"),
     )
 
+    monkeypatch.setattr(ai_usage_ledger, "flush_call_profiles", lambda: record("usage.flush"))
+
     async def exercise() -> None:
         async with application_lifespan(FastAPI()):
             record("yield")
@@ -260,4 +263,5 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "file-index.stop",
         "worker.stop",
         "imap.stop",
+        "usage.flush",
     ]

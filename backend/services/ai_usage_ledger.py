@@ -182,6 +182,11 @@ def complete_call_profile(call_id: str, route: tuple[str, str], profiles: Future
     _profile_updates.submit(_write_call_profile, database, call_id, route, profiles)
 
 
+def flush_call_profiles() -> None:
+    """Wait for previously accepted writes on the serial worker during server shutdown."""
+    _profile_updates.submit(lambda: None).result()
+
+
 def monthly() -> dict[str, dict[str, dict[str, Any]]]:
     """Compatibility projection for the existing router and budget APIs."""
     totals: dict[str, dict[str, dict[str, Any]]] = {}
