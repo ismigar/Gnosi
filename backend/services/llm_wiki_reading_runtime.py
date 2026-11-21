@@ -153,6 +153,9 @@ class ReadingRuntime:
         if not isinstance(schema, dict):
             schema = {"type": "object"}
         selection = quote_selection(envelope) if isinstance(envelope, dict) else None
+        paired_reader = (selection is not None and self.skill_id == SKILL_ID and envelope["phase"] == "interpret"
+                         and "needs_specialist" in schema["properties"]["passages"]["items"]["properties"])
+        draft_schema = selection.draft_schema() if selection and paired_reader else None
         operation_prompt = selection.input if selection else prompt
         schema = selection.schema if selection else schema
         if selection:
@@ -162,7 +165,7 @@ class ReadingRuntime:
         if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
-            answer = json.loads(selection.restore(text) if selection else text)
+            answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
             if not isinstance(answer, dict):
                 raise ValueError("Return a JSON object")
             try:
@@ -184,13 +187,15 @@ class ReadingRuntime:
                 options={**self.performance_options, **review_options},
                 # Literal choices apply even when the second call repairs syntax.
                 # Keep corrections inside the same call allowance and deadline.
-                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3),
+                snapshot=self.snapshot, output_validator=checked, output_repair=repair,
+                **({"draft_schema": draft_schema} if draft_schema is not None else {}))
         except jsonschema.ValidationError as error:
             if selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
                 from backend.services.structured_output_diagnostics import repair_diagnostic
                 raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
             raise
-        return selection.restore(result.result) if selection else result.result, result.model
+        return selection.restore(result.result, draft_schema=draft_schema) if selection else result.result, result.model
 
     def _repair_structured(self, prompt: str, envelope: Any, selection: QuoteSelection | None,
                            validate: Callable[[dict[str, object]], None], text: str, error: Exception) -> OutputRepair | None:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
 from backend.domains.llm_wiki.reading_quality import adjacent_originals
+from backend.domains.llm_wiki.review_draft_batches import check_note_capacity
 from backend.domains.llm_wiki.review_selection import passage_key
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import (
@@ -41,7 +42,7 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
                    draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str) -> dict[str, object]:
     passage_schema = interpretation_schema(1, reader.dimensions)["properties"]["passages"]
     schema = obj({"passages": passage_schema, "evidence_quote": TEXT, "unresolved_issues": TEXTS})
-    payload = {
+    payload: dict[str, object] = {
         "reading_engine": "semantic", "primary_passages": [source_view(primary)],
         "neighbours": [source_view(s) for s in evidence[1:]], "properties": fields(reader.dimensions),
         "rejected_draft": draft, "validation_error": diagnostic, "output_schema": schema,
@@ -60,7 +61,11 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         quote = str(answer["evidence_quote"])
         if not quote.strip() or quote not in str(primary["text"]):
             raise ValueError("The correction must cite an exact quotation from the primary passage")
-        notes = bind_passage(records(answer["passages"])[0], primary, evidence, reader.dimensions, reader.language)
+        passage = records(answer["passages"])[0]
+        notes = bind_passage(passage, primary, evidence, reader.dimensions, reader.language)
+        for note in notes:
+            check_note_capacity(reviewer, primary, note, evidence, passage["reason"], reader.dimensions,
+                                reader.title, reader.language)
         citation_issues = getattr(reader.dependencies, "citation_issues", None)
         if citation_issues and any(citation_issues(notes, reader.origins)):
             raise ValueError("The corrected notes must cite valid locations in their originals")

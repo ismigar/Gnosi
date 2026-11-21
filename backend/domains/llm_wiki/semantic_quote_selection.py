@@ -22,27 +22,36 @@ class QuoteSelection:
     primary_ids: list[list[int]]
     quote_sources: dict[int, str] = field(default_factory=dict)
 
-    def restore(self, text: str) -> str:
+    def restore(self, text: str, *, draft_schema: dict[str, Any] | None = None) -> str:
         """Validate provider-local IDs before copying the original characters."""
         answer = json.loads(text)
-        validate_schema(answer, self.schema)
-        return self._canonical(answer)
+        validate_schema(answer, self.schema if draft_schema is None else draft_schema)
+        return self._canonical(answer, preserve_primary=draft_schema is not None)
 
-    def draft_for_repair(self, text: str) -> str:
-        """Expose misplaced known evidence to diagnostics, never to acceptance."""
+    def draft_schema(self) -> dict[str, Any]:
+        """Allow known quote IDs in a provisional draft, retaining all other constraints."""
         schema = deepcopy(self.schema)
         if self.phase == "interpret":
             for passage in schema["properties"]["passages"]["properties"].values():
                 choice = passage["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]
                 choice["items"] = {"type": "integer", "minimum": 1, "maximum": len(self.quotes)}
+        return schema
+
+    def draft_for_repair(self, text: str) -> str:
+        """Expose misplaced known evidence to diagnostics, never to acceptance."""
         answer = json.loads(text)
-        validate_schema(answer, schema)
+        validate_schema(answer, self.draft_schema())
         return self._canonical(answer)
 
-    def _canonical(self, answer: dict[str, Any]) -> str:
+    def _canonical(self, answer: dict[str, Any], *, preserve_primary: bool = False) -> str:
         if self.phase == "interpret":
             passages = [answer["passages"][f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
-            for passage in passages:
+            for passage, allowed in zip(passages, self.primary_ids, strict=True):
+                if preserve_primary:
+                    for note in passage["notes"]:
+                        claimed = note["primary_quote_ids"]
+                        if any(number not in allowed for number in claimed):
+                            note["primary_quote_count"] = len(claimed)
                 passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
             answer["passages"] = passages
         else:

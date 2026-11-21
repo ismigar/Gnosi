@@ -112,3 +112,39 @@ def test_reviewer_must_resolve_the_defect_and_ground_its_answer_in_the_primary()
     with pytest.raises(ValueError, match="verbatim"):
         reader.run()
     assert len(checkpoints["new", "semantic-state"]["plans"]) == 4
+
+
+def test_oversized_correction_is_rejected_before_caching_and_retried_alone():
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+    from backend.services.llm_wiki_reading_runtime import token_bound
+
+    def draft(request):
+        result = response(request)
+        result["passages"][0]["reason"] = "The passage is truncated."
+        return result
+
+    attempts = []
+    def review(prompt, validate, timeout):
+        request = json.loads(prompt)
+        attempts.append(request["phase"])
+        answer = correction(request)
+        if len(attempts) == 1:
+            answer["passages"][0]["notes"][0]["body_md"] = "The author disagrees with the objection. " * 104
+        validate(answer)
+        return encoded(answer), "reviewer-model"
+
+    def engine(book):
+        attach_reviewer(book, review)
+        book.dependencies.reviewer.input_budget = 4700
+        book.dependencies.reviewer.count_tokens = token_bound
+        return SemanticReader(book)
+
+    book, _, checkpoints = setup(count=3, generate=draft)
+    with pytest.raises(ValueError, match="exceed the reviewer's context"):
+        engine(book).extract("Argument")
+    assert not any(key.startswith("passage-repair-") for _, key in checkpoints)
+    resumed, reader_calls, _ = setup(count=3, checkpoints=checkpoints, resume="new", generate=draft)
+    resumed.job_id = "resumed"
+    active = engine(resumed)
+    active.extract("Argument")
+    assert not reader_calls and attempts == ["source-repair", "source-repair"] and len(active.state["plans"]) == 3
