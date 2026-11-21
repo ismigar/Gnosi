@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import IngestionDependencies, ReviewRuntime
-    from backend.domains.llm_wiki.pdf_page_context import PageContext
+    from backend.domains.llm_wiki.pdf_page_context import PageContext, PageEdge
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
@@ -51,7 +51,7 @@ class ContextualReader:
                    for origin in self.origins for segment in records(origin.get("segments")))
 
     @cached_property
-    def pdf_edges(self) -> dict[str, list[dict[str, object]]]:
+    def pdf_edges(self) -> dict[str, list[PageEdge]]:
         from backend.domains.llm_wiki.pdf_page_context import page_edges
         return page_edges(self.chunks)
 
@@ -97,6 +97,7 @@ class ContextualReader:
             # Visually identical passages in different attachments need separate
             # choices and a source-specific checkpoint even when both quotes are whole.
             request["pdf_quote_sources"] = bindings
+        legacy_key = key
         if page_context and any(s in self.ambiguous_pdf_segments for pair in page_context.bindings for s in pair):
             # Parallel operations may have identical visible inputs but different
             # page continuations. Give those paid answers distinct durable slots.
@@ -111,13 +112,24 @@ class ContextualReader:
         )
         # A sibling may settle a reservation while this batch is retrying in
         # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
-        saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
-                      if isinstance(value := self.dependencies.load_checkpoint(job, key), dict)
-                      and value.get("identity") == identity), None)
-        if isinstance(saved, dict) and saved.get("identity") == identity:
+        for slot in dict.fromkeys([key, legacy_key]):
+            saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+                          if isinstance(value := self.dependencies.load_checkpoint(job, slot), dict)
+                          and value.get("identity") == identity), None)
+            if not isinstance(saved, dict):
+                continue
+            if slot != key:
+                from backend.domains.llm_wiki.pdf_page_context import identifies_legacy_primaries
+                if not identifies_legacy_primaries(self.chunks, request):
+                    continue
             answer = saved.get("answer")
             if isinstance(answer, dict):
-                validate(answer)
+                try:
+                    validate(answer)
+                except ValueError:
+                    if slot != key:
+                        continue
+                    raise
                 self.models.append(str(saved.get("model") or ""))
                 if self.job_id:
                     self.dependencies.save_checkpoint(self.job_id, key, saved)

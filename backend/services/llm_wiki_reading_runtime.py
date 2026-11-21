@@ -203,6 +203,9 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.services.agent_output_repair import OutputRepair
+        if selection and selection.phase == "source-audit":
+            # Retry the same audit contract with its original source numbers.
+            return None
         if selection and isinstance(error, json.JSONDecodeError):
             # Some providers report stop even when a long structured answer
             # ends inside a value, including short review prefixes. Retrying

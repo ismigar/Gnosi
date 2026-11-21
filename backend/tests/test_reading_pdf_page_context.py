@@ -9,6 +9,7 @@ from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.passage_repair import bind_reviewed_interpretation
 from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_review_evidence import references, restore
 from backend.tests.test_reading_passage_repair import attach_reviewer
 from backend.tests.test_semantic_reading import setup
@@ -41,6 +42,23 @@ def test_edges_are_physical_local_and_keep_slices_with_the_same_segment_id():
     repeated = page_context(edges, [head, head, tail], [head, tail])
     assert not repeated.additions and len(repeated.pairs) == 1
     assert restore([start, tail, head], references([tail, start])) == [tail, start]
+
+
+@pytest.mark.parametrize("side", [0, 1])
+def test_bound_preview_restores_both_originals_in_reading_order(side):
+    left = segment("a", 6, 4, "La condició per aplicar aquesta hipòtesi")
+    right = segment("b", 7, 1, "és que les dues mostres siguin independents.")
+    edges = page_edges([chunk("book", left), chunk("book", right)])
+    full = (left, right)[side]
+    text = full["text"]
+    preview = {**full, "text": text[5:14], "locator": {**full["locator"], "char_start": 5, "char_end": 14}}
+    received = [preview, right if side == 0 else left]
+    context = page_context(edges, received, [preview])
+    originals = [*received, *context.additions]
+    pair, = context.pairs
+    assert [originals[i - 1] for i in pair] == [left, right]
+    wrong = {**preview, "text": "x" * len(preview["text"])}
+    assert not page_context(edges, [wrong], [wrong]).pairs
 
 
 @pytest.mark.parametrize("left,right", [
@@ -179,3 +197,65 @@ def test_lookalike_pages_in_separate_books_do_not_share_a_contextual_checkpoint(
                           page_context=page_context(book.pdf_edges, [s], [s]))
         assert expected in answer["assessment"]
     assert len(observed) == 2
+
+
+def test_a_paid_legacy_review_of_a_unique_primary_survives_a_shared_secondary():
+    primary = segment("primary", 4, 2, "This observation belongs to the first book.")
+    right = segment("right", 4, 1, "under the stated conditions.")
+    left = segment("left", 3, 1, "The observation applies")
+    other = segment("other", 4, 1, right["text"])
+    chunks = [chunk("paper", left, right, primary), chunk("other", segment("other-left", 3, 1, "It applies"), other)]
+    old, _, checkpoints = setup()
+    old.chunks = chunks
+    decision = {"assessment": "The primary describes a conditional observation."}
+    attach_reviewer(old, lambda prompt, validate, timeout: (encoded(decision), "reviewer"))
+    payload = {"original": source_view(primary), "support": [source_view(right)]}
+    old.ask("paid", "source-audit", payload, lambda value: None, {"type": "object"}, executor=old.dependencies.reviewer)
+    new, _, _ = setup(checkpoints=checkpoints, resume="new")
+    new.job_id, new.chunks = "resumed", chunks
+    attach_reviewer(new, lambda *args: pytest.fail("The unique prior review was repeated"))
+    context = page_context(new.pdf_edges, [primary, right], [primary, right])
+    assert new.ask("paid", "source-audit", payload, lambda value: None, {"type": "object"},
+                   executor=new.dependencies.reviewer, page_context=context) == decision
+
+
+@pytest.mark.parametrize("lookalike", [False, True])
+def test_numbered_audit_citations_bind_to_the_selected_original_and_slice(lookalike):
+    from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage
+    from backend.domains.llm_wiki.semantic_contracts import bind_note
+    primary = segment("primary", 8, 2, "The author describes a conditional effect.")
+    right = segment("right", 8, 1, "only at low temperatures.")
+    left = segment("left", 7, 2, "Measurements were repeated", char_start=45, char_end=71)
+    other = (segment("different-book", 7, 2, left["text"], char_start=45, char_end=71) if lookalike else
+             segment("left", 7, 2, "Earlier observations", char_start=0, char_end=20))
+    chunks = [chunk("first", left, right, primary), chunk("second", other)] if lookalike else [
+        chunk("first", other, left, right, primary)]
+    evidence = [primary, other, right]
+    note = {"title": "Effect", "body_md": primary["text"], "properties": {}, "quotes": [s["text"] for s in evidence]}
+    drafts = [bind_note(note, primary, evidence, [])]
+    def review(prompt, validate, timeout):
+        selection = quote_selection(json.loads(prompt))
+        wire = json.loads(selection.input)
+        before, after = wire["pdf_page_pairs"][0]
+        assert before != 2 and after == 3
+        sources = wire["support"]
+        assert sources[before - 2]["text"] == left["text"]
+        choice = {"evidence_quote": primary["text"], "assessment": "The observation is conditional.", "unresolved_issues": [],
+                  "changes": [{"position": 1, "reason": "Retain the observed condition.", "replacement": {**note, "quotes": [
+                      {"source": 1, "text": primary["text"]}, {"source": 2, "text": other["text"]},
+                      {"source": before, "text": left["text"]}, {"source": after, "text": right["text"]}]}}]}
+        answer = selection.restore(encoded(choice))
+        validate(json.loads(answer))
+        return answer, "reviewer"
+    book, _, _ = setup()
+    book.chunks = chunks
+    attach_reviewer(book, review)
+    plan = {"coverage": [{"segment_id": primary["id"], "reason": "The observations are qualified."}]}
+    key, result = audit_passage(book, book.dependencies.reviewer, primary, drafts, evidence, plan, {}, None)
+    replacement = result["changes"][0]["replacement"]
+    identities = list(zip(replacement["quote_segment_ids"], replacement["quote_source_keys"], strict=True))
+    assert identities[1] != identities[2]
+    assert replacement["quote_segment_ids"] == [primary["id"], other["id"], left["id"], right["id"]]
+    assert apply_changes(result, drafts, primary, [*evidence, left], [])[0]["citations"][-1]["segment_id"] == right["id"]
+    assert audit_passage(book, book.dependencies.reviewer, primary, drafts, evidence, plan,
+                         {"key": key, "answer": result}, None)[1] == result
