@@ -162,10 +162,14 @@ def read(scope: ExecutionScope, run_id: str) -> AgentRun:
         return AgentRun.model_validate_json(str(_row(db, scope, run_id)["payload"]))
 
 
-def update(scope: ExecutionScope, run_id: str, **changes: Any) -> AgentRun:
+def update(scope: ExecutionScope, run_id: str, *, check_cancellation: bool = False, **changes: Any) -> AgentRun:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
-        old = AgentRun.model_validate_json(str(_row(db, scope, run_id)["payload"]))
+        row = _row(db, scope, run_id)
+        old = AgentRun.model_validate_json(str(row["payload"]))
+        if check_cancellation and (row["cancelled"] or (old.parent_run_id and _row(db, scope, old.parent_run_id)["cancelled"])):
+            from backend.services.agent_cancellation import AgentTurnCancelled
+            raise AgentTurnCancelled("agent_run_cancelled")
         if changes.get("status") in {"completed", "failed", "cancelled"} and old.closed_at is None:
             changes["closed_at"] = time.time()
         elif changes.get("status") in {"running", "resuming"}:

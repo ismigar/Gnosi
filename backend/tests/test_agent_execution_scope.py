@@ -53,6 +53,21 @@ def test_registered_absolute_path_survives_pending_settings_and_checks_current_a
             revalidate_scope(scope)
 
 
+def test_unresolvable_alias_cannot_block_another_registered_vault(registrations, monkeypatch, tmp_path):
+    engine, scope = registrations
+    alias = tmp_path / "loop"
+    alias.symlink_to(alias)
+    with Session(engine) as db:
+        db.add_all([Vault(id="target", workspace_id="team", name="Default"),
+                    Vault(id="broken", workspace_id="team", name="Broken", path_override=str(alias))])
+        db.commit()
+    settings = SimpleNamespace(gnosi_mode="personal", paths={"PROJECT_DIR": tmp_path, "VAULT": scope.vault_path})
+    monkeypatch.setattr(app_config, "load_params", lambda **kwargs: settings)
+    revalidate_scope(scope)
+    with pytest.raises(PermissionError, match="vault_revoked"):
+        revalidate_scope(scope.model_copy(update={"vault_path": str(tmp_path / "unregistered")}))
+
+
 @pytest.mark.parametrize(("override", "mode", "target"), [
     ("relative", "team", "relative"),
     (None, "personal", "default"),

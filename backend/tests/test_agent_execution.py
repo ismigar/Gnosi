@@ -638,6 +638,29 @@ def test_chat_and_operation_wait_for_cloud_scope_checks(runtime, monkeypatch):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("cancel_parent", [False, True])
+def test_cancellation_committed_before_result_prevents_publication(runtime, monkeypatch, cancel_parent):
+    from backend.services.agent_cancellation import AgentTurnCancelled
+
+    scope, snapshot = runtime
+    install_workflow(monkeypatch, ["result"])
+    save = store.update
+
+    def cancel_before_save(scope, run_id, **changes):
+        if changes.get("status") == "completed":
+            store.cancel(scope, "parent" if cancel_parent else run_id)
+        return save(scope, run_id, **changes)
+
+    monkeypatch.setattr(store, "update", cancel_before_save)
+    with execution_scope(scope):
+        child = execution.create_job_run(snapshot, "parent", "test")
+        request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="test")
+        with pytest.raises(AgentTurnCancelled):
+            asyncio.run(execution.execute_operation(request, snapshot=child))
+    completed = [r for r in store.list_runs(scope) if r.parent_run_id == "parent"]
+    assert len(completed) == 1 and completed[0].status == "cancelled" and not completed[0].result
+
+
 def test_revoked_permission_prevents_all_model_calls(runtime, monkeypatch):
     scope, snapshot = runtime
     calls = install_workflow(monkeypatch, [])

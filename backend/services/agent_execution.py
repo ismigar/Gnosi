@@ -298,7 +298,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
                         result = str(message.content)
             yield event
         status = store.read(scope, run_id).status
-        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed", result=result)
+        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed",
+                     check_cancellation=True, result=result)
     except BaseException as error:
         from backend.services.agent_cancellation import AgentTurnCancelled
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
@@ -365,8 +366,8 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     return snapshot, ai, runtime
 
 
-def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
-    revalidate_scope(scope)
+async def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
+    await asyncio.to_thread(revalidate_scope, scope)
     if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
@@ -379,7 +380,7 @@ async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExec
             _validate_output(cached.result, schema)
             await validate(cached.result)
         finally:
-            await asyncio.to_thread(_require_active, snapshot.scope, cached.run_id, parent_id)
+            await _require_active(snapshot.scope, cached.run_id, parent_id)
         report_run(cached.run_id)
     return cached
 
@@ -483,7 +484,7 @@ async def _operation_output(text: str, request: AgentOperation, validator: Calla
 
 
 async def _build_output_repair(request: AgentOperation, builder: RepairBuilder | None, text: str,
-                               error: Exception, require_active: Callable[[], None]) -> OutputRepair | None:
+                               error: Exception, require_active: Callable[[], Awaitable[None]]) -> OutputRepair | None:
     if builder is None:
         return None
     if request.operation != "knowledge.process-source.phase":
@@ -491,7 +492,7 @@ async def _build_output_repair(request: AgentOperation, builder: RepairBuilder |
     try:
         return await asyncio.to_thread(builder, text, error)
     finally:
-        await asyncio.to_thread(require_active)
+        await require_active()
 
 
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
@@ -575,8 +576,9 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     text = _validate_output(text, response_schema)
                     text = await _operation_output(text, request, output_validator, partial_repair)
                 finally:
-                    await asyncio.to_thread(require_active)
-                completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
+                    await require_active()
+                completed = store.update(snapshot.scope, run_id, status="completed", check_cancellation=True,
+                                         result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
                 # run record and its public API keep it ephemeral.

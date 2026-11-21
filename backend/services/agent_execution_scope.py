@@ -57,6 +57,14 @@ def serialized_scope() -> dict[str, Any]:
     return current_scope().model_dump()
 
 
+def _registered_path_matches(candidate: Path, target: Path) -> bool:
+    try:
+        return candidate.resolve() == target
+    except (OSError, RuntimeError):
+        # A broken registration cannot grant access or hide another valid one.
+        return False
+
+
 def revalidate_scope(scope: ExecutionScope) -> None:
     """A persisted job is not a permission grant; check current membership."""
     from backend.config.app_config import load_params
@@ -87,7 +95,7 @@ def revalidate_scope(scope: ExecutionScope) -> None:
             path = Path(vault.path_override) if vault.path_override else None
             if path is None or not path.is_absolute():
                 relative_or_default.append(path)
-            elif path.resolve() == target:
+            elif _registered_path_matches(path, target):
                 return
         # Only relative and default registrations depend on configuration.
         if relative_or_default:
@@ -100,7 +108,7 @@ def revalidate_scope(scope: ExecutionScope) -> None:
                        else Path(project_root) / "workspaces" / scope.workspace_id / "vault")
             for path in relative_or_default:
                 candidate = Path(project_root) / path if path is not None else default
-                if candidate.resolve() == target:
+                if _registered_path_matches(candidate, target):
                     return
         raise PermissionError("agent_execution_vault_revoked")
     finally:
