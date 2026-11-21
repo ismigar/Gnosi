@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from collections import defaultdict
 
 from backend.domains.llm_wiki.chunking import record, records
@@ -34,7 +34,14 @@ def owner_digest(reader: ContextualReader, primary: dict[str, object], drafts: l
     return fingerprint([primary_key, repeated, citations])
 
 
-def historical_scopes(reader: ContextualReader, job: str) -> dict[str, str]:
+@dataclass
+class HistoricalAudit:
+    drafts: list[dict[str, object]]
+    evidence: list[dict[str, object]]
+    coverage: list[object]
+
+
+def historical_passages(reader: ContextualReader, job: str) -> dict[str, HistoricalAudit]:
     """Replay durable, bound upstream decisions once, with no writes or model execution."""
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
     from backend.domains.llm_wiki.semantic_review import review_plans
@@ -59,7 +66,7 @@ def historical_scopes(reader: ContextualReader, job: str) -> dict[str, str]:
             return {}
         raise
     neighbours = adjacent_originals(reader.chunks)
-    scopes = {}
+    passages = {}
     for chunk, plan in reviewed:
         notes: dict[str, list[dict[str, object]]] = defaultdict(list)
         for note in records(plan["notes"]):
@@ -68,24 +75,36 @@ def historical_scopes(reader: ContextualReader, job: str) -> dict[str, str]:
             primary = {**segment, "origin_label": chunk.get("origin_label", "")}
             drafts = notes[str(primary["id"])]
             _, evidence = passage_sources(primary, drafts, plan, neighbours.get(str(primary["id"]), []))
-            digest = owner_digest(reader, primary, drafts, evidence)
-            if digest:
-                scopes[passage_key(primary)] = digest
-    return scopes
+            if len(drafts) > 1 or owner_digest(reader, primary, drafts, evidence):
+                coverage = [r["reason"] for r in records(plan["coverage"]) if r["segment_id"] == primary["id"]]
+                passages[passage_key(primary)] = HistoricalAudit(drafts, evidence, coverage)
+    return passages
+
+
+def previous_passage(reader: ContextualReader, job: str, primary: dict[str, object]) -> HistoricalAudit | None:
+    if not job or job == reader.job_id:
+        return None
+    if job not in reader.historical_audits:
+        reader.historical_audits[job] = historical_passages(reader, job)
+    return reader.historical_audits[job].get(passage_key(primary))
 
 
 def audit_scope(reader: ContextualReader, primary: dict[str, object], drafts: list[dict[str, object]],
-                evidence: list[dict[str, object]]) -> CheckpointScope | None:
+                evidence: list[dict[str, object]], *, start: int | None = None) -> CheckpointScope | None:
     digest = owner_digest(reader, primary, drafts, evidence)
     if not digest:
         return None
 
     def matches_legacy(job: str) -> bool:
-        if not job or job == reader.job_id:
+        prior = previous_passage(reader, job, primary)
+        if prior is None:
             return False
-        if job not in reader.historical_audit_scopes:
-            reader.historical_audit_scopes[job] = historical_scopes(reader, job)
-        return reader.historical_audit_scopes[job].get(passage_key(primary)) == digest
+        if start is None:
+            return owner_digest(reader, primary, prior.drafts, prior.evidence) == digest
+        from backend.domains.llm_wiki.review_draft_batches import note_batch_sources
+        subset = prior.drafts[start:start + len(drafts)]
+        originals = note_batch_sources(primary, subset, prior.evidence)
+        return owner_digest(reader, primary, subset, originals) == digest
 
     return CheckpointScope(digest, matches_legacy)
 
