@@ -30,6 +30,12 @@ class ReadingCheckpointUnavailable(LookupError):
     """The requested operation has no reusable, verified answer."""
 
 
+@dataclass(frozen=True)
+class CheckpointScope:
+    identity: str
+    matches_legacy: Callable[[str], bool]
+
+
 @dataclass
 class ContextualReader:
     dependencies: IngestionDependencies
@@ -44,6 +50,7 @@ class ContextualReader:
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
+    historical_audit_scopes: dict[str, dict[str, str]] = field(default_factory=dict, init=False, repr=False)
 
     @property
     def budget(self) -> int:
@@ -71,9 +78,66 @@ class ContextualReader:
                 fields["progress"] = progress
             self.dependencies.update_job(self.job_id, **fields)
 
-    def has_checkpoint(self, key: str) -> bool:
-        return any(isinstance(self.dependencies.load_checkpoint(job, key), dict)
-                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job)
+    def has_checkpoint(self, key: str, scope: CheckpointScope | None = None) -> bool:
+        slots = (key + "-" + scope.identity[:20], key) if scope else (key,)
+        return any(isinstance(self.dependencies.load_checkpoint(job, slot), dict)
+                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job for slot in slots)
+
+    def _restore_checkpoint(
+        self, slots: tuple[str, str, str], identity: str, request: dict[str, object],
+        validate: Callable[[dict[str, object]], None], checkpoint_scope: CheckpointScope | None,
+        restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None,
+    ) -> dict[str, object] | None:
+        key, _, legacy_key = slots
+        # A sibling may settle a reservation while this batch is retrying in
+        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
+        for slot in dict.fromkeys(slots):
+            saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
+                          if isinstance(value := self.dependencies.load_checkpoint(job, slot), dict)
+                          and value.get("identity") == identity
+                          and (slot == key or not checkpoint_scope or checkpoint_scope.matches_legacy(job))), None)
+            if not isinstance(saved, dict):
+                continue
+            if slot == legacy_key and slot != key:
+                from backend.domains.llm_wiki.pdf_page_context import identifies_legacy_primaries
+                if not identifies_legacy_primaries(self.chunks, request):
+                    continue
+            answer = saved.get("answer")
+            if isinstance(answer, dict):
+                try:
+                    if restore_legacy and "pdf_page_context" not in saved:
+                        answer = restore_legacy(answer)
+                    validate(answer)
+                except ValueError:
+                    if slot != key:
+                        continue
+                    raise
+                self.models.append(str(saved.get("model") or ""))
+                if self.job_id:
+                    self.dependencies.save_checkpoint(self.job_id, key, saved)
+                return answer
+        return None
+
+    def _review_request(
+        self, request: dict[str, object], phase: str, page_context: PageContext | None,
+        quote_evidence: list[dict[str, object]], bindings: list[tuple[str, str]],
+        offer_excerpts: bool, pdf_citations: list[tuple[str, str]] | None,
+    ) -> dict[str, object]:
+        from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
+        # Accepted answers were already checked against the originals. Enrich
+        # fresh reviews after lookup so a new context option never rebills them.
+        if page_context and page_context.pairs:
+            request = page_context.prompt(request, audit=phase == "source-audit")
+            if quote_evidence:
+                quote_evidence = [*quote_evidence, *page_context.additions]
+                bindings = quote_bindings(quote_evidence)
+                request["pdf_quote_sources"] = bindings
+        finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
+        if offer_excerpts and quote_evidence and finder:
+            excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
+            if excerpts:
+                request = {**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings}
+        return request
 
     def ask(
         self,
@@ -87,6 +151,7 @@ class ContextualReader:
         page_context: PageContext | None = None,
         restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
         checkpoint_only: bool = False,
+        checkpoint_scope: CheckpointScope | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -112,6 +177,9 @@ class ContextualReader:
             # Parallel operations may have identical visible inputs but different
             # page continuations. Give those paid answers distinct durable slots.
             key += "-" + fingerprint(page_context.bindings)[:20]
+        context_key = key
+        if checkpoint_scope:
+            key = legacy_key + "-" + checkpoint_scope.identity[:20]
         prompt = encoded(request)
         identity = fingerprint(
             [
@@ -120,47 +188,14 @@ class ContextualReader:
                 prompt,
             ]
         )
-        # A sibling may settle a reservation while this batch is retrying in
-        # the SAME job. Reuse its evidence-request rounds as well as prior jobs.
-        for slot in dict.fromkeys([key, legacy_key]):
-            saved = next((value for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job
-                          if isinstance(value := self.dependencies.load_checkpoint(job, slot), dict)
-                          and value.get("identity") == identity), None)
-            if not isinstance(saved, dict):
-                continue
-            if slot != key:
-                from backend.domains.llm_wiki.pdf_page_context import identifies_legacy_primaries
-                if not identifies_legacy_primaries(self.chunks, request):
-                    continue
-            answer = saved.get("answer")
-            if isinstance(answer, dict):
-                try:
-                    if restore_legacy and "pdf_page_context" not in saved:
-                        answer = restore_legacy(answer)
-                    validate(answer)
-                except ValueError:
-                    if slot != key:
-                        continue
-                    raise
-                self.models.append(str(saved.get("model") or ""))
-                if self.job_id:
-                    self.dependencies.save_checkpoint(self.job_id, key, saved)
-                return answer
+        recovered = self._restore_checkpoint((key, context_key, legacy_key), identity, request,
+                                             validate, checkpoint_scope, restore_legacy)
+        if recovered is not None:
+            return recovered
         if checkpoint_only:
             raise ReadingCheckpointUnavailable(key)
-        # Accepted answers were already checked against the originals. Enrich
-        # fresh reviews after lookup so a new context option never rebills them.
-        if page_context and page_context.pairs:
-            request = page_context.prompt(request, audit=phase == "source-audit")
-            if quote_evidence:
-                quote_evidence = [*quote_evidence, *page_context.additions]
-                bindings = quote_bindings(quote_evidence)
-                request["pdf_quote_sources"] = bindings
-        finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
-        if offer_excerpts and quote_evidence and finder:
-            excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
-            if excerpts:
-                request = {**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings}
+        request = self._review_request(request, phase, page_context, quote_evidence or [], bindings,
+                                       offer_excerpts, pdf_citations)
         prompt = encoded(request)
         display_phase = (
             "reviewing"

@@ -5,6 +5,7 @@ from dataclasses import replace
 from collections.abc import Callable
 from typing import Any, TYPE_CHECKING
 
+from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, passage_sources, verified_legacy_answer
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
@@ -166,6 +167,8 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     schema = audit_schema(len(drafts), worker.dimensions)
     original_sources = [primary, *support]
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
+    scope = audit_scope(worker, primary, drafts, evidence)
+    state_key = fingerprint([key, scope.identity]) if scope else key
     context = page_context(worker.pdf_edges, original_sources, [primary, *(s for s in support if s["id"] in cited)])
     evidence = [*original_sources, *context.additions]
     def validate(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
@@ -178,22 +181,24 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
         validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
         validate(answer, subset, sources)
 
-    answer = saved.get("answer") if saved.get("key") == key else None
+    matches = saved.get("key") == state_key or (scope and saved.get("key") == key and (
+        scope.matches_legacy(worker.resume_job_id) or verified_legacy_answer(worker, primary, drafts, original_sources, saved, key)))
+    answer = saved.get("answer") if matches else None
     if isinstance(answer, dict):
         validate(answer, drafts, evidence)
-        return key, answer
+        return state_key, answer
     fits = fits_review(reviewer, "source-audit", worker.title, worker.language, context.prompt(payload, audit=True))
     try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
                             lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer,
-                            page_context=context, checkpoint_only=not fits, restore_legacy=lambda item:
+                            page_context=context, checkpoint_scope=scope, checkpoint_only=not fits, restore_legacy=lambda item:
                             restore_audit(item, primary, original_sources, worker.dimensions, len(drafts)))
         answer = {**answer, "changes": bound_changes(answer, primary, evidence, worker.dimensions)}
     except ReadingCheckpointUnavailable:
         from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
-        answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate_transport)
+        answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate_transport, scope)
         validate(answer, drafts, evidence)
-    return key, answer
+    return state_key, answer
 
 
 def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object], dict[str, object]]],
@@ -220,9 +225,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                 continue
             primary = {**segment, "origin_label": chunk.get("origin_label", "")}
             drafts = [n for n in notes if n["source_segment_id"] == identifier]
-            cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
-            support = [s for s in records(plan.get("evidence_segments")) if s["id"] in cited]
-            evidence = list({segment_source_key(s): s for s in [*support, *adjacent.get(identifier, []), primary]}.values())
+            support, evidence = passage_sources(primary, drafts, plan, adjacent.get(identifier, []))
             saved = results.get(checkpoint_id, {})
             key, answer = audit_passage(worker, reviewer, primary, drafts, evidence, plan,
                                         saved, engine.deps.citation_issues)

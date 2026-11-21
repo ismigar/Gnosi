@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
-from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.contextual_reading import ContextualReader, ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge, _has_answer_tokens
@@ -261,7 +261,8 @@ def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> Review
 
 
 def review_batches(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
-                   global_map: str, notes_map: str, pdf_repairs: set[int]) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
+                   global_map: str, notes_map: str, pdf_repairs: set[int], *,
+                   checkpoints_only: bool = False) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
     checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations])
     checkpoints.recover_unique_ranges(engine.state)
@@ -275,7 +276,10 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
             batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map, pdf_repairs, checkpoints)
             batches.append(batch)
             end += len(batch.entries)
-        if not run_wave(engine, batches):
+        if checkpoints_only:
+            if any(b.key not in engine.state["reviewed_groups"] for b in batches):
+                raise ReadingCheckpointUnavailable("The original joint review is incomplete")
+        elif not run_wave(engine, batches):
             continue
         for batch in batches:
             saved_sources = engine.state.get("review_sources", {}).get(batch.key)

@@ -25,7 +25,8 @@ def citation_findings(engine: SemanticReader, entries: list[dict[str, object]], 
     return {i for i, group in enumerate(groups) if group} if getattr(engine.deps, "reviewer", None) else set()
 
 
-def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> list[tuple[dict[str, object], dict[str, object]]]:
+def review_plans(engine: SemanticReader, global_map: str, notes_map: str, *,
+                 checkpoints_only: bool = False) -> list[tuple[dict[str, object], dict[str, object]]]:
     reader = engine.reader
     # Check even previously paid/cached plans before requesting another review.
     for plan in engine.state['plans'].values():
@@ -61,7 +62,8 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
             destinations.append((ci, ni, note, primary, [primary, *support]))
     pdf_repairs = citation_findings(engine, entries, [target[2] for target in destinations])
     from backend.domains.llm_wiki.semantic_review_execution import review_batches
-    for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map, pdf_repairs):
+    for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map, pdf_repairs,
+                                           checkpoints_only=checkpoints_only):
         for (ci, ni, _, _, _), note in zip(batch.targets, validated, strict=True):
             updated = records(reviewed[ci][1]["notes"])
             updated[ni] = note
