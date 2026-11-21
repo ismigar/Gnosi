@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 287 | 56294 |
+| `services` | 287 | 56313 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1147 modules** and **217595 source lines**.
+Total: **1147 modules** and **217614 source lines**.
 
 ## agent
 
@@ -1019,13 +1019,13 @@ Total: **1147 modules** and **217595 source lines**.
 | [`backend/services/agent_team_greeting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_greeting.py) | 60 | 0 | 2 | 1 | 1 | Let the configured director answer an isolated greeting before discovering specialists. |
 | [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 172 | 12 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
 | [`backend/services/agent_team_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_output.py) | 63 | 2 | 0 | 0 | 1 | Validate a delegated result before its run completes; repair without actions. |
-| [`backend/services/agent_team_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning.py) | 116 | 0 | 1 | 1 | 0 | Choose an existing route, a verified continuation, or a compact director plan. |
+| [`backend/services/agent_team_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning.py) | 131 | 0 | 2 | 1 | 0 | Choose an existing route, a verified continuation, or a compact director plan. |
 | [`backend/services/agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_planning_schema.py) | 39 | 0 | 2 | 0 | 1 | Minimize planning metadata without removing executable constraints. |
 | [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 126 | 0 | 6 | 0 | 2 | Model-free eligibility and economic routing. Labels never grant capabilities. |
 | [`backend/services/agent_team_resume.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_resume.py) | 45 | 0 | 1 | 1 | 0 | Resume a frozen team plan without regenerating or replaying completed work. |
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
 | [`backend/services/agent_team_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_routing.py) | 108 | 0 | 3 | 0 | 2 | Capability descriptions and intact conversation context for team routing. |
-| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 672 | 1 | 22 | 4 | 3 | Teams execute through the canonical executor, never through provider clients. |
+| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 676 | 1 | 23 | 4 | 3 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 134 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/agent_team_usage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_usage.py) | 114 | 0 | 5 | 1 | 1 | Report coordinated usage once, without counting job rollups a second time. |
 | [`backend/services/agent_title_continuation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_title_continuation.py) | 133 | 0 | 4 | 0 | 3 | Carry a verified title action across turns without inferring new write scope. |

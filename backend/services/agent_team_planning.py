@@ -15,12 +15,36 @@ from backend.services.agent_team_policy import chat_operation, team_for
 from backend.services.agent_team_routing import planning_catalog
 
 
+def _director_input(
+    owner: dict[str, Any], state: dict[str, Any], original: str,
+    catalog: list[dict[str, Any]], refs: list[dict[str, Any]],
+    *, operation_mode: bool, operation: str, route: DirectRoute | None, tried_greeting: bool,
+) -> tuple[str, dict[str, int]]:
+    from backend.services.agent_execution import _snapshot
+    from backend.services.agent_team_contracts import explicit_output_keys, operation_for_output_keys, required_operation
+
+    data, sizes = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
+    if tried_greeting:
+        data["specialist_planning_requested"] = True
+    if route is not None:
+        data["execution_route"] = route.model_dump()
+    snapshot = _snapshot.get()
+    if operation_mode:
+        operation_hint = required_operation(operation, snapshot.skill_ids if snapshot else [])
+    else:
+        operation_hint = operation or operation_for_output_keys(explicit_output_keys(original), catalog)
+    if operation_hint:
+        data["required_operation"] = operation_hint
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    if operation_hint or tried_greeting:
+        sizes["sent_context_chars"] = len(payload)
+    return payload, sizes
+
+
 async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: str, state: dict[str, Any],
                        original: str, refs: list[dict[str, Any]], *, operation_mode: bool
                        ) -> tuple[TeamPlan, dict[str, Any], list[dict[str, Any]], DirectRoute | None, bool]:
     from backend.services.agent_operation_catalog import skill_id
-    from backend.services.agent_execution import _snapshot
-    from backend.services.agent_team_contracts import required_operation, explicit_output_keys, operation_for_output_keys
     from backend.services.agent_team_runtime import _candidate, _config, _phase
     team = team_for(owner)
     from backend.services.agent_gauntlet_policy import needs_planning
@@ -93,22 +117,13 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
         measurement.update(mode="continuation", executor=plan.tasks[0].agent_id,
                            prior_run_id=prior_run_id, planning_calls_avoided=1)
     else:
-        data, sizes = planning_input(owner, state, original, catalog, refs, operation_mode=operation_mode)
-        if try_greeting:
-            data["specialist_planning_requested"] = True
-        if route is not None:
-            data["execution_route"] = route.model_dump()
-        snapshot = _snapshot.get()
-        operation_hint = required_operation(operation, snapshot.skill_ids if snapshot else []) if operation_mode else operation
-        if not operation_mode:
-            operation_hint = operation_hint or operation_for_output_keys(explicit_output_keys(original), catalog)
-        if operation_hint:
-            data["required_operation"] = operation_hint
-        if operation_hint or try_greeting:
-            sizes["sent_context_chars"] = len(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+        payload, sizes = _director_input(
+            owner, state, original, catalog, refs, operation_mode=operation_mode,
+            operation=operation, route=route, tried_greeting=try_greeting,
+        )
         measurement.update(mode="director", reason=reason, **sizes)
         artifacts.put(scope, root_id, "routing", "routing", measurement)
-        raw = await _phase(owner, root_id, scope, json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+        raw = await _phase(owner, root_id, scope, payload,
                            TeamPlan.model_json_schema(), "team.plan", allow_response=not operation_mode, members=catalog)
         plan = TeamPlan.model_validate_json(raw)
     record("team.route", measurement)
