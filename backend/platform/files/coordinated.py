@@ -9,6 +9,7 @@ descriptor supplied by the caller.
 
 from __future__ import annotations
 
+import atexit
 import asyncio
 import json
 import os
@@ -19,11 +20,14 @@ from pathlib import Path
 from typing import BinaryIO
 
 from .availability import AvailabilityReason, MetadataUnavailable
+from .skill_worker import LegacyHelper, SkillWorkers
 
 # Darwin sys/stat.h. Python versions bundled by PyInstaller may not export it.
 SF_DATALESS = 0x40000000
 _active_materializations: set[asyncio.subprocess.Process] = set()
 _shutdown_requested = threading.Event()
+_skill_workers = SkillWorkers()
+atexit.register(_skill_workers.close)
 
 
 def cancel_materializations_for_shutdown() -> None:
@@ -34,6 +38,9 @@ def cancel_materializations_for_shutdown() -> None:
     parent that enforces its deadline. The provider application stays untouched.
     """
     _shutdown_requested.set()
+    # The signal may interrupt ThreadPoolExecutor.submit on this same thread.
+    # Close the processes here; the interpreter joins the executor during exit.
+    _skill_workers.stop_children()
     for process in tuple(_active_materializations):
         if process.returncode is None:
             try:
@@ -63,6 +70,12 @@ def is_cloud_placeholder(path: Path, stat_result: os.stat_result) -> bool:
     )
 
 
+def _bundled_helper() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent.parent / "native" / "gnosi-file-access"
+    return Path(__file__).resolve().parents[3] / "desktop/native-build/gnosi-file-access"
+
+
 def helper_path() -> Path:
     configured = os.environ.get("GNOSI_FILE_ACCESS_HELPER")
     if configured:
@@ -70,14 +83,18 @@ def helper_path() -> Path:
         if not path.is_absolute():
             raise ValueError("GNOSI_FILE_ACCESS_HELPER must be absolute")
         return path
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent.parent / "native" / "gnosi-file-access"
-    return Path(__file__).resolve().parents[3] / "desktop/native-build/gnosi-file-access"
+    return _bundled_helper()
 
 
 _EXIT_REASONS: dict[int, AvailabilityReason] = {
     69: "offline", 73: "no_space", 75: "pending", 77: "permission",
 }
+
+
+def _check_status(status: int | None, path: Path) -> None:
+    if status != 0:
+        reason = _EXIT_REASONS.get(status or 0, "unavailable")
+        raise MetadataUnavailable(f"Cloud file is {reason}", path=path, reason=reason)
 
 
 async def _run(path: Path, timeout: float, target: BinaryIO | None = None) -> bytes:
@@ -102,9 +119,7 @@ async def _run(path: Path, timeout: float, target: BinaryIO | None = None) -> by
             await asyncio.wait_for(process.wait(), timeout=deadline)
         else:
             _, control = await asyncio.wait_for(process.communicate(), timeout=deadline)
-        if process.returncode != 0:
-            reason = _EXIT_REASONS.get(process.returncode or 0, "unavailable")
-            raise MetadataUnavailable(f"Cloud file is {reason}", path=path, reason=reason)
+        _check_status(process.returncode, path)
         return control
     except OSError as exc:
         raise MetadataUnavailable.from_oserror(path, exc) from exc
@@ -121,11 +136,44 @@ async def _run(path: Path, timeout: float, target: BinaryIO | None = None) -> by
             _active_materializations.discard(process)
 
 
+def _skill_snapshot(path: Path, target: BinaryIO) -> bool:
+    if (sys.platform != "darwin" or not path.is_absolute()
+            or path.name not in {"skill.yaml", "SKILL.md"}
+            or path.parts[-5:-2] != (".gnosi", "agent", "skills")):
+        return False
+    # An alternate helper can implement its own per-path decision in its CLI.
+    configured = os.environ.get("GNOSI_FILE_ACCESS_HELPER")
+    if configured and Path(configured) != _bundled_helper():
+        return False
+    fd = target.fileno()
+    info = os.fstat(fd)
+    return (stat.S_ISREG(info.st_mode) and info.st_size == 0 and target.writable()
+            and os.lseek(fd, 0, os.SEEK_CUR) == 0)
+
+
+async def _snapshot_fields(path: Path, target: BinaryIO, timeout: float) -> object:
+    if not _skill_snapshot(path, target):
+        return json.loads(await _run(path, timeout, target))
+    if _shutdown_requested.is_set():
+        raise MetadataUnavailable(path=path)
+    duration = max(0.1, min(timeout, 30.0))
+    try:
+        # One deadline covers the queue, process startup, read and any legacy fallback.
+        async with asyncio.timeout(duration):
+            try:
+                status, fields = await _skill_workers.read(helper_path(), path, target.fileno(), duration)
+            except LegacyHelper:
+                return json.loads(await _run(path, duration, target))
+            _check_status(status, path)
+            return fields
+    except OSError as exc:
+        raise MetadataUnavailable.from_oserror(path, exc) from exc
+
+
 async def copy_coordinated(path: Path, target: BinaryIO, timeout: float) -> os.stat_result:
     """Copy the complete coordinated revision and return its descriptor metadata."""
-    control = await _run(path, timeout, target)
     try:
-        fields = json.loads(control)
+        fields = await _snapshot_fields(path, target, timeout)
         if not isinstance(fields, list) or len(fields) != 20 or not all(type(n) is int for n in fields):
             raise ValueError("Invalid source stat")
         mode, ino, dev, nlink, uid, gid, size = fields[:7]
