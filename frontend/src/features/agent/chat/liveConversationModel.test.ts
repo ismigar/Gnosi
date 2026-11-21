@@ -39,7 +39,7 @@ describe('live conversation hydration boundary', () => {
   });
   it('does not convert an old session alias or a role-only match into author evidence on a later hydration', () => {
     const cached = readLiveChatMessages([{ role: 'assistant', content: 'cached', turnId: 'old' }]);
-    for (const alias of [{ session_id: 'old' }, {}]) {
+    for (const alias of [{ session_id: 'old' }, { turn_id: 'old', turn_id_is_legacy: true }, {}]) {
       const first = hydrateChatMessages([{ role: 'assistant', content: 'LEGACY', ...alias,
         assistant_profile: { id: 'legacy', name: 'Legacy author' }, llm: { model: 'legacy-model' } }], cached);
       const later = hydrateChatMessages([{ role: 'assistant', content: 'Different turn', turn_id: 'old' }], first);

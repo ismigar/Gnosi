@@ -108,6 +108,7 @@ def _extract_turn_payload(
     payload: Dict[str, Any],
     *,
     allow_nested: bool = False,
+    allow_aliases: bool = True,
 ) -> Optional[str]:
     if not isinstance(payload, dict):
         return None
@@ -133,30 +134,29 @@ def _extract_turn_payload(
     if turn_id is not None and turn_id != "":
         return str(turn_id)
     for key, value in payload.items():
-        if _TURN_ID_FIELD_RE.match(_normalize_turn_key(key)):
+        field = _normalize_turn_key(key)
+        if _TURN_ID_FIELD_RE.match(field) and (allow_aliases or "turn" in field.split("_")):
             candidate = _extract_turn_payload_value(value)
             if candidate is not None:
                 return candidate
     return turn_id
 
 
-def _checkpoint_turn_id(message: Any, role: str, current_turn_id: str) -> str:
-    if role == "human":
-        current_turn_id = str(
-            getattr(message, "additional_kwargs", {}).get("gnosi_turn_id", "") or ""
-        )
-    message_turn_id = _extract_turn_payload(
-        getattr(message, "additional_kwargs", {}),
-        allow_nested=True,
-    )
-    if message_turn_id is None:
-        message_turn_id = _extract_turn_payload(
-            getattr(message, "metadata", {}),
-            allow_nested=True,
-        )
-    if message_turn_id and (role == "human" or not current_turn_id):
-        return str(message_turn_id)
-    return current_turn_id
+def _checkpoint_turn_reference(message: Any, role: str, current: tuple[str, bool]) -> tuple[str, bool]:
+    """Keep broad legacy references usable for navigation without claiming they identify a turn."""
+    inherits_reference = role != "human" and bool(current[0])
+    if inherits_reference and not current[1]:
+        return current
+    payloads = (getattr(message, "additional_kwargs", {}), getattr(message, "metadata", {}))
+    for payload in payloads:
+        if explicit := _extract_turn_payload(payload, allow_nested=True, allow_aliases=False):
+            return explicit, False
+    if inherits_reference:
+        return current
+    for payload in payloads:
+        if alias := _extract_turn_payload(payload, allow_nested=True):
+            return alias, True
+    return "", False
 
 
 def _checkpoint_content(message: Any, role: str) -> str:
@@ -237,6 +237,7 @@ def _checkpoint_public_message(
     role: str,
     content: str,
     turn_id: str,
+    legacy_turn_reference: bool = False,
     assistant_profile: dict[str, str] | None = None,
 ) -> Dict[str, Any]:
     public_message: Dict[str, Any] = {
@@ -283,6 +284,8 @@ def _checkpoint_public_message(
             public_message["gauntlet"] = gauntlet
     if turn_id:
         public_message["turn_id"] = turn_id
+        if role == "ai" and legacy_turn_reference:
+            public_message["turn_id_is_legacy"] = True
     return public_message
 
 
@@ -292,7 +295,7 @@ def _public_checkpoint_message_entries(
     """Return bounded public messages together with their raw positions."""
     entries = []
 
-    current_turn_id = ""
+    turn_reference = ("", False)
     start = max(0, len(stored_messages) - 200)
     assistant_profile = None
     # The public window can start with a reply whose owning human turn is just outside it.
@@ -300,6 +303,7 @@ def _public_checkpoint_message_entries(
         previous = stored_messages[index]
         if getattr(previous, "type", "") == "human":
             assistant_profile = public_assistant_profile(getattr(previous, "additional_kwargs", {}).get("gnosi_assistant_profile"))
+            turn_reference = _checkpoint_turn_reference(previous, "human", turn_reference)
             break
     for raw_index, message in enumerate(stored_messages[start:], start=start):
         role = getattr(message, "type", "")
@@ -309,7 +313,7 @@ def _public_checkpoint_message_entries(
             continue
         if role == "human":
             assistant_profile = public_assistant_profile(getattr(message, "additional_kwargs", {}).get("gnosi_assistant_profile"))
-        current_turn_id = _checkpoint_turn_id(message, role, current_turn_id)
+        turn_reference = _checkpoint_turn_reference(message, role, turn_reference)
         content = _checkpoint_content(message, role)
         if not content.strip():
             continue
@@ -320,7 +324,8 @@ def _public_checkpoint_message_entries(
                     message,
                     role=role,
                     content=content,
-                    turn_id=current_turn_id,
+                    turn_id=turn_reference[0],
+                    legacy_turn_reference=turn_reference[1],
                     assistant_profile=assistant_profile,
                 ),
             )

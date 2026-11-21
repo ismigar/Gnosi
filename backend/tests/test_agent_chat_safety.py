@@ -873,6 +873,7 @@ def test_checkpoint_history_uses_session_alias_from_metadata():
         "role": "assistant",
         "content": "Resposta visible",
         "turn_id": "turn-session",
+        "turn_id_is_legacy": True,
     }]
 
 

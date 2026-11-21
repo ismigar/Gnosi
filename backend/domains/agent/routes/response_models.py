@@ -34,6 +34,7 @@ class AgentProfileIdentity(_AgentResponseModel):
 
 
 class AgentSessionMessageResponse(_AgentResponseModel):
+    turn_id_is_legacy: bool | None = None
     assistant_profile: AgentProfileIdentity | None = None
     llm: dict[str, str] | None = None
     role: Literal["user", "assistant"]

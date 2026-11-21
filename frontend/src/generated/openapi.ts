@@ -12821,6 +12821,8 @@ export interface components {
             timings?: components["schemas"]["JsonValue"] | null;
             /** Turn Id */
             turn_id?: string | null;
+            /** Turn Id Is Legacy */
+            turn_id_is_legacy?: boolean | null;
             verification?: components["schemas"]["JsonValue"] | null;
         };
         /** AgentSessionMessagesResponse */

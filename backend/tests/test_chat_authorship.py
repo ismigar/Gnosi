@@ -60,3 +60,15 @@ def test_truncated_transcript_still_attributes_replies_to_their_own_turn():
     rows = _public_checkpoint_messages([user] + [AIMessage(content="Part") for _ in range(205)])
     assert len(rows) == 200
     assert all(row["assistant_profile"] == {"id": "one", "name": "First"} for row in rows)
+
+
+def test_legacy_session_and_trace_references_are_distinct_from_authentic_turn_ids():
+    for field in ("session_id", "trace_id", "gnosi_turn_id", "turn_ref"):
+        user = HumanMessage(content="Question", additional_kwargs={field: "reference"})
+        _, answer = _public_checkpoint_messages([user, AIMessage(content="Answer")])
+        assert answer["turn_id"] == "reference"
+        assert bool(answer.get("turn_id_is_legacy")) == (field in {"session_id", "trace_id"})
+    user = HumanMessage(content="Question", additional_kwargs={"session_id": "shared"})
+    reply = AIMessage(content="Answer", additional_kwargs={"gnosi_turn_id": "unique"})
+    _, answer = _public_checkpoint_messages([user, reply])
+    assert answer["turn_id"] == "unique" and "turn_id_is_legacy" not in answer

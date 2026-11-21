@@ -1131,6 +1131,17 @@
             ],
             "title": "Turn Id"
           },
+          "turn_id_is_legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id Is Legacy"
+          },
           "verification": {
             "anyOf": [
               {

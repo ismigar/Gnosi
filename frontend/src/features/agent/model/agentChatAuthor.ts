@@ -20,7 +20,7 @@ export function assistantProfileSnapshot(value: unknown, previous?: AssistantPro
 
 /** Legacy session, conversation and trace identifiers can span multiple turns. */
 function explicitAssistantTurn(message: LooseValue): string | undefined {
-    if (!isRecord(message) || message.role !== 'assistant') return undefined;
+    if (!isRecord(message) || message.role !== 'assistant' || message.turn_id_is_legacy === true) return undefined;
     const id = message.turn_id ?? message.turnId;
     return typeof id === 'string' && id ? id : undefined;
 }
