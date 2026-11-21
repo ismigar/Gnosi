@@ -48,7 +48,7 @@ class _Worker:
         self.channel, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             self.process = subprocess.Popen(
-                [str(helper), "--worker"], stdin=child, stdout=subprocess.DEVNULL,
+                [str(helper), "--worker"], stdin=child.fileno(), stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL, close_fds=True,
             )
         except BaseException:
