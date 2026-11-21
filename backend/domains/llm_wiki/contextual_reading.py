@@ -26,6 +26,10 @@ def fingerprint(value: object) -> str:
     return hashlib.sha256(encoded(value).encode()).hexdigest()
 
 
+class ReadingCheckpointUnavailable(LookupError):
+    """The requested operation has no reusable, verified answer."""
+
+
 @dataclass
 class ContextualReader:
     dependencies: IngestionDependencies
@@ -67,6 +71,10 @@ class ContextualReader:
                 fields["progress"] = progress
             self.dependencies.update_job(self.job_id, **fields)
 
+    def has_checkpoint(self, key: str) -> bool:
+        return any(isinstance(self.dependencies.load_checkpoint(job, key), dict)
+                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job)
+
     def ask(
         self,
         key: str,
@@ -77,6 +85,8 @@ class ContextualReader:
         *, executor: ReviewRuntime | None = None, quote_evidence: list[dict[str, object]] | None = None,
         offer_excerpts: bool = False, pdf_citations: list[tuple[str, str]] | None = None,
         page_context: PageContext | None = None,
+        restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
+        checkpoint_only: bool = False,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -125,6 +135,8 @@ class ContextualReader:
             answer = saved.get("answer")
             if isinstance(answer, dict):
                 try:
+                    if restore_legacy and "pdf_page_context" not in saved:
+                        answer = restore_legacy(answer)
                     validate(answer)
                 except ValueError:
                     if slot != key:
@@ -134,6 +146,8 @@ class ContextualReader:
                 if self.job_id:
                     self.dependencies.save_checkpoint(self.job_id, key, saved)
                 return answer
+        if checkpoint_only:
+            raise ReadingCheckpointUnavailable(key)
         # Accepted answers were already checked against the originals. Enrich
         # fresh reviews after lookup so a new context option never rebills them.
         if page_context and page_context.pairs:
@@ -193,6 +207,8 @@ class ContextualReader:
                             "identity": identity,
                             "answer": answer,
                             "model": model,
+                            **({"pdf_page_context": fingerprint(page_context.bindings)}
+                               if page_context and page_context.pairs else {}),
                         },
                     )
                 return answer

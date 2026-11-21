@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any, TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import encoded, record, records
-from backend.domains.llm_wiki.contextual_reading import fingerprint
+from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.reading_quality import adjacent_originals, validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
@@ -40,11 +40,27 @@ def bound_changes(answer: dict[str, object], primary: dict[str, object], sources
     for change in changes:
         if change["replacement"] is not None:
             replacement = record(change["replacement"])
-            note, originals = bind_note_sources(replacement, primary, sources, dimensions)
+            ids = replacement.get("quote_segment_ids")
+            note, originals = bind_note_sources(replacement, primary, sources, dimensions,
+                                                verified_segment_ids=ids if isinstance(ids, list) else None)
             identifiers = [str(c["segment_id"]) for c in records(note["citations"])]
             change["replacement"] = {**replacement, "quote_segment_ids": identifiers,
                                      "quote_source_keys": [source_key(source_view(s)) for s in originals]}
     return changes
+
+
+def restore_audit(answer: dict[str, object], primary: dict[str, object],
+                  original_sources: list[dict[str, object]], dimensions: list[dict[str, object]],
+                  draft_count: int) -> dict[str, object]:
+    """Resolve older literal answers in the exact source set available when they were paid for."""
+    validate_schema(answer, audit_schema(draft_count, dimensions, bound_sources=True))
+    changes = records(answer["changes"])
+    for change in changes:
+        replacement = change["replacement"]
+        if isinstance(replacement, dict) and "quote_source_keys" not in replacement:
+            [restored] = bound_changes({"changes": [change]}, primary, original_sources, dimensions)
+            change["replacement"] = restored["replacement"]
+    return {**answer, "changes": changes}
 
 
 def synthesis_changes(answer: dict[str, object], sources: list[dict[str, object]],
@@ -148,10 +164,10 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
         support = [s for s in support if s["id"] in cited]
         payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
     schema = audit_schema(len(drafts), worker.dimensions)
-    evidence = [primary, *support]
+    original_sources = [primary, *support]
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
-    context = page_context(worker.pdf_edges, evidence, [primary, *(s for s in support if s["id"] in cited)])
-    evidence = [*evidence, *context.additions]
+    context = page_context(worker.pdf_edges, original_sources, [primary, *(s for s in support if s["id"] in cited)])
+    evidence = [*original_sources, *context.additions]
     def validate(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
         checked = apply_changes(answer, subset, primary, sources, worker.dimensions)
         validate_reviewed_prose(checked, sources, worker.language)
@@ -165,11 +181,15 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     answer = saved.get("answer") if saved.get("key") == key else None
     if isinstance(answer, dict):
         validate(answer, drafts, evidence)
-    elif fits_review(reviewer, "source-audit", worker.title, worker.language, context.prompt(payload, audit=True)):
+        return key, answer
+    fits = fits_review(reviewer, "source-audit", worker.title, worker.language, context.prompt(payload, audit=True))
+    try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
-                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer, page_context=context)
+                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer,
+                            page_context=context, checkpoint_only=not fits, restore_legacy=lambda item:
+                            restore_audit(item, primary, original_sources, worker.dimensions, len(drafts)))
         answer = {**answer, "changes": bound_changes(answer, primary, evidence, worker.dimensions)}
-    else:
+    except ReadingCheckpointUnavailable:
         from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
         answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate_transport)
         validate(answer, drafts, evidence)

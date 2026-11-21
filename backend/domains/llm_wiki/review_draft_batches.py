@@ -5,7 +5,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import record, records
-from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review
+from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
+from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review, restore_audit
 from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
 from backend.domains.llm_wiki.semantic_contracts import semantic_note
 from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
@@ -106,8 +107,11 @@ def additional_review_calls(reviewer: ReviewRuntime, chunks: list[dict[str, obje
 def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                     drafts: list[dict[str, object]], support: list[dict[str, object]], coverage: list[object],
                     key: str, validate: Validate) -> dict[str, object]:
+    def original_request(subset: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
+        return note_batch_request(primary, subset, support, coverage, worker.dimensions)
+
     def request_for(subset: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
-        payload, sources = note_batch_request(primary, subset, support, coverage, worker.dimensions)
+        payload, sources = original_request(subset)
         return page_context(worker.pdf_edges, sources, sources).prompt(payload, audit=True), sources
 
     def fits(payload: dict[str, object]) -> bool:
@@ -115,22 +119,39 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
 
     changes: list[dict[str, object]] = []
     claims: list[dict[str, object]] = []
-    start = 0
-    while start < len(drafts):
-        end, _, _ = note_batch_end(start, drafts, request_for, fits)
+
+    def accept_batch(slot: str, start: int, end: int, *, checkpoint_only: bool = False) -> None:
         subset = drafts[start:end]
-        payload, sources = note_batch_request(primary, subset, support, coverage, worker.dimensions)
-        context = page_context(worker.pdf_edges, sources, sources)
-        sources = [*sources, *context.additions]
+        payload, original_sources = original_request(subset)
+        context = page_context(worker.pdf_edges, original_sources, original_sources)
+        sources = [*original_sources, *context.additions]
         def check_batch(answer: dict[str, object]) -> None:
             validate(answer, subset, sources)
             if any(change["position"] == 0 for change in records(answer["changes"])):
                 raise ValueError("Only the full-passage coverage check may add notes")
-        answer = worker.ask(f"audit-notes-{key[:24]}-{start}", "source-audit", payload, check_batch,
-                            record(payload["output_schema"]), executor=reviewer, page_context=context)
+        answer = worker.ask(slot, "source-audit", payload, check_batch, record(payload["output_schema"]),
+                            executor=reviewer, page_context=context, checkpoint_only=checkpoint_only,
+                            restore_legacy=lambda item: restore_audit(item, primary, original_sources, worker.dimensions, len(subset)))
         accepted = apply_changes(answer, subset, primary, sources, worker.dimensions)
         claims.append({"assessment": answer["assessment"], "retained": [n["title"] for n in accepted]})
         changes.extend({**change, "position": int(str(change["position"])) + start} for change in bound_changes(answer, primary, sources, worker.dimensions))
+
+    start = 0
+    while start < len(drafts):
+        slot = f"audit-notes-{key[:24]}-{start}"
+        if worker.has_checkpoint(slot):
+            # A paid batch could fit before adding the adjacent page. Recover its
+            # original extent and validate it before partitioning the unpaid suffix.
+            old_end, _, _ = note_batch_end(start, drafts, original_request, fits)
+            try:
+                accept_batch(slot, start, old_end, checkpoint_only=True)
+            except ReadingCheckpointUnavailable:
+                pass
+            else:
+                start = old_end
+                continue
+        end, _, _ = note_batch_end(start, drafts, request_for, fits)
+        accept_batch(slot, start, end)
         start = end
 
     payload = audit_payload(primary, [], [], coverage, worker.dimensions)
@@ -140,11 +161,15 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     coverage_sources = [primary, *context.additions]
     def coverage_fits(items: list[dict[str, object]]) -> bool:
         return fits(context.prompt({**payload, "reviewed_claims": items}, audit=True))
-    if not coverage_fits(claims):
+    def audit_coverage(items: list[dict[str, object]], *, checkpoint_only: bool = False) -> dict[str, object]:
+        return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
+                          lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
+                          executor=reviewer, page_context=context, checkpoint_only=checkpoint_only,
+                          restore_legacy=lambda item: restore_audit(item, primary, [primary], worker.dimensions, 0))
+    try:
+        coverage_answer = audit_coverage(claims, checkpoint_only=not coverage_fits(claims))
+    except ReadingCheckpointUnavailable:
         from backend.domains.llm_wiki.review_synthesis import reduce_for_context
         claims = reduce_for_context(worker, reviewer, claims, coverage_fits)
-    payload["reviewed_claims"] = claims
-    coverage_answer = worker.ask(f"audit-coverage-{key[:24]}", "source-audit", payload,
-                                 lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
-                                 executor=reviewer, page_context=context)
+        coverage_answer = audit_coverage(claims)
     return {**coverage_answer, "changes": [*changes, *bound_changes(coverage_answer, primary, coverage_sources, worker.dimensions)]}
