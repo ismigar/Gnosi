@@ -3,6 +3,7 @@ import { moveQueuedPrompt, mutatePromptQueue, queuedDraftStillCurrent, queueStor
 import { isLearningRequest } from '../../agent-learning';
 import { useState, useRef, useEffect, useEffectEvent, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import { useExclusiveFloatingPanel } from '../../../shared/hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../../../shared/hooks/useFloatingActionDock';
 import { agentChatStorageScope } from '../model/agentConfirmationUtils';
@@ -212,7 +213,7 @@ export function useAgentChatController({
     });
 
 
-    const agentName = agentConfig?.name || 'Gnosi Copilot';
+    const agentName = (agentConfig && profileDisplayName(agentConfig, t)) || 'Gnosi Copilot';
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const agentHasModel = Boolean(agentConfig?.provider && agentConfig.model);
     const agentModel = agentHasModel
