@@ -20,7 +20,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from backend.services import agent_execution_store as store
 from backend.services.agent_run_middleware import report_run
-from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin
+from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin, ExecutionScope
 from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
