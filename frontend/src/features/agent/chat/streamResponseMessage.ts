@@ -61,6 +61,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
     };
   }
   const messages = [...previous];
+  if (state.assistantProfile) message = { ...message, assistant_profile: state.assistantProfile };
   messages.splice(replaceAt ?? insertAt ?? previous.length, replaceAt === undefined ? 0 : 1, message);
   return messages;
 }

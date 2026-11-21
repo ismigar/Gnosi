@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_metadata_text
-
+import asyncio
 import hashlib
 import json
 import re
@@ -12,6 +11,9 @@ import threading
 import unicodedata
 import uuid
 import weakref
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import ExitStack
+from contextvars import copy_context
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -22,6 +24,8 @@ from backend.models.agent_skills import (
     OriginType,
     SkillDescriptor,
 )
+from backend.utils import metadata_io
+from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_metadata_text
 from backend.utils.safe_io import safe_write_text
 
 
@@ -148,6 +152,27 @@ class UserSkillStore:
                 raise UserSkillNotFoundError(f"skill not found: {skill_id}")
             return self._load_package(package)
 
+    def _assigned_cloud_reads(
+        self, pending: list[str], cleanup: ExitStack,
+    ) -> dict[str, Future[SkillDescriptor]]:
+        assigned = dict.fromkeys(
+            identifier for identifier in reversed(pending) if USER_SKILL_ID_RE.fullmatch(identifier)
+        )
+        if len(assigned) < 2 or not metadata_io.is_native_vault_file(self.root):
+            return {}
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            # Synchronous event-loop callers keep their nonblocking metadata handoff.
+            return {}
+        # The native coordinator has two foreground workers. Read independent
+        # assignments together, keeping each package's validation and lock.
+        pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="gnosi-skill-read")
+        cleanup.callback(pool.shutdown, wait=True, cancel_futures=True)
+        return {key: pool.submit(copy_context().run, self.load, key) for key in assigned}
+
     def load_referenced(
         self, skill_ids: Iterable[str], registered: Mapping[str, SkillDescriptor],
     ) -> List[SkillDescriptor]:
@@ -157,22 +182,25 @@ class UserSkillStore:
         visited: set[str] = set()
         if self.root.is_symlink():
             return []
-        while pending:
-            identifier = pending.pop()
-            if identifier in visited:
-                continue
-            visited.add(identifier)
-            descriptor = registered.get(identifier)
-            if USER_SKILL_ID_RE.fullmatch(identifier):
-                try:
-                    descriptor = self.load(identifier)
-                except (UserSkillStoreError, UnicodeError):
+        with ExitStack() as cleanup:
+            scheduled = self._assigned_cloud_reads(pending, cleanup)
+            while pending:
+                identifier = pending.pop()
+                if identifier in visited:
                     continue
-                personal.append(descriptor)
-            if descriptor is not None:
-                parent = descriptor.metadata.get("derived_from")
-                if isinstance(parent, dict) and isinstance(parent.get("id"), str):
-                    pending.append(parent["id"])
+                visited.add(identifier)
+                descriptor = registered.get(identifier)
+                if USER_SKILL_ID_RE.fullmatch(identifier):
+                    try:
+                        future = scheduled.get(identifier)
+                        descriptor = future.result() if future is not None else self.load(identifier)
+                    except (UserSkillStoreError, UnicodeError):
+                        continue
+                    personal.append(descriptor)
+                if descriptor is not None:
+                    parent = descriptor.metadata.get("derived_from")
+                    if isinstance(parent, dict) and isinstance(parent.get("id"), str):
+                        pending.append(parent["id"])
         return personal
 
     def load_all(self) -> Tuple[List[SkillDescriptor], List[Dict[str, str]]]:

@@ -9,6 +9,7 @@ import pytest
 
 from backend.domains.agent.routes import workflow
 from backend.services import agent_skill_catalog, agent_team_runtime, principal_agent_migration
+from backend.services.context_vars import active_vault_path
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import execution_scope
 from backend.services.agent_team_models import TEAM_SKILL
@@ -103,3 +104,53 @@ def test_a_local_profile_can_read_while_another_downloads(tmp_path, monkeypatch)
         finally:
             release.set()
         assert remote.result(timeout=3)[0].instructions == "remote"
+
+
+def test_known_cloud_assignments_overlap_and_preserve_ancestry_order(tmp_path, monkeypatch):
+    vault = tmp_path.resolve()
+    store = UserSkillStore(vault)
+    for name in ("first", "parent", "second", "unassigned"):
+        metadata = {"derived_from": {"id": "user.parent"}} if name == "second" else {}
+        store.create({"name": name, "metadata": metadata}, name, requested_id="user." + name)
+    monkeypatch.setattr(metadata_io, "is_native_vault_file", lambda path, *_: path == store.root)
+    barrier = threading.Barrier(2, timeout=3)
+    original = store.load
+    reads = []
+
+    def read(identifier):
+        assert active_vault_path.get() == vault
+        reads.append(identifier)
+        if identifier in {"user.first", "user.second"}:
+            barrier.wait()
+        return original(identifier)
+
+    monkeypatch.setattr(store, "load", read)
+    token = active_vault_path.set(vault)
+    try:
+        assigned = ["user.first", "user.second", "user.second"]
+        resolved = store.load_referenced(assigned, {})
+        assert [skill.id for skill in resolved] == ["user.second", "user.parent", "user.first"]
+        assert sorted(reads) == ["user.first", "user.parent", "user.second"]
+        (store.root / "user.second" / "SKILL.md").write_text("revised")
+        assert store.load_referenced(assigned, {})[0].instructions == "revised"
+    finally:
+        active_vault_path.reset(token)
+
+
+def test_synchronous_cloud_resolution_on_the_event_loop_keeps_the_pending_handoff(tmp_path, monkeypatch):
+    store = UserSkillStore(tmp_path)
+    monkeypatch.setattr(metadata_io, "is_native_vault_file", lambda *_: True)
+
+    async def read():
+        loop = asyncio.get_running_loop()
+
+        def pending(identifier):
+            assert asyncio.get_running_loop() is loop
+            raise metadata_io.MetadataUnavailable(path=store.root / identifier, reason="pending")
+
+        monkeypatch.setattr(store, "load", pending)
+        with pytest.raises(metadata_io.MetadataUnavailable) as error:
+            store.load_referenced(["user.first", "user.second"], {})
+        assert error.value.reason == "pending"
+
+    asyncio.run(read())

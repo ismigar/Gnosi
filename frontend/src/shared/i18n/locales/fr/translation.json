@@ -6611,6 +6611,8 @@
     "empty_title": "Comment puis-je vous aider aujourd'hui ?",
     "empty_subtitle": "Je peux analyser votre Vault, gérer votre calendrier ou écrire du code pour vous.",
     "you": "Vous",
+    "assistant_author": "Assistant",
+    "system_author": "Système",
     "processing": "Traitement en cours...",
     "processing_with_seconds": "Traitement en cours... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",

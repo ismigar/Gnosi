@@ -30,14 +30,14 @@ function Harness({ loading = false, rewindIndex = 3, messages: supplied = initia
   const [messages, setMessages] = useState(supplied);
   const [input, setInputValue] = useState(''); const [menu, setShowMentionMenu] = useState(true);
   const [rewinding, setIsRewinding] = useState(false); const inputRef = useRef<HTMLTextAreaElement>(null);
-  const actions = useChatMessageActions({ messages, setMessages, agentName: 'Fixture', selectedAgentId: 'agent', sessionId: 'session', isLoading: loading, inputRef, setInputValue, setShowMentionMenu });
+  const actions = useChatMessageActions({ messages, setMessages, selectedAgentId: 'agent', sessionId: 'session', isLoading: loading, inputRef, setInputValue, setShowMentionMenu });
   const rewind = useChatRewind({ messages, selectedAgentId: 'agent', sessionId: 'session', notebookId: 'notebook', pendingRewindIndex: rewindIndex, isLoading: loading, isRewinding: rewinding, historyHydrationRef: history, setMessages, setPendingConfirmation: mocks.confirmation, setDetailsMessageIndex: mocks.details, setPendingRewindIndex: mocks.pending, setIsRewinding, focusComposerWith: actions.focusComposerWith });
   return <>
     <textarea ref={inputRef} value={input} onChange={(event) => { setInputValue(event.target.value); }} />
     <output data-messages>{JSON.stringify(messages)}</output><output data-menu>{String(menu)}</output><output data-rewinding>{String(rewinding)}</output>
     <button onClick={() => { void actions.copyMessage('Second answer'); }}>Copy</button>
-    <button onClick={() => { actions.quoteMessage(messages[2]); }}>Quote user</button>
-    <button onClick={() => { actions.quoteMessage(messages[3]); }}>Quote assistant</button>
+    <button onClick={() => { actions.quoteMessage(messages[2]?.content ?? '', 'You'); }}>Quote user</button>
+    <button onClick={() => { actions.quoteMessage(messages[3]?.content ?? '', 'Fixture'); }}>Quote assistant</button>
     <button onClick={() => { actions.retryMessage(3); }}>Retry</button>
     <button onClick={() => { actions.markMessage(3, 'saved', true); }}>Save</button>
     <button onClick={() => { void actions.submitMessageFeedback(3, 'up'); }}>Helpful</button>

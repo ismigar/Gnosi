@@ -28,6 +28,7 @@ from backend.domains.agent.routes.checkpoints import (
     _chat_thread_id,
     _checkpoint_key,
     _thread_lock,
+    public_assistant_profile,
 )
 from backend.domains.agent.routes.contracts import (
     TURN_TIMEOUT_SECONDS,
@@ -232,6 +233,7 @@ def _setup_error_response(
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
+    assistant_profile: dict[str, str] | None = None,
 ) -> StreamingResponse:
     if isinstance(error, asyncio.CancelledError):
         raise error
@@ -264,6 +266,7 @@ def _setup_error_response(
             trace_id=trace_id,
             turn_id=chat_req.turn_id or "",
             journal_scope=chat_stream_scope(workspace_context, agent_id, session_id),
+            assistant_profile=assistant_profile,
         ),
         media_type="application/x-ndjson",
         status_code=200,
@@ -282,6 +285,7 @@ async def chat_endpoint(
     """
     original_message = chat_req.message
     command_selected = False
+    assistant_profile = None
     request_started_at = time.monotonic()
     cancel_token = ""
     trace_id = uuid.uuid4().hex
@@ -312,8 +316,11 @@ async def chat_endpoint(
             profile_id, message = command
             command_selected = True
             chat_req = chat_req.model_copy(update={"profile_id": profile_id, "message": message, "active_skill_ids": None})
-        if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
-                   and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
+        addressed_profile = next((p for p in profiles if isinstance(p, dict) and p.get("id") == profile_id
+                                  and p.get("enabled", True) and not p.get("plugin_suspended")
+                                  and p.get("managed_by") != "llm-wiki"), None)
+        assistant_profile = public_assistant_profile(addressed_profile)
+        if not assistant_profile:
             raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
@@ -443,7 +450,9 @@ async def chat_endpoint(
             trace_id=trace_id,
         )
 
-        inputs["messages"][0].additional_kwargs["gnosi_visible_content"] = original_message
+        inputs["messages"][0].additional_kwargs.update(
+            gnosi_visible_content=original_message, gnosi_assistant_profile=assistant_profile,
+        )
 
         # 3. Configure memory thread (per agent + session)
         thread_id = _chat_thread_id(
@@ -474,6 +483,7 @@ async def chat_endpoint(
                 yield json.dumps({"type": "memory_saved", "memory_id": learning_memory["memory_id"]}) + "\n"
             async for event in stream_agent_events(
                 preferred_language=request.headers.get("Accept-Language", ""),
+                assistant_profile=assistant_profile,
                 request_started_at=request_started_at,
                 workflow_ready_at=workflow_ready_at,
                 llm_selection=llm_selection,
@@ -505,6 +515,7 @@ async def chat_endpoint(
                 trace_id=trace_id,
                 turn_id=chat_req.turn_id or "",
                 journal_scope=stream_scope,
+                assistant_profile=assistant_profile,
             ),
             media_type="application/x-ndjson",
         )
@@ -530,4 +541,5 @@ async def chat_endpoint(
             workspace_context=workspace_context,
             agent_id=agent_id,
             session_id=chat_req.session_id.strip(),
+            assistant_profile=assistant_profile,
         )

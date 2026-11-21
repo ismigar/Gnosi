@@ -13,9 +13,10 @@ import {
     timedPayloadFromMessage,
 } from './agentChatTiming';
 import { boundedGauntlet, boundedTransparencyMetadata } from './agentChatTransparency';
+import { cachedAssistantTurns, restoreTurnAttribution } from './agentChatAuthor';
 
 const PRESENTATION_FIELDS: readonly string[] = [
-    'turnId', 'turn_id', 'processingMs', 'timings',
+    'processingMs', 'timings',
     'feedback', 'saved', 'plan', 'privacy',
     'verification', 'citations', 'freshness', 'job', 'explanation',
     'errorCode', 'retryable', 'recovery', 'processingPhase',
@@ -73,9 +74,9 @@ export const mergeCanonicalMessageMetadata = (
     cached: unknown,
 ): LooseValue[] => {
     if (!isLooseArray(canonical)) return [];
-    const localMessages = isLooseArray(cached)
-        ? cached.map(normalizeMessageTurnId)
-        : [];
+    const stored = asLooseArray(cached);
+    const assistantTurns = cachedAssistantTurns(stored);
+    const localMessages = stored.map(normalizeMessageTurnId);
     const localTurnMap = new Map<string, number[]>();
 
     localMessages.forEach((message, index) => {
@@ -121,7 +122,11 @@ export const mergeCanonicalMessageMetadata = (
     };
 
     return canonical.map((message) => {
-        const turnMessage = normalizeMessageTurnId(message);
+        const restored = restoreTurnAttribution(message, assistantTurns);
+        // A legacy session/trace alias or positional match cannot establish a future author match.
+        const unanchoredAttribution = isRecord(restored) && restored.role === 'assistant'
+            && (restored.assistant_profile || restored.llm) && !restored.turn_id && !restored.turnId;
+        const turnMessage = unanchoredAttribution ? restored : normalizeMessageTurnId(restored);
         const normalizedMessage = isRecord(turnMessage) && 'gauntlet' in turnMessage
             ? { ...turnMessage, gauntlet: boundedGauntlet(turnMessage.gauntlet) } : turnMessage;
         let matchIndex: number | null = null;
@@ -150,6 +155,10 @@ export const mergeCanonicalMessageMetadata = (
         const matchRecord: LooseRecord = isRecord(match) ? match : {};
         const normalizedRecord: LooseRecord = isRecord(normalizedMessage) ? normalizedMessage : {};
         const metadata: LooseRecord = {};
+        if (!messageTurnId && !unanchoredAttribution) {
+            if (matchRecord.turnId !== undefined) metadata.turnId = matchRecord.turnId;
+            if (matchRecord.turn_id !== undefined) metadata.turn_id = matchRecord.turn_id;
+        }
         PRESENTATION_FIELDS.forEach((field) => {
             if (matchRecord[field] !== undefined) metadata[field] = matchRecord[field];
         });

@@ -34,6 +34,14 @@ function setup(overrides: Partial<AgentConfirmation> = {}) {
 }
 
 describe('confirmation execution reconciliation', () => {
+  it('restores a status-only card with its resolved profile and keeps a known name for matching ID-only updates', () => {
+    const records = [{ confirmation_id: 'card', status: 'completed', assistant_profile: { id: 'old', name: 'Old assistant' } }];
+    const messages = mergeLiveConfirmationRecords([], records, () => 'Completed');
+    const refreshed = mergeLiveConfirmationRecords(messages, [{ ...records[0], confirmation_id: 'card', assistant_profile: { id: 'old' } }], () => 'Completed');
+    expect(refreshed).toHaveLength(1);
+    expect(refreshed[0]?.assistant_profile).toEqual(records[0]?.assistant_profile);
+    expect(refreshed[0]?.confirmation?.status).toBe('completed');
+  });
   it('merges live confirmations exactly like the legacy contract without losing metadata or long content', () => {
     const untouched = { content: 'full'.repeat(6000), llm: { model: 'fixture' }, opaque: { kept: true } };
     const messages: ConfirmationConversation = [untouched, { role: 'assistant', content: 'old', confirmation: { confirmation_id: 'a', details: { before: 'private' } }, extra: 'kept' }];

@@ -193,6 +193,7 @@ async def stream_agent_events(
     turn_claimed: bool,
     chat_principal: str,
     preferred_language: str = "",
+    assistant_profile: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     state = AgentStreamState(
         request_started_at=request_started_at,
@@ -209,6 +210,7 @@ async def stream_agent_events(
         agent_id=agent_id,
         profile_id=chat_req.profile_id or agent_id,
         session_id=session_id,
+        **{f"conversation_profile_{key}": value for key, value in (assistant_profile or {}).items()},
     )
     try:
         terminal = is_cancelled(cancel_token)

@@ -515,6 +515,16 @@
             "title": "Action",
             "type": "string"
           },
+          "assistant_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentProfileIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confirmation_id": {
             "title": "Confirmation Id",
             "type": "string"
@@ -596,6 +606,42 @@
           "deleted"
         ],
         "title": "AgentDeleteResponse",
+        "type": "object"
+      },
+      "AgentProfileIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AgentProfileIdentity",
         "type": "object"
       },
       "AgentQualityDashboardResponse": {
@@ -890,6 +936,16 @@
       "AgentSessionMessageResponse": {
         "additionalProperties": false,
         "properties": {
+          "assistant_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentProfileIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "author_user_id": {
             "anyOf": [
               {
@@ -984,6 +1040,20 @@
                 "type": "null"
               }
             ]
+          },
+          "llm": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm"
           },
           "memory_provenance": {
             "anyOf": [

@@ -7,6 +7,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from backend.services.agent_behavior import resource
+from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_team_models import TeamPlan, TeamTask
 
@@ -43,6 +44,7 @@ def validate_assignments(plan: TeamPlan, members: list[dict[str, Any]], owner_id
                                  + ", ".join(specialists))
 
 
+@team_metadata_catalog()
 def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str,
                      *, include_owner: bool = False) -> list[dict[str, Any]]:
     from backend.services.agent_team_policy import team_for

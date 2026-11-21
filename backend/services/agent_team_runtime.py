@@ -19,6 +19,7 @@ from langgraph.graph import END, START, StateGraph
 
 from backend.services.agent_behavior import resource, revision
 from backend.services.agent_behavior_bindings import canonical_id, runtime_skill_ids
+from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, ExecutionScope
 from backend.services.agent_team_models import TEAM_SKILL, AgentTeam, TeamPlan, TeamTask, TemporaryAgentSpec
 from backend.services.agent_team_policy import select_executor, team_for
@@ -33,8 +34,9 @@ def _config() -> dict[str, Any]:
     return dict(load_params(strict_env=False).ai)
 
 
-def _profile(identifier: str) -> dict[str, Any]:
-    profile = next((p for p in _config().get("agents", []) if p.get("id") == identifier), None)
+def _profile(identifier: str, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    ai = _config() if config is None else config
+    profile = next((p for p in ai.get("agents", []) if p.get("id") == identifier), None)
     if not profile or not profile.get("enabled", True) or profile.get("plugin_suspended"):
         raise PermissionError("agent_team_profile_unavailable")
     return copy.deepcopy(profile)
@@ -644,18 +646,22 @@ def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) ->
     graph.add_edge(START, "team_reply")
     graph.add_edge("team_reply", "team")
     graph.add_edge("team", END)
-    setattr(graph, "_execution_snapshot", snapshot_from_runtime(current_scope(), owner, profile.resolved_runtime))
+    scope = current_scope()
+    setattr(graph, "_execution_snapshot", snapshot_from_runtime(scope, owner, profile.resolved_runtime))
     from backend.domains.agent.runtime_tools import _runtime_tool_metadata
     metadata = {}
-    for member in team_for(owner).members:
-        try:
-            member_profile = _profile(member.agent_id)
-        except PermissionError:
-            continue
-        runtime = _runtime(member_profile, current_scope())
-        entries, _ = _runtime_tool_metadata(runtime)
-        for item in entries:
-            metadata[item["name"]] = {k: v for k, v in item.items() if not k.startswith("_")}
+    members = team_for(owner).members
+    with team_metadata_catalog():
+        config = _config() if members else {}
+        for member in members:
+            try:
+                member_profile = _profile(member.agent_id, config=config)
+            except PermissionError:
+                continue
+            runtime = _runtime(member_profile, scope)
+            entries, _ = _runtime_tool_metadata(runtime)
+            for item in entries:
+                metadata[item["name"]] = {k: v for k, v in item.items() if not k.startswith("_")}
     return graph, {"provider": owner.get("provider", ""), "model": owner.get("model", ""), "mode": "team", "supports_tools": True,
         "tool_count": len(metadata),
         "active_skill_ids": list(profile.resolved_runtime.active_skill_ids), "tools": list(metadata.values()),

@@ -6,7 +6,7 @@ import weakref
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from backend.domains.agent.routes.contracts import TURN_LOCK_TIMEOUT_SECONDS
+from backend.domains.agent.routes.contracts import PROFILE_IDENTIFIER_RE, TURN_LOCK_TIMEOUT_SECONDS
 from backend.domains.agent.routes.shared import _message_text
 
 _THREAD_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
@@ -206,12 +206,38 @@ def _public_gauntlet_metadata(value: Any) -> Dict[str, Any] | None:
     return {"status": status, "rounds": rounds, "finding_count": finding_count, "stop_reason": stop_reason}
 
 
+def public_assistant_profile(value: Any) -> dict[str, str] | None:
+    """Snapshot only display identity from the resolved profile, never its configuration."""
+    if not isinstance(value, dict) or not isinstance(value.get("id"), str) or not PROFILE_IDENTIFIER_RE.fullmatch(value["id"]):
+        return None
+    result = {"id": value["id"]}
+    for key in ("name", "managed_by"):
+        if isinstance(value.get(key), str) and value[key].strip():
+            result[key] = value[key].strip()[:160]
+    return result
+
+
+def _checkpoint_model(message: Any) -> dict[str, str] | None:
+    metadata = getattr(message, "response_metadata", None)
+    if not isinstance(metadata, dict):
+        return None
+    model = metadata.get("model_name") or metadata.get("model")
+    if not isinstance(model, str) or not model.strip():
+        return None
+    result = {"model": model.strip()[:160]}
+    provider = metadata.get("model_provider")
+    if isinstance(provider, str) and provider.strip():
+        result["provider"] = provider.strip()[:80]
+    return result
+
+
 def _checkpoint_public_message(
     message: Any,
     *,
     role: str,
     content: str,
     turn_id: str,
+    assistant_profile: dict[str, str] | None = None,
 ) -> Dict[str, Any]:
     public_message: Dict[str, Any] = {
         "role": "user" if role == "human" else "assistant",
@@ -224,6 +250,10 @@ def _checkpoint_public_message(
         if author_user_id:
             public_message["author_user_id"] = author_user_id
     if role == "ai":
+        if assistant_profile:
+            public_message["assistant_profile"] = assistant_profile
+        if model := _checkpoint_model(message):
+            public_message["llm"] = model
         assistant_metadata = dict(getattr(message, "additional_kwargs", {}) or {})
         native = assistant_metadata.get('gnosi_action_confirmation')
         if isinstance(native, dict):
@@ -264,12 +294,21 @@ def _public_checkpoint_message_entries(
 
     current_turn_id = ""
     start = max(0, len(stored_messages) - 200)
+    assistant_profile = None
+    # The public window can start with a reply whose owning human turn is just outside it.
+    for index in range(start - 1, -1, -1):
+        previous = stored_messages[index]
+        if getattr(previous, "type", "") == "human":
+            assistant_profile = public_assistant_profile(getattr(previous, "additional_kwargs", {}).get("gnosi_assistant_profile"))
+            break
     for raw_index, message in enumerate(stored_messages[start:], start=start):
         role = getattr(message, "type", "")
         if role not in {"human", "ai"}:
             continue
         if role == "ai" and getattr(message, "tool_calls", None):
             continue
+        if role == "human":
+            assistant_profile = public_assistant_profile(getattr(message, "additional_kwargs", {}).get("gnosi_assistant_profile"))
         current_turn_id = _checkpoint_turn_id(message, role, current_turn_id)
         content = _checkpoint_content(message, role)
         if not content.strip():
@@ -282,6 +321,7 @@ def _public_checkpoint_message_entries(
                     role=role,
                     content=content,
                     turn_id=current_turn_id,
+                    assistant_profile=assistant_profile,
                 ),
             )
         )

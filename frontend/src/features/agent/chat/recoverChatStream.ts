@@ -3,6 +3,7 @@ import { isRecord } from '../model/agentChatMessageTypes';
 import { applyChatStreamEvent } from './applyChatStreamEvent';
 import { acceptStreamSequence } from './streamSequence';
 import type { ChatStreamState, StreamEventContext } from './streamEventModel';
+import { assistantProfileSnapshot } from '../model/agentChatAuthor';
 
 interface RecoveryRuntime { readonly pause?: () => Promise<void>; readonly signal?: AbortSignal }
 const pauseBetweenPolls = () => new Promise<void>((resolve) => { window.setTimeout(resolve, 1000); });
@@ -27,6 +28,12 @@ export async function recoverChatStream(state: ChatStreamState, context: StreamE
         if (value.type === 'confirmation_required') {
           state.failed = true;
           state.responseReceived ||= typeof value.confirmation_id === 'string' && Boolean(value.confirmation_id);
+          const profile = assistantProfileSnapshot(value.assistant_profile, state.assistantProfile);
+          if (profile && typeof value.confirmation_id === 'string') {
+            context.setMessages(previous => context.activeScopeRef.current !== context.requestScope ? previous
+              : previous.map(row => row.confirmation?.confirmation_id === value.confirmation_id
+                ? { ...row, assistant_profile: assistantProfileSnapshot(profile, row.assistant_profile) } : row));
+          }
         } else state.terminal = true;
       } else {
         applyChatStreamEvent(state, value, context);

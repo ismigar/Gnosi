@@ -43,10 +43,24 @@ describe('typed chat submission', () => {
   });
   it('uses the durable turn identity and advances only after a successful terminal response', async () => {
     const onOutcome = vi.fn();
-    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', onOutcome });
+    const profile = { id: 'research', name: 'My researcher' };
+    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', profile, onOutcome });
     api.start.mockResolvedValueOnce(streamResponse(done)); await submitChatTurn(f.context);
     expect(api.start.mock.calls[0]?.[0].turn_id).toBe('queued-turn');
+    expect(api.start.mock.calls[0]?.[0].profile_id).toBe('research');
+    expect(f.messages()[1]?.assistant_profile).toEqual(profile);
     expect(onOutcome).toHaveBeenCalledWith(true);
+  });
+  it('attributes slash-command replies only when the server identifies the effective profile', async () => {
+    const selected = { id: 'original', name: 'Original' };
+    const routed = { id: 'research', name: 'My researcher' };
+    for (const serverProfile of [undefined, routed]) {
+      const f = chatTurnFixture(locale.t, { inputValue: ' /research check', profile: selected });
+      api.start.mockResolvedValueOnce(streamResponse([{ type: 'stream_open', stream_id: 'stream', assistant_profile: serverProfile }, ...done]));
+      await submitChatTurn(f.context);
+      expect(f.messages()[1]?.assistant_profile).toEqual(serverProfile);
+      expect(api.start.mock.calls.at(-1)?.[0].profile_id).toBe(selected.id);
+    }
   });
   it('pauses the queue on an uncertain or failed delivery', async () => {
     const onOutcome = vi.fn();

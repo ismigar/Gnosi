@@ -6060,6 +6060,8 @@
     "empty_title": "How can I help you today?",
     "empty_subtitle": "I can analyze your Vault, manage your calendar, or write code for you.",
     "you": "You",
+    "assistant_author": "Assistant",
+    "system_author": "System",
     "processing": "Processing...",
     "processing_with_seconds": "Processing... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",

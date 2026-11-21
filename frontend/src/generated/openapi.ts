@@ -12592,6 +12592,7 @@ export interface components {
         AgentConfirmationRecordResponse: {
             /** Action */
             action: string;
+            assistant_profile?: components["schemas"]["AgentProfileIdentity"] | null;
             /** Confirmation Id */
             confirmation_id: string;
             /** Created At */
@@ -12626,6 +12627,15 @@ export interface components {
         AgentDeleteResponse: {
             /** Deleted */
             deleted: boolean;
+        };
+        /** AgentProfileIdentity */
+        AgentProfileIdentity: {
+            /** Id */
+            id: string;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** AgentQualityDashboardResponse */
         AgentQualityDashboardResponse: {
@@ -12779,6 +12789,7 @@ export interface components {
         };
         /** AgentSessionMessageResponse */
         AgentSessionMessageResponse: {
+            assistant_profile?: components["schemas"]["AgentProfileIdentity"] | null;
             /** Author User Id */
             author_user_id?: string | null;
             citations?: components["schemas"]["JsonValue"] | null;
@@ -12791,6 +12802,10 @@ export interface components {
             freshness?: components["schemas"]["JsonValue"] | null;
             gauntlet?: components["schemas"]["JsonValue"] | null;
             job?: components["schemas"]["JsonValue"] | null;
+            /** Llm */
+            llm?: {
+                [key: string]: string;
+            } | null;
             /** Memory Provenance */
             memory_provenance?: {
                 [key: string]: components["schemas"]["JsonValue"];

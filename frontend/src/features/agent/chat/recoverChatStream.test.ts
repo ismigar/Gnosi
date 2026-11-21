@@ -28,6 +28,16 @@ describe('existing chat stream recovery', () => {
     const f = fixture(); replay.mockResolvedValueOnce([{ type: 'message', sequence: 3, content: 'original' }]).mockResolvedValueOnce([{ type: 'message', sequence: 3, content: 'duplicate' }, { type: 'done', sequence: 4 }]);
     await expect(f.recover()).resolves.toBe(true); expect(f.pause).toHaveBeenCalledTimes(1); expect(f.messages()).toHaveLength(1); expect(f.messages()[0]?.content).toBe('original'); expect(replay.mock.calls[1]?.[1]).toBe(3);
   });
+  it('updates a partial reply with the resolved author from its replay without retaining private profile settings', async () => {
+    const f = fixture([{ role: 'assistant', turnId: 'turn', content: 'partial', assistant_profile: { id: 'selected', name: 'Selected' } }]);
+    replay.mockResolvedValueOnce([
+      { type: 'message', sequence: 3, content: 'Recovered reply',
+        assistant_profile: { id: 'command', name: 'Command author', managed_by: 'plugin:sample', instructions: 'not public' } },
+      { type: 'done', sequence: 4 },
+    ]);
+    await expect(f.recover()).resolves.toBe(true);
+    expect(f.messages()[0]?.assistant_profile).toEqual({ id: 'command', name: 'Command author', managed_by: 'plugin:sample' });
+  });
   it.each([
     { status: 'incomplete', rounds: 2, finding_count: 1, stop_reason: 'budget' },
     null,
@@ -65,6 +75,14 @@ describe('existing chat stream recovery', () => {
     expect(f.messages()).toEqual([card]);
     expect(f.state.failed).toBe(true);
     expect(f.pause).not.toHaveBeenCalled();
+  });
+  it('restores the existing confirmation author by ID while preserving its current status', async () => {
+    const card = { role: 'assistant', content: 'Completed', confirmation: { confirmation_id: 'action', status: 'completed' } };
+    const f = fixture([card]);
+    replay.mockResolvedValueOnce([{ type: 'confirmation_required', sequence: 3, confirmation_id: 'action',
+      assistant_profile: { id: 'real', name: 'Original author' } }, { type: 'done', sequence: 4 }]);
+    await expect(f.recover()).resolves.toBe(true);
+    expect(f.messages()).toEqual([{ ...card, assistant_profile: { id: 'real', name: 'Original author' } }]);
   });
   it('drops replay data that arrives after explicit Cancel in the same conversation', async () => {
     const f = fixture();

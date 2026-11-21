@@ -27,7 +27,7 @@ afterEach(async () => { await act(async () => { root.unmount(); await Promise.re
 function props(overrides: Partial<ChatMessageRowProps> = {}): ChatMessageRowProps {
   return {
     message: { content: 'answer', role: 'assistant', turnId: 'turn' }, index: 2,
-    notebookId: '', readOnly: false, conversationMode: 'private_member', storageIdentity: 'me', agentName: 'Fixture',
+    notebookId: '', readOnly: false, conversationMode: 'private_member', storageIdentity: 'me', profiles: [],
     isLoading: false, isRewinding: false, showTurnRewind: true, detailsMessageIndex: null,
     confirmationTitle: () => 'Review action', setPendingConfirmation: vi.fn(), setPendingRewindIndex: vi.fn(), setDetailsMessageIndex: vi.fn(),
     focusComposerWith: vi.fn(), copyMessage: vi.fn<ChatMessageRowProps['copyMessage']>().mockResolvedValue(undefined),
@@ -142,16 +142,36 @@ describe('typed message row', () => {
     await render({ ...p, message: { content: 'confirm', confirmation: { ...confirmation, status: 'completed' } } }); expect(container.textContent).not.toContain('Review and confirm');
   });
   it('shows attachment links/fallback names and the original author/model/timing labels', async () => {
-    const p = props({ message: { content: 'answer', role: 'assistant', llm: { model: 'Model' }, processingMs: 1200, attachments: [{ name: 'a.txt', url: '/fixture/a' }, { name: 'b.txt' }, {}] } });
+    const p = props({ message: { content: 'answer', role: 'assistant', assistant_profile: { id: 'fixture', name: 'Fixture' }, llm: { model: 'Model' }, processingMs: 1200, attachments: [{ name: 'a.txt', url: '/fixture/a' }, { name: 'b.txt' }, {}] } });
     await render(p); expect(container.textContent).toContain('Fixture - Model · 1.2 s'); expect(container.textContent).toContain('b.txt'); expect(container.textContent).toContain('file');
     expect(container.querySelector('a')?.target).toBe('_blank');
     await render({ ...p, message: { content: 'question', role: 'user', author_user_id: 'other' } }); expect(container.textContent).toContain('Member other');
     await render({ ...p, message: { content: 'question', role: 'user', author_user_id: 'me' } }); expect(container.textContent).toContain('You');
   });
+  it.each(Object.entries({ ca, en, es, fr }))('keeps the footer and editable quotation tied to each message in %s', async (language, translation) => {
+    const i18n = createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources: { [language]: { translation } } });
+    const builtin = { id: 'builtin.resources.default', name: 'Literature assistance', managed_by: 'builtin:resources' };
+    const localName = translation.settings.ai.assistant.builtin_profiles.resources;
+    const cases = [
+      { message: { role: 'assistant', content: 'result', assistant_profile: builtin, llm: { model: 'model-a' } }, footer: localName + ' - model-a', quote: localName },
+      { message: { role: 'assistant', content: 'result', assistant_profile: { ...builtin, name: 'My name' } }, footer: 'My name', quote: 'My name' },
+      { message: { role: 'assistant', content: 'result', llm: { model: 'model-b' } }, footer: translation.chat.assistant_author + ' - model-b', quote: translation.chat.assistant_author + ' - model-b' },
+      { message: { role: 'user', content: 'result', author_user_id: 'other' }, footer: i18n.t('notebooks.member_message', { member: 'other' }), quote: i18n.t('notebooks.member_message', { member: 'other' }) },
+      { message: { role: 'system', content: 'result' }, footer: translation.chat.system_author, quote: translation.chat.system_author },
+    ];
+    for (const item of cases) {
+      const p = props({ message: item.message });
+      await render(p, i18n);
+      expect(container.querySelector('.chat-message > span:last-child')?.textContent).toBe(item.footer);
+      await click(translation.chat.reply_to_message);
+      expect(p.quoteMessage).toHaveBeenCalledExactlyOnceWith('result', item.quote);
+    }
+  });
   it('forwards copy, quote, prefill, retry, feedback and save without executing a new turn', async () => {
     const p = props({ message: { content: 'answer', role: 'assistant', turnId: 'turn', retryable: true, saved: true, feedback: 'up' } }); await render(p);
     await click('Copy message'); await click('Reply to message'); expect(container.querySelector('button[aria-label="Regenerate response"]')).toBeNull(); await click('Retry response'); await click('Helpful response'); await click('Unhelpful response'); await click('Bookmark message');
-    expect(p.copyMessage).toHaveBeenCalledExactlyOnceWith('answer'); expect(p.quoteMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'answer' })); expect(p.focusComposerWith).not.toHaveBeenCalled(); expect(p.retryMessage).toHaveBeenCalledExactlyOnceWith(2);
+    expect(p.copyMessage).toHaveBeenCalledExactlyOnceWith('answer'); expect(p.quoteMessage).toHaveBeenCalledExactlyOnceWith('answer', 'Assistant'); expect(p.focusComposerWith).not.toHaveBeenCalled(); expect(p.retryMessage).toHaveBeenCalledExactlyOnceWith(2);
     expect(p.submitMessageFeedback).toHaveBeenNthCalledWith(1, 2, 'up'); expect(p.submitMessageFeedback).toHaveBeenNthCalledWith(2, 2, 'down'); expect(p.markMessage).toHaveBeenCalledExactlyOnceWith(2, 'saved', false); expect(button('Helpful response').getAttribute('aria-pressed')).toBe('true');
     await render({ ...p, message: { content: 'answer', role: 'assistant' } });
     expect(container.querySelector('button[aria-label="Retry response"]')).toBeNull(); await click('Regenerate response');

@@ -4,6 +4,7 @@ import { isLearningRequest } from '../../agent-learning';
 import { useState, useRef, useEffect, useEffectEvent, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
+import { assistantProfileSnapshot } from '../model/agentChatAuthor';
 import { useExclusiveFloatingPanel } from '../../../shared/hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../../../shared/hooks/useFloatingActionDock';
 import { agentChatStorageScope } from '../model/agentConfirmationUtils';
@@ -204,7 +205,7 @@ export function useAgentChatController({
     });
     const agentName = (agentConfig && profileDisplayName(agentConfig, t)) || 'Gnosi Copilot';
     const { focusComposerWith, copyMessage, quoteMessage, markMessage, submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage } = useChatMessageActions({
-        messages, setMessages, agentName, selectedAgentId, sessionId, isLoading,
+        messages, setMessages, selectedAgentId, sessionId, isLoading,
         inputRef, setInputValue, setShowMentionMenu,
     });
     const confirmConversationRewind = useChatRewind({
@@ -286,13 +287,14 @@ export function useAgentChatController({
             setQueueState({ scope: queueScope, items });
         }).catch(() => { setQueueStorageError(true); });
     }, [queueScope]);
-    const runTurn = (text: string, files: readonly ChatAttachment[], mentions: readonly AgentChatMention[], turnId?: string, onOutcome?: (success: boolean) => void | Promise<void>) => submitChatTurn({
+    const runTurn = (text: string, files: readonly ChatAttachment[], mentions: readonly AgentChatMention[], profileId: string, turnId?: string, onOutcome?: (success: boolean) => void | Promise<void>) => submitChatTurn({
         t, inputValue: text, attachments: files, readOnly, isLoading, agentHasModel, selectedMentions: mentions,
         processingStartedAtRef, setMessages, setInputValue: turnId ? () => {} : setInputValue,
         clearDraftMentions: turnId ? () => {} : clearDraftMentions,
         clearDraftAttachments: turnId ? () => {} : clearDraftAttachments,
         setShowMentionMenu, setIsLoading, setProcessingPhase, browserStorageScope, selectedAgentId,
-        profileId: selectedProfileId, sessionId, activeScopeRef, activeStreamRef, setAgentRuntime,
+        profile: assistantProfileSnapshot(agentList.find(profile => profile.id === profileId)) ?? { id: profileId },
+        sessionId, activeScopeRef, activeStreamRef, setAgentRuntime,
         confirmationSummary, requestAbortRef, contextRefs, notebookId, inputRef, queuedTurnId: turnId, onOutcome,
     });
     const drainQueue = useEffectEvent(() => {
@@ -316,7 +318,7 @@ export function useAgentChatController({
                 await replaceQueue(current => current.map(value => value.id === prompt.id ? { ...value, status: 'paused' } : value), scope);
                 return;
             }
-            await runTurn(prompt.text, prompt.attachments, prompt.mentions, prompt.id, async success => {
+            await runTurn(prompt.text, prompt.attachments, prompt.mentions, prompt.profileId, prompt.id, async success => {
                 await replaceQueue(current => success ? current.filter(value => value.id !== prompt.id)
                     : current.map(value => ({ ...value, status: value.id === prompt.id ? 'uncertain' as const : 'paused' as const })), scope);
             });
@@ -345,7 +347,7 @@ export function useAgentChatController({
             setLearningGoal(inputValue); setLearningScope(`${browserStorageScope}:${selectedAgentId}:${sessionId}`);
             setShowLearning(true); setInputValue(''); return Promise.resolve();
         }
-        return runTurn(inputValue, attachments, selectedMentions, undefined, async success => {
+        return runTurn(inputValue, attachments, selectedMentions, selectedProfileId, undefined, async success => {
             if (!success) await replaceQueue(current => current.map(value => ({ ...value, status: 'paused' })), queueScope);
         });
     };
@@ -372,7 +374,7 @@ export function useAgentChatController({
         showLearning, setShowLearning,
         learningGoal: learningScope === `${browserStorageScope}:${selectedAgentId}:${sessionId}` ? learningGoal : '',
         setLearningGoal, sessionId, browserStorageScope,
-        t, embedded, readOnly, notebookId, conversationMode, storageIdentity, contextRefs,
+        t, embedded, readOnly, notebookId, conversationMode, storageIdentity: userStorageScope, contextRefs,
         isOpen, isDockOpen, agentIcon, setIsDockOpen, setIsOpen, isMinimized, handleChatKeyDown,
         isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, runtimeStatusLabel,
         agentModel, runtimeStatusHelp, agentList, archiveCurrentSession, setIsMinimized,

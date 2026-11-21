@@ -37,7 +37,9 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
   setIsLoading(true);
   setProcessingPhase('routing');
   const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
-  const streamState = createChatStreamState();
+  // A slash command may route this turn to a different profile on the server.
+  const maySelectProfile = /^\s*\/[a-z][a-z0-9_-]{0,31}(?:\s|$)/i.test(inputValue);
+  const streamState = createChatStreamState(maySelectProfile ? undefined : context.profile);
   const streamContext: StreamEventContext = {
     t, requestScope, agentId: selectedAgentId, sessionId, turnId,
     activeScopeRef, activeStreamRef, setMessages, setAgentRuntime, setProcessingPhase, confirmationSummary,
@@ -50,7 +52,7 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     const cancelId = crypto.randomUUID();
     activeStreamRef.current = `request-${cancelId}`;
     const response = await startChatStream({
-      message: inputValue, agent_id: selectedAgentId, profile_id: context.profileId, session_id: sessionId,
+      message: inputValue, agent_id: selectedAgentId, profile_id: context.profile?.id, session_id: sessionId,
       llm_mode: 'agent_default', mentions, attachments: attachmentsPayload,
       context_refs: [...contextRefs], notebook_id: notebookId || undefined, turn_id: turnId, cancel_id: cancelId,
     }, ownedController.signal);

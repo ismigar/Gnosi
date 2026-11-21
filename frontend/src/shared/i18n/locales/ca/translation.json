@@ -6611,6 +6611,8 @@
     "empty_title": "Com t'ajudo avui?",
     "empty_subtitle": "Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.",
     "you": "Tu",
+    "assistant_author": "Assistent",
+    "system_author": "Sistema",
     "processing": "Processant...",
     "processing_with_seconds": "Processant... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",

@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { AgentRuntimeState } from '../model/agentRuntimeStatus';
 import { boundedTransparencyMetadata } from '../model/agentChatTransparency';
 import type { TurnMetrics } from '../model/agentChatTiming';
+import type { AssistantProfileSnapshot } from '../model/agentChatAuthor';
 import type { StoredChatMessage } from './sessionModel';
 import type { AgentConfirmation } from './confirmationModel';
 
@@ -19,6 +20,7 @@ export interface ChatStreamState {
   sequence: number;
   streamId: string;
   model: StreamSelectedModel | null;
+  assistantProfile?: AssistantProfileSnapshot;
   metrics: TurnMetrics | null;
   transparency: ReturnType<typeof boundedTransparencyMetadata>;
   terminal: boolean;
@@ -38,8 +40,8 @@ export interface StreamEventContext {
   readonly setProcessingPhase: (phase: string) => void;
   readonly confirmationSummary: (confirmation: AgentConfirmation) => string;
 }
-export function createChatStreamState(): ChatStreamState {
-  return { sequence: 0, streamId: '', model: null, metrics: null, transparency: boundedTransparencyMetadata({}), terminal: false, failed: false, responseReceived: false };
+export function createChatStreamState(assistantProfile?: AssistantProfileSnapshot): ChatStreamState {
+  return { sequence: 0, streamId: '', model: null, assistantProfile, metrics: null, transparency: boundedTransparencyMetadata({}), terminal: false, failed: false, responseReceived: false };
 }
 export function definedTransparency(metadata: ChatStreamState['transparency']): Partial<ChatStreamState['transparency']> {
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== null));

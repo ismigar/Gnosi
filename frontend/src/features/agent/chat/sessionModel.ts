@@ -2,6 +2,7 @@ import { confirmationForStorage, type ConfirmationRecord } from '../model/agentC
 import { boundedProcessingMs, boundedTransparencyMetadata, boundedTurnMetrics } from '../model/agentChatMessageUtils';
 import { isRecord, stringifyLooseValue, type LooseRecord } from '../model/agentChatMessageTypes';
 import type { TurnMetrics } from '../model/agentChatTiming';
+import { assistantProfileSnapshot, type AssistantProfileSnapshot } from '../model/agentChatAuthor';
 
 export const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 export const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -16,6 +17,7 @@ export interface StoredChatMessage extends Partial<ReturnType<typeof boundedTran
   readonly content: string;
   readonly role?: string;
   readonly confirmation?: ConfirmationRecord;
+  readonly assistant_profile?: AssistantProfileSnapshot;
   readonly processingMs?: number | null;
   readonly timings?: TurnMetrics | null;
 }
@@ -44,6 +46,7 @@ function storedMessage(value: unknown): StoredChatMessage {
     role: typeof message.role === 'string' ? message.role : undefined,
     content: message.confirmation ? '' : stringifyLooseValue(message.content || '').slice(0, MAX_STORED_MESSAGE_CHARS),
     confirmation: storedConfirmation(message.confirmation),
+    assistant_profile: assistantProfileSnapshot(message.assistant_profile),
     processingMs: boundedProcessingMs(message.processingMs),
     timings: boundedTurnMetrics(message.timings),
     ...boundedTransparencyMetadata(message),

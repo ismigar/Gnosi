@@ -9,7 +9,7 @@ import { Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, U
 import { effectiveMessageTimingMs, getTurnId, processingSeconds } from '../model/agentChatMessageUtils';
 import { MessageDetails } from './MessageDetails';
 import { hasMessageDetails } from './messageDetailsModel';
-import { messagePresentation } from './messagePresentation';
+import { messageAuthor, messagePresentation } from './messagePresentation';
 import type { ChatMessageRowProps } from './chatMessageRowTypes';
 
 function ActionButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
@@ -17,13 +17,16 @@ function ActionButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLBu
 }
 
 export function ChatMessageRow({ message, index: idx,
-  notebookId, readOnly, conversationMode, storageIdentity, agentName, isLoading, isRewinding,
+  notebookId, readOnly, conversationMode, storageIdentity, profiles, isLoading, isRewinding,
   detailsMessageIndex, showTurnRewind, confirmationTitle, setPendingConfirmation, setPendingRewindIndex,
   setDetailsMessageIndex, focusComposerWith, copyMessage, quoteMessage, markMessage,
   submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage
 }: ChatMessageRowProps) {
   const { t } = useTranslation();
   const msg = messagePresentation(message);
+  const author = messageAuthor(msg, profiles, storageIdentity, t);
+  const name = author || t('chat.assistant_author', 'Assistant');
+  const byline = msg.role === 'assistant' && msg.llm?.model ? `${name} - ${msg.llm.model}` : name;
   const detailsId = useId();
   const expanded = detailsMessageIndex === idx;
   const hasDetails = hasMessageDetails(msg);
@@ -195,7 +198,7 @@ export function ChatMessageRow({ message, index: idx,
                     <FilePlus2 />
                 </button>
             ))}
-            {!readOnly && <ActionButton label={t('chat.reply_to_message', 'Reply to message')} onClick={() => { quoteMessage(msg); }}><Reply /></ActionButton>}
+            {!readOnly && <ActionButton label={t('chat.reply_to_message', 'Reply to message')} onClick={() => { quoteMessage(msg.content, author || byline); }}><Reply /></ActionButton>}
             {!readOnly && msg.role === 'user' && <ActionButton label={t('chat.edit_message', 'Edit and resend')} onClick={() => { focusComposerWith(msg.content); }}><Pencil /></ActionButton>}
             {prompt && <ActionButton label={msg.retryable ? t('chat.retry_response', 'Retry response') : t('chat.regenerate_message', 'Regenerate response')}
                 disabled={isLoading && msg.retryable} onClick={() => { if (msg.retryable) retryMessage(idx); else focusComposerWith(prompt); }}><RotateCcw /></ActionButton>}
@@ -219,13 +222,7 @@ export function ChatMessageRow({ message, index: idx,
                 : processingSeconds(effectiveMessageTimingMs(msg));
             return (
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
-                    {msg.role === 'user'
-                        ? (
-                            msg.author_user_id && msg.author_user_id !== storageIdentity
-                                ? t('notebooks.member_message', 'Member {{member}}', { member: msg.author_user_id })
-                                : t('chat.you', "You")
-                        )
-                        : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
+                    {byline}
                     {msg.role !== 'user' && responseSeconds !== null
                         ? ` · ${t('chat.processing_seconds', '{{count}} s', { count: responseSeconds })}`
                         : ''}

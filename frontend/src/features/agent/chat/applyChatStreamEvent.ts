@@ -7,6 +7,7 @@ import { readLiveChatMessages } from './liveConversationModel';
 import { acceptStreamSequence } from './streamSequence';
 import { selectedStreamModel, streamResponseMessage, streamRuntime } from './streamResponseMessage';
 import type { ChatStreamState, StreamEventContext } from './streamEventModel';
+import { assistantProfileSnapshot } from '../model/agentChatAuthor';
 
 /** One stream owns these envelope flags; React message updates remain scope-guarded. */
 export function applyChatStreamEvent(state: ChatStreamState, value: unknown, context: StreamEventContext): void {
@@ -15,6 +16,7 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
   if (!sequence.accepted) return;
   state.sequence = sequence.sequence;
   const { activeScopeRef, requestScope, setMessages, turnId } = context;
+  state.assistantProfile = assistantProfileSnapshot(value.assistant_profile, state.assistantProfile);
   const type = typeof value.type === 'string' ? value.type : '';
   if (type === 'stream_open') {
     state.streamId = stringifyLooseValue(value.stream_id || ''); context.activeStreamRef.current = state.streamId; return;
@@ -44,7 +46,7 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
       if (activeScopeRef.current !== requestScope) return previous;
       return readLiveChatMessages(mergeConfirmationRecords<ConfirmationRecord>(previous, [confirmation], () => context.confirmationSummary(confirmation)))
         .map((message) => message.confirmation?.confirmation_id === confirmation.confirmation_id
-          ? { ...message, turnId, ...(value.gauntlet !== undefined ? { gauntlet: boundedGauntlet(value.gauntlet) } : {}) } : message);
+          ? { ...message, turnId, ...(state.assistantProfile && { assistant_profile: state.assistantProfile }), ...(value.gauntlet !== undefined ? { gauntlet: boundedGauntlet(value.gauntlet) } : {}) } : message);
     });
     return;
   }

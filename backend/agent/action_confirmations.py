@@ -194,9 +194,8 @@ def _normalized_scope(scope: Dict[str, Any]) -> Dict[str, str]:
     if missing:
         raise RuntimeError(f"Missing confirmation scope: {', '.join(missing)}")
     normalized = {key: str(scope[key]) for key in required}
-    if scope.get("profile_id"):
-        normalized["profile_id"] = str(scope["profile_id"])
-    for key in ("team_run_id", "team_owner_id", "team_task_key"):
+    for key in ("profile_id", "team_run_id", "team_owner_id", "team_task_key",
+                "conversation_profile_id", "conversation_profile_name", "conversation_profile_managed_by"):
         if scope.get(key):
             normalized[key] = str(scope[key])
     return normalized
@@ -340,6 +339,13 @@ def request_confirmation(
     encoded_event = _encoded_json(event)
     if len(encoded_event.encode("utf-8")) > MAX_CONFIRMATION_EVENT_BYTES:
         raise ValueError("The pending action preview exceeds the safety limit.")
+    # The live stream stamps the addressed assistant on its envelope. A status
+    # record may be the only surviving row after a reload or reconnection.
+    if scope.get("conversation_profile_id"):
+        preview["assistant_profile"] = {
+            key: scope[f"conversation_profile_{key}"]
+            for key in ("id", "name", "managed_by") if f"conversation_profile_{key}" in scope
+        }
     encoded_preview = _encoded_json(preview)
 
     with _database_connection() as connection:

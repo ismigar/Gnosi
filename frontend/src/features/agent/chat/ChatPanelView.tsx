@@ -98,7 +98,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                                 readOnly={readOnly}
                                 conversationMode={conversationMode}
                                 storageIdentity={storageIdentity}
-                                agentName={agentName}
+                                profiles={agentList}
                                 isLoading={isLoading}
                                 isRewinding={isRewinding}
                                 showTurnRewind={rewindRows.has(idx)}
