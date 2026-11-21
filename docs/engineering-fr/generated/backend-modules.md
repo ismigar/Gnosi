@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 283 | 55311 |
+| `services` | 283 | 55315 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1142 modules** and **215692 source lines**.
+Total: **1142 modules** and **215696 source lines**.
 
 ## agent
 
@@ -1217,7 +1217,7 @@ Total: **1142 modules** and **215692 source lines**.
 | [`backend/services/social_clients.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py) | 606 | 4 | 0 | 0 | 4 | Social Network API Clients |
 | [`backend/services/social_compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_compose.py) | 145 | 0 | 6 | 0 | 3 | AI layer for composing social media posts. |
 | [`backend/services/social_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_store.py) | 205 | 0 | 6 | 4 | 6 | Persistence of social posts in a Vault table. |
-| [`backend/services/structured_output_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/structured_output_diagnostics.py) | 45 | 1 | 2 | 0 | 2 | Bound repair diagnostics without repeating documents or entire JSON schemas. |
+| [`backend/services/structured_output_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/structured_output_diagnostics.py) | 49 | 2 | 2 | 0 | 3 | Bound repair diagnostics without repeating documents or entire JSON schemas. |
 | [`backend/services/table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/table_system_dates.py) | 278 | 0 | 10 | 0 | 6 | System creation and modification date fields for Vault tables. |
 | [`backend/services/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/tool_runtime.py) | 35 | 0 | 0 | 0 | 0 | Compatibility exports for the agent-domain tool runtime. |
 | [`backend/services/transcription.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py) | 151 | 5 | 6 | 0 | 2 | Local audio transcription with faster-whisper (CTranslate2, WITHOUT torch). |
