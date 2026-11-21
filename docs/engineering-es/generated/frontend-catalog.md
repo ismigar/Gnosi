@@ -52,7 +52,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1309 | 138412 | 57 |
+| `features` | 1309 | 138415 | 57 |
 | `generated` | 3 | 57976 | 599 |
 | `shared` | 354 | 37516 | 514 |
 
@@ -352,7 +352,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 286 | `useMetadataLookup` | — |
 | [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 299 | `ProcessResourceModalView` | — |
 | [`frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourcePreflight.tsx) | 80 | `ProcessResourcePreflight` | — |
-| [`frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx) | 70 | `ResourceProcessingMonitor` | — |
+| [`frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx) | 73 | `ResourceProcessingMonitor` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
 | [`frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts) | 154 | `discoverResourceProcessingTask`, `dismissResourceProcessingTask`, `getResourceProcessingTasks`, `processingTaskId`, `resetResourceProcessingTasks`, `restoreResourceProcessingTask`, `setResourceProcessingBackground`, `startResourceProcessingTask`, `subscribeResourceProcessingTasks`, `useResourceProcessingTasks` | — |
 | [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 101 | `useProcessResourceController` | — |
