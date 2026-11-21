@@ -22,7 +22,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from backend.services import agent_execution_store as store
 from backend.services.agent_run_middleware import report_run
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin, ExecutionScope
-from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
+from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope, revalidate_scope_async
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
@@ -265,7 +265,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
             yield event
         return
     scope = current_scope()
-    await asyncio.to_thread(revalidate_scope, scope)
+    await revalidate_scope_async(scope)
     execution_snapshot = snapshot if snapshot is not None else await asyncio.to_thread(
         prepare_snapshot, "", active_skill_ids=inputs.get("active_skill_ids"),
     )
@@ -353,10 +353,11 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     if snapshot.scope != current_scope() or request.skill_id not in snapshot.skill_ids:
         raise PermissionError("agent_execution_scope_or_skill_mismatch")
     ai = dict(load_params(strict_env=False).ai)
-    current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
     if snapshot.profile.get("_team_execution"):
         from backend.services.agent_team_runtime import execution_profile
-        current = execution_profile(snapshot)
+        current = execution_profile(snapshot, config=ai)
+    else:
+        current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
     if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
         raise RuntimeError("agent_execution_profile_unavailable")
     allowed = resolve_agent_runtime(current, vault_path=Path(snapshot.scope.vault_path), active_skill_ids=snapshot.skill_ids)
@@ -367,7 +368,7 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
 
 
 async def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
-    await asyncio.to_thread(revalidate_scope, scope)
+    await revalidate_scope_async(scope)
     if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
@@ -691,7 +692,7 @@ def cancel_run(run_id: str) -> AgentRun:
 async def resume_run(run_id: str) -> AgentRun:
     """Retry only a tool-free operation; retain the frozen procedure and lineage."""
     scope = current_scope()
-    await asyncio.to_thread(revalidate_scope, scope)
+    await revalidate_scope_async(scope)
     request_data, snapshot_data, episode = store.resume_activity_data(scope, run_id)
     from backend.services import agent_team_store as team_artifacts
     if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):

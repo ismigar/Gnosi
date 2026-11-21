@@ -78,17 +78,18 @@ def validate_temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], scope: E
         raise PermissionError("agent_team_local_boundary")
 
 
-def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
+def execution_profile(snapshot: AgentExecutionSnapshot, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Revalidate the originating grant as well as the child, including revocation."""
     from backend.services import agent_execution_store as runs
     metadata = snapshot.profile.get("_team_execution")
     if not metadata:
-        return _profile(snapshot.agent_id)
+        return _profile(snapshot.agent_id, config=config)
     root_id, owner_id = metadata["root_id"], metadata["owner_id"]
     root = runs.read(snapshot.scope, root_id)
     if runs.cancelled(snapshot.scope, root_id) or root.status in {"cancelled", "failed", "interrupted", "completed", "resumed"}:
         raise PermissionError("agent_team_parent_unavailable")
-    owner = _profile(owner_id)
+    current_config = _config() if config is None else config
+    owner = _profile(owner_id, config=current_config)
     team = team_for(owner)
     if not team.enabled:
         raise PermissionError("agent_team_revoked")
@@ -100,7 +101,7 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
     allowed = {owner["id"], team.director_id, *(m.agent_id for m in team.members)}
     if snapshot.agent_id not in allowed:
         raise PermissionError("agent_team_member_revoked")
-    current = _profile(snapshot.agent_id)
+    current = _profile(snapshot.agent_id, config=current_config)
     if any(snapshot.profile.get(field) is not None and current.get(field) != snapshot.profile.get(field) for field in ("provider", "model")):
         raise PermissionError("agent_team_executor_changed")
     return current

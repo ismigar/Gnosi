@@ -88,6 +88,7 @@ def test_chat_cancel_and_reconnect_at_the_http_boundary(tmp_path, monkeypatch, t
     monkeypatch.setattr(chat_route, "_vault_scope", lambda: (vault, "fixture-vault"))
     monkeypatch.setitem(chat_route.cfg.paths, "CHECKPOINTS", tmp_path / "checkpoints")
     monkeypatch.setattr(agent_execution, "revalidate_scope", lambda _: None)
+    monkeypatch.setattr(agent_execution, "revalidate_scope_async", lambda scope: asyncio.to_thread(agent_execution.revalidate_scope, scope))
     monkeypatch.setattr(agent_execution, "prepare_snapshot", lambda *_, **__: snapshot)
 
     def authenticated_context(request: Request):

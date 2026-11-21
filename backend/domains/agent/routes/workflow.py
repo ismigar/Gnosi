@@ -93,26 +93,6 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
         agent_data["context_refs"] = await asyncio.to_thread(
             title_context_refs, user_message, agent_data.get("context_refs") or [])
     runtime_active_ids = list(getattr(runtime_capabilities, "active_skill_ids", ()) or ())
-    catalog_revision = str(getattr(runtime_capabilities, "catalog_revision", "") or "")
-    agent_revision = hashlib.sha256(
-        json.dumps(
-            agent_data or {},
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
-        ).encode("utf-8")
-    ).hexdigest()[:16]
-    runtime_revision = hashlib.sha256(
-        json.dumps(
-            {
-                "active_skill_ids": runtime_active_ids,
-                "catalog_revision": catalog_revision,
-                "ai_runtime_revision": _ai_runtime_revision(ai_cfg),
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    ).hexdigest()[:16]
     reviewed_memory_rows: list[dict[str, Any]] = []
     if memory_user_id:
         from backend.services.agent_personal_memory import search_memories
@@ -127,24 +107,45 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
             project_id=memory_project_id,
             skill_ids=tuple(runtime_active_ids),
         )
-    memory_revision = hashlib.sha256(
-        json.dumps(
-            [
-                {"memory_id": item.get("memory_id"), "revision": item.get("revision")}
-                for item in reviewed_memory_rows
-            ],
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    ).hexdigest()[:16]
-    memory_principal = hashlib.sha256(str(memory_user_id or "").encode("utf-8")).hexdigest()[:12]
-    cache_key = (
-        f"{vault_scope}:{memory_principal}:{agent_id}:{agent_revision}:"
-        f"{runtime_revision}:{memory_revision}"
-    )
-    if use_cache and cache_key in request.app.state.agent_cache:
-        cached = request.app.state.agent_cache[cache_key]
-        return cached["workflow"], cast(Dict[str, Any], cached.get("llm_selection", {}))
+    if use_cache:
+        catalog_revision = str(getattr(runtime_capabilities, "catalog_revision", "") or "")
+        agent_revision = hashlib.sha256(
+            json.dumps(
+                agent_data or {},
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        runtime_revision = hashlib.sha256(
+            json.dumps(
+                {
+                    "active_skill_ids": runtime_active_ids,
+                    "catalog_revision": catalog_revision,
+                    "ai_runtime_revision": _ai_runtime_revision(ai_cfg),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        memory_revision = hashlib.sha256(
+            json.dumps(
+                [
+                    {"memory_id": item.get("memory_id"), "revision": item.get("revision")}
+                    for item in reviewed_memory_rows
+                ],
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        memory_principal = hashlib.sha256(str(memory_user_id or "").encode("utf-8")).hexdigest()[:12]
+        cache_key = (
+            f"{vault_scope}:{memory_principal}:{agent_id}:{agent_revision}:"
+            f"{runtime_revision}:{memory_revision}"
+        )
+        if cache_key in request.app.state.agent_cache:
+            cached = request.app.state.agent_cache[cache_key]
+            return cached["workflow"], cast(Dict[str, Any], cached.get("llm_selection", {}))
 
     workflow, llm_selection = await create_agent_workflow(
         tools_list,

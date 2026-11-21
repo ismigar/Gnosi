@@ -140,3 +140,25 @@ def test_a_runtime_revision_and_adapters_come_from_the_same_provider_read(monkey
     second = catalogs.resolve_agent_runtime(profile)
     assert len(reads) == 2 and not second.skills[0].available and second.tools == ()
     assert first.catalog_revision != second.catalog_revision
+
+def test_request_and_nested_roster_discovery_share_only_the_current_snapshot(tmp_path, monkeypatch):
+    from contextvars import copy_context
+    from backend.services.agent_catalog_snapshot import read_runtime_catalog, team_metadata_catalog
+
+    catalog = catalogs.SkillCatalog(catalogs.ToolCatalog())
+    reads = []
+
+    def snapshot(path):
+        reads.append(path)
+        return object()
+
+    monkeypatch.setattr(catalog, "runtime_snapshot", snapshot)
+    with team_metadata_catalog():
+        principal = read_runtime_catalog(catalog, tmp_path)
+        copied_context = copy_context()
+        with team_metadata_catalog():
+            assert read_runtime_catalog(catalog, tmp_path) is principal
+    with team_metadata_catalog():
+        assert read_runtime_catalog(catalog, tmp_path) is not principal
+    assert copied_context.run(read_runtime_catalog, catalog, tmp_path) is not principal
+    assert reads == [tmp_path, tmp_path, tmp_path]

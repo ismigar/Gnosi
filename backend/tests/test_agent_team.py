@@ -86,6 +86,7 @@ def team_runtime(monkeypatch, tmp_path):
     from backend.services import agent_team_usage
     monkeypatch.setattr(agent_team_usage, "resolve_data_dir", lambda **_: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda _: None)
+    monkeypatch.setattr(execution, "revalidate_scope_async", lambda scope: asyncio.to_thread(execution.revalidate_scope, scope))
     monkeypatch.setattr(model_router, "budget_status", lambda: {"over_cap": False})
     monkeypatch.setattr(model_router, "load_registry", lambda: [{"provider": "local", "model_id": "cheap", "enabled": True,
         "context_window": 32000, "cost_in": 1, "cost_out": 1, "tags": ["tools"]}])

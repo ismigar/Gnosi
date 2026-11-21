@@ -21,6 +21,7 @@ def runtime(monkeypatch, tmp_path):
         "provider": "test", "model": "fake"}, skill_ids=["core.gnosi-operation-writing"], instructions=["Use the assigned procedure"], catalog_revision="1", revision="v1")
     monkeypatch.setattr(store, "resolve_data_dir", lambda **kwargs: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda scope: None)
+    monkeypatch.setattr(execution, "revalidate_scope_async", lambda scope: asyncio.to_thread(execution.revalidate_scope, scope))
     from backend.config import app_config
     monkeypatch.setattr(app_config, "load_params", lambda **kwargs: SimpleNamespace(ai={"agents": [snapshot.profile]}, paths={}))
     from backend.services import agent_skill_catalog

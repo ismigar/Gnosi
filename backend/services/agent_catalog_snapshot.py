@@ -134,12 +134,23 @@ def read_runtime_catalog(catalog: SkillCatalog, vault_path: Path | None) -> Runt
 @contextmanager
 def team_metadata_catalog() -> Iterator[None]:
     """Share underlying providers only while reading member metadata in this call."""
+    if _reader.get() is not None:
+        yield
+        return
+
+    active = True
+
     @cache
-    def snapshot(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
+    def cached(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
         return catalog.runtime_snapshot(vault_path)
+
+    def snapshot(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
+        return cached(catalog, vault_path) if active else catalog.runtime_snapshot(vault_path)
 
     token = _reader.set(snapshot)
     try:
         yield
     finally:
+        active = False
+        cached.cache_clear()
         _reader.reset(token)

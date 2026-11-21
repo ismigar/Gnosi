@@ -1,6 +1,7 @@
 """Bind authenticated application scope before crossing threads or transports."""
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, AsyncIterator, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -65,9 +66,7 @@ def _registered_path_matches(candidate: Path, target: Path) -> bool:
         return False
 
 
-def revalidate_scope(scope: ExecutionScope) -> None:
-    """A persisted job is not a permission grant; check current membership."""
-    from backend.config.app_config import load_params
+def _granted_vault_paths(scope: ExecutionScope) -> list[Path | None]:
     from backend.data.management_db import get_mgmt_db
     from backend.models.management import Membership, Vault, VaultAccess
     from backend.services.workspace_service import ROLE_WEIGHTS
@@ -87,32 +86,56 @@ def revalidate_scope(scope: ExecutionScope) -> None:
         ).all()
         allowed_ids = {entry.vault_id for entry in access}
         vaults = db.query(Vault).filter(Vault.workspace_id == scope.workspace_id).all()
-        target = Path(scope.vault_path).resolve()
-        relative_or_default: list[Path | None] = []
-        for vault in vaults:
-            if allowed_ids and vault.id not in allowed_ids:
-                continue
-            path = Path(vault.path_override) if vault.path_override else None
-            if path is None or not path.is_absolute():
-                relative_or_default.append(path)
-            elif _registered_path_matches(path, target):
-                return
-        # Only relative and default registrations depend on configuration.
-        if relative_or_default:
-            cfg = load_params(strict_env=False)
-            project_root = cfg.paths.get("PROJECT_DIR")
-            default_vault = cfg.paths.get("VAULT")
-            if project_root is None or default_vault is None:
-                raise PermissionError("agent_execution_vault_unavailable")
-            default = (Path(default_vault) if cfg.gnosi_mode == "personal"
-                       else Path(project_root) / "workspaces" / scope.workspace_id / "vault")
-            for path in relative_or_default:
-                candidate = Path(project_root) / path if path is not None else default
-                if _registered_path_matches(candidate, target):
-                    return
-        raise PermissionError("agent_execution_vault_revoked")
+        return [Path(vault.path_override) if vault.path_override else None for vault in vaults
+                if not allowed_ids or vault.id in allowed_ids]
     finally:
         sessions.close()
+
+
+def _check_registered_paths(scope: ExecutionScope, roots: tuple[Path, Path] | None = None) -> bool:
+    """Return False only if the current grants require configured storage roots."""
+    paths = _granted_vault_paths(scope)
+    target = Path(scope.vault_path).resolve()
+    needs_roots = False
+    for path in paths:
+        if path is None or not path.is_absolute():
+            if roots is None:
+                needs_roots = True
+                continue
+            project, default = roots
+            path = project / path if path is not None else default
+        if _registered_path_matches(path, target):
+            return True
+    if needs_roots:
+        return False
+    raise PermissionError("agent_execution_vault_revoked")
+
+
+def _configured_roots(scope: ExecutionScope) -> tuple[Path, Path]:
+    from backend.config.app_config import load_params
+
+    cfg = load_params(strict_env=False)
+    root, default = cfg.paths.get("PROJECT_DIR"), cfg.paths.get("VAULT")
+    if root is None or default is None:
+        raise PermissionError("agent_execution_vault_unavailable")
+    project = Path(root)
+    return project, Path(default) if cfg.gnosi_mode == "personal" else project / "workspaces" / scope.workspace_id / "vault"
+
+
+def revalidate_scope(scope: ExecutionScope) -> None:
+    """A registered absolute vault uses live database grants and needs no configuration."""
+    if not _check_registered_paths(scope):
+        _check_registered_paths(scope, _configured_roots(scope))
+
+
+async def revalidate_scope_async(scope: ExecutionScope) -> None:
+    """Wait for storage readiness, then authorize in the same event-loop turn as the caller."""
+    from backend.data.management_db import ensure_mgmt_db_ready
+
+    await ensure_mgmt_db_ready()
+    if not _check_registered_paths(scope):
+        roots = await asyncio.to_thread(_configured_roots, scope)
+        _check_registered_paths(scope, roots)
 
 
 @contextmanager
