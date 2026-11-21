@@ -178,6 +178,7 @@ describe('resource processing corner monitor', () => {
         expect(document.body.querySelectorAll('[role="dialog"] li')).toHaveLength(1);
     });
     it('minimizes, updates and reopens details without starting a second job', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({ ...runningJob, pending_passages: 2 });
         await render(<ProcessingScreen />);
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
@@ -186,8 +187,10 @@ describe('resource processing corner monitor', () => {
         expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('25');
         act(() => { buttonWithText('Keep working').focus(); });
         expect(document.activeElement?.textContent).toBe('Keep working');
+        expect(container.querySelector('.resource-processing-card-open')?.textContent).toContain('2 passages awaiting review');
 
         act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
+        expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('2 passages awaiting review');
         expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
         expect(startResourceProcessing).toHaveBeenCalledOnce();
         closeDialog();

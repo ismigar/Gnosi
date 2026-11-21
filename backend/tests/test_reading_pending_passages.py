@@ -234,3 +234,39 @@ def test_pending_joint_range_can_split_when_its_original_reservation_exceeds_the
     engine.deps.generate_structured = limited
     assert len(engine.review(overview, notes_map)) == 4
     assert attempts == [2, 1, 1] and not engine.state["pending_review_groups"]
+
+
+@pytest.mark.parametrize("identical", [False, True])
+def test_a_note_specific_finding_keeps_the_paid_correction_to_the_other_note(identical):
+    from backend.tests.test_semantic_review_parallel import prepared
+
+    def review(request):
+        answer = response(request)
+        if request["phase"] == "verify" and request["notes"][0]["note"]["title"].startswith("Argument 0:"):
+            other = {**request["notes"][1]["note"], "title": "The second note's corrected attribution"}
+            answer.update(changes=[{"note": 2, "replacement": other}],
+                          unresolved_issues=["note_1: The first note needs further evidence."])
+        return answer
+
+    engine, overview, notes_map, _, saved = prepared(review, count=4, size=2)
+    if identical:
+        first = engine.state["plans"][engine.reader.chunks[0]["id"]]["notes"]
+        first.append(deepcopy(first[0]))
+        engine.save()
+    with pytest.raises(PendingPassagesRemaining, match="reading_passages_pending: 1"):
+        engine.review(overview, notes_map)
+    restarted, calls, _ = setup(count=4, resume="new", checkpoints=saved)
+    restarted.job_id = "retry"
+    result, _ = restarted.run()
+    assert [len(request["notes"]) for request in calls if request["phase"] == "verify"] == [1]
+    assert sum(note["title"] == "The second note's corrected attribution" for note in result["notes"]) == 1
+
+
+def test_independent_audit_exclusion_checks_its_reason_against_the_same_boundary_rule():
+    from backend.domains.llm_wiki.independent_review import apply_changes
+
+    answer = {"assessment": "The original was checked.", "evidence_quote": "The claim",
+              "unresolved_issues": [], "changes": [{"position": 1, "replacement": None,
+              "reason": "El passatge ha quedat incomplet i se n’omet la tesi."}]}
+    with pytest.raises(ValueError, match="source-grounded review"):
+        apply_changes(answer, [{}], {"text": "The claim"}, [], [])

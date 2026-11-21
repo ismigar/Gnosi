@@ -37,7 +37,9 @@ def originals(chunks: list[dict[str, object]]) -> list[dict[str, object]]:
 class ReviewCheckpointKeys:
     """Retain historical group keys unless an entire display-identical group has different originals."""
 
-    def __init__(self, entries: list[dict[str, object]], sources: list[list[dict[str, object]]]) -> None:
+    def __init__(self, entries: list[dict[str, object]], sources: list[list[dict[str, object]]],
+                 positioned: dict[str, str] | None = None) -> None:
+        self.positioned = positioned if positioned is not None else {}
         self.entries = entries
         self.display = [fingerprint(entry) for entry in entries]
         self.positions: dict[str, list[int]] = defaultdict(list)
@@ -54,7 +56,16 @@ class ReviewCheckpointKeys:
             collision = any(other != start and self.display[other:other + size] == visible
                             and self.sources[other:other + size] != sources for other in self.positions[visible[0]])
             self.keys[start, size] = fingerprint([legacy, sources]) if collision else legacy
-        return self.keys[start, size]
+        key = self.keys[start, size]
+        return fingerprint([key, start]) if size == 1 and self.positioned.get(str(start)) == key else key
+
+    def individual_key(self, start: int) -> str:
+        # Two identical drafts can receive different decisions in the same
+        # answer. Scope this split decision to the original note position.
+        self.key(start, 1)
+        if len(self.positions[self.display[start]]) > 1:
+            self.positioned[str(start)] = self.keys[start, 1]
+        return self.key(start, 1)
 
     def recover_unique_ranges(self, state: dict[str, Any]) -> None:
         # A pre-upgrade result with one recorded owner can be revalidated at

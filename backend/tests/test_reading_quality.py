@@ -75,11 +75,18 @@ def test_resumed_boundary_loss_is_rejected_before_any_new_phase():
     assert calls == [] and checkpoints == before
 
 
-def test_review_cannot_turn_complete_claims_into_a_truncation_omission():
+@pytest.mark.parametrize("omission", [
+    "The passage is truncated, so no complete claim can be retained.",
+    "The passage has been truncated, so the claim is omitted.",
+    "El passatge ha quedat incomplet i se n’omet la tesi.",
+    "El fragmento ha sido truncado y se omite la tesis.",
+    "Le passage a été tronqué, donc la thèse est omise.",
+])
+def test_review_cannot_turn_complete_claims_into_a_truncation_omission(omission):
     def bad_review(request):
         answer = response(request)
         if request['phase'] == 'verify':
-            answer['changes'] = [{'note': 1, 'omit_reason': 'The passage is truncated, so no complete claim can be retained.'}]
+            answer['changes'] = [{'note': 1, 'omit_reason': omission}]
         return answer
     reader, _, checkpoints = setup(count=1, generate=bad_review)
     with pytest.raises(PendingPassagesRemaining):
@@ -184,7 +191,7 @@ def test_unchanged_corrupt_note_cannot_pass_review_or_be_marked_complete(body):
     pending, = engine.state['pending_review_groups'].values()
     assert 'Reading quality validation failed' in pending['reason']
     assert not engine.state.get('completed')
-    assert not engine.state['reviewed_groups']
+    assert len(engine.state['reviewed_groups']) == 1 and pending['size'] == 1
     assert next(c for c in calls if c['phase'] == 'verify')['notes'][0]['validation_issues']
 
 
@@ -198,9 +205,9 @@ def test_explicit_unresolved_evidence_stops_before_publication():
     with pytest.raises(PendingPassagesRemaining):
         reader.run()
     pending, = checkpoints['new', 'semantic-state']['pending_review_groups'].values()
-    assert 'reading_quality_unresolved' in pending['reason']
+    assert 'note_1: the cited conclusion' in pending['reason'] and pending['size'] == 1
     state = checkpoints['new', 'semantic-state']
-    assert state['plans'] and not state.get('completed') and not state['reviewed_groups']
+    assert state['plans'] and not state.get('completed') and len(state['reviewed_groups']) == 1
 
 
 def test_old_completed_reviews_are_rechecked_without_reinterpreting_paid_sources():

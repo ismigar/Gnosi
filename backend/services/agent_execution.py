@@ -330,15 +330,16 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
     try:
         value = json.loads(cleaned, parse_constant=_reject_json_constant)
     except json.JSONDecodeError as error:
+        from backend.services.structured_output_diagnostics import ModelOutputJSONError
         if error.msg != "Extra data":
-            raise
+            raise ModelOutputJSONError(error.msg, error.doc, error.pos) from error
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
         # Keep the complete document when followed by one root closer or a
         # bare tool-control opener. Never discard another value, prose, a named
         # tool call, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
         if not closer or cleaned[end:].strip() not in {closer, "<function", "<function="}:
-            raise
+            raise ModelOutputJSONError(error.msg, error.doc, error.pos) from error
     from backend.services.json_contracts import validate_json_value
     validate_json_value(value, schema)
     return json.dumps(value, ensure_ascii=False)
