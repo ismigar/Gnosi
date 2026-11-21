@@ -787,6 +787,8 @@ Coneixement utilitza el seu perfil de plugin. El paràmetre històric `agent_id`
 
 Quan actives Coneixement, Gnosi crea dos bots editables. Coneixement llegeix tot el recurs i comprova els esborranys amb GPT-5.6 Luna com a model inicial. El Revisor de lectura utilitza GPT-6.2 Sol amb raonament mitjà per contrastar una mostra de cada secció i els passatges que han plantejat dubtes. Pot afegir idees omeses amb una cita de l’original i elabora la síntesi final. Tots dos comparteixen el límit de despesa del recurs. Gnosi desa cada revisió per poder-la reprendre.
 
+Si Gnosi rebutja l’extracció d’un passatge, el Revisor de lectura rep l’original, els passatges veïns, l’esborrany i el motiu del rebuig. Ha de resoldre el problema i citar l’original perquè Gnosi pugui donar el fragment per completat. En reprendre la lectura, Gnosi pot reutilitzar els altres esborranys i les correccions desades. Els passatges corregits també entren a la revisió final.
+
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
 resum a la mateixa vista i propostes de connexió amb IA que actualitzen i obren

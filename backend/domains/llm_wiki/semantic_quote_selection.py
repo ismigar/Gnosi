@@ -128,7 +128,9 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
 
 def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     """Keep reader checkpoints literal; only the model-facing transport changes."""
-    phase = request.get("phase")
+    # A reviewer replacing one rejected interpretation uses the same immutable
+    # primary quote choices as the reader. Keep its own phase in the prompt.
+    phase = "interpret" if request.get("phase") == "source-repair" else request.get("phase")
     if request.get("reading_engine") != "semantic" or phase not in {"interpret", "verify"}:
         return None
     payload = deepcopy(request)

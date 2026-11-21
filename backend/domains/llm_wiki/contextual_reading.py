@@ -100,7 +100,7 @@ class ContextualReader:
                 return answer
         display_phase = (
             "reviewing"
-            if phase in {"review", "verify", "source-audit", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
+            if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
             else "overview"
             if phase in {"overview", "synthesis"}
             else "planning"
