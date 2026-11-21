@@ -607,6 +607,37 @@ def test_real_operation_graph_uses_policy_and_complete_instructions(runtime, mon
     assert row.model_calls == 1
 
 
+def test_chat_and_operation_wait_for_cloud_scope_checks(runtime, monkeypatch):
+    scope, snapshot = runtime
+    checked = []
+
+    def check_scope(actual):
+        # A coordinated vault read must be able to wait for its native snapshot.
+        with pytest.raises(RuntimeError, match="no running event loop"):
+            asyncio.get_running_loop()
+        assert actual == execution.current_scope() == scope
+        checked.append(execution._run.get())
+
+    class Chat:
+        async def astream(self, inputs, **kwargs):
+            yield {"brain": {"messages": [AIMessage(content="Hola!")]}}
+
+    async def run():
+        with execution_scope(scope):
+            events = [event async for event in execution.stream_workflow(
+                Chat(), {"trace_id": "cloud-greeting"}, config={}, origin="chat", snapshot=snapshot,
+            )]
+            result = await execution.execute_operation(AgentOperation(
+                skill_id=snapshot.skill_ids[0], operation="writing", input="Hola",
+            ), snapshot=snapshot)
+            assert events and result.status == "completed"
+            assert "" in checked and result.run_id in checked
+
+    monkeypatch.setattr(execution, "revalidate_scope", check_scope)
+    install_workflow(monkeypatch, ["Hola!"])
+    asyncio.run(run())
+
+
 def test_revoked_permission_prevents_all_model_calls(runtime, monkeypatch):
     scope, snapshot = runtime
     calls = install_workflow(monkeypatch, [])

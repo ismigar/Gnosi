@@ -265,7 +265,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
             yield event
         return
     scope = current_scope()
-    revalidate_scope(scope)
+    await asyncio.to_thread(revalidate_scope, scope)
     execution_snapshot = snapshot if snapshot is not None else await asyncio.to_thread(
         prepare_snapshot, "", active_skill_ids=inputs.get("active_skill_ids"),
     )
@@ -379,7 +379,7 @@ async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExec
             _validate_output(cached.result, schema)
             await validate(cached.result)
         finally:
-            _require_active(snapshot.scope, cached.run_id, parent_id)
+            await asyncio.to_thread(_require_active, snapshot.scope, cached.run_id, parent_id)
         report_run(cached.run_id)
     return cached
 
@@ -491,7 +491,7 @@ async def _build_output_repair(request: AgentOperation, builder: RepairBuilder |
     try:
         return await asyncio.to_thread(builder, text, error)
     finally:
-        require_active()
+        await asyncio.to_thread(require_active)
 
 
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
@@ -575,7 +575,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     text = _validate_output(text, response_schema)
                     text = await _operation_output(text, request, output_validator, partial_repair)
                 finally:
-                    require_active()
+                    await asyncio.to_thread(require_active)
                 completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
@@ -689,7 +689,7 @@ def cancel_run(run_id: str) -> AgentRun:
 async def resume_run(run_id: str) -> AgentRun:
     """Retry only a tool-free operation; retain the frozen procedure and lineage."""
     scope = current_scope()
-    revalidate_scope(scope)
+    await asyncio.to_thread(revalidate_scope, scope)
     request_data, snapshot_data, episode = store.resume_activity_data(scope, run_id)
     from backend.services import agent_team_store as team_artifacts
     if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):

@@ -73,31 +73,35 @@ def revalidate_scope(scope: ExecutionScope) -> None:
         ).first()
         if membership is None or ROLE_WEIGHTS.get(str(membership.role), -1) < ROLE_WEIGHTS[scope.role]:
             raise PermissionError("agent_execution_membership_revoked")
-        cfg = load_params(strict_env=False)
-        project_root = cfg.paths.get("PROJECT_DIR")
-        default_vault = cfg.paths.get("VAULT")
-        if project_root is None or default_vault is None:
-            raise PermissionError("agent_execution_vault_unavailable")
         access = db.query(VaultAccess).filter(
             VaultAccess.user_id == scope.user_id,
             VaultAccess.workspace_id == scope.workspace_id,
         ).all()
         allowed_ids = {entry.vault_id for entry in access}
         vaults = db.query(Vault).filter(Vault.workspace_id == scope.workspace_id).all()
+        target = Path(scope.vault_path).resolve()
+        relative_or_default: list[Path | None] = []
         for vault in vaults:
             if allowed_ids and vault.id not in allowed_ids:
                 continue
-            path = vault.path_override
-            if path:
-                candidate = Path(path)
-                if not candidate.is_absolute():
-                    candidate = Path(project_root) / candidate
-            elif cfg.gnosi_mode == "personal":
-                candidate = Path(default_vault)
-            else:
-                candidate = Path(project_root) / "workspaces" / scope.workspace_id / "vault"
-            if candidate.resolve() == Path(scope.vault_path).resolve():
+            path = Path(vault.path_override) if vault.path_override else None
+            if path is None or not path.is_absolute():
+                relative_or_default.append(path)
+            elif path.resolve() == target:
                 return
+        # Only relative and default registrations depend on configuration.
+        if relative_or_default:
+            cfg = load_params(strict_env=False)
+            project_root = cfg.paths.get("PROJECT_DIR")
+            default_vault = cfg.paths.get("VAULT")
+            if project_root is None or default_vault is None:
+                raise PermissionError("agent_execution_vault_unavailable")
+            default = (Path(default_vault) if cfg.gnosi_mode == "personal"
+                       else Path(project_root) / "workspaces" / scope.workspace_id / "vault")
+            for path in relative_or_default:
+                candidate = Path(project_root) / path if path is not None else default
+                if candidate.resolve() == target:
+                    return
         raise PermissionError("agent_execution_vault_revoked")
     finally:
         sessions.close()

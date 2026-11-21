@@ -1,6 +1,7 @@
 """Reuse validated, immutable reading phases within their authenticated scope."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Awaitable, Callable
@@ -54,7 +55,7 @@ async def reuse(request: AgentOperation, snapshot: AgentExecutionSnapshot, key: 
     except (ValueError, jsonschema.ValidationError):
         return None
     finally:
-        require_active()
+        await asyncio.to_thread(require_active)
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution_trace import record
     record("reading.result_cache.reused", {"source_run_id": cached.run_id})
