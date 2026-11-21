@@ -23,8 +23,12 @@ def rejected_drafts(request):
 def correction(request):
     original = request["primary_passages"][0]["text"]
     note = {"title": "The objection and its qualification", "body_md": original, "quotes": [original], "properties": {}}
-    return {"passages": [{"reason": "The author qualifies the objection by appealing to experience.", "notes": [note]}],
-            "unresolved_issues": [], "evidence_quote": original}
+    answer = {"passages": [{"reason": "The author qualifies the objection by appealing to experience.", "notes": [note]}],
+              "unresolved_issues": [], "evidence_quote": original}
+    if request.get("retained_notes"):
+        answer["amendments"] = [{"retained_note": 1, "replacement_note": 1, "reason": "Make the author's qualification explicit.",
+                                 "evidence_quote": original}]
+    return answer
 
 
 def attach_reviewer(reader, generate):
@@ -91,7 +95,7 @@ def test_reviewer_must_resolve_the_defect_and_ground_its_answer_in_the_primary()
         with pytest.raises(ValueError, match="exact quotation"):
             validate({**valid, "evidence_quote": "Invented evidence"})
         with pytest.raises(ValueError, match="source-grounded review"):
-            validate({**valid, "passages": [{"reason": "A truncated passage.", "notes": []}]})
+            validate({**valid, "amendments": [], "passages": [{"reason": "A truncated passage.", "notes": []}]})
         original = request["primary_passages"][0]["text"]
         quote = quote_selection(request)
         assert quote is not None
@@ -99,7 +103,7 @@ def test_reviewer_must_resolve_the_defect_and_ground_its_answer_in_the_primary()
         assert wire["phase"] == "source-repair"
         value = {"passages": {"passage_1": {"reason": valid["passages"][0]["reason"], "notes": [{
             "title": "A grounded idea", "body_md": original, "properties": {}, "primary_quote_ids": [1], "context_quote_ids": []}]}},
-            "evidence_quote": original, "unresolved_issues": []}
+            "evidence_quote": original, "unresolved_issues": [], "amendments": valid["amendments"]}
         validate(json.loads(quote.restore(encoded(value))))
         neighbour = wire["source_quotes"][1]["quotes"][0]["quote_id"]
         value["passages"]["passage_1"]["notes"][0]["primary_quote_ids"] = [neighbour]
@@ -148,3 +152,64 @@ def test_oversized_correction_is_rejected_before_caching_and_retried_alone():
     active = engine(resumed)
     active.extract("Argument")
     assert not reader_calls and attempts == ["source-repair", "source-repair"] and len(active.state["plans"]) == 3
+
+
+def test_boundary_and_oversized_drafts_in_same_batch_are_independently_repaired():
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+    from backend.services.llm_wiki_reading_runtime import token_bound
+
+    def draft(request):
+        answer = response(request)
+        answer["passages"][0]["reason"] = "El fragmento está truncado."
+        answer["passages"][1]["notes"][0]["body_md"] = "The author disagrees with the objection. " * 104
+        return answer
+
+    originals = []
+    def reviewer(prompt, validate, timeout):
+        request = json.loads(prompt)
+        originals.append(request["primary_passages"][0]["text"])
+        if len(originals) == 2:
+            assert "omitted" in request["rejected_draft"]
+        answer = correction(request)
+        validate(answer)
+        return encoded(answer), "reviewer-model"
+
+    book, calls, _ = setup(count=3, generate=draft)
+    attach_reviewer(book, reviewer)
+    book.dependencies.reviewer.input_budget = 4700
+    book.dependencies.reviewer.count_tokens = token_bound
+    active = SemanticReader(book)
+    active.extract("Argument")
+    assert len(calls) == 1 and originals == [s["text"] for s in book.origins[0]["segments"][:2]]
+    assert len(active.state["plans"]) == 3
+    assert active.state["plans"]["chunk-3"]["notes"][0]["title"] != "The objection and its qualification"
+
+
+def test_specialist_cannot_silently_drop_a_supported_sibling_note():
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+
+    def draft(request):
+        answer = response(request)
+        valid, = answer["passages"][0]["notes"]
+        valid["title"] = "The editors signed the objections"
+        answer["passages"][0]["notes"].append({**valid, "title": "Publication year", "quotes": ["Invented year"]})
+        return answer
+
+    def review(prompt, validate, timeout):
+        request = json.loads(prompt)
+        assert request["retained_notes"] == [{"number": 1, "title": "The editors signed the objections"}]
+        fixed = correction(request)
+        fixed["passages"][0]["notes"][0]["title"] = "Corrected publication year"
+        with pytest.raises(ValueError, match="exact primary quotation"):
+            validate({**fixed, "amendments": [{"retained_note": 1, "replacement_note": 0, "reason": "Drop it.",
+                                                "evidence_quote": "Not in the source"}]})
+        fixed["amendments"] = []
+        validate(fixed)
+        return encoded(fixed), "reviewer-model"
+
+    book, _, _ = setup(count=2, generate=draft)
+    attach_reviewer(book, review)
+    active = SemanticReader(book)
+    active.extract("Argument")
+    assert [n["title"] for n in active.state["plans"]["chunk-1"]["notes"]] == [
+        "The editors signed the objections", "Corrected publication year"]

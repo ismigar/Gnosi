@@ -21,8 +21,9 @@ from backend.tests.test_agent_execution import runtime as runtime  # shared gove
 from backend.tests.test_semantic_reading import setup
 
 
-@pytest.mark.parametrize("mixed,interrupted", [(False, False), (True, False), (True, True)])
-def test_wrong_primary_reaches_only_the_reviewer_even_after_length_failure(runtime, monkeypatch, tmp_path, mixed, interrupted):
+@pytest.mark.parametrize("defect,interrupted", [
+    ("wrong", False), ("mixed", False), ("mixed", True), ("unknown", False), ("missing", False), ("reason", False)])
+def test_rejected_passage_reaches_only_the_reviewer_even_after_length_failure(runtime, monkeypatch, tmp_path, defect, interrupted):
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     scope, reader = runtime
     reader.skill_ids[:] = [SKILL_ID]
@@ -64,17 +65,23 @@ def test_wrong_primary_reaches_only_the_reviewer_even_after_length_failure(runti
                     foreign = catalog[1]["quotes"][0]["quote_id"]
                     allowed = outer["output_schema"]["properties"]["passages"]["properties"][key]
                     assert foreign not in allowed["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]["items"]["enum"]
-                    ids = [*ids, foreign] if mixed else [foreign]
+                    ids = {"mixed": [*ids, foreign], "wrong": [foreign], "unknown": [999999],
+                           "missing": [], "reason": ids}[defect]
                 note = {"title": "An objection", "body_md": span["text"], "properties": {},
                         "primary_quote_ids": ids, "context_quote_ids": []}
                 passages[key] = {"reason": "The author qualifies an objection using experience.", "notes": [note]}
                 if phase == "interpret":
                     passages[key]["needs_specialist"] = False
+                    if defect == "reason" and key == "passage_1":
+                        passages[key]["reason"] = ""
             if phase == "interpret":
                 raw = encoded(dict(passages=passages, themes=[], contradictions=[], questions=[], warnings=[]))
             else:
-                assert "primary quotation" in prompt["validation_error"]
-                raw = encoded(dict(passages=passages, unresolved_issues=[], evidence_quote=catalog[0]["quotes"][0]["text"]))
+                assert "Invalid" in prompt["validation_error"]
+                answer = dict(passages=passages, unresolved_issues=[], evidence_quote=catalog[0]["quotes"][0]["text"])
+                if prompt.get("retained_notes"):
+                    answer["amendments"] = []
+                raw = encoded(answer)
                 if interrupted and len(calls) == 2:
                     raw = '{"evidence_quote":"' + "a" * 4400
             yield {"operation": {"messages": [AIMessage(content=raw)]}}

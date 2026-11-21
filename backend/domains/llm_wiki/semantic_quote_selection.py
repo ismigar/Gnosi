@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 import json
 from typing import Any
 
+import jsonschema
+
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
 from backend.domains.llm_wiki.semantic_repairs import quote_choices
@@ -26,34 +28,70 @@ class QuoteSelection:
         """Validate provider-local IDs before copying the original characters."""
         answer = json.loads(text)
         validate_schema(answer, self.schema if draft_schema is None else draft_schema)
-        return self._canonical(answer, preserve_primary=draft_schema is not None)
+        if draft_schema is None:
+            return self._canonical(answer)
+        # Keep only localized transport failures as provisional passages. The
+        # specialist must replace them with a new, strictly validated answer.
+        rejected: dict[str, dict[str, Any]] = {}
+        for error in jsonschema.Draft202012Validator(self.schema).iter_errors(answer):
+            path = list(error.absolute_path)
+            if len(path) < 2 or path[0] != "passages":
+                raise ValueError(error.message) from error
+            name = str(path[1])
+            if name not in rejected:
+                label = "Invalid primary quotation" if "primary_quote_ids" in path else "Invalid reader passage"
+                diagnostic = f"{label} at {'.'.join(map(str, path))}: {error.message[:400]}"
+                rejected[name] = self.rejected_draft(name, answer["passages"][name], diagnostic)
+        return self._canonical(answer, rejected)
 
     def draft_schema(self) -> dict[str, Any]:
-        """Allow known quote IDs in a provisional draft, retaining all other constraints."""
+        """Allow individual drafts to fail while checking the complete batch envelope."""
+        schema = deepcopy(self.schema)
+        slots = schema["properties"]["passages"]["properties"]
+        schema["properties"]["passages"]["properties"] = {name: {"type": "object"} for name in slots}
+        return schema
+
+    def rejected_draft(self, name: str, value: dict[str, Any], diagnostic: str) -> dict[str, Any]:
+        located = {}
+        valid_notes = []
+        passage_contract = self.schema["properties"]["passages"]["properties"][name]
+        contract = {**passage_contract["properties"]["notes"]["items"], "$defs": self.schema["$defs"]}
+        validator = jsonschema.Draft202012Validator(contract)
+        notes = value.get("notes")
+        for note in notes if isinstance(notes, list) else []:
+            if not isinstance(note, dict):
+                continue
+            if validator.is_valid(note):
+                valid_notes.append(restore_note(note, self.quotes, self.quote_sources))
+            for field_name in ("primary_quote_ids", "context_quote_ids"):
+                choices = note.get(field_name)
+                for choice in choices if isinstance(choices, list) else []:
+                    if type(choice) is int and choice in self.quotes:
+                        located[choice] = {"reader_id": choice, "text": self.quotes[choice],
+                                           "source_key": self.quote_sources[choice]}
+        return {"reader_validation_error": diagnostic, "reader_output": value, "located_quotes": list(located.values()),
+                "notes": valid_notes}
+
+    def draft_for_repair(self, text: str) -> str:
+        """Expose misplaced known evidence to diagnostics, never to acceptance."""
         schema = deepcopy(self.schema)
         if self.phase == "interpret":
             for passage in schema["properties"]["passages"]["properties"].values():
                 choice = passage["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]
                 choice["items"] = {"type": "integer", "minimum": 1, "maximum": len(self.quotes)}
-        return schema
-
-    def draft_for_repair(self, text: str) -> str:
-        """Expose misplaced known evidence to diagnostics, never to acceptance."""
         answer = json.loads(text)
-        validate_schema(answer, self.draft_schema())
+        validate_schema(answer, schema)
         return self._canonical(answer)
 
-    def _canonical(self, answer: dict[str, Any], *, preserve_primary: bool = False) -> str:
+    def _canonical(self, answer: dict[str, Any], rejected: dict[str, dict[str, Any]] | None = None) -> str:
         if self.phase == "interpret":
-            passages = [answer["passages"][f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
-            for passage, allowed in zip(passages, self.primary_ids, strict=True):
-                if preserve_primary:
-                    for note in passage["notes"]:
-                        claimed = note["primary_quote_ids"]
-                        if any(number not in allowed for number in claimed):
-                            note["primary_quote_count"] = len(claimed)
-                passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
-            answer["passages"] = passages
+            passages = answer["passages"]
+            for name, passage in passages.items():
+                if rejected and name in rejected:
+                    passages[name] = rejected[name]
+                else:
+                    passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
+            answer["passages"] = [passages[f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
         else:
             answer["changes"] = [{"note": i + 1, **({"omit_reason": note["omit_reason"]} if "omit_reason" in note
                                   else {"replacement": self._review_note(note)})}

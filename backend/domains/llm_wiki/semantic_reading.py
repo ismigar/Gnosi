@@ -19,7 +19,7 @@ from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, chunk_view, groups, overview_groups, reading_context, source_view, state_progress
 from backend.domains.llm_wiki.semantic_contracts import (
-    MAP_SCHEMA, RejectedPassage, bind_interpretation, fields, interpretation_schema, validate_schema,
+    MAP_SCHEMA, bind_interpretation, fields, interpretation_schema, validate_schema,
 )
 
 ENGINE_VERSION = 2
@@ -174,21 +174,18 @@ class SemanticReader:
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))
-        from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
         reviewer = getattr(self.deps, "reviewer", None)
         paired = reviewer is not None
         schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
+        draft_schema = deepcopy(schema)
+        draft_schema["properties"]["passages"]["items"] = {"type": "object"}
         def validate(answer: dict[str, object]) -> None:
-            try:
-                plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
-            except RejectedPassage:
-                # Save the reader's complete draft for the specialist. No chunk
-                # is accepted until the repaired interpretation passes every gate.
-                if reviewer is None:
-                    raise
-                return
-            if reviewer is not None:
-                check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
+            if paired:
+                # This is only a staged draft. Each passage must pass its
+                # source and review-capacity checks before any chunk is credited.
+                validate_schema(answer, draft_schema)
+            else:
+                bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
         selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
@@ -208,7 +205,6 @@ class SemanticReader:
         if reviewer is not None:
             from backend.domains.llm_wiki.passage_repair import bind_reviewed_interpretation
             plans, answer = bind_reviewed_interpretation(self.reader, reviewer, selected, evidence, answer)
-            check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
         else:
             plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         self.state["observations"][key] = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
