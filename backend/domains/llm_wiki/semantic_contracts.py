@@ -116,6 +116,16 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     return note
 
 
+def bind_passage(passage: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
+                 dimensions: list[dict[str, object]], language: str = "") -> list[dict[str, object]]:
+    validate_boundary_coverage(passage["reason"])
+    if not str(passage["reason"]).strip():
+        raise ValueError("Explain the claims retained or the reason for omitting this passage")
+    notes = [bind_note(note, primary, evidence, dimensions) for note in records(passage["notes"])]
+    validate_reviewed_prose(notes, evidence, language)
+    return notes
+
+
 def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object]],
                         evidence: list[dict[str, object]], dimensions: list[dict[str, object]],
                         *, flag_review: bool = False) -> dict[str, Any]:
@@ -128,11 +138,9 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
         coverage = []
         for segment in records(chunk.get("segments")):
             passage = next(passages)
-            validate_boundary_coverage(passage['reason'])
-            notes.extend(bind_note(n, segment, evidence, dimensions) for n in records(passage["notes"]))
+            notes.extend(bind_passage(passage, segment, evidence, dimensions))
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
-        validate_reviewed_prose(notes, evidence)
         validate_notes(plan, records(chunk.get("segments")), evidence)
         plans[str(chunk["id"])] = plan
     return plans

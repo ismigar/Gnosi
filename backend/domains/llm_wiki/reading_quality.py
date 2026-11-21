@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 
 from backend.domains.llm_wiki.chunking import records
 
@@ -84,7 +85,8 @@ def validate_reviewed_prose(notes: list[dict[str, object]], evidence: list[dict[
         raise ValueError("Reading quality validation failed: " + " | ".join(failures))
 
 
-def adjacent_originals(chunks: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+def adjacent_originals(chunks: list[dict[str, object]], *, key: Callable[[dict[str, object]], str] | None = None,
+                       ) -> dict[str, list[dict[str, object]]]:
     """Full neighbouring passages remain available across PDF page boundaries."""
     origins: dict[str, list[dict[str, object]]] = {}
     for chunk in chunks:
@@ -94,5 +96,6 @@ def adjacent_originals(chunks: list[dict[str, object]]) -> dict[str, list[dict[s
     result: dict[str, list[dict[str, object]]] = {}
     for segments in origins.values():
         for index, segment in enumerate(segments):
-            result.setdefault(str(segment["id"]), []).extend(segments[max(0, index - 1):index] + segments[index + 1:index + 2])
+            identifier = key(segment) if key else str(segment["id"])
+            result.setdefault(identifier, []).extend(segments[max(0, index - 1):index] + segments[index + 1:index + 2])
     return result

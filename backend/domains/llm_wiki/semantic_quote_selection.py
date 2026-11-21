@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 import json
 from typing import Any
 
+import jsonschema
+
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
 from backend.domains.llm_wiki.semantic_repairs import quote_choices
@@ -22,11 +24,69 @@ class QuoteSelection:
     primary_ids: list[list[int]]
     quote_sources: dict[int, str] = field(default_factory=dict)
 
-    def restore(self, text: str) -> str:
+    def restore(self, text: str, *, draft_schema: dict[str, Any] | None = None) -> str:
         """Validate provider-local IDs before copying the original characters."""
         answer = json.loads(text)
-        validate_schema(answer, self.schema)
-        return self._canonical(answer)
+        validate_schema(answer, self.schema if draft_schema is None else draft_schema)
+        if draft_schema is None:
+            return self._canonical(answer)
+        # Keep only localized transport failures as provisional passages. The
+        # specialist must replace them with a new, strictly validated answer.
+        rejected: dict[str, dict[str, Any]] = {}
+        names = self.schema["properties"]["passages"]["required"]
+        extras = answer["passages"].keys() - set(names)
+        if extras:
+            # An unknown slot has no supplied primary. Do not let it displace
+            # any named slot, whether that slot is present, null, or missing.
+            for key in extras:
+                del answer["passages"][key]
+            answer["warnings"].append("The reader supplied an unassigned passage. Only named originals were considered.")
+        for name in names:
+            if name not in answer["passages"]:
+                rejected[name] = self.rejected_draft(name, None, f"Invalid reader passage: the reader omitted {name}")
+                answer["passages"][name] = None
+        for error in jsonschema.Draft202012Validator(self.schema).iter_errors(answer):
+            path = list(error.absolute_path)
+            if len(path) < 2 or path[0] != "passages":
+                raise ValueError(error.message) from error
+            name = str(path[1])
+            if name not in rejected:
+                label = "Invalid primary quotation" if "primary_quote_ids" in path else "Invalid reader passage"
+                diagnostic = f"{label} at {'.'.join(map(str, path))}: {error.message[:400]}"
+                rejected[name] = self.rejected_draft(name, answer["passages"][name], diagnostic)
+        return self._canonical(answer, rejected)
+
+    def draft_schema(self) -> dict[str, Any]:
+        """Allow individual drafts to fail while checking the complete batch envelope."""
+        schema = deepcopy(self.schema)
+        passages = schema["properties"]["passages"]
+        # Named slots bind independently. Missing and malformed slots can be
+        # rebuilt from their originals without discarding a sibling's paid work.
+        passages["properties"] = {name: {} for name in passages["properties"]}
+        passages["required"] = []
+        passages["additionalProperties"] = True
+        return schema
+
+    def rejected_draft(self, name: str, value: Any, diagnostic: str) -> dict[str, Any]:
+        located = {}
+        valid_notes = []
+        passage_contract = self.schema["properties"]["passages"]["properties"][name]
+        contract = {**passage_contract["properties"]["notes"]["items"], "$defs": self.schema["$defs"]}
+        validator = jsonschema.Draft202012Validator(contract)
+        notes = value.get("notes") if isinstance(value, dict) else None
+        for note in notes if isinstance(notes, list) else []:
+            if not isinstance(note, dict):
+                continue
+            if validator.is_valid(note):
+                valid_notes.append(restore_note(note, self.quotes, self.quote_sources))
+            for field_name in ("primary_quote_ids", "context_quote_ids"):
+                choices = note.get(field_name)
+                for choice in choices if isinstance(choices, list) else []:
+                    if type(choice) is int and choice in self.quotes:
+                        located[choice] = {"reader_id": choice, "text": self.quotes[choice],
+                                           "source_key": self.quote_sources[choice]}
+        return {"reader_validation_error": diagnostic, "reader_output": value, "located_quotes": list(located.values()),
+                "notes": valid_notes}
 
     def draft_for_repair(self, text: str) -> str:
         """Expose misplaced known evidence to diagnostics, never to acceptance."""
@@ -39,12 +99,15 @@ class QuoteSelection:
         validate_schema(answer, schema)
         return self._canonical(answer)
 
-    def _canonical(self, answer: dict[str, Any]) -> str:
+    def _canonical(self, answer: dict[str, Any], rejected: dict[str, dict[str, Any]] | None = None) -> str:
         if self.phase == "interpret":
-            passages = [answer["passages"][f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
-            for passage in passages:
-                passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
-            answer["passages"] = passages
+            passages = answer["passages"]
+            for name, passage in passages.items():
+                if rejected and name in rejected:
+                    passages[name] = rejected[name]
+                else:
+                    passage["notes"] = [restore_note(note, self.quotes, self.quote_sources) for note in passage["notes"]]
+            answer["passages"] = [passages[f"passage_{i + 1}"] for i in range(len(self.primary_ids))]
         else:
             answer["changes"] = [{"note": i + 1, **({"omit_reason": note["omit_reason"]} if "omit_reason" in note
                                   else {"replacement": self._review_note(note)})}
@@ -128,7 +191,9 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
 
 def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     """Keep reader checkpoints literal; only the model-facing transport changes."""
-    phase = request.get("phase")
+    # A reviewer replacing one rejected interpretation uses the same immutable
+    # primary quote choices as the reader. Keep its own phase in the prompt.
+    phase = "interpret" if request.get("phase") == "source-repair" else request.get("phase")
     if request.get("reading_engine") != "semantic" or phase not in {"interpret", "verify"}:
         return None
     payload = deepcopy(request)

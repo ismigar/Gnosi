@@ -738,6 +738,8 @@ Knowledge uses its dedicated plugin profile. The historical `agent_id` setting i
 
 Activating Knowledge creates two editable bot profiles. Knowledge reads the entire resource and checks its drafts. Its initial model is GPT-5.6 Luna. Reading reviewer uses GPT-6.2 Sol at medium reasoning to check selected originals for omissions and misattribution, then produces the final synthesis. Gnosi samples each section and includes passages flagged during extraction. Both agents use the spending limit shown before processing. Each completed review is saved so an interrupted review can resume.
 
+When a passage draft fails a grounding or coverage check during extraction, the reading reviewer receives the original, its neighbours, the rejected draft and the validation error. The reviewer must cite the original and resolve the defect before Gnosi counts the chunk as complete. The reader's other drafts and completed corrections can be reused on resume. Corrected passages also participate in the final review.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.
@@ -1494,6 +1496,8 @@ Interpretation and its bounded repairs now retain the immutable source fingerpri
 Before interpretation, each stored primary segment inherits its document label from its parent chunk. The prompt, complete evidence collection and citation binder use that same source view; document labels are not assumed to be duplicated in stored segments. The complete-reader regression exercises this handoff as well as individual quote restoration.
 
 Quality review version 6 checks PDF citation geometry before review and before accepting each corrected batch, using shared page indexes and serialized PDFium access. Unlocatable or ambiguous quotations become precise corrective feedback while the substantive note must be preserved. Review warnings now enter the same bounded correction path as unresolved issues: attribution and qualified source uncertainty belong in the notes and assessment, while unresolved reading defects block acceptance. Prior observations from excluded passages remain in the audit checkpoint rather than resurfacing unchanged as final warnings. The existing interpretations and maps remain reusable; older reviews are repeated under the new quality boundary. Independently decoded soft hyphens can be omitted from quote matching after complete page alignment, with every known character and native geometry index verified. A replacement glyph already identical in both decoders remains unresolved at its original native index; it does not prevent independently verified recovery elsewhere on an otherwise fully aligned page. An undecoded glyph never supplies a replacement for a different native character.
+
+When a reviewer checks a citation against a cloud PDF, a worker waits for the original file. Fresh model responses, saved checkpoints and results reused from another run all use this check before Gnosi accepts the note.
 
 A finished write with pending quality findings is exposed as a partial, resumable job, including historical records after an application restart. Status, preflight and execution therefore reuse the same checkpoints and accumulated budget without requiring a forced restart; the persisted audit record is unchanged.
 

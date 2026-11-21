@@ -72,6 +72,10 @@ class SemanticReader:
             self.state.update(last_action={"phase": phase}, last_result={})
             self.save()
         result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema)
+        if phase == "interpret":
+            # A specialist's later length failure must resume this paid draft,
+            # never shrink the reader's batch and generate a different draft.
+            self.state.update(last_action={"phase": "interpretation-received"}, last_result={})
         self.state["step"] += 1
         self.save()
         return result
@@ -170,13 +174,18 @@ class SemanticReader:
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))
-        paired = bool(getattr(self.deps, "reviewer", None))
+        reviewer = getattr(self.deps, "reviewer", None)
+        paired = reviewer is not None
         schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
+        draft_schema = deepcopy(schema)
+        draft_schema["properties"]["passages"]["items"] = {}
         def validate(answer: dict[str, object]) -> None:
-            plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
-            if reviewer := getattr(self.deps, "reviewer", None):
-                from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
-                check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
+            if paired:
+                # This is only a staged draft. Each passage must pass its
+                # source and review-capacity checks before any chunk is credited.
+                validate_schema(answer, draft_schema)
+            else:
+                bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
         selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
@@ -193,7 +202,11 @@ class SemanticReader:
                 "that the draft faithfully preserves need not trigger another review.")
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
         answer = self.ask(key, "interpret", payload, schema, validate)
-        plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
+        if reviewer is not None:
+            from backend.domains.llm_wiki.passage_repair import bind_reviewed_interpretation
+            plans, answer = bind_reviewed_interpretation(self.reader, reviewer, selected, evidence, answer)
+        else:
+            plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         self.state["observations"][key] = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
         if paired:
             from backend.domains.llm_wiki.review_selection import passage_key
