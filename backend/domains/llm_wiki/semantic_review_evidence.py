@@ -1,12 +1,14 @@
 """Bounded local evidence lookup; requests never invent or shorten originals."""
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Callable
 from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded, record, records
+from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.semantic_context import relevant, source_view
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 
 MAX_EVIDENCE_ROUNDS = 2
 
@@ -30,6 +32,53 @@ REVIEW_CONTEXT_INSTRUCTION = (
 
 def originals(chunks: list[dict[str, object]]) -> list[dict[str, object]]:
     return [{**s, "origin_label": c.get("origin_label", "")} for c in chunks for s in records(c.get("segments"))]
+
+
+class ReviewCheckpointKeys:
+    """Retain historical group keys unless an entire display-identical group has different originals."""
+
+    def __init__(self, entries: list[dict[str, object]], sources: list[list[dict[str, object]]]) -> None:
+        self.entries = entries
+        self.display = [fingerprint(entry) for entry in entries]
+        self.positions: dict[str, list[int]] = defaultdict(list)
+        for i, digest in enumerate(self.display):
+            self.positions[digest].append(i)
+        self.sources = [tuple(segment_source_key(s) for s in group) for group in sources]
+        self.keys: dict[tuple[int, int], str] = {}
+
+    def key(self, start: int, size: int) -> str:
+        if (start, size) not in self.keys:
+            stop = start + size
+            visible, sources = self.display[start:stop], self.sources[start:stop]
+            legacy = fingerprint(self.entries[start:stop])
+            collision = any(other != start and self.display[other:other + size] == visible
+                            and self.sources[other:other + size] != sources for other in self.positions[visible[0]])
+            self.keys[start, size] = fingerprint([legacy, sources]) if collision else legacy
+        return self.keys[start, size]
+
+    def recover_unique_ranges(self, state: dict[str, Any]) -> None:
+        # A pre-upgrade result with one recorded owner can be revalidated at
+        # that offset. A key overwritten by two distinct ranges has no such owner.
+        groups = state["reviewed_groups"]
+        migrated: dict[str, list[str]] = defaultdict(list)
+        for position, size in state.get("reviewed_ranges", {}).items():
+            start = int(position)
+            if size > 0 and start >= 0 and start + size <= len(self.entries):
+                old = fingerprint(self.entries[start:start + size])
+                if old in groups and (new := self.key(start, size)) != old:
+                    migrated[old].append(new)
+        for old, owners in migrated.items():
+            answer = groups.pop(old)
+            sources = state.get("review_sources", {})
+            if len(set(owners)) == 1:
+                new = owners[0]
+                groups.setdefault(new, answer)
+                if old in sources:
+                    sources.setdefault(new, sources.pop(old))
+            else:
+                state.setdefault("invalidated_review_groups", {})[old] = {
+                    "answer": answer, "sources": sources.pop(old, []),
+                    "error": "The saved review has multiple matching ranges with different originals."}
 
 
 def catalog(sources: list[dict[str, object]], count: Callable[[str], int], limit: int) -> dict[str, object]:

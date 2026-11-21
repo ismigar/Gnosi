@@ -14,7 +14,7 @@ from backend.domains.llm_wiki.reading_action_contracts import (
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 
 
 def obj(properties: dict[str, Any]) -> dict[str, Any]:
@@ -92,8 +92,8 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
         raise ValueError("Verified citations must retain the segment and source fingerprint for every quotation")
     for index, quote in enumerate(quotes if isinstance(quotes, list) else []):
         if isinstance(keys, list):
-            matches = [s for s in [primary, *evidence] if source_key(source_view(s)) == keys[index]
-                       and isinstance(quote, str) and quote in str(s["text"])]
+            matches = [s for s in [primary, *evidence] if isinstance(quote, str) and quote in str(s["text"])
+                       and (source_key(source_view(s)) == keys[index] or segment_source_key(s) == keys[index])]
         elif isinstance(quote, str) and quote in str(primary["text"]):
             matches = [primary]
         else:

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.independent_review import fits_review
 from backend.domains.llm_wiki.passage_repair_notes import amended_passage, amendment_schema
 from backend.domains.llm_wiki.reading_quality import adjacent_originals
@@ -15,7 +16,7 @@ from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import (
     TEXT, TEXTS, bind_interpretation, bind_passage, fields, interpretation_schema, note_schema, obj, validate_schema,
 )
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
@@ -32,11 +33,12 @@ def repair_sources(primary: dict[str, object], draft: dict[str, object], neighbo
             cited_keys.update(k for k in keys if isinstance(k, str))
         elif isinstance(quotes, list):
             literal_quotes.update(q for q in quotes if isinstance(q, str) and q.strip() and q not in str(primary["text"]))
-    sources = {source_key(source_view(s)): s for s in [primary, *neighbours]}
+    sources = {segment_source_key(s): s for s in [primary, *neighbours]}
     for source in evidence:
         key = source_key(source_view(source))
-        if key in cited_keys or any(q in str(source["text"]) for q in literal_quotes):
-            sources[key] = source
+        bound_key = segment_source_key(source)
+        if key in cited_keys or bound_key in cited_keys or any(q in str(source["text"]) for q in literal_quotes):
+            sources[bound_key] = source
     return list(sources.values())
 
 
@@ -52,6 +54,7 @@ def audited_draft_notes(reader: ContextualReader, reviewer: ReviewRuntime, prima
 def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                    draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str) -> dict[str, object]:
     retained = []
+    supported_notes = []
     contract = note_schema(reader.dimensions)
     for note in records(draft.get("notes")):
         try:
@@ -62,6 +65,7 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         citation_issues = getattr(reader.dependencies, "citation_issues", None)
         if not citation_issues or not any(citation_issues(supported, reader.origins)):
             retained.append(note)
+            supported_notes.extend(supported)
     passage_schema = interpretation_schema(1, reader.dimensions)["properties"]["passages"]
     schema = obj({"passages": passage_schema, "evidence_quote": TEXT, "unresolved_issues": TEXTS,
                   **({"amendments": amendment_schema(len(retained))} if retained else {})})
@@ -105,8 +109,38 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
             raise ValueError("The corrected notes must cite valid locations in their originals")
 
     key = "passage-repair-" + fingerprint([reviewer.identity, draft, payload])[:24]
-    answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer)
+    answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, quote_evidence=evidence, offer_excerpts=True,
+                        pdf_citations=partial_citations(supported_notes, evidence))
     return {**amended_passage(answer, retained, primary), "needs_specialist": True}
+
+
+def _rejected_passages(
+    reader: ContextualReader, reviewer: ReviewRuntime, primary: list[dict[str, object]],
+    passages: list[dict[str, Any]], evidence: list[dict[str, object]],
+) -> dict[int, str]:
+    passage_schema = interpretation_schema(1, reader.dimensions, flag_review=True)["properties"]["passages"]["items"]
+    rejected: dict[int, str] = {}
+    notes = []
+    owners = []
+    for position, (source, draft) in enumerate(zip(primary, passages, strict=True)):
+        try:
+            if "reader_validation_error" in draft:
+                raise ValueError(str(draft["reader_validation_error"]))
+            validate_schema(draft, passage_schema)
+            bound = audited_draft_notes(reader, reviewer, source, draft, evidence)
+        except ValueError as error:
+            rejected[position] = str(error)
+        else:
+            notes.extend(bound)
+            owners.extend([position] * len(bound))
+    # Share page indexes for the whole batch. A broken citation alone should
+    # reach the specialist even when the reader's prose is valid.
+    check = getattr(reader.dependencies, "citation_issues", None)
+    if check and notes:
+        for position, issues in zip(owners, check(notes, reader.origins), strict=True):
+            if issues:
+                rejected.setdefault(position, issues[0])
+    return rejected
 
 
 def bind_reviewed_interpretation(
@@ -121,18 +155,12 @@ def bind_reviewed_interpretation(
     candidate = {**answer, "passages": passages}
     primary = [s for chunk in chunks for s in records(chunk["segments"])]
     available = list(evidence)
-    passage_schema = interpretation_schema(1, reader.dimensions, flag_review=True)["properties"]["passages"]["items"]
-    neighbours = None
-    for position, (source, draft) in enumerate(zip(primary, passages, strict=True)):
-        try:
-            if "reader_validation_error" in draft:
-                raise ValueError(str(draft["reader_validation_error"]))
-            validate_schema(draft, passage_schema)
-            audited_draft_notes(reader, reviewer, source, draft, evidence)
-        except ValueError as error:
-            if neighbours is None:
-                neighbours = adjacent_originals(reader.chunks, key=passage_key)
+    rejected = _rejected_passages(reader, reviewer, primary, passages, evidence)
+    if rejected:
+        neighbours = adjacent_originals(reader.chunks, key=passage_key)
+        for position in sorted(rejected):
+            source, draft = primary[position], passages[position]
             sources = repair_sources(source, draft, neighbours[passage_key(source)], evidence)
-            passages[position] = repair_passage(reader, reviewer, source, draft, sources, str(error))
-            available = list({source_key(source_view(s)): s for s in [*available, *sources]}.values())
+            passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position])
+            available = list({segment_source_key(s): s for s in [*available, *sources]}.values())
     return bind_interpretation(candidate, chunks, available, reader.dimensions, flag_review=True), candidate

@@ -15,6 +15,16 @@ if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_reading import SemanticReader
 
 
+def citation_findings(engine: SemanticReader, entries: list[dict[str, object]], notes: list[dict[str, object]]) -> set[int]:
+    check = getattr(engine.deps, "citation_issues", None)
+    if not check:
+        return set()
+    groups = check(notes, engine.reader.origins)
+    for entry, findings in zip(entries, groups, strict=True):
+        entry["validation_issues"] = [*cast(list[str], entry["validation_issues"]), *findings]
+    return {i for i, group in enumerate(groups) if group} if getattr(engine.deps, "reviewer", None) else set()
+
+
 def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> list[tuple[dict[str, object], dict[str, object]]]:
     reader = engine.reader
     # Check even previously paid/cached plans before requesting another review.
@@ -49,13 +59,9 @@ def review_plans(engine: SemanticReader, global_map: str, notes_map: str) -> lis
                             "prior_observations": plan.get("prior_warnings", []),
                             "validation_issues": prose_issues(note, [primary, *support], reader.language)})
             destinations.append((ci, ni, note, primary, [primary, *support]))
-    citation_check = getattr(engine.deps, "citation_issues", None)
-    if citation_check:
-        issues = citation_check([target[2] for target in destinations], reader.origins)
-        for entry, findings in zip(entries, issues, strict=True):
-            entry["validation_issues"] = [*cast(list[str], entry["validation_issues"]), *findings]
+    pdf_repairs = citation_findings(engine, entries, [target[2] for target in destinations])
     from backend.domains.llm_wiki.semantic_review_execution import review_batches
-    for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map):
+    for batch, validated in review_batches(engine, entries, destinations, global_map, notes_map, pdf_repairs):
         for (ci, ni, _, _, _), note in zip(batch.targets, validated, strict=True):
             updated = records(reviewed[ci][1]["notes"])
             updated[ni] = note

@@ -9,6 +9,7 @@ from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
@@ -31,6 +32,7 @@ class ReviewBatch:
     payload: dict[str, object]
     schema: dict[str, Any]
     key: str
+    pdf_reviewer: bool
 
     @property
     def evidence(self) -> list[dict[str, object]]:
@@ -44,19 +46,24 @@ class ReviewBatch:
 
 
 def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
-                  offset: int, global_map: str, notes_map: str) -> ReviewBatch:
+                  offset: int, global_map: str, notes_map: str, pdf_repairs: set[int],
+                  checkpoints: evidence_lookup.ReviewCheckpointKeys) -> ReviewBatch:
     reader = engine.reader
     maximum = engine.state.get("review_size_limit", len(entries))
     batch = groups(entries[offset:], engine.deps.count_tokens, reader.budget // 3, maximum)[0]
     previous_size = engine.state.get("reviewed_ranges", {}).get(str(offset))
-    if previous_size and fingerprint(entries[offset:offset + previous_size]) in engine.state["reviewed_groups"]:
+    if previous_size and checkpoints.key(offset, previous_size) in engine.state["reviewed_groups"]:
         batch = entries[offset:offset + previous_size]
     else:
         for start, size in engine.state.get("reviewed_ranges", {}).items():
             position = int(start)
             if (offset < position < offset + len(batch)
-                    and fingerprint(entries[position:position + size]) in engine.state["reviewed_groups"]):
+                    and checkpoints.key(position, size) in engine.state["reviewed_groups"]):
                 batch = batch[:position - offset]
+        for position in range(offset + 1, offset + len(batch)):
+            if (position in pdf_repairs) != (offset in pdf_repairs):
+                batch = batch[:position - offset]
+                break
     targets = destinations[offset:offset + len(batch)]
     original = evidence_lookup.originals(reader.chunks)
     present = {s["id"] for _, _, _, _, sources in targets for s in sources}
@@ -86,7 +93,9 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         " Correct supported points missing from the bodies, and preserve them when editing wording, citations or links."
         " Another supplied note may cover the point, but verify that its body actually explains it.")
     return ReviewBatch(offset, batch, targets, retrieved, payload,
-                       review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True), fingerprint(batch))
+                       review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True),
+                       checkpoints.key(offset, len(batch)),
+                       any(i in pdf_repairs for i in range(offset, offset + len(batch))))
 
 
 def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: ContextualReader) -> None:
@@ -124,11 +133,15 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     # Only this isolated reader writes its unique phase checkpoint. Shared state,
     # progress, warnings and the final note order belong to the coordinator.
     worker = replace(reader, models=[], warnings=[], report_progress=False)
+    reviewer = getattr(reader.dependencies, "reviewer", None)
+    retained = partial_citations([t[2] for t in batch.targets], batch.evidence) if reviewer else []
     seen: set[str] = set()
     for round_number in range(evidence_lookup.MAX_EVIDENCE_ROUNDS + 1):
         answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
                             {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
-                            lambda value: validate_answer(value, batch, worker), batch.schema)
+                            lambda value: validate_answer(value, batch, worker), batch.schema,
+                            executor=reviewer if batch.pdf_reviewer else None,
+                            quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained), pdf_citations=retained)
         requests = records(answer.get("evidence_requests"))
         if not requests:
             if answer["unresolved_issues"]:
@@ -231,13 +244,16 @@ def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> Review
         engine.state.setdefault("invalidated_review_groups", {})[batch.key] = {"answer": answer, "error": str(error)}
         del engine.state["reviewed_groups"][batch.key]
         engine.save()
-        return replace(batch, payload={**batch.payload, "prior_review_failure": str(error)})
+        return replace(batch, payload={**batch.payload, "prior_review_failure": str(error),
+                                       "retrieved_originals": [source_view(s) for s in batch.retrieved]})
     return None
 
 
 def review_batches(engine: SemanticReader, entries: list[dict[str, object]], destinations: list[Target],
-                   global_map: str, notes_map: str) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
+                   global_map: str, notes_map: str, pdf_repairs: set[int]) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
+    checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations])
+    checkpoints.recover_unique_ranges(engine.state)
     while offset < len(entries):
         engine.reader.phase("reviewing", 55 + round(18 * offset / max(1, len(entries))))
         batches = []
@@ -245,7 +261,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         for _ in range(REVIEW_WORKERS):
             if end >= len(entries):
                 break
-            batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map)
+            batch = prepare_batch(engine, entries, destinations, end, global_map, notes_map, pdf_repairs, checkpoints)
             batches.append(batch)
             end += len(batch.entries)
         if not run_wave(engine, batches):

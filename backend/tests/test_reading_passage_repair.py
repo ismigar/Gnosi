@@ -75,10 +75,16 @@ def test_early_repair_preserves_reader_work_and_uses_same_budget_on_resume(tmp_p
     resumed, calls, _ = setup(count=8, generate=rejected_drafts, checkpoints=checkpoints, resume="new")
     resumed.job_id = "resumed"
     attach_reviewer(resumed, reviewer)
+    discovered = []
+    def discover(evidence, origins, retained):
+        discovered.append(evidence[0]["text"].split(":")[0])
+        return {}
+    resumed.dependencies.pdf_quote_excerpts = discover
     with reading_budget.session(budget):
         result, models = resumed.run()
     assert "interpret" not in [call["phase"] for call in calls]
     assert repairs == ["Argument 4", "Argument 5", "Argument 5"]
+    assert discovered == ["Argument 5"]
     assert "reviewer-model" in models and phases[-1] == "source-synthesis"
     assert len(result["coverage"]) == len(result["notes"]) == 8
     assert sum(n["title"] == "The objection and its qualification" for n in result["notes"]) == 2

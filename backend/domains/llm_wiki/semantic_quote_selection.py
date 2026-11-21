@@ -205,9 +205,14 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
         for entry in payload["notes"]:
             sources.extend([entry["primary"], *entry["support"]])
     sources.extend(payload.get("retrieved_originals", []))
-    catalog, quotes, source_ids = quote_choices(sources)
-    quote_sources = {q["quote_id"]: source_key(source) for source, identifier in zip(sources, source_ids, strict=True)
-                     for q in catalog[identifier - 1]["quotes"]}
+    excerpts = payload.pop("verified_pdf_excerpts", None)
+    bindings = payload.pop("pdf_quote_sources", None)
+    catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
+    quote_ids = [[choice["quote_id"] for span in [*source["quotes"], *source.get("retained_quotes", [])]
+                  for choice in span.get("verified_excerpts", [span])] for source in catalog]
+    owners = [binding[1] for binding in bindings] if bindings is not None else [source_key(s) for s in sources]
+    quote_sources = {number: owner for owner, identifier in zip(owners, source_ids, strict=True)
+                     for number in quote_ids[identifier - 1]}
     identities = iter(source_ids)
     if phase == "interpret":
         payload["primary_passages"] = {f"passage_{i + 1}": {"source": next(identities)}
@@ -222,7 +227,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             primary_sources.append(entry["primary"]["source"])
             entry["support"] = [{"source": next(identities)} for _ in entry["support"]]
     payload["retrieved_originals"] = [{"source": next(identities)} for _ in payload.get("retrieved_originals", [])]
-    primary_ids = [[q["quote_id"] for q in catalog[source - 1]["quotes"]] for source in primary_sources]
+    primary_ids = [quote_ids[source - 1] for source in primary_sources]
     if phase == "verify":
         original_notes = [entry["note"] for entry in payload["notes"]]
         compact_notes = [reference_draft_quotes(note, quotes) for note in original_notes]
@@ -246,6 +251,15 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             " Every source_quotes entry belongs to source_document; its complete document label is shared."
         )
     payload["source_quotes"] = catalog
+    if excerpts:
+        payload["instruction"] = str(payload.get("instruction", "")) + (
+            " When a whole PDF quotation cannot be highlighted, its complete text remains visible and"
+            " verified_excerpts gives the shorter literal choices with confirmed locations. Select the"
+            " numbered excerpts that support the claim, including its qualifications; use several if needed."
+            " Retained_quotes lists other previously cited excerpts verified in this source. You may keep"
+            " that exact evidence when revising a note."
+            " Report unresolved issues if those excerpts cannot support it. When adjacent pages complete"
+            " a sentence, explain the supported conclusion and its attribution.")
     payload["instruction"] = str(payload.get("instruction", "")) + (
         " Return passages by their named passage_N keys, not array positions. In review, return each"
         " note_N key with a replacement, null to retain it, or an omit_reason object to exclude it with a source-grounded explanation under the active reading policy. Each note requires"
