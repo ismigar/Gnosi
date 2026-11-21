@@ -58,7 +58,7 @@ def quote_choices(sources: list[dict[str, Any]], *,
         identity = bindings[position][1] if bindings is not None else encoded(source)
         if identity not in identities:
             identities[identity] = len(catalog) + 1
-            spans = []
+            spans: list[dict[str, object]] = []
             first_id = len(quotes) + 1
             ranges = pdf_excerpts.get(identity, {}) if pdf_excerpts else {}
             for i, text in enumerate(original_spans(str(source["text"]))):
