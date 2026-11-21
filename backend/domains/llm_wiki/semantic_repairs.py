@@ -26,6 +26,21 @@ def original_spans(text: str) -> list[str]:
     return spans
 
 
+def _retained_choices(text: str, ranges: list[tuple[int, int]], quotes: dict[int, str], first_id: int) -> list[dict[str, Any]]:
+    offered = {quotes[i] for i in range(first_id, len(quotes) + 1)}
+    retained = []
+    for start, end in ranges:
+        if not 0 <= start < end <= len(text):
+            raise ValueError("The saved PDF excerpt must be within its original source")
+        quote = text[start:end]
+        if quote not in offered:
+            number = len(quotes) + 1
+            quotes[number] = quote
+            retained.append({"quote_id": number, "text": quote})
+            offered.add(quote)
+    return retained
+
+
 def quote_choices(sources: list[dict[str, Any]], *,
                  pdf_excerpts: dict[str, dict[str, list[tuple[int, int]]]] | None = None,
                  bindings: list[tuple[str, str]] | None = None,
@@ -44,6 +59,7 @@ def quote_choices(sources: list[dict[str, Any]], *,
         if identity not in identities:
             identities[identity] = len(catalog) + 1
             spans = []
+            first_id = len(quotes) + 1
             ranges = pdf_excerpts.get(identity, {}) if pdf_excerpts else {}
             for i, text in enumerate(original_spans(str(source["text"]))):
                 choices = []
@@ -59,8 +75,9 @@ def quote_choices(sources: list[dict[str, Any]], *,
                     number = len(quotes) + 1
                     quotes[number] = text
                     spans.append({"quote_id": number, "text": text})
-            catalog.append({"source": identities[identity],
-                            **{k: v for k, v in source.items() if k != "text"}, "quotes": spans})
+            retained = _retained_choices(str(source["text"]), ranges.get("retained", []), quotes, first_id)
+            catalog.append({"source": identities[identity], **{k: v for k, v in source.items() if k != "text"},
+                            "quotes": spans, **({"retained_quotes": retained} if retained else {})})
         source_ids.append(identities[identity])
     return catalog, quotes, source_ids
 
@@ -75,14 +92,16 @@ def build_semantic_repair(prompt: str, text: str) -> OutputRepair | None:
             return None
         schema = request["output_schema"]["properties"]["passages"]["items"]
         context = [*primary, *request.get("neighbours", []), *request.get("retrieved_originals", [])]
-        errors = {i: passage_errors(passage, schema, primary[i], context) for i, passage in enumerate(passages)}
+        bindings = request.get("pdf_quote_sources")
+        owners = [b[1] for b in bindings] if bindings is not None else [source_key(s) for s in context]
+        errors = {i: passage_errors(passage, schema, primary[i], context, owners[i], owners) for i, passage in enumerate(passages)}
         bad = [i for i, diagnostics in errors.items() if diagnostics]
         if not bad:
             return None
     except (ValueError, TypeError, KeyError):
         return None
-    catalog, quotes, source_ids = quote_choices(context)
-    quote_sources = {q["quote_id"]: source_key(source) for source, identifier in zip(context, source_ids, strict=True)
+    catalog, quotes, source_ids = quote_choices(context, bindings=bindings)
+    quote_sources = {q["quote_id"]: owner for owner, identifier in zip(owners, source_ids, strict=True)
                      for q in catalog[identifier - 1]["quotes"]}
     note, definitions = shared_note_schema(schema["properties"]["notes"]["items"])
     choices = {}
@@ -106,7 +125,7 @@ def build_semantic_repair(prompt: str, text: str) -> OutputRepair | None:
         for index in bad:
             value = deepcopy(patch["repairs"][f"passage_{index + 1}"])
             value["notes"] = [restore_note(note, quotes, quote_sources) for note in value["notes"]]
-            diagnostics = passage_errors(value, schema, primary[index], context)
+            diagnostics = passage_errors(value, schema, primary[index], context, owners[index], owners)
             if diagnostics:
                 raise ValueError("Invalid repaired passage: " + "; ".join(diagnostics))
             result["passages"][index] = value
@@ -114,7 +133,8 @@ def build_semantic_repair(prompt: str, text: str) -> OutputRepair | None:
     return OutputRepair(encoded(payload), patch_schema, restore)
 
 
-def passage_errors(passage: Any, schema: dict[str, Any], primary: dict[str, Any], context: list[dict[str, Any]]) -> list[str]:
+def passage_errors(passage: Any, schema: dict[str, Any], primary: dict[str, Any], context: list[dict[str, Any]],
+                   primary_key: str, owners: list[str]) -> list[str]:
     try:
         validate_schema(record(passage), schema)
     except ValueError as error:
@@ -127,14 +147,14 @@ def passage_errors(passage: Any, schema: dict[str, Any], primary: dict[str, Any]
         if keys is not None and (not isinstance(keys, list) or len(keys) != len(quotes)):
             errors.append(f"notes[{index}]: each selected quote must retain its supplied source")
             continue
-        if not any(q.strip() and q in primary["text"] and (keys is None or keys[i] == source_key(primary))
+        if not any(q.strip() and q in primary["text"] and (keys is None or keys[i] == primary_key)
                    for i, q in enumerate(quotes)):
             errors.append(f"notes[{index}]: needs supporting evidence from its own primary passage")
         for position, quote in enumerate(quotes):
             if keys is not None:
-                valid = len({source_key(s) for s in context if source_key(s) == keys[position] and quote in s["text"]}) == 1
+                valid = any(owner == keys[position] and quote in s["text"] for s, owner in zip(context, owners, strict=True))
             else:
-                valid = quote in primary["text"] or len({encoded(s) for s in context if quote in s["text"]}) == 1
+                valid = quote in primary["text"] or len({owner for s, owner in zip(context, owners, strict=True) if quote in s["text"]}) == 1
             if not quote.strip() or not valid:
                 errors.append(f"notes[{index}].quotes[{position}]: not a verbatim quote identifying one supplied original")
     return errors

@@ -515,6 +515,7 @@ def _reading_citation_geometry(
 
 def reading_pdf_quote_excerpts(
     evidence: list[dict[str, object]], origins: list[dict[str, object]],
+    retained: list[tuple[str, str]] | None = None,
 ) -> dict[str, dict[str, list[tuple[int, int]]]]:
     """Discover literal alternatives without writing annotations or changing the source."""
     from backend.domains.llm_wiki.pdf_review_excerpts import verified_excerpts
@@ -525,7 +526,7 @@ def reading_pdf_quote_excerpts(
         groups, resolved = _reading_citation_geometry(notes, origins)
         return [set(group).issubset(resolved) if group else None for group in groups]
 
-    return verified_excerpts(evidence, locate)
+    return verified_excerpts(evidence, locate, retained)
 
 
 def reading_citation_issues(

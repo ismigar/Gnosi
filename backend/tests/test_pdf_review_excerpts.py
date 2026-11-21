@@ -81,7 +81,9 @@ def test_two_pdfs_with_identical_visible_source_keep_their_own_geometry(tmp_path
         sources.append(segment)
         origins.append({**_origin(pdf), "origin_id": name, "_annotation_source_uri": pdf.as_uri(), "segments": [segment]})
     assert source_view(sources[0]) == source_view(sources[1])
-    choices = reading_pdf_quote_excerpts(sources, origins)
+    choices = reading_pdf_quote_excerpts(sources, origins, [("first", "surrounding prose"), ("second", "surrounding prose")])
+    assert "retained" not in choices[segment_source_key(sources[0])]
+    assert "retained" in choices[segment_source_key(sources[1])]
     schema = obj({"passages": interpretation_schema(1, [])["properties"]["passages"],
                   "evidence_quote": TEXT, "unresolved_issues": TEXTS})
     selection = quote_selection({"reading_engine": "semantic", "phase": "source-repair",
@@ -145,7 +147,7 @@ def test_only_the_bad_citation_triggers_early_review_in_a_well_formed_reader_bat
     assert repairs == ["in this portable PDF fixture"] and quotes == [good, *repairs]
 
 
-@pytest.mark.parametrize("saved_short_quote", [False, True])
+@pytest.mark.parametrize("saved_short_quote", [None, "in this portable PDF fixture", "portable PDF fixture"])
 def test_resume_preserves_paid_extraction_and_reviews_pdf_citations_with_the_correct_agent(tmp_path, saved_short_quote):
     from backend.domains.llm_wiki.chunking import reading_chunks
     from backend.domains.llm_wiki.origins import finalize_origin
@@ -154,7 +156,7 @@ def test_resume_preserves_paid_extraction_and_reviews_pdf_citations_with_the_cor
     from backend.tests.test_semantic_reading import response, setup
 
     whole = "Unreadable OCR; in this portable PDF fixture"
-    short = "in this portable PDF fixture"
+    short = saved_short_quote or "in this portable PDF fixture"
     good = "Persistent citation highlights span multiple lines"
     origin = finalize_origin({**_origin(_demo_pdf(tmp_path)), "label": "Fixture", "input_order": 0,
         "segments": [{"text": text, "locator": {"page": 1, "paragraph": i}} for i, text in enumerate((good, whole), 1)]})
@@ -189,9 +191,11 @@ def test_resume_preserves_paid_extraction_and_reviews_pdf_citations_with_the_cor
             wire = json.loads(selection.input)
             index = titles.index(whole)
             original = wire["notes"][index]["primary"]["source"]
-            span = wire["source_quotes"][original - 1]["quotes"][0]
+            catalog = wire["source_quotes"][original - 1]
+            span = catalog["quotes"][0]
             assert span["text"] == whole and "quote_id" not in span
-            verified = next(choice for choice in span["verified_excerpts"] if choice["text"] == short)
+            verified = next(choice for choice in [*span["verified_excerpts"], *catalog.get("retained_quotes", [])]
+                            if choice["text"] == short)
             changes = {f"note_{i + 1}": None for i in range(len(titles))}
             changes[f"note_{index + 1}"] = {"title": "The fixture", "body_md": "The original describes a portable PDF fixture.",
                 "properties": {}, "primary_quote_ids": [verified["quote_id"]], "context_quote_ids": []}
@@ -214,3 +218,78 @@ def test_resume_preserves_paid_extraction_and_reviews_pdf_citations_with_the_cor
     assert reading_citation_issues(notes, [origin]) == [[], []]
     engine.review("Overview", "The notes cover the fixture.")
     assert len(roles) == 2
+
+
+def test_valid_saved_citation_crossing_span_boundary_stays_selectable_with_whole_quotes(tmp_path):
+    text = "Persistent citation highlights span multiple lines\nin this portable PDF fixture"
+    saved = "multiple lines\nin this portable PDF"
+    segment = {"id": "p", "text": text, "locator": {"page": 1}}
+    origins = [{**_origin(_demo_pdf(tmp_path)), "segments": [segment]}]
+    from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
+    from backend.domains.llm_wiki.semantic_repairs import quote_choices
+    note = {"citations": [{"segment_id": "p", "quote": saved}]}
+    assert reading_citation_issues([note], origins) == [[]]
+    pairs = partial_citations([note], [segment])
+    assert pairs == [("p", saved)]
+    ranges = reading_pdf_quote_excerpts([segment], origins, [*pairs, ("p", "missing words")])
+    catalog, quotes, _ = quote_choices([source_view(segment)], pdf_excerpts=ranges, bindings=quote_bindings([segment]))
+    row, = catalog
+    assert all("quote_id" in span for span in row["quotes"])
+    assert [choice["text"] for choice in row["retained_quotes"]] == [saved]
+    assert "missing words" not in quotes.values()
+
+
+@pytest.mark.parametrize("reject_first_draft", [False, True])
+def test_reader_and_reviewer_distinguish_homonymous_pdfs_even_without_shorter_choices(tmp_path, reject_first_draft):
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.origins import deduplicate_origins, finalize_origin
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+    from backend.tests.test_reading_passage_repair import attach_reviewer
+    from backend.tests.test_semantic_reading import setup
+
+    shared = "Ordinary surrounding prose supplies context for selective reading without highlighting everything."
+    origins = []
+    for label, repetitions in (("healthy", 1), ("broken", 0)):
+        folder = tmp_path / label
+        folder.mkdir()
+        pdf = _demo_pdf(folder, context_repetitions=repetitions)
+        origins.append(finalize_origin({**_origin(pdf), "label": pdf.name, "source_url": pdf.as_uri(),
+            "_annotation_source_uri": pdf.as_uri(), "input_order": len(origins),
+            "segments": [{"text": shared, "locator": {"page": 1}}, {"text": label, "locator": {"page": 2}}]}))
+    reader, _, _ = setup()
+    reader.origins = deduplicate_origins(origins)
+    reader.chunks = reading_chunks(reader.origins, budget=400, count=len)
+    healthy, broken = (o["segments"][0] for o in reader.origins)
+    assert reading_pdf_quote_excerpts([healthy, broken], reader.origins) == {}
+    calls = []
+
+    def generate(prompt, validate, timeout):
+        req = json.loads(prompt)
+        calls.append(req["phase"])
+        selection = quote_selection(req)
+        catalog = json.loads(selection.input)["source_quotes"]
+        a, b = [row["quotes"][0]["quote_id"] for row in catalog if row["quotes"][0]["text"] == shared]
+        assert a in selection.primary_ids[0] and b not in selection.primary_ids[0]
+        interpreting = req["phase"] == "interpret"
+        note = {"title": "Selective reading", "body_md": "The source describes selective reading.", "properties": {},
+                "primary_quote_ids": [b if interpreting and reject_first_draft else a], "context_quote_ids": []}
+        passage = {"notes": [note], "reason": "The original explains the context for reading."}
+        if interpreting:
+            passage["needs_specialist"] = False
+            answer = {"themes": [], "questions": [], "contradictions": [], "warnings": []}
+        else:
+            answer = {"evidence_quote": shared, "unresolved_issues": []}
+        literal = selection.restore(json.dumps({**answer, "passages": {"passage_1": passage}}),
+                                    draft_schema=selection.draft_schema() if interpreting else None)
+        validate(json.loads(literal))
+        return literal, req["phase"]
+
+    attach_reviewer(reader, generate)
+    reader.dependencies.generate_structured = generate
+    reader.dependencies.citation_issues = reading_citation_issues
+    reader.dependencies.pdf_quote_excerpts = reading_pdf_quote_excerpts
+    selected, = (chunk for chunk in reader.chunks if chunk["segments"][0]["id"] == healthy["id"])
+    plans = SemanticReader(reader).interpret([selected], "Overview")
+    note, = plans[selected["id"]]["notes"]
+    assert calls == (["interpret", "source-repair"] if reject_first_draft else ["interpret"])
+    assert note["citations"] == [{"segment_id": healthy["id"], "quote": shared}]

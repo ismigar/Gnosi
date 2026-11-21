@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from collections.abc import Callable
 from itertools import islice
 
+from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 from backend.domains.llm_wiki.semantic_repairs import original_spans
@@ -46,9 +48,43 @@ def quote_bindings(evidence: list[dict[str, object]]) -> list[tuple[str, str]]:
     return [(source_key(source_view(s)), segment_source_key(s)) for s in evidence]
 
 
+def partial_citations(notes: list[dict[str, object]], evidence: list[dict[str, object]]) -> list[tuple[str, str]]:
+    by_source: dict[str, list[str]] = defaultdict(list)
+    for note in notes:
+        for citation in records(note.get("citations")):
+            by_source[str(citation["segment_id"])].append(str(citation["quote"]))
+    partials = []
+    for source in evidence:
+        key, text = str(source["id"]), str(source["text"])
+        if key in by_source:
+            spans = original_spans(text)
+            partials.extend((key, q) for q in by_source[key] if q.strip() and q in text and q not in spans)
+    return list(dict.fromkeys(partials))
+
+
+def _verified_retained(segments: dict[str, dict[str, object]], retained: list[tuple[str, str]],
+                       locate: Callable[[list[tuple[str, str]]], list[bool | None]]) -> dict[str, dict[str, list[tuple[int, int]]]]:
+    """An existing citation may span sentences or fall outside the suggested windows."""
+    if not retained:
+        return {}
+    checked = {choice for choice, valid in zip(retained, locate(retained), strict=True) if valid is True}
+    results = {}
+    for key, segment in segments.items():
+        text = str(segment["text"])
+        bounds = []
+        for identifier, quote in retained:
+            if identifier == str(segment["id"]) and (identifier, quote) in checked and quote and quote in text:
+                start = text.index(quote)
+                bounds.append((start, start + len(quote)))
+        if bounds:
+            results[key] = {"retained": bounds}
+    return results
+
+
 def verified_excerpts(
     evidence: list[dict[str, object]],
     locate: Callable[[list[tuple[str, str]]], list[bool | None]],
+    retained: list[tuple[str, str]] | None = None,
 ) -> dict[str, dict[str, list[tuple[int, int]]]]:
     """None denotes a non-PDF or unknown source. Only positive geometry is offered."""
     segments = {segment_source_key(segment): segment for segment in evidence}
@@ -65,7 +101,7 @@ def verified_excerpts(
             for (key, _, number, excerpt), located in zip(proposals, checked, strict=True):
                 if located is True:
                     confirmed.setdefault((key, number), []).append(excerpt)
-    results: dict[str, dict[str, list[tuple[int, int]]]] = {}
+    results = _verified_retained(segments, retained or [], locate)
     for key, _, number, span in failed:
         for excerpt in confirmed.get((key, number), [])[:8]:
             start = span.index(excerpt)

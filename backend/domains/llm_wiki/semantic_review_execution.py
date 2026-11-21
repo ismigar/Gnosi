@@ -9,6 +9,7 @@ from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.reading_batch_recovery import _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
@@ -131,15 +132,14 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
     # progress, warnings and the final note order belong to the coordinator.
     worker = replace(reader, models=[], warnings=[], report_progress=False)
     reviewer = getattr(reader.dependencies, "reviewer", None)
-    use_excerpts = reviewer and (batch.pdf_reviewer or any(
-        evidence_lookup.has_partial_citation(note, sources) for _, _, note, _, sources in batch.targets))
+    retained = partial_citations([t[2] for t in batch.targets], batch.evidence) if reviewer else []
     seen: set[str] = set()
     for round_number in range(evidence_lookup.MAX_EVIDENCE_ROUNDS + 1):
         answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
                             {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
                             lambda value: validate_answer(value, batch, worker), batch.schema,
                             executor=reviewer if batch.pdf_reviewer else None,
-                            pdf_evidence=batch.evidence if use_excerpts else None)
+                            quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained), pdf_citations=retained)
         requests = records(answer.get("evidence_requests"))
         if not requests:
             if answer["unresolved_issues"]:
