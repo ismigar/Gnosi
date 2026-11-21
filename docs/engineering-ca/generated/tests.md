@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3574 |
-| pytest | 823 | 6399 |
+| pytest | 825 | 6405 |
 
 ## Fitxers
 
@@ -1255,6 +1255,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_page_write_open_cache_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_open_cache_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_page_write_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_open_contract.py) | 18 | Python AST |
 | pytest | [`backend/tests/test_pandoc_bin.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pandoc_bin.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_passage_review_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_passage_review_transport.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_password_hashing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_password_hashing.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_pat_authentication.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pat_authentication.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_path_resolution_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_path_resolution_reads.py) | 3 | Python AST |
@@ -1357,6 +1358,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_reading_cache_v2.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_cache_v2.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_estimate.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_reading_memory_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_memory_repairs.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_reading_passage_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_passage_repair.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_performance.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_reading_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_quality.py) | 25 | Python AST |
 | pytest | [`backend/tests/test_reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_result_cache.py) | 10 | Python AST |
