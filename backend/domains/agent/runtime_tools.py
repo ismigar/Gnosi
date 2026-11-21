@@ -221,7 +221,7 @@ def _model_supports_tools(
         match = next(
             (
                 row
-                for row in load_registry(with_catalog_prices=False)
+                for row in load_registry(with_catalog_prices=False, route=(provider_name, model_name))
                 if row.get("provider") == provider_name and row.get("model_id") == model_name
             ),
             None,
@@ -255,7 +255,7 @@ def _model_context_window(provider_name: str, model_name: Optional[str]) -> int:
         match = next(
             (
                 row
-                for row in load_registry(with_catalog_prices=False)
+                for row in load_registry(with_catalog_prices=False, route=(provider_name, model_name))
                 if row.get("provider") == provider_name and row.get("model_id") == model_name
             ),
             None,

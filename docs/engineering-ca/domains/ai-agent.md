@@ -1788,3 +1788,7 @@ El xat, els pòdcasts del Lector i l’àudio generat comparteixen la configurac
 ## Cobertura al cos de les notes
 
 La revisió de lectura també comprova la cobertura conceptual al cos de les notes: hi han de continuar explicats els passos argumentals, les condicions i el caràcter provisional de les premisses. Una cita literal o una marca de cobertura, per si soles, no acrediten aquesta cobertura. La política de revisió 9 invalida els lots de revisió anteriors i conserva les interpretacions pagades, els mapes i els originals complets; el criteri semàntic reforçat requereix una nova revisió del model. Les comprovacions mecàniques de cites i prosa continuen sent obligatòries i no certifiquen per si soles la qualitat semàntica.
+
+## Temps de les crides al model
+
+En qualsevol torn de l’agent, Gnosi consulta la fitxa del model de núvol seleccionat al catàleg vigent i llegeix la ruta configurada per comptabilitzar l’ús ordinari. Si el catàleg ha caducat, s’actualitza pel procediment habitual. Les lectures amb pressupost comproven la tarifa abans de reservar l’import. Quan una crida compatible amb OpenAI rep la resposta sencera, la traça registra el temps abans de cridar l’SDK, la durada de la crida i, si el transport ho indica, el temps HTTP o de processament del proveïdor. Aquests intervals se superposen.

@@ -1749,3 +1749,7 @@ Chat, Reader podcasts and generated audio share the saved speech configuration w
 ## Reading body coverage
 
 Source-reading review also checks conceptual coverage in note bodies: argument steps, conditions and the provisional status of premises must remain explained. A literal quotation or a coverage marker alone does not establish that coverage. Review policy 9 invalidates earlier review batches while retaining paid interpretations, maps and the complete originals; a fresh model review is required for the stronger semantic criterion. Mechanical citation and prose checks remain mandatory, and do not themselves certify semantic quality.
+
+## Model call timing
+
+For any agent turn, Gnosi looks up the selected cloud model in the current published catalog and reads the configured route for ordinary usage accounting. An expired catalog follows the normal refresh path. A budgeted reading operation resolves its tariff before reserving the request. For a buffered OpenAI-compatible response, the execution trace records the time before the SDK call, the SDK round trip, and the HTTP or provider processing durations when the transport supplies them. These durations overlap.

@@ -298,9 +298,11 @@ def hydrate_registry_metadata(
     return hydrated
 
 
-def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
+def load_registry(with_catalog_prices: bool = True, *, configured_only: bool = False,
+                  route: tuple[str, str | None] | None = None) -> List[Dict[str, Any]]:
     """Read explicitly configured `ai.models` without runtime model seeds.
 
+    The configured-only view reads the stored route fields for metering.
     Prices are refreshed from the catalog unless explicitly disabled (the
     stored cost is only a fallback for models the catalog doesn't know).
     """
@@ -311,7 +313,17 @@ def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
         registry = strip_legacy_registry_rows(models)
     except Exception:
         pass
-    registry = hydrate_registry_metadata(registry)
+    if route is not None:
+        registry = [row for row in registry if (row.get("provider"), row.get("model_id")) == route]
+    if configured_only or not registry:
+        return registry
+    metadata = None
+    if route is not None:
+        from backend.agent.model_catalog import published_cloud_model
+        row = published_cloud_model(*route)
+        if row is not None:
+            metadata = {f"{route[0]}:{route[1]}": row}
+    registry = hydrate_registry_metadata(registry, metadata)
     if not with_catalog_prices:
         return registry
     try:

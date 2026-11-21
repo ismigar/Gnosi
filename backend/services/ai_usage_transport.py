@@ -70,6 +70,17 @@ class ObservedStream:
 def _observe_http_response(response: Any, *, state: dict[str, Any] | None = None) -> None:
     """Inspect only already buffered bodies, without consuming live streams."""
     if response is not None and getattr(response, "is_stream_consumed", False):
+        state = state if state is not None else _active.get()
+        if state is not None and "sdk_started" in state and "sdk_returned" not in state:
+            state["sdk_returned"] = time.perf_counter()
+            # An allowlist avoids attaching request ids, credentials, or arbitrary headers.
+            value = getattr(response, "headers", {}).get("openai-processing-ms", "")
+            if isinstance(value, str) and value.isascii() and value.isdecimal() and len(value) <= 9:
+                state["provider_processing_ms"] = int(value)
+            try:
+                state["http_roundtrip_ms"] = round(response.elapsed.total_seconds() * 1000)
+            except (AttributeError, RuntimeError):
+                pass  # Some transports do not expose an elapsed time.
         try:
             observe(response.json(), state=state)
         except (ValueError, RuntimeError):
@@ -99,6 +110,9 @@ class ObservedResource:
             return attribute
         def call(*args: Any, **kwargs: Any) -> Any:
             from backend.services import reading_budget
+            state = _active.get()
+            if state is not None and "sdk_started" not in state and name in {"create", "parse"}:
+                state["sdk_started"] = time.perf_counter()
             if reading_budget.active():
                 sdk = self.sdk_client
                 if sdk is not None and hasattr(sdk, "max_retries"):
@@ -148,12 +162,18 @@ class UsageCallback(BaseCallbackHandler):
         self.pending: dict[str, dict[str, Any]] = {}
         self.lock = threading.Lock()
     def on_chat_model_start(self, serialized: Any, messages: Any, *, run_id: Any, **kwargs: Any) -> None:
-        state: dict[str, Any] = {"id": str(run_id), "provider": self.provider, "model": self.model, "started": time.time(), "attribution": ledger.context_metadata(), "raw_usage": {}}
+        from backend.services import reading_budget
+        state: dict[str, Any] = {"id": str(run_id), "provider": self.provider, "model": self.model, "started": time.time(),
+            "started_monotonic": time.perf_counter(), "attribution": ledger.context_metadata(), "raw_usage": {},
+            "reading_budget_active": reading_budget.active()}
         try:
             from backend.agent.model_catalog import catalog_model_cost
             from backend.agent.model_router import load_registry
-            rates = catalog_model_cost(self.provider, self.model)
-            registry = load_registry(with_catalog_prices=False)
+            # Ordinary metering uses published tariffs and explicit registry fields.
+            # A budgeted reservation still resolves the live tariff before dispatch.
+            rates = catalog_model_cost(self.provider, self.model, not state["reading_budget_active"])
+            registry = load_registry(with_catalog_prices=False, configured_only=not state["reading_budget_active"],
+                                     route=None if state["reading_budget_active"] else (self.provider, self.model))
             row = next((r for r in registry if r.get("provider") == self.provider and r.get("model_id") == self.model), {})
             if rates is None and "cost_in" in row and "cost_out" in row and (row["cost_in"] or row["cost_out"] or row.get("is_free")):
                 rates = {"cost_in": row["cost_in"], "cost_out": row["cost_out"]}
@@ -168,8 +188,6 @@ class UsageCallback(BaseCallbackHandler):
             state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
             state["rates"] = None
-        from backend.services import reading_budget
-        state['reading_budget_active'] = reading_budget.active()
         parameters = kwargs.get("invocation_params") or {}
         state["cache_options"] = parameters.get("prompt_cache_options")
         reading_budget.reserve(str(run_id), messages, parameters, state.get("rates"), self.provider, self.model)
@@ -183,6 +201,14 @@ class UsageCallback(BaseCallbackHandler):
             return
         try:
             messages = [g.message for group in getattr(result, "generations", []) for g in group if hasattr(g, "message")]
+            if "sdk_returned" in state:
+                timing: dict[str, int] = {
+                    "before_sdk_ms": round((state["sdk_started"] - state["started_monotonic"]) * 1000),
+                    "sdk_roundtrip_ms": round((state["sdk_returned"] - state["sdk_started"]) * 1000),
+                }
+                timing.update((key, state[key]) for key in ("http_roundtrip_ms", "provider_processing_ms") if key in state)
+                for item in messages:
+                    item.response_metadata["gnosi_provider_timing"] = timing
             message = messages[0] if messages else None
             metadata = getattr(message, "usage_metadata", None) or {}
             raw = state["raw_usage"] or _mapping(getattr(result, "llm_output", None)).get("token_usage") or _mapping(getattr(message, "response_metadata", None)).get("token_usage") or {}

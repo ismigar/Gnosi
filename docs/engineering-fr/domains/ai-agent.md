@@ -1880,3 +1880,7 @@ Le chat, les podcasts du Lecteur et l’audio généré partagent la configurati
 ## Couverture dans le corps des notes
 
 La révision de lecture vérifie aussi la couverture conceptuelle dans le corps des notes : les étapes argumentatives, les conditions et le caractère provisoire des prémisses doivent rester expliqués. Une citation littérale ou un marqueur de couverture ne suffisent pas à établir cette couverture. La politique de révision 9 invalide les anciens lots de révision tout en conservant les interprétations payées, les cartes et les originaux complets ; le critère sémantique renforcé exige une nouvelle révision par le modèle. Les contrôles mécaniques de citations et de prose restent obligatoires et ne certifient pas à eux seuls la qualité sémantique.
+
+## Durée des appels au modèle
+
+Pour chaque tour de conversation, Gnosi consulte la fiche du modèle cloud sélectionné dans le catalogue à jour et utilise la route configurée pour comptabiliser l’usage ordinaire. Un catalogue périmé suit le processus habituel de mise à jour. Une lecture soumise à un budget vérifie le tarif avant de réserver le montant. Lorsqu’un appel compatible avec OpenAI reçoit la réponse complète, la trace consigne le délai avant l’appel au SDK, la durée de cet appel et, si le transport les fournit, les temps HTTP ou de traitement du fournisseur. Ces intervalles se recoupent.

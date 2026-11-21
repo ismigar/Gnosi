@@ -608,20 +608,63 @@ def catalog_model_metadata_index() -> Dict[str, Dict[str, Any]]:
     return _metadata_index_cache
 
 
-def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, float]]:
+@lru_cache(maxsize=2)
+def _disk_model_catalog(path: Path, stamp: tuple[int, ...]) -> Dict[str, Any]:
+    """Share the published cloud model rows until the file changes."""
+    catalog = _read_json(path)
+    if not catalog or not isinstance(catalog.get("providers"), list):
+        raise ValueError("No published model catalog")
+    from backend.agent.reading_model_catalog import supply_reading_models
+    supply_reading_models(catalog)
+    return catalog
+
+
+def _published_cloud_catalog() -> Optional[Dict[str, Any]]:
+    snapshot = _mem_cache
+    if snapshot is not None and time.monotonic() - _mem_cached_at < _MEM_TTL:
+        return snapshot
+    path = _cache_path()
+    if path is not None:
+        try:
+            stat = path.stat()
+            cached = _disk_model_catalog(path, (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns))
+            if _is_fresh(cached):
+                return cached
+        except (OSError, ValueError):
+            pass
+    return None
+
+
+def published_cloud_model(provider_id: str, model_id: str | None) -> Optional[Dict[str, Any]]:
+    """A known exact route needs neither a remote refresh nor an Ollama probe."""
+    wanted = provider_id.strip().lower()
+    if wanted == "ollama" or not model_id:
+        return None
+    snapshot = _published_cloud_catalog()
+    for provider in (snapshot or {}).get("providers", []):
+        if isinstance(provider, dict) and provider.get("id") == wanted:
+            for model in provider.get("models", []):
+                if model.get("id") == model_id:
+                    return {**model, "is_local": bool(provider.get("is_local"))}
+    return None
+
+
+def catalog_model_cost(provider_id: str, model_id: str, prefer_published: bool = False) -> Optional[Dict[str, float]]:
     """{cost_in, cost_out} in USD per 1M tokens, or None if unknown."""
-    provider = catalog_provider(provider_id)
-    for model in (provider or {}).get("models", []):
-        if model.get("id") == model_id:
-            values = [model.get(key) for key in ("cost_in", "cost_out")]
-            if model.get("pricing_known") is False or not all(
-                isinstance(value, (int, float)) and not isinstance(value, bool)
-                and math.isfinite(value) and value >= 0 for value in values
-            ):
-                return None
-            if not any(values) and model.get("pricing_known") is not True:
-                return None
-            return {key: float(model[key]) for key in ("cost_in", "cost_out")}
+    model = published_cloud_model(provider_id, model_id) if prefer_published else None
+    if model is None:
+        provider = catalog_provider(provider_id)
+        model = next((row for row in (provider or {}).get("models", []) if row.get("id") == model_id), None)
+    if model is not None:
+        values = [model.get(key) for key in ("cost_in", "cost_out")]
+        if model.get("pricing_known") is False or not all(
+            isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and value >= 0 for value in values
+        ):
+            return None
+        if not any(values) and model.get("pricing_known") is not True:
+            return None
+        return {key: float(model[key]) for key in ("cost_in", "cost_out")}
     from backend.agent.reading_model_catalog import DEFAULT_OFFERS
     if provider_id == "openai" and model_id in DEFAULT_OFFERS:
         _, inputs, outputs = DEFAULT_OFFERS[model_id]

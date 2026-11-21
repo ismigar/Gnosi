@@ -1,0 +1,116 @@
+"""The same metering and timing boundary serves ordinary chat and structured operations."""
+import asyncio
+import json
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+import httpx
+import pytest
+from langchain_openai import ChatOpenAI
+
+from backend.agent import model_catalog, model_router
+from backend.services import ai_usage_ledger, ai_usage_transport, reading_budget
+
+
+def test_current_cloud_tariff_needs_no_live_discovery(tmp_path, monkeypatch):
+    path = tmp_path / "catalog.json"
+    monkeypatch.setattr(model_catalog, "_cache_path", lambda: path)
+    monkeypatch.setattr(model_catalog, "_mem_cache", None)
+    discoveries = []
+    monkeypatch.setattr(model_catalog, "load_catalog", lambda: discoveries.append(1) or {"providers": []})
+    model = {"id": "custom", "cost_in": 2, "cost_out": 7, "pricing_known": True}
+    catalog = {"schema": model_catalog.CATALOG_SCHEMA, "fetched_at": datetime.now(timezone.utc).isoformat(),
+               "providers": [{"id": "remote", "models": [model]}]}
+    path.write_text(json.dumps(catalog))
+    with model_catalog._mem_lock:
+        assert model_catalog.catalog_model_cost("remote", "custom", True) == {"cost_in": 2, "cost_out": 7}
+    model["cost_in"] = 4
+    path.write_text(json.dumps(catalog))
+    assert model_catalog.catalog_model_cost("remote", "custom", True)["cost_in"] == 4
+    assert not discoveries
+    catalog["fetched_at"] = "2000-01-01T00:00:00+00:00"
+    path.write_text(json.dumps(catalog))
+    assert model_catalog.catalog_model_cost("remote", "custom", True) is None
+    assert discoveries == [1]
+
+
+def test_selected_route_uses_published_metadata_and_preserves_overrides(tmp_path, monkeypatch):
+    from backend.config import app_config
+    from backend.domains.agent.runtime_tools import _model_context_window, _model_supports_tools
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps({"schema": model_catalog.CATALOG_SCHEMA, "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "providers": [{"id": "remote", "models": [{"id": "custom", "tags": ["tools"], "context_window": 65000}]}]}))
+    monkeypatch.setattr(model_catalog, "_cache_path", lambda: path)
+    monkeypatch.setattr(model_catalog, "_mem_cache", None)
+    monkeypatch.setattr(model_catalog, "load_catalog", lambda: pytest.fail("Unnecessary live discovery"))
+    row = {"provider": "remote", "model_id": "custom"}
+    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(get=lambda *_: {"models": [row]}))
+    assert _model_context_window("remote", "custom") == 65000
+    assert _model_supports_tools("remote", "custom", {})
+    row.update(context_window=9000, tags=[])
+    assert _model_context_window("remote", "custom") == 9000
+    assert not _model_supports_tools("remote", "custom", {})
+    assert _model_supports_tools("remote", "custom", {"capabilities": ["tools"]})
+
+
+@pytest.mark.parametrize("asynchronous", [True, False])
+def test_http_timings_follow_each_real_sdk_call(tmp_path, monkeypatch, asynchronous):
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: None)
+    monkeypatch.setattr(model_router, "load_registry", lambda **_: [])
+    from backend.services import artificial_analysis
+    monkeypatch.setattr(artificial_analysis, "_read_cache", lambda: {})
+    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: dict.fromkeys(
+        ("agent_id", "agent_name", "operation", "origin", "run_id", "workspace_id", "user_id", "profile"), ""))
+
+    def respond(request):
+        prompt = json.loads(request.content)["messages"][-1]["content"]
+        return httpx.Response(200, headers={"openai-processing-ms": "3", "x-private": "sensitive"},
+            json={"id": "test", "object": "chat.completion", "created": 1, "model": "fixture",
+                  "choices": [{"index": 0, "message": {"role": "assistant", "content": prompt}, "finish_reason": "stop"}],
+                  "usage": {"prompt_tokens": 4, "completion_tokens": 1, "total_tokens": 5}})
+
+    def model(**clients):
+        return ai_usage_transport.instrument(ChatOpenAI(model="fixture", api_key="test", max_retries=0,
+            base_url="https://test.invalid", **clients), "openai", "fixture")
+
+    async def send():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            return await model(http_async_client=client).ainvoke("Quant fan dos i dos?")
+
+    if asynchronous:
+        reply = asyncio.run(send())
+        assert reply.content == "Quant fan dos i dos?"
+    else:
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            reply = model(http_client=client).invoke("Hola")
+            assert reply.content == "Hola"
+    timing = reply.response_metadata["gnosi_provider_timing"]
+    assert timing["provider_processing_ms"] == 3
+    assert timing["before_sdk_ms"] >= 0 and timing["sdk_roundtrip_ms"] >= 0
+    assert set(timing) <= {"before_sdk_ms", "sdk_roundtrip_ms", "provider_processing_ms", "http_roundtrip_ms"}
+
+
+def test_configured_metering_skips_hydration_and_protected_calls_keep_it(monkeypatch):
+    from contextvars import ContextVar
+    from backend.config import app_config
+    from backend.services import artificial_analysis
+    monkeypatch.setattr(ai_usage_transport, "_active", ContextVar("test_call", default=None))
+    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(
+        get=lambda *_: {"models": [{"provider": "p", "model_id": "m", "cost_in": 2, "cost_out": 9, "profile": "manual"}]}))
+    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: {})
+    monkeypatch.setattr(artificial_analysis, "_read_cache", lambda: {})
+    lookups = []
+    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda p, m, prefer: lookups.append(prefer))
+    hydrated = []
+    monkeypatch.setattr(model_catalog, "catalog_model_metadata_index", lambda: hydrated.append(True) or {})
+    monkeypatch.setattr(reading_budget, "reserve", lambda *args: None)
+    callback = ai_usage_transport.UsageCallback("p", "m")
+    for active in (False, True):
+        monkeypatch.setattr(reading_budget, "active", lambda: active)
+        callback.on_chat_model_start({}, [], run_id=str(active))
+        state = callback.pending[str(active)]
+        assert state["rates"] == {"cost_in": 2, "cost_out": 9}
+        assert state["attribution"]["profile"] == "manual"
+    assert lookups == [True, False]
+    assert hydrated == [True]
