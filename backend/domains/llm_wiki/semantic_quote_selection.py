@@ -35,12 +35,12 @@ class QuoteSelection:
         rejected: dict[str, dict[str, Any]] = {}
         names = self.schema["properties"]["passages"]["required"]
         extras = answer["passages"].keys() - set(names)
-        if extras and any(name not in answer["passages"] for name in names):
-            # An unknown slot has no verified source. Never guess which
-            # missing original it describes; rebuild those slots independently.
+        if extras:
+            # An unknown slot has no supplied primary. Do not let it displace
+            # any named slot, whether that slot is present, null, or missing.
             for key in extras:
                 del answer["passages"][key]
-            answer["warnings"].append("The reader supplied an unassigned passage. Missing originals required independent review.")
+            answer["warnings"].append("The reader supplied an unassigned passage. Only named originals were considered.")
         for name in names:
             if name not in answer["passages"]:
                 rejected[name] = self.rejected_draft(name, None, f"Invalid reader passage: the reader omitted {name}")
