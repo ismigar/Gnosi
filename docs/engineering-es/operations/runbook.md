@@ -21,6 +21,9 @@ source_paths:
   - backend/config/paths_config.py
   - backend/platform/files/__init__.py
   - backend/platform/files/local.py
+  - backend/platform/files/coordinated.py
+  - backend/platform/files/skill_worker.py
+  - desktop/native/file-access.m
   - backend/platform/files/on_demand.py
   - backend/platform/files/onedrive.py
   - scripts/migrate-data-dir.py
@@ -812,6 +815,13 @@ en caso contrario, la detección utiliza `VAULT_HOST_PATH`.
 `LocalProvider` no realiza ninguna hidratación. El nombre de un proveedor
 o una interfaz compartida no acreditan el comportamiento de todos los
 clientes de nube en todos los sistemas operativos.
+
+Gnosi utiliza hasta dos procesos `gnosi-file-access` para leer los archivos
+`skill.yaml` y `SKILL.md` de las habilidades personales del agente en volúmenes
+de File Provider de macOS. Cada lectura obtiene una nueva autorización del
+proveedor. Para medir la latencia del chat, mida el tiempo desde el envío del
+mensaje hasta `model.request`, después de `model.request` a `model.response`,
+y anote cuándo aparece la respuesta en la ventana.
 
 En almacenamiento File Provider de macOS, `EDEADLK` o `EAGAIN` pueden
 indicar archivos no disponibles que solo están en la nube. Estos errores,
