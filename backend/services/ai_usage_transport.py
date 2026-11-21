@@ -184,7 +184,7 @@ class UsageCallback(BaseCallbackHandler):
             # Ordinary metering uses published tariffs and explicit registry fields.
             # A budgeted reservation still resolves the live tariff before dispatch.
             rates = catalog_model_cost(self.provider, self.model, not state["reading_budget_active"])
-            registry = load_registry(with_catalog_prices=False, configured_only=not state["reading_budget_active"],
+            registry = load_registry(with_catalog_prices=False, metering_only=not state["reading_budget_active"],
                                      route=None if state["reading_budget_active"] else (self.provider, self.model))
             row = next((r for r in registry if r.get("provider") == self.provider and r.get("model_id") == self.model), {})
             if rates is None and "cost_in" in row and "cost_out" in row and (row["cost_in"] or row["cost_out"] or row.get("is_free")):

@@ -154,7 +154,7 @@ def test_slow_statistics_follow_the_response_and_stay_with_the_original_call(tmp
         writer.execute("BEGIN IMMEDIATE")
         pending.set_result({("remote", "model"): "expert"})
         writer.commit()
-    ai_usage_ledger._profile_updates.join()
+    ai_usage_ledger._profile_updates.submit(lambda: None).result(timeout=3)
     assert not (tmp_path / "other").exists()
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     with ai_usage_ledger.connect() as db:
@@ -213,3 +213,54 @@ def test_failed_profile_statistics_do_not_lose_real_usage(tmp_path, monkeypatch,
     with ai_usage_ledger.connect() as db:
         row = db.execute("SELECT input_tokens,output_tokens,cost_usd,profile FROM usage_calls WHERE id='paid'").fetchone()
     assert tuple(row) == (13, 4, "0.021", "unrated")
+
+
+def test_graceful_exit_finishes_accepted_usage_updates(tmp_path, monkeypatch):
+    import os
+    import subprocess
+    import sys
+    from textwrap import dedent
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    ai_usage_ledger.write_call(provider="remote", model_id="model", call_id="paid", input_tokens=13,
+                               output_tokens=4, cost_usd="0.021", cost_source="reported", settle_budget=False)
+    # A separate interpreter exits while the real comparison read is still pending.
+    program = dedent("""
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        from time import sleep
+        from backend.services.ai_usage_ledger import complete_call_profile
+        exiting = Event()
+        def classify():
+            exiting.wait()
+            sleep(0.2)
+            return {("remote", "model"): "expert"}
+        profiles = ThreadPoolExecutor(max_workers=1).submit(classify)
+        complete_call_profile("paid", ("remote", "model"), profiles)
+        exiting.set()
+    """)
+    subprocess.run([sys.executable, "-c", program], env=os.environ.copy(), check=True, timeout=20)
+    with ai_usage_ledger.connect() as db:
+        result = db.execute("SELECT profile,input_tokens,output_tokens,cost_usd FROM usage_calls WHERE id='paid'")
+        assert tuple(result.fetchone()) == ("expert", 13, 4, "0.021")
+
+
+def test_ordinary_metering_combines_configured_and_published_tariffs(tmp_path, monkeypatch):
+    from backend.config import app_config
+    catalog = model_catalog.build_catalog({"remote": {"models": {"model": {
+        "id": "model", "name": "model", "cost": {"output": 5}}}}})
+    catalog["fetched_at"] = datetime.now(timezone.utc).isoformat()
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog))
+    monkeypatch.setattr(model_catalog, "_cache_path", lambda: path)
+    monkeypatch.setattr(model_catalog, "_mem_cache", None)
+    monkeypatch.setattr(model_catalog, "load_catalog", lambda: pytest.fail("Unnecessary live discovery"))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    row = {"provider": "remote", "model_id": "model", "cost_in": 3, "profile": "manual"}
+    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(paths={}, get=lambda *_: {"models": [row]}))
+    callback = ai_usage_transport.UsageCallback("remote", "model")
+    callback.on_chat_model_start({}, [], run_id="paid")
+    ai_usage_transport.observe({"model": "model", "usage": {"prompt_tokens": 10, "completion_tokens": 20}})
+    callback.on_llm_end(SimpleNamespace(generations=[]), run_id="paid")
+    with ai_usage_ledger.connect() as db:
+        assert tuple(db.execute("SELECT cost_usd,cost_source FROM usage_calls WHERE id='paid'").fetchone()) == (
+            "0.00013", "estimated")

@@ -298,11 +298,11 @@ def hydrate_registry_metadata(
     return hydrated
 
 
-def load_registry(with_catalog_prices: bool = True, *, configured_only: bool = False,
+def load_registry(with_catalog_prices: bool = True, *, metering_only: bool = False,
                   route: tuple[str, str | None] | None = None) -> List[Dict[str, Any]]:
     """Read explicitly configured `ai.models` without runtime model seeds.
 
-    The configured-only view reads the stored route fields for metering.
+    Metering can use the stored route directly when both tariffs are present.
     Prices are refreshed from the catalog unless explicitly disabled (the
     stored cost is only a fallback for models the catalog doesn't know).
     """
@@ -315,7 +315,7 @@ def load_registry(with_catalog_prices: bool = True, *, configured_only: bool = F
         pass
     if route is not None:
         registry = [row for row in registry if (row.get("provider"), row.get("model_id")) == route]
-    if configured_only or not registry:
+    if not registry or (metering_only and all("cost_in" in row and "cost_out" in row for row in registry)):
         return registry
     metadata = None
     if route is not None:

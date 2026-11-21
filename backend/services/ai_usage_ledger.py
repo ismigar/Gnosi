@@ -6,15 +6,13 @@ import logging
 import os
 import shutil
 import sqlite3
-import threading
-from concurrent.futures import Future
+from concurrent.futures import Future, ThreadPoolExecutor
 import time
 import uuid
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from queue import Queue
 from typing import Any, Iterator
 
 from backend.config.data_dir import resolve_data_dir
@@ -154,44 +152,34 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
         return bool(cursor.rowcount)
 
 
-_profile_updates: Queue[tuple[Path, str, str]] = Queue()
-_profile_start_lock = threading.Lock()
-_profile_worker: threading.Thread | None = None
+_profile_updates = ThreadPoolExecutor(max_workers=1, thread_name_prefix="usage-profiles")
 
 
-def _write_call_profiles() -> None:
+def _write_call_profile(database: Path, call_id: str, route: tuple[str, str],
+                        profiles: Future[dict[tuple[str, str], str]]) -> None:
+    try:
+        label = profiles.result().get(route)
+    except Exception:
+        return  # The call's tokens and cost have already been committed.
+    if not label or label == "unrated":
+        return
     while True:
-        database, call_id, label = _profile_updates.get()
         try:
             with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=30)) as db, db:
                 db.execute("UPDATE usage_calls SET profile=? WHERE id=? AND profile='unrated'", (label, call_id))
+            return
         except sqlite3.Error as error:
             code = getattr(error, "sqlite_errorcode", 0) or 0
-            if code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
-                _profile_updates.put((database, call_id, label))
-                time.sleep(0.05)
-            else:
+            if (code & 0xff) not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
                 log.warning("Could not update usage profile (%s)", type(error).__name__)
-        finally:
-            _profile_updates.task_done()
+                return
+            time.sleep(0.05)
 
 
 def complete_call_profile(call_id: str, route: tuple[str, str], profiles: Future[dict[tuple[str, str], str]]) -> None:
-    """Only enrich the recorded call's label when the local comparison is ready."""
+    """Schedule the write before returning so normal process exit drains accepted work."""
     database = resolve_data_dir(create=False) / "llm_usage.sqlite"
-    def finished(result: Future[dict[tuple[str, str], str]]) -> None:
-        global _profile_worker
-        try:
-            label = result.result().get(route)
-        except Exception:
-            return  # Token counts and cost were committed before subscribing.
-        if label and label != "unrated":
-            with _profile_start_lock:
-                if _profile_worker is None or not _profile_worker.is_alive():
-                    _profile_worker = threading.Thread(target=_write_call_profiles, name="usage-profiles", daemon=True)
-                    _profile_worker.start()
-            _profile_updates.put((database, call_id, label))
-    profiles.add_done_callback(finished)
+    _profile_updates.submit(_write_call_profile, database, call_id, route, profiles)
 
 
 def monthly() -> dict[str, dict[str, dict[str, Any]]]:
