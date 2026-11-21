@@ -44,9 +44,10 @@ def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
     return result
 
 
-def interpretation_schema(size: int, dimensions: list[dict[str, object]]) -> dict[str, Any]:
+def interpretation_schema(size: int, dimensions: list[dict[str, object]], *, flag_review: bool = False) -> dict[str, Any]:
     return obj({"passages": {"type": "array", "minItems": size, "maxItems": size,
-                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)}})},
+                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)},
+                                          **({"needs_specialist": {"type": "boolean"}} if flag_review else {})})},
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
 
@@ -80,13 +81,15 @@ def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
 
 
 def bind_note(value: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
-              dimensions: list[dict[str, object]]) -> dict[str, object]:
+              dimensions: list[dict[str, object]], *, verified_segment_ids: list[str] | None = None) -> dict[str, object]:
     """Never fix or guess a quote. Prefer its known primary; reject ambiguous support."""
     citations = []
     quotes = value.get("quotes", [])
     keys = value.get("quote_source_keys")
     if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
         raise ValueError("Each selected quote must retain its supplied source")
+    if verified_segment_ids is not None and (not isinstance(keys, list) or len(verified_segment_ids) != len(keys)):
+        raise ValueError("Verified citations must retain the segment and source fingerprint for every quotation")
     for index, quote in enumerate(quotes if isinstance(quotes, list) else []):
         if isinstance(keys, list):
             matches = [s for s in [primary, *evidence] if source_key(source_view(s)) == keys[index]
@@ -95,6 +98,8 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
             matches = [primary]
         else:
             matches = [s for s in evidence if isinstance(quote, str) and quote in str(s["text"])]
+        if verified_segment_ids is not None:
+            matches = [s for s in matches if str(s["id"]) == verified_segment_ids[index]]
         identifiers = {str(s["id"]) for s in matches}
         if len(identifiers) != 1:
             raise ValueError("Quote must occur verbatim in the supplied original and identify one source passage")
@@ -112,9 +117,10 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
 
 
 def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object]],
-                        evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> dict[str, Any]:
+                        evidence: list[dict[str, object]], dimensions: list[dict[str, object]],
+                        *, flag_review: bool = False) -> dict[str, Any]:
     primary = [s for c in chunks for s in records(c.get("segments"))]
-    validate_schema(answer, interpretation_schema(len(primary), dimensions))
+    validate_schema(answer, interpretation_schema(len(primary), dimensions, flag_review=flag_review))
     passages = iter(records(answer["passages"]))
     plans = {}
     for chunk in chunks:

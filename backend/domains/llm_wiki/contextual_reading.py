@@ -11,7 +11,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from backend.domains.llm_wiki.ingestion import IngestionDependencies
+    from backend.domains.llm_wiki.ingestion import IngestionDependencies, ReviewRuntime
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
@@ -62,6 +62,7 @@ class ContextualReader:
         payload: dict[str, object],
         validate: Callable[[dict[str, object]], None],
         contract: dict[str, object] | None = None,
+        *, executor: ReviewRuntime | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -79,7 +80,7 @@ class ContextualReader:
         prompt = encoded(request)
         identity = fingerprint(
             [
-                self.dependencies.execution_revision,
+                executor.identity if executor else self.dependencies.execution_revision,
                 [origin.get("content_hash") for origin in self.origins],
                 prompt,
             ]
@@ -99,15 +100,17 @@ class ContextualReader:
                 return answer
         display_phase = (
             "reviewing"
-            if phase in {"review", "verify"} or key.startswith(("note-map", "all-notes"))
+            if phase in {"review", "verify", "source-audit", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
             else "overview"
             if phase in {"overview", "synthesis"}
             else "planning"
         )
-        structured_generate = getattr(self.dependencies, "generate_structured", None)
+        structured_generate = executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None)
+        count = executor.count_tokens if executor else self.dependencies.count_tokens
+        capacity = executor.input_budget if executor else self.budget
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):
-            if self.dependencies.count_tokens(prompt) > self.budget:
+            if count(prompt) > capacity:
                 raise RuntimeError("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
                 lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(

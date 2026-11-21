@@ -62,7 +62,7 @@ def test_every_declared_operation_selects_its_profile_and_rejects_suspension(ope
     plugins = list(profiles.declarations())
     profiles.reconcile(ai, state(*plugins))
     owner = OPERATIONS[operation][0]
-    expected_id = f'builtin.{owner}.default'
+    expected_id = 'builtin.llm-wiki.reviewer' if operation == 'reading-review' else f'builtin.{owner}.default'
     owned = next(profile for profile in ai['agents'] if profile['id'] == expected_id)
     owned.update(model=f'{operation}-model', persona=f'{operation}-instructions')
     selected = profiles.select_profile(ai, skill_id(operation))
@@ -109,3 +109,35 @@ def test_execution_freezes_the_plugin_profile_not_the_chat_default(monkeypatch, 
     assert snapshot.profile["persona"] == "My mail instructions"
     ai["agents"][-1]["model"] = "edited-later"
     assert snapshot.profile["model"] == "mail-model"
+
+
+def test_knowledge_pair_is_seeded_once_and_existing_reader_configuration_survives():
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.builtin_plugins import public_registry
+
+    ai = config()
+    enabled = state("llm-wiki")
+    profiles.reconcile(ai, state())
+    assert len(ai["agents"]) == 1
+    profiles.reconcile(ai, enabled)
+    reader = profiles.select_profile(ai, SKILL_ID)
+    reviewer = profiles.select_profile(ai, skill_id("reading-review"))
+    assert (reader["provider"], reader["model"]) == ("openai", "gpt-5.6-luna")
+    assert (reviewer["provider"], reviewer["model"], reviewer["reasoning_effort"]) == ("openai", "gpt-6.2-sol", "medium")
+    assert reader["persona"] != reviewer["persona"] and reviewer["persona"]
+    registry = next(p for p in public_registry() if p["id"] == "llm-wiki")
+    assert [p["id"] for p in registry["agent_profiles"]] == [reader["id"], reviewer["id"]]
+    configured_reader = next(p for p in ai["agents"] if p["id"] == reader["id"])
+    configured_reader.update(model="my-local-reader", persona="My inclusion criteria")
+    # An installation that enabled the plugin before it gained a reviewer.
+    ai["agents"] = [p for p in ai["agents"] if p["id"] != reviewer["id"]]
+    profiles.reconcile(ai, enabled)
+    assert not profiles.reconcile(ai, enabled)
+    profiles.reconcile(ai, state())
+    for chosen in (SKILL_ID, skill_id("reading-review")):
+        with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
+            profiles.select_profile(ai, chosen)
+    profiles.reconcile(ai, enabled)
+    assert len(ai["agents"]) == 3 and ai["active_agent_id"] == "personal"
+    assert profiles.select_profile(ai, SKILL_ID)["model"] == "my-local-reader"
+    assert profiles.select_profile(ai, SKILL_ID)["persona"] == "My inclusion criteria"

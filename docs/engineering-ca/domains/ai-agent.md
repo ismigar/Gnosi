@@ -785,6 +785,8 @@ conformitat mai no fan executable un gestor.
 
 Coneixement utilitza el seu perfil de plugin. El paràmetre històric `agent_id` es conserva però no substitueix el perfil del plugin. L’antic perfil gestionat `llm-wiki` continua retirat; el perfil nou conserva les instruccions complementàries de Coneixement migrades. La configuració enllaça al perfil del plugin i a les seves habilitats.
 
+Quan actives Coneixement, Gnosi crea dos bots editables. Coneixement llegeix tot el recurs i comprova els esborranys amb GPT-5.6 Luna com a model inicial. El Revisor de lectura utilitza GPT-6.2 Sol amb raonament mitjà per contrastar una mostra de cada secció i els passatges que han plantejat dubtes. Pot afegir idees omeses amb una cita de l’original i elabora la síntesi final. Tots dos comparteixen el límit de despesa del recurs. Gnosi desa cada revisió per poder-la reprendre.
+
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
 resum a la mateixa vista i propostes de connexió amb IA que actualitzen i obren

@@ -838,6 +838,8 @@ que un manejador sea ejecutable.
 
 Conocimiento utiliza su perfil de plugin. El parámetro histórico `agent_id` se conserva pero no sustituye el perfil del plugin. El antiguo perfil gestionado `llm-wiki` sigue retirado; el perfil nuevo conserva las instrucciones complementarias de Conocimiento migradas. La configuración enlaza al perfil del plugin y sus habilidades.
 
+Al activar Conocimiento, Gnosi crea dos bots editables. Conocimiento lee todo el recurso y comprueba los borradores con GPT-5.6 Luna como modelo inicial. El Revisor de lectura utiliza GPT-6.2 Sol con razonamiento medio para contrastar una muestra de cada sección y los pasajes que han planteado dudas. Puede añadir ideas omitidas con una cita del original y elabora la síntesis final. Ambos comparten el límite de gasto del recurso. Gnosi guarda cada revisión para poder reanudarla.
+
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
 el resumen en la misma vista y propuestas de conexión con IA que actualizan

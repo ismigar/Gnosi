@@ -70,7 +70,7 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
 
     origin = finalize_origin({'kind': 'text', 'label': 'Book', 'input_order': 0,
                               'segments': [{'text': 'A complete qualified argument.', 'locator': {'page': 1}}]})
-    runtime = SimpleNamespace(provider='openai' if flex else 'openrouter', model='gpt-6.1-sol' if flex else 'test', identity='runtime', reading_engine='semantic',
+    runtime = SimpleNamespace(provider='openai' if flex else 'openrouter', model='gpt-6.1-sol' if flex else 'test', identity='runtime', reading_engine='semantic', snapshot=object(),
                               instructions='Preserve evidence.', input_budget=120000, count_tokens=lambda text: len(text.encode()))
     monkeypatch.setattr(estimate, 'prepare_reading_runtime', lambda *_: runtime)
     monkeypatch.setattr(estimate.llm_wiki_extractors, 'extract_resource_sources', lambda *_: ([origin], []))
@@ -79,6 +79,8 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
     monkeypatch.setattr(estimate.llm_wiki, '_load_brain_index', lambda *_: [])
     monkeypatch.setattr(estimate.llm_wiki_storage, 'get_job_status', lambda *_: {})
     monkeypatch.setattr(model_catalog, 'catalog_model_cost', lambda *_: {'cost_in': .1, 'cost_out': .5})
+    reviewer = SimpleNamespace(provider="openai", model="reviewer", identity="review-v1", instructions="Check citations.", input_budget=32000, count_tokens=len)
+    monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_review_runtime", lambda *_: reviewer)
     legacy_schema = Mock(side_effect=AssertionError('Semantic preflight must not prepare legacy actions'))
     monkeypatch.setattr(estimate, 'action_schemas', legacy_schema)
     result = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
@@ -86,9 +88,16 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
     assert result['input_token_bound'] >= result['source_token_bound'] > 0
     assert result['cost_usd'] > 0 and result['cost_with_repairs_usd'] > result['cost_usd']
     assert result['processing_tier'] == ('flex' if flex else 'default')
-    if flex:
-        assert result['cost_usd'] == pytest.approx((result['input_token_bound'] * .1 * 1.25
-            + result['output_tokens_assumed'] * .5) * .5 / 1_000_000)
+    assert result["review_model"] == "reviewer"
+    assert result["phase_calls"]["independent_review"] == 2  # One original and the final synthesis.
+    def review_price(_provider, model):
+        return {"cost_in": 11., "cost_out": 55.} if model == "reviewer" else {"cost_in": .1, "cost_out": .5}
+    monkeypatch.setattr(model_catalog, 'catalog_model_cost', review_price)
+    repriced = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
+    assert repriced["cost_in_per_million_usd"] == .1 and repriced["cost_out_per_million_usd"] == .5
+    assert repriced["review_cost_in_per_million_usd"] == 11 and repriced["review_cost_out_per_million_usd"] == 55
+    assert repriced["cost_usd"] > result["cost_usd"]
+    assert repriced["estimate_id"] != result["estimate_id"]
     legacy_schema.assert_not_called()
 
 
@@ -333,3 +342,19 @@ def test_pricing_tokens_change_cost_without_replanning_semantic_batches():
     assert new['output_tokens_assumed'] < old['output_tokens_assumed']
     assert new['output_token_bound'] == old['output_token_bound']
     assert new['evidence_input_token_bound'] == old['evidence_input_token_bound']
+
+
+def test_shipped_prices_include_direct_pair_and_preserve_explicit_newer_tariff(monkeypatch):
+    from backend.agent import model_catalog as catalog
+    from backend.agent.reading_model_catalog import supply_reading_models
+    import json
+    shipped = json.loads(catalog.VENDORED_PATH.read_text())
+    monkeypatch.setattr(catalog, "load_catalog", lambda: shipped)
+    for model, expected in [("gpt-5.6-luna", .20), ("gpt-6.2-sol", 2.)]:
+        assert catalog.catalog_model_cost("openai", model)["cost_in"] == expected
+    supply_reading_models(shipped)
+    offer = next(row for row in catalog.catalog_provider("openai")["models"] if row["id"] == "gpt-6.2-sol")
+    offer["cost_in"] = 3
+    supply_reading_models(shipped)
+    assert offer["context_window"] == 1_050_000 and catalog.catalog_model_cost("openai", "gpt-6.2-sol")["cost_in"] == 3
+    assert catalog.catalog_model_cost("unrelated", "gpt-6.2-sol") is None

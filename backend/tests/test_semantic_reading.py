@@ -20,7 +20,8 @@ def response(request):
     if request['phase'] == 'verify':
         return {'assessment': 'Checked attribution against the conclusion and all proposed notes.', 'changes': [], 'warnings': [],
                 **({'unresolved_issues': []} if 'unresolved_issues' in request['output_schema']['properties'] else {})}
-    return {'passages': [{'reason': 'Substantive idea with attribution.', 'notes': [{
+    return {'passages': [{**({'needs_specialist': False} if request.get('output_schema') and 'needs_specialist' in request['output_schema']['properties']['passages']['items']['properties'] else {}),
+        'reason': 'Substantive idea with attribution.', 'notes': [{
         'title': p['text'], 'body_md': p['text'], 'quotes': [p['text']], 'properties': {}}]}
         for p in request['primary_passages']], 'themes': ['Knowledge'], 'questions': ['What evidence is sufficient?'],
         'contradictions': ['The opponent is refuted, not the author contradicting himself.'], 'warnings': []}

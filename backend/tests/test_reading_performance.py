@@ -201,3 +201,24 @@ def test_explicit_flex_reserves_its_tariff_and_keeps_atomic_ceiling():
             reading_budget.reserve("six", "source", {"max_tokens": 16384, "service_tier": "flex"},
                                    {"cost_in": 2, "cost_out": 10}, "openai", MODEL)
     assert 0 < reading_budget.status(identifier)["reserved_usd"] <= .5
+
+
+@pytest.mark.parametrize(("model", "base_in", "base_out", "read_ratio"), [
+    ("gpt-5.6-luna", .2, 1.2, ".10"), ("gpt-6.2-sol", 2., 10., ".05")])
+def test_standard_reading_pair_prices_and_reserves_terminal_usage(model, base_in, base_out, read_ratio):
+    rates = {"cost_in": base_in, "cost_out": base_out}
+    tokens = {"input_tokens": 300_000, "output_tokens": 100}
+    usage = {"input_tokens_details": {"cached_tokens": 10_000, "cache_write_tokens": 20_000}}
+    result = measured("openai", model + "-2026-11-17", tokens, usage, rates, "default", {})
+    i, o = Decimal(str(base_in))*2, Decimal(str(base_out))*Decimal("1.5")
+    expected = ((270000 + 10000*Decimal(read_ratio) + 20000*Decimal("1.25"))*i + 100*o)/1000000
+    assert Decimal(result["cost_usd"]) == expected and not result["billing_confirmed"]
+    assert Decimal(result["reservation_bound_usd"]) == (300000*i*Decimal("1.25") + 100*o)*Decimal("1.1")/1000000
+
+
+def test_standard_terminal_usage_without_cache_writes_keeps_the_premium():
+    rates = {"cost_in": 2., "cost_out": 10.}
+    result = measured("openai", "gpt-6.2-sol", {"input_tokens": 1000, "output_tokens": 10},
+                      {"input_tokens_details": {"cached_tokens": 500}}, rates, "default", {})
+    assert not result["cache_breakdown_complete"] and result["cache_write_tokens"] is None
+    assert Decimal(result["reservation_bound_usd"]) == Decimal(".00286") and not result["billing_confirmed"]
