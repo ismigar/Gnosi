@@ -26,6 +26,15 @@ def note_batch_request(primary: dict[str, object], subset: list[dict[str, object
     return payload, [primary, *sources]
 
 
+def check_note_capacity(reviewer: ReviewRuntime, primary: dict[str, object], note: dict[str, object],
+                        support: list[dict[str, object]], reason: object, dimensions: list[dict[str, object]],
+                        title: str, language: str) -> None:
+    payload, _ = note_batch_request(primary, [note], support, [reason], dimensions)
+    if not fits_review(reviewer, "source-audit", title, language, payload):
+        raise ValueError("An individual reading note and its citations exceed the reviewer's context. "
+                         "Preserve its qualified claims in smaller self-contained notes.")
+
+
 def check_draft_capacity(reviewer: ReviewRuntime, chunks: list[dict[str, object]], plans: dict[str, object],
                          dimensions: list[dict[str, object]], title: str, language: str) -> None:
     for chunk in chunks:
@@ -36,11 +45,8 @@ def check_draft_capacity(reviewer: ReviewRuntime, chunks: list[dict[str, object]
         reasons = {r["segment_id"]: r["reason"] for r in records(plan.get("coverage"))}
         for note in records(plan.get("notes")):
             identifier = note["source_segment_id"]
-            payload, _ = note_batch_request(originals[identifier], [note], records(plan.get("evidence_segments")),
-                                            [reasons.get(identifier, "")], dimensions)
-            if not fits_review(reviewer, "source-audit", title, language, payload):
-                raise ValueError("An individual reading note and its citations exceed the reviewer's context. "
-                                 "Preserve its qualified claims in smaller self-contained notes.")
+            check_note_capacity(reviewer, originals[identifier], note, records(plan.get("evidence_segments")),
+                                reasons.get(identifier, ""), dimensions, title, language)
 
 
 def note_batch_end(start: int, drafts: list[dict[str, object]], request_for: Callable[[list[dict[str, object]]],

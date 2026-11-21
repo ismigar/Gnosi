@@ -45,8 +45,12 @@ def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
 
 
 def interpretation_schema(size: int, dimensions: list[dict[str, object]], *, flag_review: bool = False) -> dict[str, Any]:
+    note = note_schema(dimensions)
+    if flag_review:
+        # Only a staged reader draft can carry this application-owned boundary.
+        note["properties"]["primary_quote_count"] = {"type": "integer", "minimum": 1}
     return obj({"passages": {"type": "array", "minItems": size, "maxItems": size,
-                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)},
+                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note},
                                           **({"needs_specialist": {"type": "boolean"}} if flag_review else {})})},
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
@@ -88,6 +92,10 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     keys = value.get("quote_source_keys")
     if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
         raise ValueError("Each selected quote must retain its supplied source")
+    claimed = value.get("primary_quote_count")
+    if claimed is not None and (type(claimed) is not int or not isinstance(keys, list) or not 1 <= claimed <= len(keys)
+                                or any(key != source_key(source_view(primary)) for key in keys[:claimed])):
+        raise ValueError("Every selected primary quotation must come from this primary passage")
     if verified_segment_ids is not None and (not isinstance(keys, list) or len(verified_segment_ids) != len(keys)):
         raise ValueError("Verified citations must retain the segment and source fingerprint for every quotation")
     for index, quote in enumerate(quotes if isinstance(quotes, list) else []):

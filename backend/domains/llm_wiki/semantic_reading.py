@@ -72,6 +72,10 @@ class SemanticReader:
             self.state.update(last_action={"phase": phase}, last_result={})
             self.save()
         result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema)
+        if phase == "interpret":
+            # A specialist's later length failure must resume this paid draft,
+            # never shrink the reader's batch and generate a different draft.
+            self.state.update(last_action={"phase": "interpretation-received"}, last_result={})
         self.state["step"] += 1
         self.save()
         return result

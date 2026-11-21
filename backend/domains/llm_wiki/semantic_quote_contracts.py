@@ -25,6 +25,7 @@ def primary_note_schema(note: dict[str, Any], primary_ids: list[int], quote_coun
     result["properties"].pop("quotes")
     # Provenance is attached by the application after validating selected IDs.
     result["properties"].pop("quote_source_keys", None)
+    result["properties"].pop("primary_quote_count", None)
     result["properties"]["primary_quote_ids"] = {"type": "array", "minItems": 1,
         "items": {"type": "integer", "enum": primary_ids}}
     result["properties"]["context_quote_ids"] = {"type": "array",
