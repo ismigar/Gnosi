@@ -6,6 +6,7 @@ import json
 import pytest
 
 from backend.services import agent_execution as execution, agent_execution_store as store
+from backend.services.agent_cancellation import AgentTurnCancelled
 from backend.services.agent_execution_models import AgentOperation
 from backend.services.agent_execution_scope import current_scope, execution_scope
 from backend.services.reading_result_cache import result_key
@@ -58,6 +59,27 @@ def test_pdf_checks_can_wait_for_the_source_on_fresh_and_reused_readings(runtime
         cached = execution.run_sync(phase, snapshot=resumed, output_validator=check_pdf)
     assert checkpoint.run_id == fresh.run_id != cached.run_id
     assert len(calls) == 1 and cached.model_calls == 0 and checked == [scope] * 3
+
+
+@pytest.mark.parametrize("source", ["fresh", "checkpoint", "result-cache"])
+def test_book_cancellation_during_an_invalid_citation_prevents_acceptance_and_retry(runtime, monkeypatch, source):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"answer":"A quotation."}'])
+    phase = request(snapshot)
+
+    def check_pdf(_):
+        execution.cancel_run("reading")
+        raise ValueError("The quotation cannot be found in the original PDF")
+
+    with execution_scope(scope):
+        active = execution.create_job_run(snapshot, "reading", "knowledge.process-source")
+        if source != "fresh":
+            previous = (execution.create_job_run(snapshot, "earlier-reading", "knowledge.process-source")
+                        if source == "result-cache" else active)
+            execution.run_sync(phase, snapshot=previous)
+        with pytest.raises(AgentTurnCancelled):
+            execution.run_sync(phase, snapshot=active, output_validator=check_pdf)
+    assert len(calls) == 1 and store.cancelled(scope, "reading")
 
 
 @pytest.mark.parametrize("change", ["user", "vault", "workspace", "role", "model", "reasoning", "instructions", "policy", "originals", "schema"])

@@ -364,15 +364,21 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     return snapshot, ai, runtime
 
 
+def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
+    revalidate_scope(scope)
+    if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
+        from backend.services.agent_cancellation import AgentTurnCancelled
+        raise AgentTurnCancelled("agent_run_cancelled")
+
+
 async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validate: Callable[[str], Awaitable[str]]) -> AgentRun | None:
     cached = store.phase_checkpoint(snapshot.scope, parent_id, key)
     if cached is not None:
-        _validate_output(cached.result, schema)
-        await validate(cached.result)
-        revalidate_scope(snapshot.scope)
-        if store.cancelled(snapshot.scope, parent_id):
-            from backend.services.agent_cancellation import AgentTurnCancelled
-            raise AgentTurnCancelled("agent_run_cancelled")
+        try:
+            _validate_output(cached.result, schema)
+            await validate(cached.result)
+        finally:
+            _require_active(snapshot.scope, cached.run_id, parent_id)
         report_run(cached.run_id)
     return cached
 
@@ -521,7 +527,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         reused = await reading_cached_result(request, snapshot, reading_cache_key,
             str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
             lambda text: _operation_output(_validate_output(text, initial_schema), request, output_validator),
-            revalidate_scope)
+            lambda: _require_active(snapshot.scope, run_id, row.parent_run_id))
         if reused is not None:
             return reused
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
@@ -550,11 +556,11 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 messages = [*messages, *handoff.messages]
                 continue
             try:
-                text = _validate_output(text, response_schema)
-                text = await _operation_output(text, request, output_validator, partial_repair)
-                revalidate_scope(snapshot.scope)
-                if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
-                    raise AgentTurnCancelled("agent_run_cancelled")
+                try:
+                    text = _validate_output(text, response_schema)
+                    text = await _operation_output(text, request, output_validator, partial_repair)
+                finally:
+                    _require_active(snapshot.scope, run_id, row.parent_run_id)
                 completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
@@ -575,8 +581,13 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                         json.dumps({"validation_error": diagnostic}, ensure_ascii=False))]
                     continue
                 if output_repair is not None:
-                    partial_repair = (await asyncio.to_thread(output_repair, text, validation_error)
-                        if request.operation == "knowledge.process-source.phase" else output_repair(text, validation_error))
+                    if request.operation == "knowledge.process-source.phase":
+                        try:
+                            partial_repair = await asyncio.to_thread(output_repair, text, validation_error)
+                        finally:
+                            _require_active(snapshot.scope, run_id, row.parent_run_id)
+                    else:
+                        partial_repair = output_repair(text, validation_error)
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema
                     repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})
