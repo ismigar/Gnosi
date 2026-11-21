@@ -150,12 +150,9 @@ def validate_review_capacity(reviewer: ReviewRuntime, chunks: list[dict[str, obj
                 raise RuntimeError("The reading reviewer needs more context for the original passage, its notes and citations")
 
 
-def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
-                  drafts: list[dict[str, object]], evidence: list[dict[str, object]],
-                  plan: dict[str, object], saved: dict[str, Any],
-                  citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None,
-                  ) -> tuple[str, dict[str, object]]:
-    coverage = [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == primary["id"]]
+def original_audit(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
+                   drafts: list[dict[str, object]], evidence: list[dict[str, object]], coverage: list[object],
+                   ) -> tuple[str, dict[str, object], list[dict[str, object]]]:
     notes = [semantic_note(n, worker.dimensions) for n in drafts]
     primary_key = segment_source_key(primary)
     support = [s for s in evidence if segment_source_key(s) != primary_key]
@@ -164,9 +161,20 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     if not fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
         support = [s for s in support if s["id"] in cited]
         payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
-    schema = audit_schema(len(drafts), worker.dimensions)
+    key = fingerprint([reviewer.identity, worker.title, worker.language, payload, payload["output_schema"]])
+    return key, payload, support
+
+
+def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
+                  drafts: list[dict[str, object]], evidence: list[dict[str, object]],
+                  plan: dict[str, object], saved: dict[str, Any],
+                  citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None,
+                  ) -> tuple[str, dict[str, object]]:
+    coverage = [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == primary["id"]]
+    key, payload, support = original_audit(worker, reviewer, primary, drafts, evidence, coverage)
+    schema = record(payload["output_schema"])
+    cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
     original_sources = [primary, *support]
-    key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
     scope = audit_scope(worker, primary, drafts, evidence)
     state_key = fingerprint([key, scope.identity]) if scope else key
     context = page_context(worker.pdf_edges, original_sources, [primary, *(s for s in support if s["id"] in cited)])

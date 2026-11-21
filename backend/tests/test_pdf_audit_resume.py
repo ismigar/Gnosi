@@ -18,9 +18,11 @@ from backend.tests.test_reading_pdf_page_context import chunk, segment
 from backend.tests.test_semantic_reading import setup
 
 
-@pytest.mark.parametrize("whole_passage", [False, True])
-@pytest.mark.parametrize("same_source_view", [False, True])
-def test_paid_range_and_original_citation_survive_a_larger_prompt(whole_passage, same_source_view):
+@pytest.mark.parametrize("whole_passage,same_source_view,change_pending", [
+    (False, False, False), (True, False, False), (False, True, False), (True, True, False),
+    (False, True, True),
+])
+def test_paid_range_and_original_citation_survive_a_larger_prompt(whole_passage, same_source_view, change_pending):
     main = segment("primary", 5, 2, "The probes record different times of arrival.")
     shared = "Under the same pressure"
     left = segment("left", 4, 3, shared)
@@ -59,21 +61,26 @@ def test_paid_range_and_original_citation_survive_a_larger_prompt(whole_passage,
         answer = {"assessment": reason, "evidence_quote": main["text"], "changes": changes, "unresolved_issues": []}
         validate(answer)
         return encoded(answer), "reviewer"
-    def audit(worker):
+    def audit(worker, current_drafts, evidence):
         attach_reviewer(worker, review)
         worker.dependencies.reviewer.input_budget = capacity
-        return audit_passage(worker, worker.dependencies.reviewer, main, drafts, sources, plan, {}, None)[1]
+        return audit_passage(worker, worker.dependencies.reviewer, main, current_drafts, evidence, plan, {}, None)[1]
 
     if whole_passage:
-        audit(reader)
+        audit(reader, drafts, sources)
     else:
         with pytest.raises(ReadingBudgetError):
-            audit(reader)
+            audit(reader, drafts, sources)
     assert calls == ([titles] if whole_passage else [titles[:2], titles[2:]])
     calls.clear()
     resumed, _, _ = setup(checkpoints=checkpoints, resume=reader.job_id)
     resumed.job_id, resumed.chunks = "resumed", chunks
-    answer = audit(resumed)
+    if change_pending:
+        # The unpaid third note now cites the homonym in the other document.
+        # Its visible quote remains identical. Only the previous two notes were audited.
+        revised = bind_note(semantic_note(drafts[2], []), main, [main, left, right], [])
+        drafts, sources = [*drafts[:2], revised], [*sources, left]
+    answer = audit(resumed, drafts, sources)
     assert calls == ([] if whole_passage else [titles[2:], []])
     assert answer["changes"][0]["replacement"]["quote_segment_ids"] == ["primary", "other", "right"]
 

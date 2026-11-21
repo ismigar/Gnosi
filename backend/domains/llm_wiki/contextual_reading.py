@@ -11,6 +11,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from backend.domains.llm_wiki.audit_checkpoint_provenance import HistoricalAudit
     from backend.domains.llm_wiki.ingestion import IngestionDependencies, ReviewRuntime
     from backend.domains.llm_wiki.pdf_page_context import PageContext, PageEdge
 
@@ -50,7 +51,7 @@ class ContextualReader:
     models: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
-    historical_audit_scopes: dict[str, dict[str, str]] = field(default_factory=dict, init=False, repr=False)
+    historical_audits: dict[str, dict[str, HistoricalAudit]] = field(default_factory=dict, init=False, repr=False)
 
     @property
     def budget(self) -> int:
@@ -78,10 +79,9 @@ class ContextualReader:
                 fields["progress"] = progress
             self.dependencies.update_job(self.job_id, **fields)
 
-    def has_checkpoint(self, key: str, scope: CheckpointScope | None = None) -> bool:
-        slots = (key + "-" + scope.identity[:20], key) if scope else (key,)
-        return any(isinstance(self.dependencies.load_checkpoint(job, slot), dict)
-                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job for slot in slots)
+    def has_checkpoint(self, key: str) -> bool:
+        return any(isinstance(self.dependencies.load_checkpoint(job, key), dict)
+                   for job in dict.fromkeys([self.job_id, self.resume_job_id]) if job)
 
     def _restore_checkpoint(
         self, slots: tuple[str, str, str], identity: str, request: dict[str, object],
