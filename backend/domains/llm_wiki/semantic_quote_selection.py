@@ -33,6 +33,18 @@ class QuoteSelection:
         # Keep only localized transport failures as provisional passages. The
         # specialist must replace them with a new, strictly validated answer.
         rejected: dict[str, dict[str, Any]] = {}
+        names = self.schema["properties"]["passages"]["required"]
+        extras = answer["passages"].keys() - set(names)
+        if extras and any(name not in answer["passages"] for name in names):
+            # An unknown slot has no verified source. Never guess which
+            # missing original it describes; rebuild those slots independently.
+            for key in extras:
+                del answer["passages"][key]
+            answer["warnings"].append("The reader supplied an unassigned passage. Missing originals required independent review.")
+        for name in names:
+            if name not in answer["passages"]:
+                rejected[name] = self.rejected_draft(name, None, f"Invalid reader passage: the reader omitted {name}")
+                answer["passages"][name] = None
         for error in jsonschema.Draft202012Validator(self.schema).iter_errors(answer):
             path = list(error.absolute_path)
             if len(path) < 2 or path[0] != "passages":
@@ -47,17 +59,21 @@ class QuoteSelection:
     def draft_schema(self) -> dict[str, Any]:
         """Allow individual drafts to fail while checking the complete batch envelope."""
         schema = deepcopy(self.schema)
-        slots = schema["properties"]["passages"]["properties"]
-        schema["properties"]["passages"]["properties"] = {name: {"type": "object"} for name in slots}
+        passages = schema["properties"]["passages"]
+        # Named slots bind independently. Missing and malformed slots can be
+        # rebuilt from their originals without discarding a sibling's paid work.
+        passages["properties"] = {name: {} for name in passages["properties"]}
+        passages["required"] = []
+        passages["additionalProperties"] = True
         return schema
 
-    def rejected_draft(self, name: str, value: dict[str, Any], diagnostic: str) -> dict[str, Any]:
+    def rejected_draft(self, name: str, value: Any, diagnostic: str) -> dict[str, Any]:
         located = {}
         valid_notes = []
         passage_contract = self.schema["properties"]["passages"]["properties"][name]
         contract = {**passage_contract["properties"]["notes"]["items"], "$defs": self.schema["$defs"]}
         validator = jsonschema.Draft202012Validator(contract)
-        notes = value.get("notes")
+        notes = value.get("notes") if isinstance(value, dict) else None
         for note in notes if isinstance(notes, list) else []:
             if not isinstance(note, dict):
                 continue
