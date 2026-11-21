@@ -45,12 +45,8 @@ def note_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
 
 
 def interpretation_schema(size: int, dimensions: list[dict[str, object]], *, flag_review: bool = False) -> dict[str, Any]:
-    note = note_schema(dimensions)
-    if flag_review:
-        # Only a staged reader draft can carry this application-owned boundary.
-        note["properties"]["primary_quote_count"] = {"type": "integer", "minimum": 1}
     return obj({"passages": {"type": "array", "minItems": size, "maxItems": size,
-                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note},
+                            "items": obj({"reason": TEXT, "notes": {"type": "array", "items": note_schema(dimensions)},
                                           **({"needs_specialist": {"type": "boolean"}} if flag_review else {})})},
                 "themes": TEXTS, "questions": TEXTS, "contradictions": TEXTS, "warnings": TEXTS})
 
@@ -92,10 +88,6 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     keys = value.get("quote_source_keys")
     if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
         raise ValueError("Each selected quote must retain its supplied source")
-    claimed = value.get("primary_quote_count")
-    if claimed is not None and (type(claimed) is not int or not isinstance(keys, list) or not 1 <= claimed <= len(keys)
-                                or any(key != source_key(source_view(primary)) for key in keys[:claimed])):
-        raise ValueError("Every selected primary quotation must come from this primary passage")
     if verified_segment_ids is not None and (not isinstance(keys, list) or len(verified_segment_ids) != len(keys)):
         raise ValueError("Verified citations must retain the segment and source fingerprint for every quotation")
     for index, quote in enumerate(quotes if isinstance(quotes, list) else []):
@@ -124,14 +116,6 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     return note
 
 
-class RejectedPassage(ValueError):
-    """Identify a single invalid draft in an otherwise well-formed interpretation."""
-
-    def __init__(self, position: int, cause: ValueError) -> None:
-        super().__init__(str(cause))
-        self.position = position
-
-
 def bind_passage(passage: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
                  dimensions: list[dict[str, object]], language: str = "") -> list[dict[str, object]]:
     validate_boundary_coverage(passage["reason"])
@@ -147,19 +131,14 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
                         *, flag_review: bool = False) -> dict[str, Any]:
     primary = [s for c in chunks for s in records(c.get("segments"))]
     validate_schema(answer, interpretation_schema(len(primary), dimensions, flag_review=flag_review))
-    passages = enumerate(records(answer["passages"]))
+    passages = iter(records(answer["passages"]))
     plans = {}
     for chunk in chunks:
         notes: list[dict[str, object]] = []
         coverage = []
         for segment in records(chunk.get("segments")):
-            position, passage = next(passages)
-            try:
-                notes.extend(bind_passage(passage, segment, evidence, dimensions))
-            except ValueError as error:
-                if flag_review:
-                    raise RejectedPassage(position, error) from error
-                raise
+            passage = next(passages)
+            notes.extend(bind_passage(passage, segment, evidence, dimensions))
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
         validate_notes(plan, records(chunk.get("segments")), evidence)
