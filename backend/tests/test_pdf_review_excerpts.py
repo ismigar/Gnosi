@@ -293,3 +293,62 @@ def test_reader_and_reviewer_distinguish_homonymous_pdfs_even_without_shorter_ch
     note, = plans[selected["id"]]["notes"]
     assert calls == (["interpret", "source-repair"] if reject_first_draft else ["interpret"])
     assert note["citations"] == [{"segment_id": healthy["id"], "quote": shared}]
+
+
+def test_two_independent_repairs_of_visually_identical_notes_resume_from_separate_checkpoints(tmp_path):
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.origins import deduplicate_origins, finalize_origin
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+    from backend.tests.test_reading_passage_repair import attach_reviewer
+    from backend.tests.test_semantic_reading import response, setup
+
+    whole, keep = "OCR mismatch; in this portable PDF fixture", "in this portable PDF fixture"
+    origins = []
+    for label in ("one", "two"):
+        folder = tmp_path / label
+        folder.mkdir()
+        pdf = _demo_pdf(folder)
+        texts = (whole, "Shared bibliography heading", f"Catalog mark {label}")
+        origins.append(finalize_origin({**_origin(pdf), "label": pdf.name, "source_url": pdf.as_uri(),
+            "_annotation_source_uri": pdf.as_uri(), "input_order": len(origins),
+            "segments": [{"text": t, "locator": {"page": i}} for i, t in enumerate(texts, 1)]}))
+    origins = deduplicate_origins(origins)
+    chunks = reading_chunks(origins, budget=600, count=len)
+
+    def earlier(request):
+        answer = response(request)
+        for passage, source in zip(answer["passages"], request["primary_passages"], strict=True):
+            if source["text"] != whole:
+                passage.update(notes=[], reason="The heading identifies a catalog section.")
+        return answer
+
+    previous, _, checkpoints = setup(generate=earlier)
+    previous.origins, previous.chunks = origins, chunks
+    SemanticReader(previous).extract("Overview")
+    calls = []
+
+    def specialist(prompt, validate, timeout):
+        selection = quote_selection(json.loads(prompt))
+        choice, = (n for n in selection.primary_ids[0] if selection.quotes[n] == keep)
+        note = {"title": "Portable fixture", "body_md": "The original describes a portable PDF fixture.",
+                "properties": {}, "primary_quote_ids": [choice], "context_quote_ids": []}
+        literal = selection.restore(json.dumps({"assessment": "The source supports this correction.",
+            "changes": {"note_1": note}, "evidence_requests": [], "warnings": [], "unresolved_issues": []}))
+        validate(json.loads(literal))
+        calls.append(selection.quote_sources[choice])
+        return literal, "reviewer"
+
+    for resume, job in (("new", "corrected"), ("corrected", "reused")):
+        reader, ordinary, _ = setup(checkpoints=checkpoints, resume=resume)
+        reader.job_id, reader.origins, reader.chunks = job, origins, chunks
+        attach_reviewer(reader, specialist)
+        reader.dependencies.citation_issues = reading_citation_issues
+        reader.dependencies.pdf_quote_excerpts = reading_pdf_quote_excerpts
+        engine = SemanticReader(reader)
+        engine.state["review_size_limit"] = 1
+        engine.extract("Overview")
+        result = engine.review("Overview", "The two sources describe the fixture.")
+        assert not ordinary and len(engine.state["reviewed_groups"]) == 2
+        assert [n["citations"] for _, p in result for n in p["notes"]] == [
+            [{"segment_id": o["segments"][0]["id"], "quote": keep}] for o in origins]
+        assert len(calls) == len(set(calls)) == 2
