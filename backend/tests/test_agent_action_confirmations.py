@@ -110,6 +110,10 @@ def test_reloaded_status_distinguishes_addressed_assistant_and_tool_executor():
     assert statuses[pending["confirmation_id"]]["assistant_profile"] == status["assistant_profile"]
     assert list_confirmations(_scope(user_id="other")) == []
     assert "assistant_profile" not in get_confirmation_status(legacy["confirmation_id"], _scope())
+    assert cancel_confirmation(pending["confirmation_id"], _scope())
+    cancelled = get_confirmation_status(pending["confirmation_id"], _scope())
+    assert cancelled["assistant_profile"] == status["assistant_profile"]
+    assert cancelled["details"] == {}
 
 
 def test_workspace_queue_exposes_only_routing_metadata_for_current_user():
