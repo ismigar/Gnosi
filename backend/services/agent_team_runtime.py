@@ -42,6 +42,13 @@ def _profile(identifier: str, *, config: dict[str, Any] | None = None) -> dict[s
     return copy.deepcopy(profile)
 
 
+def _current_team(owner: dict[str, Any]) -> AgentTeam:
+    configured = team_for(owner)
+    if team_for(_profile(owner["id"])) != configured:
+        raise PermissionError("agent_team_configuration_changed")
+    return configured
+
+
 def _runtime(profile: dict[str, Any], scope: ExecutionScope, skill_ids: list[str] | None = None) -> Any:
     from backend.services.agent_skill_catalog import resolve_agent_runtime
     return resolve_agent_runtime(profile, vault_path=Path(scope.vault_path), active_skill_ids=skill_ids)
@@ -481,10 +488,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     scope, root_id = current_scope(), _run.get()
     if not root_id:
         raise RuntimeError("agent_team_execution_required")
-    live = await asyncio.to_thread(_profile, owner["id"])
-    if team_for(live) != team_for(owner):
-        raise PermissionError("agent_team_configuration_changed")
-    team = team_for(owner)
+    team = await asyncio.to_thread(_current_team, owner)
     request_data: dict[str, Any] = json.loads(original) if operation_mode else {}
     from backend.services.agent_team_contracts import output_schema as plan_output_schema, required_operation, task_route_ids
     from backend.services.agent_team_output import TeamOutputContractError
