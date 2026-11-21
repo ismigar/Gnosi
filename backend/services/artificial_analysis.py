@@ -22,6 +22,7 @@ import requests
 
 from backend.agent.model_catalog import load_catalog
 from backend.services.model_billing import route_billing
+from backend.utils.safe_io import safe_write_json
 
 
 ARTIFICIAL_ANALYSIS_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
@@ -108,7 +109,7 @@ def route_profiles() -> Future[dict[tuple[str, str], str]] | None:
     identity = (path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     with _profiles_lock:
         pending = _profiles_future
-        if pending is None or identity != _profiles_source or (pending.done() and pending.exception() is not None):
+        if pending is None or identity != _profiles_source or (pending.done() and (pending.cancelled() or pending.exception() is not None)):
             try:
                 report = path.open("rb")
             except OSError:
@@ -128,7 +129,7 @@ def _write_cache(payload: Dict[str, Any]) -> None:
     if not path:
         return
     try:
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        safe_write_json(path, payload, indent=None)
     except OSError:
         return
 

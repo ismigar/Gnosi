@@ -36,6 +36,10 @@ def test_current_cloud_tariff_needs_no_live_discovery(tmp_path, monkeypatch):
     path.write_text(json.dumps(catalog))
     monkeypatch.setattr(model_catalog, "load_catalog", lambda: {"providers": [{"id": "remote", "models": [model]}]})
     assert model_catalog.catalog_model_cost("remote", "custom", True) == {"cost_in": 4, "cost_out": 7}
+    catalog.update(fetched_at=datetime.now(timezone.utc).isoformat(),
+                   providers=[{"id": "openai", "models": [{"id": []}]}])
+    path.write_text(json.dumps(catalog))
+    assert model_catalog.catalog_model_cost("openai", "gpt-6.2-sol", True) == {"cost_in": 2, "cost_out": 10}
 
 
 def test_selected_route_uses_published_metadata_and_preserves_overrides(tmp_path, monkeypatch):
@@ -144,7 +148,13 @@ def test_slow_statistics_follow_the_response_and_stay_with_the_original_call(tmp
         before = dict(db.execute("SELECT * FROM usage_calls WHERE id='first'").fetchone())
     assert before["profile"] == "unrated" and before["status"] == "failed"
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "other"))
-    pending.set_result({("remote", "model"): "expert"})
+    import sqlite3
+    from contextlib import closing
+    with closing(sqlite3.connect(tmp_path / "llm_usage.sqlite")) as writer:
+        writer.execute("BEGIN IMMEDIATE")
+        pending.set_result({("remote", "model"): "expert"})
+        writer.commit()
+    ai_usage_ledger._profile_updates.join()
     assert not (tmp_path / "other").exists()
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     with ai_usage_ledger.connect() as db:
@@ -171,9 +181,7 @@ def test_concurrent_profile_lookups_share_one_read_per_report(tmp_path, monkeypa
         first = analysis.route_profiles()
         assert analysis.route_profiles() is first
         data["models"][0]["profile"] = "second"
-        replacement = tmp_path / "replacement.json"
-        replacement.write_text(json.dumps(data))
-        replacement.replace(report)
+        analysis._write_cache(data)
         second = analysis.route_profiles()
         assert second is not first
     finally:
@@ -181,3 +189,27 @@ def test_concurrent_profile_lookups_share_one_read_per_report(tmp_path, monkeypa
     assert first.result(3) == {("p", "m"): "first"}
     assert second.result(3) == {("p", "m"): "second"}
     assert len(reads) == 2
+
+
+@pytest.mark.parametrize("failure", [RecursionError(), None])
+def test_failed_profile_statistics_do_not_lose_real_usage(tmp_path, monkeypatch, failure):
+    from concurrent.futures import Future
+    from backend.services import artificial_analysis
+    lookup = Future()
+    if failure is None:
+        lookup.cancel()
+    else:
+        lookup.set_exception(failure)
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(artificial_analysis, "route_profiles", lambda: lookup)
+    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: None)
+    monkeypatch.setattr(model_router, "load_registry", lambda **_: [])
+    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: dict.fromkeys(
+        ("agent_id", "agent_name", "operation", "origin", "run_id", "workspace_id", "user_id", "profile"), ""))
+    callback = ai_usage_transport.UsageCallback("fixture", "model")
+    callback.on_chat_model_start({}, [], run_id="paid")
+    ai_usage_transport.observe({"model": "model", "usage": {"prompt_tokens": 13, "completion_tokens": 4, "cost": 0.021}})
+    callback.on_llm_end(SimpleNamespace(generations=[]), run_id="paid")
+    with ai_usage_ledger.connect() as db:
+        row = db.execute("SELECT input_tokens,output_tokens,cost_usd,profile FROM usage_calls WHERE id='paid'").fetchone()
+    assert tuple(row) == (13, 4, "0.021", "unrated")

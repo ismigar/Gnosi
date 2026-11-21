@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import threading
 from concurrent.futures import Future
 import time
 import uuid
@@ -13,6 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from queue import Queue
 from typing import Any, Iterator
 
 from backend.config.data_dir import resolve_data_dir
@@ -152,17 +154,43 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
         return bool(cursor.rowcount)
 
 
+_profile_updates: Queue[tuple[Path, str, str]] = Queue()
+_profile_start_lock = threading.Lock()
+_profile_worker: threading.Thread | None = None
+
+
+def _write_call_profiles() -> None:
+    while True:
+        database, call_id, label = _profile_updates.get()
+        try:
+            with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=30)) as db, db:
+                db.execute("UPDATE usage_calls SET profile=? WHERE id=? AND profile='unrated'", (label, call_id))
+        except sqlite3.Error as error:
+            code = getattr(error, "sqlite_errorcode", 0) or 0
+            if code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+                _profile_updates.put((database, call_id, label))
+                time.sleep(0.05)
+            else:
+                log.warning("Could not update usage profile (%s)", type(error).__name__)
+        finally:
+            _profile_updates.task_done()
+
+
 def complete_call_profile(call_id: str, route: tuple[str, str], profiles: Future[dict[tuple[str, str], str]]) -> None:
     """Only enrich the recorded call's label when the local comparison is ready."""
     database = resolve_data_dir(create=False) / "llm_usage.sqlite"
     def finished(result: Future[dict[tuple[str, str], str]]) -> None:
+        global _profile_worker
         try:
             label = result.result().get(route)
-            if label and label != "unrated":
-                with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True)) as db, db:
-                    db.execute("UPDATE usage_calls SET profile=? WHERE id=? AND profile='unrated'", (label, call_id))
-        except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error):
-            pass  # Token counts, cost and the original attribution were already committed.
+        except Exception:
+            return  # Token counts and cost were committed before subscribing.
+        if label and label != "unrated":
+            with _profile_start_lock:
+                if _profile_worker is None or not _profile_worker.is_alive():
+                    _profile_worker = threading.Thread(target=_write_call_profiles, name="usage-profiles", daemon=True)
+                    _profile_worker.start()
+            _profile_updates.put((database, call_id, label))
     profiles.add_done_callback(finished)
 
 

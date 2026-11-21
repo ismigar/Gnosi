@@ -235,8 +235,8 @@ class UsageCallback(BaseCallbackHandler):
             if lookup is not None and lookup.done():
                 try:
                     state["attribution"]["profile"] = lookup.result().get((self.provider, self.model), "unrated")
-                except (OSError, ValueError, TypeError, KeyError, AttributeError):
-                    pass  # A missing classification must not interrupt cost accounting.
+                except Exception:
+                    pass  # Every failure of optional classification leaves the provider charge intact.
                 lookup = None
             # A wallet charge of zero does not mean subscription credits were
             # unused. Keep the direct provider's measured consumption separate.

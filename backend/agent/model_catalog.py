@@ -619,7 +619,7 @@ def _disk_model_catalog(path: Path, stamp: tuple[int, ...]) -> Dict[str, Any]:
     for provider in catalog["providers"]:
         if not isinstance(provider, dict) or not isinstance(provider.get("models"), list):
             raise ValueError("Invalid published provider")
-        if any(not isinstance(model, dict) for model in provider["models"]):
+        if any(not isinstance(model, dict) or not isinstance(model.get("id"), str) for model in provider["models"]):
             raise ValueError("Invalid published model")
     from backend.agent.reading_model_catalog import supply_reading_models
     supply_reading_models(catalog)
@@ -662,7 +662,8 @@ def catalog_model_cost(provider_id: str, model_id: str, prefer_published: bool =
     model = published_cloud_model(provider_id, model_id) if prefer_published else None
     if model is None:
         provider = catalog_provider(provider_id)
-        model = next((row for row in (provider or {}).get("models", []) if row.get("id") == model_id), None)
+        model = next((row for row in (provider or {}).get("models") or []
+                      if isinstance(row, dict) and row.get("id") == model_id), None)
     if model is not None:
         values = [model.get(key) for key in ("cost_in", "cost_out")]
         if model.get("pricing_known") is False or not all(
