@@ -68,7 +68,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                 <>
                     {learningVisible && <ConversationLearning
                         key={`${browserStorageScope}:${selectedAgentId}:${sessionId}`}
-                        agentId={selectedAgentId} profileId={selectedProfileId} sessionId={sessionId} contextRefs={contextRefs} initialGoal={learningGoal}
+                        agentId={selectedAgentId} profileId={selectedProfileId} profileName={agentName} sessionId={sessionId} contextRefs={contextRefs} initialGoal={learningGoal}
                         lastResult={[...messages].reverse().find(message => message.role === 'assistant')?.content}
                         hasConversation={messages.some(message => message.role === 'user')}
                         onRequestConsumed={() => { setLearningGoal(''); }}

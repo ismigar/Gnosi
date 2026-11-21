@@ -8251,6 +8251,7 @@
     "validated_example": "Exemple vérifié",
     "keep_example": "J’ai vérifié le résultat : le conserver comme exemple",
     "assign": "Attribuer la compétence à cet assistant",
+    "assign_to_profile": "Attribuer la compétence à {{name}}",
     "save_skill": "Enregistrer la compétence",
     "save_skill_error": "Impossible d’enregistrer la compétence. Des droits d’administration sont requis ; ses outils doivent être disponibles pour l’attribuer.",
     "saved_skill": "Compétence enregistrée dans le catalogue.",

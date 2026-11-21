@@ -8251,6 +8251,7 @@
     "validated_example": "Exemple revisat",
     "keep_example": "He revisat el resultat: desa’l com a exemple",
     "assign": "Assigna l’habilitat a aquest assistent",
+    "assign_to_profile": "Assigna l’habilitat a {{name}}",
     "save_skill": "Desa l’habilitat",
     "save_skill_error": "No s’ha pogut desar l’habilitat. Cal permís d’administració; per assignar-la, les eines han d’estar disponibles.",
     "saved_skill": "Habilitat desada al catàleg.",

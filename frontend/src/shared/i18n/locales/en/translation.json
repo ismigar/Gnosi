@@ -8196,6 +8196,7 @@
     "validated_example": "Reviewed example",
     "keep_example": "I reviewed the result: keep it as an example",
     "assign": "Assign the skill to this assistant",
+    "assign_to_profile": "Assign skill to {{name}}",
     "save_skill": "Save skill",
     "save_skill_error": "Could not save the skill. Administrator permission is required; assignment also requires available tools.",
     "saved_skill": "Skill saved to the catalog.",

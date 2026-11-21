@@ -8251,6 +8251,7 @@
     "validated_example": "Ejemplo revisado",
     "keep_example": "He revisado el resultado: guardarlo como ejemplo",
     "assign": "Asignar la habilidad a este asistente",
+    "assign_to_profile": "Asignar la habilidad a {{name}}",
     "save_skill": "Guardar la habilidad",
     "save_skill_error": "No se ha podido guardar la habilidad. Se requiere permiso de administración; para asignarla, las herramientas deben estar disponibles.",
     "saved_skill": "Habilidad guardada en el catálogo.",

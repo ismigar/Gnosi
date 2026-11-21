@@ -9,6 +9,7 @@ import './learning.css';
 interface Props {
     readonly agentId: string;
     readonly profileId?: string;
+    readonly profileName?: string;
     readonly sessionId: string;
     readonly contextRefs: Readonly<NonNullable<ChatStreamRequest['context_refs']>>;
     readonly lastResult?: string;
@@ -18,10 +19,10 @@ interface Props {
     readonly onClose: () => void;
 }
 
-export function ConversationLearning({ agentId, profileId = agentId, sessionId, contextRefs, lastResult, hasConversation, initialGoal = '', onRequestConsumed, onClose }: Props) {
+export function ConversationLearning({ agentId, profileId = agentId, profileName = profileId, sessionId, contextRefs, lastResult, hasConversation, initialGoal = '', onRequestConsumed, onClose }: Props) {
     const { t, i18n } = useTranslation();
     const [goal, setGoal] = useState(initialGoal.slice(0, 2000));
-    const [draft, setDraft] = useState<LearnedSkill | null>(null);
+    const [draft, setDraft] = useState<{ skill: LearnedSkill; profileId: string; profileName: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const controller = useRef<AbortController | null>(null);
@@ -34,13 +35,14 @@ export function ConversationLearning({ agentId, profileId = agentId, sessionId, 
         setBusy(true); setError(''); controller.current = new AbortController();
         try {
             const language = i18n.language.split('-')[0];
-            setDraft(await prepareLearningDraft({
+            const skill = await prepareLearningDraft({
                 agent_id: agentId, ...(profileId !== agentId ? { profile_id: profileId } : {}), session_id: sessionId, goal,
                 language: language === 'ca' || language === 'es' || language === 'fr' ? language : 'en',
-            }, controller.current.signal));
+            }, controller.current.signal);
+            setDraft({ skill, profileId, profileName });
         } catch { if (!controller.current.signal.aborted) setError(t('learning.draft_error')); }
         finally { setBusy(false); }
-    }, [busy, hasConversation, i18n.language, agentId, profileId, sessionId, goal, t]);
+    }, [busy, hasConversation, i18n.language, agentId, profileId, profileName, sessionId, goal, t]);
     useEffect(() => {
         if (!initialGoal || !hasConversation || autoStarted.current) return;
         const timer = window.setTimeout(() => {
@@ -59,6 +61,6 @@ export function ConversationLearning({ agentId, profileId = agentId, sessionId, 
         <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={busy || !hasConversation} onClick={() => { void generate(); }}>{t(busy ? 'common.loading' : 'learning.create_from_conversation')}</button>
         {!hasConversation && <p>{t('learning.needs_conversation')}</p>}
         {error && <p role="alert" className="agent-learning__error">{error}</p>}
-        {draft && <LearnedSkillEditor key={JSON.stringify(draft)} initialSkill={draft} agentId={profileId} sessionId={sessionId} />}
+        {draft && <LearnedSkillEditor key={JSON.stringify(draft)} initialSkill={draft.skill} agentId={draft.profileId} agentName={draft.profileName} sessionId={sessionId} />}
     </div>;
 }
