@@ -15,7 +15,7 @@ from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.semantic_contracts import (
     TEXT, TEXTS, bind_interpretation, bind_passage, fields, interpretation_schema, note_schema, obj, validate_schema,
 )
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
@@ -32,11 +32,12 @@ def repair_sources(primary: dict[str, object], draft: dict[str, object], neighbo
             cited_keys.update(k for k in keys if isinstance(k, str))
         elif isinstance(quotes, list):
             literal_quotes.update(q for q in quotes if isinstance(q, str) and q.strip() and q not in str(primary["text"]))
-    sources = {source_key(source_view(s)): s for s in [primary, *neighbours]}
+    sources = {segment_source_key(s): s for s in [primary, *neighbours]}
     for source in evidence:
         key = source_key(source_view(source))
-        if key in cited_keys or any(q in str(source["text"]) for q in literal_quotes):
-            sources[key] = source
+        bound_key = segment_source_key(source)
+        if key in cited_keys or bound_key in cited_keys or any(q in str(source["text"]) for q in literal_quotes):
+            sources[bound_key] = source
     return list(sources.values())
 
 
@@ -157,5 +158,5 @@ def bind_reviewed_interpretation(
             source, draft = primary[position], passages[position]
             sources = repair_sources(source, draft, neighbours[passage_key(source)], evidence)
             passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position])
-            available = list({source_key(source_view(s)): s for s in [*available, *sources]}.values())
+            available = list({segment_source_key(s): s for s in [*available, *sources]}.values())
     return bind_interpretation(candidate, chunks, available, reader.dimensions, flag_review=True), candidate

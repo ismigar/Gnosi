@@ -28,18 +28,23 @@ def original_spans(text: str) -> list[str]:
 
 def quote_choices(sources: list[dict[str, Any]], *,
                  pdf_excerpts: dict[str, dict[str, list[tuple[int, int]]]] | None = None,
+                 bindings: list[tuple[str, str]] | None = None,
                  ) -> tuple[list[dict[str, Any]], dict[int, str], list[int]]:
     """Index complete original text in contiguous spans; never synthesize a quote."""
     catalog: list[dict[str, Any]] = []
     quotes: dict[int, str] = {}
     identities: dict[str, int] = {}
     source_ids = []
-    for source in sources:
-        identity = encoded(source)
+    if bindings is not None and len(bindings) != len(sources):
+        raise ValueError("The PDF citation catalog must retain each supplied source")
+    for position, source in enumerate(sources):
+        if bindings is not None and bindings[position][0] != source_key(source):
+            raise ValueError("The PDF citation choices belong to a different source")
+        identity = bindings[position][1] if bindings is not None else encoded(source)
         if identity not in identities:
             identities[identity] = len(catalog) + 1
             spans = []
-            ranges = pdf_excerpts.get(source_key(source), {}) if pdf_excerpts else {}
+            ranges = pdf_excerpts.get(identity, {}) if pdf_excerpts else {}
             for i, text in enumerate(original_spans(str(source["text"]))):
                 choices = []
                 for start, end in ranges.get(str(i), []):

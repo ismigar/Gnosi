@@ -205,11 +205,13 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
         for entry in payload["notes"]:
             sources.extend([entry["primary"], *entry["support"]])
     sources.extend(payload.get("retrieved_originals", []))
-    excerpts = payload.pop("verified_pdf_excerpts", None) if request.get("phase") == "source-repair" else None
-    catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts)
+    excerpts = payload.pop("verified_pdf_excerpts", None)
+    bindings = payload.pop("pdf_quote_sources", None)
+    catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
     quote_ids = [[choice["quote_id"] for span in source["quotes"]
                   for choice in span.get("verified_excerpts", [span])] for source in catalog]
-    quote_sources = {number: source_key(source) for source, identifier in zip(sources, source_ids, strict=True)
+    owners = [binding[1] for binding in bindings] if bindings is not None else [source_key(s) for s in sources]
+    quote_sources = {number: owner for owner, identifier in zip(owners, source_ids, strict=True)
                      for number in quote_ids[identifier - 1]}
     identities = iter(source_ids)
     if phase == "interpret":
@@ -255,7 +257,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             " verified_excerpts gives the shorter literal choices with confirmed locations. Select the"
             " numbered excerpts that support the claim, including its qualifications; use several if needed."
             " Report unresolved issues if those excerpts cannot support it. When adjacent pages complete"
-            " a sentence, state the supported conclusion and its attribution in reason.")
+            " a sentence, explain the supported conclusion and its attribution.")
     payload["instruction"] = str(payload.get("instruction", "")) + (
         " Return passages by their named passage_N keys, not array positions. In review, return each"
         " note_N key with a replacement, null to retain it, or an omit_reason object to exclude it with a source-grounded explanation under the active reading policy. Each note requires"

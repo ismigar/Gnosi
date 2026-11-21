@@ -16,7 +16,7 @@ from backend.services import llm_wiki_pdf_annotations
 _TEST_QUOTE = "Persistent citation highlights span multiple lines in this portable PDF fixture"
 
 
-def _demo_pdf(tmp_path: Path) -> Path:
+def _demo_pdf(tmp_path: Path, *, context_repetitions: int = 6) -> Path:
     """Create a searchable two-line PDF without relying on vendor submodules."""
     import pypdfium2
     from pypdfium2 import raw as pdfium_c
@@ -29,7 +29,7 @@ def _demo_pdf(tmp_path: Path) -> Path:
             ("Persistent citation highlights span multiple lines", 700),
             ("in this portable PDF fixture", 680),
             *[("Ordinary surrounding prose supplies context for selective reading without highlighting everything.",
-               650 - index * 20) for index in range(6)],
+               650 - index * 20) for index in range(context_repetitions)],
         ):
             text_object = pdfium_c.FPDFPageObj_NewTextObj(
                 document.raw,

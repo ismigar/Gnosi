@@ -740,7 +740,7 @@ Activating Knowledge creates two editable bot profiles. Knowledge reads the enti
 
 When a passage draft fails a grounding or coverage check during extraction, the reading reviewer receives the original, its neighbours, the rejected draft and the validation error. The reviewer must cite the original and resolve the defect before Gnosi counts the chunk as complete. The reader's other drafts and completed corrections can be reused on resume. Corrected passages also participate in the final review.
 
-If a whole PDF quotation cannot be highlighted, the reviewer can select shorter literal excerpts with verified positions on that page. It sees the complete original sentence when choosing evidence. Each selected excerpt retains its original source and passes the PDF highlight check before Gnosi saves the correction.
+If a whole PDF quotation cannot be highlighted, the reviewer can select shorter literal excerpts with verified positions on that page. It sees the complete original sentence when choosing evidence. Each selected excerpt retains its original source and passes the PDF highlight check before Gnosi saves the correction. On resume, the specialist also repairs citations in previously saved drafts that fail this check. Ordinary revisions can retain a verified shorter excerpt after editing the note.
 
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI

@@ -851,7 +851,7 @@ Activer Connaissances crée deux assistants modifiables. Connaissances lit la re
 
 Si Gnosi rejette l’interprétation d’un passage, le Réviseur de lecture reçoit l’original, les passages voisins, le brouillon et le motif du rejet. Il doit résoudre le problème et citer l’original pour que Gnosi puisse valider le fragment. À la reprise, Gnosi peut réutiliser les autres brouillons et les corrections enregistrées. Les passages corrigés font aussi partie de la révision finale.
 
-Lorsque Gnosi ne peut pas surligner une citation entière du PDF, le Réviseur de lecture peut choisir des extraits littéraux plus courts dont Gnosi a vérifié la position sur la même page. Il voit la phrase originale complète. Avant d’enregistrer la correction, Gnosi vérifie la source de chaque extrait retenu et sa position dans le PDF.
+Lorsque Gnosi ne peut pas surligner une citation entière du PDF, le Réviseur de lecture peut choisir des extraits littéraux plus courts dont Gnosi a vérifié la position sur la même page. Il voit la phrase originale complète. Avant d’enregistrer la correction, Gnosi vérifie la source de chaque extrait retenu et sa position dans le PDF. À la reprise, le réviseur corrige également les citations des brouillons enregistrés qui échouent à cette vérification. Une révision ordinaire peut conserver un extrait court vérifié lorsqu’elle modifie la note.
 
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
