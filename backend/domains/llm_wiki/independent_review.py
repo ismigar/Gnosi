@@ -7,6 +7,7 @@ from typing import Any, TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.contextual_reading import fingerprint
+from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.reading_quality import adjacent_originals, validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
 from backend.domains.llm_wiki.review_selection import passage_key, selected_passages
@@ -148,6 +149,8 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     schema = audit_schema(len(drafts), worker.dimensions)
     evidence = [primary, *support]
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, schema])
+    context = page_context(worker.pdf_edges, evidence, [primary, *(s for s in support if s["id"] in cited)])
+    evidence = [*evidence, *context.additions]
     def validate(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
         checked = apply_changes(answer, subset, primary, sources, worker.dimensions)
         validate_reviewed_prose(checked, sources, worker.language)
@@ -161,9 +164,9 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     answer = saved.get("answer") if saved.get("key") == key else None
     if isinstance(answer, dict):
         validate(answer, drafts, evidence)
-    elif fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
+    elif fits_review(reviewer, "source-audit", worker.title, worker.language, context.prompt(payload, audit=True)):
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
-                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer)
+                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer, page_context=context)
         answer = {**answer, "changes": bound_changes(answer, primary, evidence, worker.dimensions)}
     else:
         from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
@@ -209,6 +212,8 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
                 worker.models.clear()
                 engine.save()
             if answer["changes"]:
+                context = page_context(worker.pdf_edges, evidence, [primary, *support])
+                evidence = [*evidence, *context.additions]
                 checked = apply_changes(answer, drafts, primary, evidence, reader.dimensions)
                 position = next((i for i, n in enumerate(notes) if n["source_segment_id"] == identifier), len(notes))
                 notes = [n for n in notes if n["source_segment_id"] != identifier]

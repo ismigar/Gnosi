@@ -208,6 +208,10 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     excerpts = payload.pop("verified_pdf_excerpts", None)
     bindings = payload.pop("pdf_quote_sources", None)
     catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
+    if pairs := payload.get("pdf_page_pairs"):
+        # A repeated original shares a catalog entry. Translate the prompt's
+        # input positions to the same source numbers the reviewer actually sees.
+        payload["pdf_page_pairs"] = [[source_ids[left - 1], source_ids[right - 1]] for left, right in pairs]
     quote_ids = [[choice["quote_id"] for span in [*source["quotes"], *source.get("retained_quotes", [])]
                   for choice in span.get("verified_excerpts", [span])] for source in catalog]
     owners = [binding[1] for binding in bindings] if bindings is not None else [source_key(s) for s in sources]

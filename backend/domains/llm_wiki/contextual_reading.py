@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import IngestionDependencies, ReviewRuntime
+    from backend.domains.llm_wiki.pdf_page_context import PageContext
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
+from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
 from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
 from backend.domains.llm_wiki.reading_skill import MAP_CONTRACT, NOTE_CONTRACT, REQUEST_CONTRACT
 from backend.domains.llm_wiki.recovery import call_with_retry
@@ -48,6 +50,16 @@ class ContextualReader:
         return sum(len(str(segment.get("text", "")).encode("utf-8"))
                    for origin in self.origins for segment in records(origin.get("segments")))
 
+    @cached_property
+    def pdf_edges(self) -> dict[str, list[dict[str, object]]]:
+        from backend.domains.llm_wiki.pdf_page_context import page_edges
+        return page_edges(self.chunks)
+
+    @cached_property
+    def ambiguous_pdf_segments(self) -> set[str]:
+        from backend.domains.llm_wiki.pdf_page_context import ambiguous_pdf_segments
+        return ambiguous_pdf_segments(self.chunks)
+
     def phase(self, phase: str, progress: int | None = None) -> None:
         if self.job_id and self.report_progress:
             fields: dict[str, object] = {"phase": phase}
@@ -64,6 +76,7 @@ class ContextualReader:
         contract: dict[str, object] | None = None,
         *, executor: ReviewRuntime | None = None, quote_evidence: list[dict[str, object]] | None = None,
         offer_excerpts: bool = False, pdf_citations: list[tuple[str, str]] | None = None,
+        page_context: PageContext | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -84,6 +97,10 @@ class ContextualReader:
             # Visually identical passages in different attachments need separate
             # choices and a source-specific checkpoint even when both quotes are whole.
             request["pdf_quote_sources"] = bindings
+        if page_context and any(s in self.ambiguous_pdf_segments for pair in page_context.bindings for s in pair):
+            # Parallel operations may have identical visible inputs but different
+            # page continuations. Give those paid answers distinct durable slots.
+            key += "-" + fingerprint(page_context.bindings)[:20]
         prompt = encoded(request)
         identity = fingerprint(
             [
@@ -105,13 +122,20 @@ class ContextualReader:
                 if self.job_id:
                     self.dependencies.save_checkpoint(self.job_id, key, saved)
                 return answer
-        # Saved answers retain their literal quotes. Discover additional verified
-        # choices only for a fresh review that needs them.
+        # Accepted answers were already checked against the originals. Enrich
+        # fresh reviews after lookup so a new context option never rebills them.
+        if page_context and page_context.pairs:
+            request = page_context.prompt(request, audit=phase == "source-audit")
+            if quote_evidence:
+                quote_evidence = [*quote_evidence, *page_context.additions]
+                bindings = quote_bindings(quote_evidence)
+                request["pdf_quote_sources"] = bindings
         finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
         if offer_excerpts and quote_evidence and finder:
             excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
             if excerpts:
-                prompt = encoded({**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings})
+                request = {**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings}
+        prompt = encoded(request)
         display_phase = (
             "reviewing"
             if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
@@ -124,8 +148,15 @@ class ContextualReader:
         capacity = executor.input_budget if executor else self.budget
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):
-            if count(prompt) > capacity:
-                raise RuntimeError("The reading phase exceeds the selected model's input budget")
+            size = count(prompt)
+            if size > capacity and page_context and page_context.additions and phase == "source-repair":
+                # Keep both originals and individually retained notes when the
+                # rejected draft would crowd them out of the reviewer's context.
+                request["rejected_draft"] = {"omitted": "Reconstruct the passage from the supplied originals and return concise notes."}
+                prompt = encoded(request)
+                size = count(prompt)
+            if size > capacity:
+                raise ReadingInputTooLarge("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
                 lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(
                     prompt, user_message=self.title, timeout=timeout

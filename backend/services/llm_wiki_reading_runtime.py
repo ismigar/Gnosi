@@ -163,7 +163,8 @@ class ReadingRuntime:
             # full contract. Keep canonical checkpoints/repair input unchanged.
             operation_prompt = compact_structured_input(operation_prompt)
         if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
-            raise RuntimeError("The reading input exceeds the selected model's context budget")
+            from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
+            raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
             answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
             if not isinstance(answer, dict):
