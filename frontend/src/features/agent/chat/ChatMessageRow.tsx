@@ -1,46 +1,76 @@
 import { knowledgeDocumentPath } from '../../../shared/routing/vaultRouting';
 import './chat-result.css';
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from 'react';
 import { VaultMarkdown } from '../../../shared/editor/VaultMarkdown';
 import { createVaultPage } from '../../../shared/api/vault-page-mutations';
 import { MemorySources } from './MemorySources';
 import { useTranslation } from 'react-i18next';
-import { Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2 } from 'lucide-react';
+import { Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2, ChevronRight, FilePlus2, FileCheck2 } from 'lucide-react';
 import { effectiveMessageTimingMs, getTurnId, processingSeconds } from '../model/agentChatMessageUtils';
 import { MessageDetails } from './MessageDetails';
+import { hasMessageDetails } from './messageDetailsModel';
 import { messagePresentation } from './messagePresentation';
 import type { ChatMessageRowProps } from './chatMessageRowTypes';
 
+function ActionButton({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return <button type="button" className="gnosi-icon-button" aria-label={label} title={label} {...props}>{children}</button>;
+}
+
 export function ChatMessageRow({ message, index: idx,
   notebookId, readOnly, conversationMode, storageIdentity, agentName, isLoading, isRewinding,
-  detailsMessageIndex, confirmationTitle, setPendingConfirmation, setPendingRewindIndex,
+  detailsMessageIndex, showTurnRewind, confirmationTitle, setPendingConfirmation, setPendingRewindIndex,
   setDetailsMessageIndex, focusComposerWith, copyMessage, quoteMessage, markMessage,
   submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage
 }: ChatMessageRowProps) {
   const { t } = useTranslation();
   const msg = messagePresentation(message);
-  const [savedPage, setSavedPage] = useState('');
+  const detailsId = useId();
+  const expanded = detailsMessageIndex === idx;
+  const hasDetails = hasMessageDetails(msg);
+  const assistant = msg.role === 'assistant';
+  const prompt = !readOnly && assistant ? previousUserPrompt(idx) : '';
+  const directUndo = (msg.undo?.available || getTurnId(msg)) ? msg.undo?.run : undefined;
+  const [savedResult, setSavedResult] = useState<{ content: string; pageId: string } | null>(null);
+  const savedPage = savedResult?.content === msg.content ? savedResult.pageId : '';
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const savedLink = useRef<HTMLAnchorElement>(null);
+  const restoreSaveFocus = useRef(false);
+  useEffect(() => {
+    if (savedPage && restoreSaveFocus.current) {
+      restoreSaveFocus.current = false;
+      savedLink.current?.focus();
+    }
+  }, [savedPage]);
+  const saveInFlight = useRef(false);
   const [savingPage, setSavingPage] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [failedContent, setFailedContent] = useState<string | null>(null);
   const saveResult = async () => {
-    if (savingPage || savedPage) return;
-    setSavingPage(true); setSaveError(false);
+    if (saveInFlight.current || savedPage || isLoading) return;
+    saveInFlight.current = true;
+    setSavingPage(true); setFailedContent(null);
     try {
       const page = await createVaultPage({ title: t('chat.result_title', 'Assistant result'), content: msg.content });
-      setSavedPage(page.id);
-    } catch { setSaveError(true); } finally { setSavingPage(false); }
+      restoreSaveFocus.current = document.activeElement === saveButton.current;
+      setSavedResult({ content: msg.content, pageId: page.id });
+    } catch { setFailedContent(msg.content); } finally { saveInFlight.current = false; setSavingPage(false); }
   };
+  const toggleDetails = () => { setDetailsMessageIndex(expanded ? null : idx); };
+  const details = hasDetails && (
+    <div id={detailsId} hidden={!expanded}>
+      {expanded && <MessageDetails msg={msg} onJobAction={action => { void refreshMessageJob(idx, action); }} onFocusComposer={focusComposerWith} />}
+    </div>
+  );
   return (
-    <div style={{
-        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-        maxWidth: '85%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px'
-    }}>
-        <div style={{
+    <div className={msg.role === 'user' ? 'chat-message chat-message--user' : 'chat-message'}>
+        {assistant && hasDetails && <>
+            <button type="button" className="chat-message__activity" aria-controls={detailsId} aria-expanded={expanded} onClick={toggleDetails}>
+                <ChevronRight size={13} aria-hidden="true" />{t('chat.task_details', 'Task activity')}
+            </button>
+            {details}
+        </>}
+        <div className="chat-message__bubble" style={{
             padding: '12px 16px', borderRadius: msg.role === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-            backgroundColor: msg.role === 'user' ? 'var(--gnosi-blue, #2563eb)' : 'var(--settings-sidebar-bg, #f3f4f6)',
+            backgroundColor: msg.role === 'user' ? 'var(--gnosi-action-bg)' : 'var(--surface-muted)',
             color: msg.role === 'user' ? 'white' : 'var(--text-primary)',
             fontSize: '0.9rem',
             lineHeight: '1.5',
@@ -153,59 +183,36 @@ export function ChatMessageRow({ message, index: idx,
                 </div>
             )}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <button type="button" onClick={() => { void copyMessage(msg.content); }} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
-            {!readOnly && msg.role === 'assistant' && msg.content && <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={savingPage || Boolean(savedPage) || isLoading} onClick={() => { void saveResult(); }}>{t('chat.save_result', 'Save as page')}</button>}
-            {savedPage && <a href={knowledgeDocumentPath(savedPage)}>{t('chat.open_result', 'Open saved page')}</a>}
-            {saveError && <span role="alert">{t('chat.save_result_error', 'Could not save the result. Review pages before retrying.')}</span>}
-            {!readOnly && <button type="button" onClick={() => { quoteMessage(msg); }} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>}
-            {!readOnly && msg.role === 'user' && (
-                <button type="button" onClick={() => { focusComposerWith(msg.content || ''); }} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
+        <div className="chat-message__actions">
+            <ActionButton label={t('chat.copy_message', 'Copy message')} onClick={() => { void copyMessage(msg.content); }}><Copy /></ActionButton>
+            {!readOnly && assistant && msg.content && (savedPage ? (
+                <a ref={savedLink} className="gnosi-icon-button chat-message__saved-page" href={knowledgeDocumentPath(savedPage)}
+                    aria-label={t('chat.open_result', 'Open saved page')} title={t('chat.open_result', 'Open saved page')}><FileCheck2 /></a>
+            ) : (
+                <button ref={saveButton} type="button" className="gnosi-icon-button" disabled={isLoading} aria-disabled={savingPage || isLoading}
+                    aria-busy={savingPage} onClick={() => { void saveResult(); }}
+                    aria-label={t('chat.save_result', 'Save as page')} title={savingPage ? t('chat.result_saving', 'Saving page…') : t('chat.save_result', 'Save as page')}>
+                    <FilePlus2 />
+                </button>
+            ))}
+            {!readOnly && <ActionButton label={t('chat.reply_to_message', 'Reply to message')} onClick={() => { quoteMessage(msg); }}><Reply /></ActionButton>}
+            {!readOnly && msg.role === 'user' && <ActionButton label={t('chat.edit_message', 'Edit and resend')} onClick={() => { focusComposerWith(msg.content); }}><Pencil /></ActionButton>}
+            {prompt && <ActionButton label={msg.retryable ? t('chat.retry_response', 'Retry response') : t('chat.regenerate_message', 'Regenerate response')}
+                disabled={isLoading && msg.retryable} onClick={() => { if (msg.retryable) retryMessage(idx); else focusComposerWith(prompt); }}><RotateCcw /></ActionButton>}
+            {assistant && <>
+                <ActionButton label={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} onClick={() => { void submitMessageFeedback(idx, 'up'); }}><ThumbsUp /></ActionButton>
+                <ActionButton label={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} onClick={() => { void submitMessageFeedback(idx, 'down'); }}><ThumbsDown /></ActionButton>
+                <ActionButton label={t('chat.save_message', 'Bookmark message')} aria-pressed={msg.saved} onClick={() => { markMessage(idx, 'saved', !msg.saved); }}><Bookmark fill={msg.saved ? 'currentColor' : 'none'} /></ActionButton>
+            </>}
+            {!readOnly && conversationMode !== 'shared' && (assistant || msg.role === 'user') && (directUndo || showTurnRewind) && (
+                <ActionButton label={directUndo ? t('chat.undo_last_action', 'Undo last action') : t('chat.rewind_from_message', 'Undo from this message')}
+                    disabled={isLoading || isRewinding} onClick={() => { if (directUndo) { void directUndo(); } else setPendingRewindIndex(idx); }}><Undo2 /></ActionButton>
             )}
-            {!readOnly && msg.role === 'assistant' && previousUserPrompt(idx) && (
-                <button type="button" onClick={() => { focusComposerWith(previousUserPrompt(idx)); }} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
-            )}
-            {!readOnly && msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
-                <button type="button" onClick={() => { retryMessage(idx); }} aria-label={t('chat.retry_response', 'Retry response')} title={t('chat.retry_response', 'Retry response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', padding: '3px', opacity: isLoading ? 0.45 : 1 }} disabled={isLoading}><RotateCcw size={13} /></button>
-            )}
-            {msg.role === 'assistant' && (
-                <>
-                    <button type="button" onClick={() => { void submitMessageFeedback(idx, 'up'); }} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
-                    <button type="button" onClick={() => { void submitMessageFeedback(idx, 'down'); }} aria-label={t('chat.unhelpful_response', 'Unhelpful response')} title={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} style={{ background: 'none', border: 'none', color: msg.feedback === 'down' ? 'var(--status-error, #dc2626)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsDown size={13} /></button>
-                    <button type="button" onClick={() => { markMessage(idx, 'saved', !msg.saved); }} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={msg.saved} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
-                </>
-            )}
-            {!readOnly && conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
-                msg.undo?.available
-                || Boolean(getTurnId(msg))
-            ) && (() => {
-                const undo = msg.undo;
-                const hasDirectUndo = typeof undo?.run === 'function';
-                const undoHint = hasDirectUndo
-                    ? t('chat.undo_last_action', 'Undo last action')
-                    : t('chat.rewind_from_message', 'Undo from this message');
-                return (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (hasDirectUndo) { void undo.run(); return; }
-                            setPendingRewindIndex(idx);
-                        }}
-                        aria-label={undoHint}
-                        title={undoHint}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading || isRewinding ? 'default' : 'pointer', padding: '3px', opacity: isLoading || isRewinding ? 0.45 : 1 }}
-                        disabled={isLoading || isRewinding}
-                    >
-                        <Undo2 size={13} />
-                    </button>
-                );
-            })()}
-            <button type="button" onClick={() => { setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx); }} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
+            {!assistant && hasDetails && <ActionButton label={t('chat.message_details', 'Message details')} aria-controls={detailsId} aria-expanded={expanded} onClick={toggleDetails}><Info /></ActionButton>}
         </div>
-        {msg.role === 'assistant' && (msg.plan || msg.explanation || msg.job || msg.timings) && detailsMessageIndex !== idx && <details style={{ width: '100%' }}><summary>{t('chat.task_details', 'Task activity')}</summary><MessageDetails msg={msg} onJobAction={action => { void refreshMessageJob(idx, action); }} onFocusComposer={focusComposerWith} /></details>}
-        {detailsMessageIndex === idx && (
-            <MessageDetails msg={msg} onJobAction={(action) => { void refreshMessageJob(idx, action); }} onFocusComposer={focusComposerWith} />
-        )}
+        {!assistant && details}
+        {!readOnly && assistant && <span className="sr-only" role="status">{savedPage ? t('chat.result_saved', 'Page saved') : ''}</span>}
+        {!readOnly && assistant && failedContent === msg.content && <span className="chat-message__save-error" role="alert">{t('chat.save_result_error', 'Could not save the result. Review pages before retrying.')}</span>}
         {(() => {
             const responseSeconds = msg.role === 'user'
                 ? null

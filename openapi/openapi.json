@@ -7789,6 +7789,19 @@
             "title": "Attachments",
             "type": "array"
           },
+          "cancel_id": {
+            "anyOf": [
+              {
+                "format": "uuid4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fresh cancellation handle for this submission attempt.",
+            "title": "Cancel Id"
+          },
           "context_refs": {
             "items": {
               "$ref": "#/components/schemas/TurnContextRef"
@@ -15894,6 +15907,19 @@
             ],
             "title": "Language",
             "type": "string"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
           },
           "session_id": {
             "maxLength": 128,

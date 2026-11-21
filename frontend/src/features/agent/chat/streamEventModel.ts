@@ -21,7 +21,6 @@ export interface ChatStreamState {
   model: StreamSelectedModel | null;
   metrics: TurnMetrics | null;
   transparency: ReturnType<typeof boundedTransparencyMetadata>;
-  assistantAdded: boolean;
   terminal: boolean;
   failed: boolean;
   responseReceived: boolean;
@@ -40,16 +39,19 @@ export interface StreamEventContext {
   readonly confirmationSummary: (confirmation: AgentConfirmation) => string;
 }
 export function createChatStreamState(): ChatStreamState {
-  return { sequence: 0, streamId: '', model: null, metrics: null, transparency: boundedTransparencyMetadata({}), assistantAdded: false, terminal: false, failed: false, responseReceived: false };
+  return { sequence: 0, streamId: '', model: null, metrics: null, transparency: boundedTransparencyMetadata({}), terminal: false, failed: false, responseReceived: false };
 }
 export function definedTransparency(metadata: ChatStreamState['transparency']): Partial<ChatStreamState['transparency']> {
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== null));
 }
 
 export function lastTurnResponseIndex(messages: readonly StoredChatMessage[], turnId: string): number {
+  let fallback = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message?.turnId === turnId && message.role !== 'user') return index;
+    if (message?.turnId !== turnId || message.role === 'user') continue;
+    if (message.role === 'assistant' && !message.confirmation) return index;
+    if (fallback < 0) fallback = index;
   }
-  return -1;
+  return fallback;
 }

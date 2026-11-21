@@ -16,7 +16,7 @@ from backend.domains.agent.routes.response_models import (
     AgentChatFeedbackResponse,
     AgentStreamCancellationResponse,
 )
-from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope
+from backend.domains.agent.routes.shared import _validated_identifier, _vault_scope, chat_stream_scope
 from backend.services.agent_cancellation import cancel_stream as cancel_agent_stream
 from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.agent_stream_journal import replay as replay_stream_events
@@ -150,14 +150,7 @@ async def resume_agent_stream(
     safe_stream = _validated_identifier(stream_id, "stream_id")
     safe_agent = _validated_identifier(agent_id, "agent_id")
     safe_session = _validated_identifier(session_id, "session_id")
-    digest = scope_digest(
-        {
-            "workspace_id": workspace_context.workspace_id,
-            "user_id": workspace_context.user_id,
-            "agent_id": safe_agent,
-            "session_id": safe_session,
-        }
-    )
+    digest = scope_digest(chat_stream_scope(workspace_context, safe_agent, safe_session))
     events = await asyncio.to_thread(
         replay_stream_events,
         safe_stream,
@@ -183,12 +176,11 @@ async def cancel_running_agent_stream(
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
 ) -> Mapping[str, object]:
     """Explicitly cancel one running stream in the exact authenticated scope."""
-    scope = {
-        "workspace_id": workspace_context.workspace_id,
-        "user_id": workspace_context.user_id,
-        "agent_id": _validated_identifier(agent_id, "agent_id"),
-        "session_id": _validated_identifier(session_id, "session_id"),
-    }
+    scope = chat_stream_scope(
+        workspace_context,
+        _validated_identifier(agent_id, "agent_id"),
+        _validated_identifier(session_id, "session_id"),
+    )
     if not cancel_agent_stream(
         _validated_identifier(stream_id, "stream_id"),
         scope,

@@ -102,7 +102,7 @@ def bind_project(context: WorkspaceContext, agent_id: str, session_id: str, proj
             )
 
 
-def delete_project(context: WorkspaceContext, agent_id: str, project_id: str) -> None:
+def delete_project(context: WorkspaceContext, agent_id: str, project_id: str, *, profile_ids: tuple[str, ...] = ()) -> None:
     owner = owner_key(context, agent_id)
     with _connect() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -114,10 +114,12 @@ def delete_project(context: WorkspaceContext, agent_id: str, project_id: str) ->
         connection.execute(
             "DELETE FROM learning_sessions WHERE owner_hash=? AND project_id=?", (owner, project_id),
         )
-        connection.execute(
+        # A conversation can use several profiles within the same private project.
+        profile_scopes = {_scope(context.vault_path, profile_id, context.user_id) for profile_id in (agent_id, *profile_ids)}
+        connection.executemany(
             """UPDATE personal_memories SET enabled=0, revision=revision+1, updated_at=?
             WHERE scope_hash=? AND scope_kind='project' AND scope_id=?""",
-            (_now(), _scope(context.vault_path, agent_id, context.user_id), project_id),
+            [(_now(), scope_hash, project_id) for scope_hash in profile_scopes],
         )
 
 

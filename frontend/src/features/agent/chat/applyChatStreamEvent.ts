@@ -36,8 +36,6 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
   if (!['tool_start', 'tool_end', 'message', 'thought', 'error', 'confirmation_required'].includes(type)) return;
   if (['message', 'thought', 'error', 'confirmation_required'].includes(type)) state.responseReceived = true;
   if (type === 'error' || type === 'confirmation_required') state.failed = true;
-  const addAssistant = !state.assistantAdded;
-  state.assistantAdded = true;
   if (type === 'confirmation_required') {
     const parsed = confirmationRecord({ ...value, ...(value.gauntlet !== undefined ? { gauntlet: boundedGauntlet(value.gauntlet) } : {}) });
     if (!parsed) throw new Error('Stream confirmation is missing its identifier');
@@ -50,5 +48,5 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
     });
     return;
   }
-  setMessages((previous) => activeScopeRef.current === requestScope ? streamResponseMessage(previous, value, state, context, addAssistant) : previous);
+  setMessages((previous) => activeScopeRef.current === requestScope ? streamResponseMessage(previous, value, state, context) : previous);
 }

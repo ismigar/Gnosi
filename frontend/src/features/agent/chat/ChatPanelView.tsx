@@ -1,7 +1,8 @@
+import { useRef } from 'react';
 import { AgentWorkspacePanel } from '../../agent-workspace';
 import { PromptQueue } from './QueuedPromptsPanel';
 import { ConversationLearning } from '../../agent-learning';
-import { Brain, Sparkles } from 'lucide-react';
+import { Brain, GraduationCap, Sparkles } from 'lucide-react';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import { ConfirmationReview } from './ConfirmationReview';
 import { ChatComposer } from './ChatComposer';
@@ -10,6 +11,7 @@ import { ChatHeader } from './ChatHeader';
 import { ChatDock } from './ChatDock';
 import { ChatSessionList } from './ChatSessionList';
 import type { useAgentChatController } from './useAgentChatController';
+import { turnRewindRows } from './messageActionModel';
 import { spokenReply } from './spokenReply';
 
 export function ChatPanelView({ controller }: { controller: ReturnType<typeof useAgentChatController> }) {
@@ -32,7 +34,9 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         confirmConversationRewind
     } = controller;
     const learningVisible = showLearning && !notebookId && !readOnly;
+    const learningButton = useRef<HTMLButtonElement>(null);
     const latestSpeech = spokenReply(messages);
+    const rewindRows = turnRewindRows(messages);
     if (!isOpen && !embedded) {
         return <ChatDock isDockOpen={isDockOpen} agentIcon={agentIcon} setIsDockOpen={setIsDockOpen} setIsOpen={setIsOpen} />;
     }
@@ -62,14 +66,16 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
 
             {!isMinimized && (
                 <>
-                    {!notebookId && !readOnly && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={isLoading || !selectedAgentId} onClick={() => { setLearningGoal(''); setShowLearning(value => !value); }}>{t('learning.title')}</button>}
                     {learningVisible && <ConversationLearning
                         key={`${browserStorageScope}:${selectedAgentId}:${sessionId}`}
-                        agentId={selectedAgentId} sessionId={sessionId} contextRefs={contextRefs} initialGoal={learningGoal}
+                        agentId={selectedAgentId} profileId={selectedProfileId} sessionId={sessionId} contextRefs={contextRefs} initialGoal={learningGoal}
                         lastResult={[...messages].reverse().find(message => message.role === 'assistant')?.content}
                         hasConversation={messages.some(message => message.role === 'user')}
                         onRequestConsumed={() => { setLearningGoal(''); }}
-                        onClose={() => { setLearningGoal(''); setShowLearning(false); }}
+                        onClose={() => {
+                            setLearningGoal(''); setShowLearning(false);
+                            requestAnimationFrame(() => { learningButton.current?.focus(); });
+                        }}
                     />}
                     {/* Messages */}
                     <div ref={messagesContainerRef} onScroll={handleMessagesScroll} style={{ display: learningVisible ? 'none' : 'flex', flex: 1, padding: '20px', overflowY: 'auto', flexDirection: 'column', gap: '16px' }}>
@@ -95,6 +101,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                                 agentName={agentName}
                                 isLoading={isLoading}
                                 isRewinding={isRewinding}
+                                showTurnRewind={rewindRows.has(idx)}
                                 detailsMessageIndex={detailsMessageIndex}
                                 confirmationTitle={confirmationTitle}
                                 setPendingConfirmation={setPendingConfirmation}
@@ -128,9 +135,15 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                     </div>
 
                     {!learningVisible && !readOnly && <PromptQueue items={controller.queueItems} error={controller.queueStorageError} update={controller.updateQueuedPrompt} remove={controller.removeQueuedPrompt} move={controller.moveQueuedPromptBy} resume={controller.resumeQueue} />}
-                    {!learningVisible && <AgentWorkspacePanel scopeKey={browserStorageScope} agentId={selectedAgentId} sessionId={sessionId} readOnly={readOnly} onPrompt={focusComposerWith} onVoicePrompt={controller.handleVoicePrompt} latestAssistantReply={latestSpeech.text} latestAssistantReplyId={latestSpeech.key} isAgentBusy={isLoading} />}
                     {/* Input Area */}
                     {!learningVisible && <ChatComposer
+                        tools={<>
+                            <AgentWorkspacePanel scopeKey={browserStorageScope} agentId={selectedAgentId} sessionId={sessionId} readOnly={readOnly}
+                                onVoicePrompt={controller.handleVoicePrompt} latestAssistantReply={latestSpeech.text} latestAssistantReplyId={latestSpeech.key} isAgentBusy={isLoading} />
+                            {!notebookId && !readOnly && <button ref={learningButton} type="button" className="gnosi-icon-button chat-composer__learning"
+                                aria-label={t('learning.title')} title={t('learning.title')} disabled={isLoading || !selectedAgentId}
+                                onClick={() => { setLearningGoal(''); setShowLearning(true); }}><GraduationCap size={16} /></button>}
+                        </>}
                         readOnly={readOnly}
                         embedded={embedded}
                         isLoading={isLoading}

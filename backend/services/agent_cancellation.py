@@ -10,16 +10,30 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import contextlib
-import hashlib
+import re
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any, Awaitable
+
+from backend.services.agent_stream_journal import scope_digest
+
+
+@dataclass
+class _Registration:
+    event: threading.Event
+    expires_at: float
+    owner: asyncio.Task[Any] | None
 
 
 _LOCK = threading.RLock()
-_TOKENS: dict[str, tuple[threading.Event, float]] = {}
-_STREAMS: dict[str, tuple[str, str]] = {}
+_TOKENS: dict[str, _Registration] = {}
+_STREAMS: dict[tuple[str, str], str] = {}
+# A Cancel POST can reach the server before the corresponding chat POST.
+_PENDING: dict[tuple[str, str], float] = {}
+_ATTEMPT_ID = re.compile(r"request-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
+_MAX_PENDING = 4096
 _TTL_SECONDS = 180.0
 _ASYNC_LOOP_LOCK = threading.Lock()
 _ASYNC_LOOP: asyncio.AbstractEventLoop | None = None
@@ -31,28 +45,24 @@ class AgentTurnCancelled(RuntimeError):
 
 
 def _prune(now: float) -> None:
-    for token, (_event, expires_at) in list(_TOKENS.items()):
-        if expires_at <= now:
+    for token, registration in list(_TOKENS.items()):
+        if registration.expires_at <= now and (registration.owner is None or registration.owner.done()):
             _TOKENS.pop(token, None)
-            for stream_id, (bound_token, _scope) in list(_STREAMS.items()):
+            for stream_id, bound_token in list(_STREAMS.items()):
                 if bound_token == token:
                     _STREAMS.pop(stream_id, None)
+    for key, expiry in list(_PENDING.items()):
+        if expiry <= now:
+            _PENDING.pop(key, None)
 
 
-def _scope_digest(scope: dict[str, Any]) -> str:
-    values = [
-        str(scope.get(key) or "") for key in ("workspace_id", "user_id", "agent_id", "session_id")
-    ]
-    return hashlib.sha256("\0".join(values).encode("utf-8")).hexdigest()
-
-
-def create_cancel_token() -> str:
+def create_cancel_token(*, owner: asyncio.Task[Any] | None = None) -> str:
     """Create a request-scoped cancellation token."""
     token = uuid.uuid4().hex
     with _LOCK:
         now = time.monotonic()
         _prune(now)
-        _TOKENS[token] = (threading.Event(), now + _TTL_SECONDS)
+        _TOKENS[token] = _Registration(threading.Event(), now + _TTL_SECONDS, owner)
     return token
 
 
@@ -62,28 +72,41 @@ def cancel(token: str) -> bool:
         item = _TOKENS.get(str(token or ""))
         if not item:
             return False
-        item[0].set()
+        item.event.set()
         return True
 
 
-def bind_stream(token: str, stream_id: str, scope: dict[str, Any]) -> None:
+def bind_stream(token: str, stream_id: str, scope: dict[str, Any]) -> bool:
     """Bind an opaque public stream id to one request cancellation token."""
     with _LOCK:
         if token not in _TOKENS:
             raise ValueError("Unknown agent cancellation token.")
-        _STREAMS[str(stream_id)[:128]] = (token, _scope_digest(scope))
+        key = (scope_digest(scope), stream_id)
+        if key in _STREAMS:
+            return False
+        _STREAMS[key] = token
+        registration = _TOKENS[token]
+        now = time.monotonic()
+        registration.expires_at = now + _TTL_SECONDS
+        if _PENDING.pop(key, 0) > now:
+            registration.event.set()
+        return True
 
 
 def cancel_stream(stream_id: str, scope: dict[str, Any]) -> bool:
     """Cancel a stream only when the exact authenticated scope matches."""
     with _LOCK:
-        binding = _STREAMS.get(str(stream_id or ""))
-        if not binding or binding[1] != _scope_digest(scope):
+        key = (scope_digest(scope), stream_id)
+        token = _STREAMS.get(key)
+        if token:
+            return cancel(token)
+        if not _ATTEMPT_ID.fullmatch(stream_id):
             return False
-        item = _TOKENS.get(binding[0])
-        if not item:
+        now = time.monotonic()
+        _prune(now)
+        if key not in _PENDING and len(_PENDING) >= _MAX_PENDING:
             return False
-        item[0].set()
+        _PENDING[key] = now + _TTL_SECONDS
         return True
 
 
@@ -93,14 +116,14 @@ def is_cancelled(token: str) -> bool:
         return False
     with _LOCK:
         item = _TOKENS.get(str(token))
-        return bool(item and item[0].is_set())
+        return bool(item and item.event.is_set())
 
 
 def release(token: str) -> None:
     """Release a completed token."""
     with _LOCK:
         _TOKENS.pop(str(token or ""), None)
-        for stream_id, (bound_token, _scope) in list(_STREAMS.items()):
+        for stream_id, bound_token in list(_STREAMS.items()):
             if bound_token == str(token or ""):
                 _STREAMS.pop(stream_id, None)
 
@@ -179,12 +202,15 @@ def invoke_cancellable(model: Any, prompt: Any, token: str, **kwargs: Any) -> An
     if not token:
         return model.invoke(prompt, **kwargs)
 
+    if is_cancelled(token):
+        raise AgentTurnCancelled("agent_turn_cancelled")
+
     if not callable(getattr(model, "ainvoke", None)):
         return model.invoke(prompt, **kwargs)
 
     with _LOCK:
         registration = _TOKENS.get(token)
-        event = registration[0] if registration else None
+        event = registration.event if registration else None
     operation = model.ainvoke(prompt, **kwargs)
     future = asyncio.run_coroutine_threadsafe(operation, _persistent_async_loop())
     while True:

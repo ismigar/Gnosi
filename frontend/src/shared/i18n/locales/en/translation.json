@@ -5892,7 +5892,7 @@
     "helpful_response": "Helpful response",
     "unhelpful_response": "Unhelpful response",
     "feedback_failed": "Could not record response feedback.",
-    "save_message": "Save message",
+    "save_message": "Bookmark message",
     "undo_last_action": "Undo last action",
     "rewind_from_message": "Undo from this message",
     "rewind_title": "Undo conversation from here?",
@@ -6263,6 +6263,8 @@
     },
     "result_title": "Assistant result",
     "save_result": "Save as page",
+    "result_saving": "Saving page…",
+    "result_saved": "Page saved",
     "open_result": "Open saved page",
     "save_result_error": "Could not save the result. Review pages before retrying.",
     "task_details": "Task activity"
@@ -8161,7 +8163,7 @@
     "results": "Results",
     "results_help": "One link, reference or short summary per line.",
     "add_result": "Save an excerpt from the last answer",
-    "conversation_help": "Turn this conversation’s criteria and corrections into a reusable procedure. Your assistant will prepare a draft for review.",
+    "conversation_help": "The agent assigned to learning will use this conversation to draft a skill for you to review.",
     "goal": "Which task do you want to repeat? (optional)",
     "create_from_conversation": "Create a skill from this conversation",
     "needs_conversation": "Complete a task in chat first and give the corrections you want to preserve.",
@@ -8761,7 +8763,8 @@
     "revoke_message": "This link will stop serving the publication. Copies already saved by readers cannot be removed."
   },
   "agent_workbench": {
-    "title": "Agent workspace",
+    "title": "Chat tools",
+    "tools_hint": "Files, documents, data analysis, apps and voice",
     "allow": "Allow",
     "browser_permission": "Allow the agent to use this website?",
     "application_permission": "Choose an application for this conversation",
@@ -8803,7 +8806,7 @@
     "choose_app": "Choose an application",
     "type_in_app": "Enter text in the approved app",
     "messages_draft": "Open a Messages draft",
-    "section": "Workspace section",
+    "section": "Tool",
     "tabs": {
       "files": "Folders and files",
       "document": "Edit document",

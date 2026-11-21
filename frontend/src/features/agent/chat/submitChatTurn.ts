@@ -47,10 +47,12 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     requestAbortRef.current?.abort();
     ownedController = new AbortController();
     requestAbortRef.current = ownedController;
+    const cancelId = crypto.randomUUID();
+    activeStreamRef.current = `request-${cancelId}`;
     const response = await startChatStream({
       message: inputValue, agent_id: selectedAgentId, profile_id: context.profileId, session_id: sessionId,
       llm_mode: 'agent_default', mentions, attachments: attachmentsPayload,
-      context_refs: [...contextRefs], notebook_id: notebookId || undefined, turn_id: turnId,
+      context_refs: [...contextRefs], notebook_id: notebookId || undefined, turn_id: turnId, cancel_id: cancelId,
     }, ownedController.signal);
     if (!response.ok) {
       let detail = response.statusText;
@@ -73,7 +75,7 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     for await (const data of readNdjsonRecords(response, {
       onMalformed: error => { logError('chat.stream.record', error); },
     })) {
-      if (requestAbortRef.current !== ownedController || activeScopeRef.current !== requestScope) return;
+      if (ownedController.signal.aborted || requestAbortRef.current !== ownedController || activeScopeRef.current !== requestScope) return;
       try {
         applyChatStreamEvent(streamState, data, streamContext);
       }
@@ -92,11 +94,11 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     const aborted = ownedController?.signal.aborted || recordValue(error, 'name') === 'AbortError';
     let recovered = false;
     if (!aborted && streamState.streamId && activeScopeRef.current === requestScope) {
-      try { recovered = await recoverChatStream(streamState, streamContext); }
-      catch (resumeError) { logChatError('agent-chat-stream-resume', resumeError); }
+      try { recovered = await recoverChatStream(streamState, streamContext, { signal: ownedController?.signal }); }
+      catch (resumeError) { if (!ownedController?.signal.aborted) logChatError('agent-chat-stream-resume', resumeError); }
     }
     successful = recovered && !streamState.failed;
-    if (!aborted && !recovered && !streamState.responseReceived && activeScopeRef.current === requestScope) {
+    if (!aborted && !ownedController?.signal.aborted && !recovered && !streamState.responseReceived && activeScopeRef.current === requestScope) {
       const message = recordValue(error, 'message');
       const errorMessage = typeof message === 'string' ? message.trim() : '';
       setMessages(previous => activeScopeRef.current !== requestScope ? previous : [...previous, {

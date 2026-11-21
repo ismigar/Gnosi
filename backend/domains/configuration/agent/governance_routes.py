@@ -166,11 +166,17 @@ def _ai_configuration() -> dict[str, object]:
     return {str(key): value for key, value in raw_ai.items()}
 
 
+def _configured_agents() -> dict[str, dict[str, object]]:
+    return {
+        str(item["id"]): {str(key): value for key, value in item.items()}
+        for item in iterate_values(_ai_configuration().get("agents") or [])
+        if isinstance(item, Mapping) and item.get("id")
+    }
+
+
 def _require_configured_agent(agent_id: str) -> dict[str, object]:
-    ai = _ai_configuration()
-    for item in iterate_values(ai.get("agents") or []):
-        if isinstance(item, Mapping) and str(item.get("id")) == str(agent_id):
-            return {str(key): value for key, value in item.items()}
+    if agent := _configured_agents().get(agent_id):
+        return agent
     raise HTTPException(status_code=404, detail="Agent not found.")
 
 

@@ -19,12 +19,21 @@ function streamError(data: LooseRecord, t: TFunction): string {
   return `❌ ${t('chat.error_prefix', 'Error')}: ${content}`;
 }
 
-export function streamResponseMessage(previous: readonly StoredChatMessage[], data: LooseRecord, state: ChatStreamState, context: Pick<StreamEventContext, 'turnId' | 't'>, addAssistant: boolean): readonly StoredChatMessage[] {
+export function streamResponseMessage(previous: readonly StoredChatMessage[], data: LooseRecord, state: ChatStreamState, context: Pick<StreamEventContext, 'turnId' | 't'>): readonly StoredChatMessage[] {
   const { t, turnId } = context;
-  const messages = [...previous];
-  if (addAssistant) messages.push({ role: 'assistant', content: '', llm: state.model, turnId, ...definedTransparency(state.transparency) });
-  const index = messages.length - 1;
-  let message: StoredChatMessage = messages[index] ?? { content: '' };
+  let insertAt: number | undefined;
+  let replaceAt: number | undefined;
+  for (let index = previous.length - 1; index >= 0; index -= 1) {
+    const row = previous[index];
+    if (row?.turnId !== turnId) continue;
+    insertAt ??= index + 1;
+    if (row.role === 'assistant' && !row.confirmation) {
+      replaceAt = index;
+      break;
+    }
+  }
+  let message: StoredChatMessage = (replaceAt === undefined ? undefined : previous[replaceAt])
+    ?? { role: 'assistant', content: '', llm: state.model, turnId, ...definedTransparency(state.transparency) };
   if (data.type === 'tool_start') {
     message = { ...message, content: t('chat.tool_start', '🛠️ *Calling tool: {{tool}}...*', { tool: data.tool }) };
   } else if (data.type === 'tool_end') {
@@ -51,7 +60,8 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       ...(data.recovery !== null && typeof data.recovery === 'object' ? { recovery: data.recovery } : {}),
     };
   }
-  if (index >= 0) messages[index] = message;
+  const messages = [...previous];
+  messages.splice(replaceAt ?? insertAt ?? previous.length, replaceAt === undefined ? 0 : 1, message);
   return messages;
 }
 

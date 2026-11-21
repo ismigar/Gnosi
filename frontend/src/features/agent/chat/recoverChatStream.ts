@@ -1,31 +1,11 @@
 import { readChatStreamReplay } from '../../../shared/api/chat-streaming';
-import { boundedTurnMetrics } from '../model/agentChatTiming';
-import { boundedGauntlet, boundedTransparencyMetadata } from '../model/agentChatTransparency';
-import { isRecord, stringifyLooseValue, type LooseRecord } from '../model/agentChatMessageTypes';
+import { isRecord } from '../model/agentChatMessageTypes';
+import { applyChatStreamEvent } from './applyChatStreamEvent';
 import { acceptStreamSequence } from './streamSequence';
-import { definedTransparency, lastTurnResponseIndex, type ChatStreamState, type StreamEventContext } from './streamEventModel';
+import type { ChatStreamState, StreamEventContext } from './streamEventModel';
 
-interface RecoveryRuntime { readonly pause?: () => Promise<void> }
+interface RecoveryRuntime { readonly pause?: () => Promise<void>; readonly signal?: AbortSignal }
 const pauseBetweenPolls = () => new Promise<void>((resolve) => { window.setTimeout(resolve, 1000); });
-
-function applyRecoveredResponse(data: LooseRecord, state: ChatStreamState, context: StreamEventContext): void {
-  const { setMessages, activeScopeRef, requestScope, turnId, t } = context;
-  setMessages((previous) => {
-    if (activeScopeRef.current !== requestScope) return previous;
-    const index = lastTurnResponseIndex(previous, turnId);
-    const content = data.type === 'error'
-      ? `${t('chat.error_prefix', 'Error')}: ${stringifyLooseValue(data.content || t('errors.unknown', 'Unknown error'))}`
-      : typeof data.content === 'string' ? data.content : '';
-    const responseMs = boundedTurnMetrics(data.timings)?.response_ms;
-    const metadata = { ...(typeof responseMs === 'number' ? { processingMs: responseMs } : {}), ...definedTransparency(boundedTransparencyMetadata({
-      plan: data.plan, privacy: data.privacy, verification: data.verification, citations: data.citations,
-      freshness: data.freshness, job: data.job, explanation: data.explanation, quality: data.quality,
-      conflicts: data.conflicts, evidence_security: data.evidence_security,
-    })), ...(data.gauntlet !== undefined ? { gauntlet: boundedGauntlet(data.gauntlet) } : {}) };
-    if (index < 0) return [...previous, { role: 'assistant', content, turnId, llm: state.model, ...metadata }];
-    return previous.map((message, itemIndex) => itemIndex === index ? { ...message, content, turnId, ...metadata } : message);
-  });
-}
 
 /** Retrieve an existing stream only. Never repeat the POST that may have performed an action. */
 export async function recoverChatStream(state: ChatStreamState, context: StreamEventContext, runtime: RecoveryRuntime = {}): Promise<boolean> {
@@ -33,23 +13,25 @@ export async function recoverChatStream(state: ChatStreamState, context: StreamE
   const pause = runtime.pause ?? pauseBetweenPolls;
   for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
     // A switched conversation no longer needs polling, and can never receive this response.
-    if (context.activeScopeRef.current !== context.requestScope) return false;
-    const events = await readChatStreamReplay({ streamId: state.streamId, agentId: context.agentId, sessionId: context.sessionId }, state.sequence);
-    if (events === null) break;
-    let terminal = false;
-    let response: LooseRecord | null = null;
+    if (runtime.signal?.aborted || context.activeScopeRef.current !== context.requestScope) return false;
+    const events = await readChatStreamReplay({ streamId: state.streamId, agentId: context.agentId, sessionId: context.sessionId }, state.sequence, runtime.signal);
+    if (events === null || runtime.signal?.aborted || context.activeScopeRef.current !== context.requestScope) break;
     for (const value of events) {
       if (!isRecord(value)) continue;
-      const sequence = acceptStreamSequence(value.sequence, state.sequence);
-      if (!sequence.accepted) continue;
-      state.sequence = sequence.sequence;
-      if (value.type === 'turn_metrics') state.metrics = boundedTurnMetrics(value);
-      if (value.type === 'message' || value.type === 'thought' || value.type === 'error') response = value;
-      if (value.type === 'error' || value.type === 'confirmation_required') state.failed = true;
-      if (value.type === 'done') terminal = true;
+      if (value.type === 'done' || value.type === 'confirmation_required') {
+        const sequence = acceptStreamSequence(value.sequence, state.sequence);
+        if (!sequence.accepted) continue;
+        state.sequence = sequence.sequence;
+        // The confirmation status endpoint owns current action cards. A journal
+        // can describe an already resolved action or a response we never saw.
+        if (value.type === 'confirmation_required') {
+          state.failed = true;
+          state.responseReceived ||= typeof value.confirmation_id === 'string' && Boolean(value.confirmation_id);
+        } else state.terminal = true;
+      } else {
+        applyChatStreamEvent(state, value, context);
+      }
     }
-    if (response) { state.responseReceived = true; applyRecoveredResponse(response, state, context); }
-    state.terminal ||= terminal;
     recovered = state.terminal && state.responseReceived;
     if (!recovered) await pause();
   }

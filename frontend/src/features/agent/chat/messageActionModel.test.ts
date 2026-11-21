@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { boundedTransparencyMetadata } from '../model/agentChatTransparency';
-import { messageFeedback, previousPrompt } from './messageActionModel';
+import { messageFeedback, previousPrompt, turnRewindRows } from './messageActionModel';
 
 describe('message action model', () => {
   it('finds the nearest preceding nonempty user prompt without including the current message', () => {
     const messages = [{ role: 'user', content: 'first' }, { role: 'assistant', content: 'answer' }, { role: 'user', content: '' }, { role: 'user', content: 'second' }];
     expect(previousPrompt(messages, 3)).toBe('first'); expect(previousPrompt(messages, 4)).toBe('second'); expect(previousPrompt(messages, 0)).toBe('');
+  });
+  it('offers one rewind per prompt and keeps plugin undo available independently', () => {
+    const plugin = { available: true, run() {} };
+    const messages = [
+      { role: 'assistant', turn_id: 'orphan' },
+      { role: 'user', turnId: 'new' },
+      { role: 'assistant', turnId: 'new' },
+      { role: 'assistant', turnId: 'new', undo: plugin },
+      { role: 'user' },
+      { role: 'assistant', turn_id: 'restored' },
+      { role: 'user', undo: plugin },
+      { role: 'assistant', undo: { available: true } },
+    ].map(message => ({ content: '', ...message }));
+    expect([...turnRewindRows(messages)]).toEqual([0, 1, 5, 7]);
   });
   it('rejects messages without a canonical assistant turn identifier', () => {
     expect(messageFeedback({ role: 'user', turnId: 'turn', content: 'private' }, 'a', 's', 'ca', 'up')).toBeNull();

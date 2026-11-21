@@ -1,7 +1,6 @@
 """Answer memory sources identify the exact scoped revisions in the prompt."""
 import json
 from copy import deepcopy
-from types import SimpleNamespace
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -36,9 +35,10 @@ def test_selected_memory_revisions_survive_answer_and_history(monkeypatch, tmp_p
     assert selected["text"] in llm.system_prompts[-1]
     public = _checkpoint_public_message(answer, role="ai", content=answer.content, turn_id="turn")
     assert public["memory_provenance"] == sources
+    from backend.domains.agent.routes.chat_stream_state import AgentStreamState
     from backend.domains.agent.routes.chat_stream_updates import _assistant_event
     event = json.loads(_assistant_event(answer, answer.content, node_name="general",
-        state=SimpleNamespace(trace_id="trace", quality_plan={}, quality_verification={}, metrics_payload=lambda: {}),
+        state=AgentStreamState(request_started_at=0, workflow_ready_at=0, llm_selection={}, turn_plan={}, trace_id="trace"),
         untrusted_context_flags=[]))
     assert event["memory_provenance"] == sources
     assert AgentSessionMessageResponse.model_validate(public).memory_provenance == sources

@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 
 
 _WORKER_INSTANCE = uuid.uuid4().hex
+# Keep this predicate in the same form as the partial agent_runs_parent index.
+RUN_TREE_CTE = """WITH RECURSIVE descendants(id) AS (
+    SELECT run_id FROM agent_runs WHERE run_id=?
+    UNION SELECT r.run_id FROM descendants d JOIN agent_runs r
+    ON json_valid(r.payload) AND CAST(json_extract(r.payload,'$.parent_run_id') AS TEXT)=d.id)
+"""
 
 
 @contextmanager
@@ -363,13 +369,9 @@ def reserve_model_call(scope: ExecutionScope, run_id: str, limit: int) -> None:
                 raise AgentTurnCancelled("agent_run_cancelled")
             cap = metadata.get("max_calls")
             if isinstance(cap, int):
-                used = db.execute("""WITH RECURSIVE descendants(id) AS (
-                    SELECT run_id FROM agent_runs WHERE run_id=?
-                    UNION ALL SELECT r.run_id FROM agent_runs r JOIN descendants d
-                    ON json_extract(r.payload, '$.parent_run_id')=d.id)
-                    SELECT COALESCE(SUM(json_extract(payload, '$.model_calls')),0)
-                    FROM agent_runs WHERE run_id IN (SELECT id FROM descendants)
-                    AND COALESCE(json_extract(request, '$.mode'),'')!='job'""", (ancestor_id,)).fetchone()[0]
+                used = db.execute(RUN_TREE_CTE + """SELECT COALESCE(SUM(json_extract(r.payload,'$.model_calls')),0)
+                    FROM descendants d CROSS JOIN agent_runs r ON r.run_id=d.id
+                    WHERE COALESCE(json_extract(r.request,'$.mode'),'')!='job'""", (ancestor_id,)).fetchone()[0]
                 if used >= cap:
                     raise RuntimeError("agent_job_call_budget_exceeded")
             ancestor_id = ancestor.parent_run_id

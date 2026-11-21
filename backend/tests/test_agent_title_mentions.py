@@ -68,7 +68,7 @@ def dashboard_runtime(action_runtime, monkeypatch, tmp_path):
     monkeypatch.setattr(chat_route, '_vault_scope', lambda: (tmp_path, 'synthetic-vault'))
     monkeypatch.setattr(chat_route, 'cfg', SimpleNamespace(paths={'CHECKPOINTS': tmp_path / 'checkpoints'}))
     monkeypatch.setattr(principal_agent_migration, 'ensure_migrated', lambda: fixture[3])
-    monkeypatch.setattr(learning_context, 'prepare_learning_context', lambda *_: ('', [], '', None))
+    monkeypatch.setattr(learning_context, 'prepare_learning_context', lambda *args, **kwargs: ('', [], '', None))
     monkeypatch.setattr(agent_personal_memory, 'search_memories', lambda *args, **kwargs: [])
     return fixture, paths, registry
 

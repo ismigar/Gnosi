@@ -103,6 +103,28 @@ def test_project_memory_is_private_and_never_becomes_global(context):
     assert memory.list_memories(context.vault_path, "helper", user_id=context.user_id)[0]["enabled"] is False
 
 
+def test_switched_profile_owns_memory_and_uses_the_conversation_project(context, monkeypatch):
+    from backend.domains.agent.routes.learning_context import prepare_learning_context
+    from backend.domains.configuration.agent import governance_routes
+
+    monkeypatch.setattr(governance_routes, "_require_configured_agent", lambda identifier: {"id": identifier})
+    project = save_project(context, "helper", ProjectDraft(name="Synthetic project"))
+    bind_project(context, "helper", "session", project.id)
+    _, _, active_project, captured = prepare_learning_context(
+        context, "helper", "session", "turn", "Recorda que vull resums breus.", target_profile_id="specialist",
+    )
+    assert captured and captured["scope_id"] == active_project == project.id
+    assert not memory.list_memories(context.vault_path, "helper", user_id=context.user_id)
+    assert memory.search_memories(context.vault_path, "specialist", "resums", user_id=context.user_id, project_id=project.id)
+    other_user = "another-user"
+    other = WorkspaceContext(context.workspace_id, other_user, context.role, context.vault_path)
+    foreign = capture_memory(other, "specialist", "session", "foreign", "Recorda que vull resums llargs.", project.id)
+    delete_project(context, "helper", project.id, profile_ids=("specialist",))
+    assert not memory.list_memories(context.vault_path, "specialist", user_id=context.user_id)[0]["enabled"]
+    unchanged, = memory.list_memories(context.vault_path, "specialist", user_id=other_user)
+    assert unchanged["memory_id"] == foreign["memory_id"] and unchanged["enabled"]
+
+
 def test_new_explicit_request_can_remember_a_previously_disabled_preference(context):
     first = capture_memory(context, "helper", "session", "first", "Recorda que prefereixo taules.")
     memory.update_memory(

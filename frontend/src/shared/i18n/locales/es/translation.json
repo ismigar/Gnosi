@@ -6441,7 +6441,7 @@
     "helpful_response": "Respuesta útil",
     "unhelpful_response": "Respuesta poco útil",
     "feedback_failed": "No se pudo registrar la valoración de la respuesta.",
-    "save_message": "Guardar mensaje",
+    "save_message": "Marcar el mensaje",
     "undo_last_action": "Deshacer la última acción",
     "rewind_from_message": "Deshacer desde este mensaje",
     "rewind_title": "¿Deshacer la conversación desde aquí?",
@@ -6818,6 +6818,8 @@
     },
     "result_title": "Resultado del asistente",
     "save_result": "Guardar como página",
+    "result_saving": "Guardando la página…",
+    "result_saved": "Página guardada",
     "open_result": "Abrir la página guardada",
     "save_result_error": "No se ha podido guardar el resultado. Revisa las páginas antes de reintentarlo.",
     "task_details": "Actividad de la tarea"
@@ -8216,7 +8218,7 @@
     "results": "Resultados",
     "results_help": "Un enlace, una referencia o un resumen breve por línea.",
     "add_result": "Guardar un fragmento de la última respuesta",
-    "conversation_help": "Convierte los criterios y las correcciones de esta conversación en un procedimiento reutilizable. El asistente preparará un borrador para que lo revises.",
+    "conversation_help": "El agente asignado al aprendizaje usará esta conversación para preparar un borrador que podrás revisar.",
     "goal": "¿Qué tarea quieres repetir? (opcional)",
     "create_from_conversation": "Crear una habilidad con esta conversación",
     "needs_conversation": "Completa primero una tarea en el chat e indica las correcciones que quieras conservar.",
@@ -8816,7 +8818,8 @@
     "revoke_message": "Este enlace dejará de mostrar la publicación. No se pueden eliminar las copias que los lectores ya hayan guardado."
   },
   "agent_workbench": {
-    "title": "Espacio de trabajo del agente",
+    "title": "Herramientas del chat",
+    "tools_hint": "Archivos, documentos, análisis de datos, aplicaciones y voz",
     "allow": "Permitir",
     "browser_permission": "¿Permites que el agente utilice este sitio web?",
     "application_permission": "Elige una aplicación para esta conversación",
@@ -8858,7 +8861,7 @@
     "choose_app": "Elegir una aplicación",
     "type_in_app": "Introducir texto en la aplicación autorizada",
     "messages_draft": "Abrir un borrador en Mensajes",
-    "section": "Sección del espacio de trabajo",
+    "section": "Herramienta",
     "tabs": {
       "files": "Carpetas y archivos",
       "document": "Editar documento",

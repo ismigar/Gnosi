@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List, Optional, Self
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 FAILURE_MESSAGES = {
     "tool_use_failed": (
@@ -128,6 +128,7 @@ class ChatRequest(BaseModel):
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
     context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=16)
     notebook_id: Optional[str] = Field(default=None, max_length=64)
+    cancel_id: UUID4 | None = Field(default=None, description="Fresh cancellation handle for this submission attempt.")
     turn_id: Optional[str] = Field(
         default=None,
         min_length=1,

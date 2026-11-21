@@ -15,6 +15,7 @@ from backend.agent.model_router import usage_from_message
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import _acquire_turn_lock, _public_gauntlet_metadata
 from backend.domains.agent.routes.shared import _message_text, _tool_stream_event
+from backend.services.agent_cancellation import is_cancelled
 
 
 def _deadline_event(
@@ -296,6 +297,8 @@ async def iter_workflow_events(
         if item.get("name")
     }
     async with _acquire_turn_lock(turn_lock):
+        if is_cancelled(inputs.get("cancel_token", "")):
+            return
         async with asyncio.timeout(turn_timeout_seconds) as execution_deadline:
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 agent_app = workflow.compile(checkpointer=saver)

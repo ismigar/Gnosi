@@ -17,6 +17,7 @@ from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.chat_stream_updates import iter_workflow_events
 from backend.domains.agent.routes.contracts import ChatRequest
 from backend.domains.agent.routes.shared import _prepare_index_title_replacements
+from backend.services.agent_cancellation import is_cancelled
 from backend.services.workspace_service import WorkspaceContext
 
 
@@ -210,14 +211,16 @@ async def stream_agent_events(
         session_id=session_id,
     )
     try:
-        opening_events, terminal = await _opening_events(
-            state,
-            chat_req=chat_req,
-            untrusted_context_flags=untrusted_context_flags,
-        )
-        for event in opening_events:
-            yield event
+        terminal = is_cancelled(cancel_token)
         if not terminal:
+            opening_events, terminal = await _opening_events(
+                state,
+                chat_req=chat_req,
+                untrusted_context_flags=untrusted_context_flags,
+            )
+            for event in opening_events:
+                yield event
+        if not terminal and not is_cancelled(cancel_token):
             async for event in iter_workflow_events(
                 state=state,
                 turn_timeout_seconds=turn_timeout_seconds,

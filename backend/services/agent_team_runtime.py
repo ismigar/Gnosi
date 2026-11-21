@@ -7,8 +7,10 @@ import hashlib
 import json
 import time
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from functools import cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -102,30 +104,52 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
     return current
 
 
-def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False, allow_owner: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
-    ids = [identifier for identifier in ids if allow_owner or identifier != owner["id"]]
-    from backend.agent.model_router import load_registry
+@dataclass
+class CandidateInputs:
+    profiles: list[dict[str, Any]]
+    registry: list[dict[str, Any]]
+    usage: dict[str, int]
+    blocked: bool
+    provider_available: Callable[[str], bool]
+
+
+def candidate_inputs(ai: dict[str, Any]) -> CandidateInputs:
+    """Read common selection inputs once per decision; execution rechecks its own limits."""
+    from backend.agent.model_router import UsageStore, budget_status, load_registry
     from backend.domains.agent.llm import _provider_is_available
-    from backend.agent.model_router import UsageStore, budget_status
     status = budget_status()
-    if status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"):
+    blocked = bool(status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"))
+
+    @cache
+    def available(provider: str) -> bool:
+        return _provider_is_available(provider, ai.get("providers", {}).get(provider, {}))
+
+    usage = UsageStore().usage_for(status["period"]) if not blocked and status.get("period") else {}
+    return CandidateInputs(ai.get("agents", []), [] if blocked else load_registry(), usage, blocked, available)
+
+
+def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *,
+               preferred: str = "", tools: bool = False, allow_owner: bool = False,
+               inputs: CandidateInputs | None = None, catalog_assignments_available: bool | None = None
+               ) -> tuple[dict[str, Any] | None, str, float | None]:
+    ids = [identifier for identifier in ids if allow_owner or identifier != owner["id"]]
+    inputs = inputs or candidate_inputs(_config())
+    if inputs.blocked:
         return None, "budget_exceeded", None
-    usage = UsageStore().usage_for(status["period"]) if status.get("period") else {}
-    ai = _config()
-    registry = load_registry()
-    models = {(r.get("provider"), r.get("model_id")): r for r in registry}
+    models = {(r.get("provider"), r.get("model_id")): r for r in inputs.registry}
     def ready(profile: dict[str, Any], requested: list[str]) -> bool:
+        if catalog_assignments_available is not None and not requested and not tools:
+            return catalog_assignments_available
         runtime = _runtime(profile, scope, requested)
         model = models.get((profile.get("provider"), profile.get("model")), {})
         if tools and runtime.tools and "tools" not in (model.get("tags") or []) and model.get("supports_tools") is not True:
             return False
         return runtime_skill_ids(runtime, requested).issubset(runtime.active_skill_ids) and not runtime.missing_skill_ids and not runtime.unavailable_tool_ids
     # UTF-8 byte count is a conservative upper bound, including profile instructions.
-    overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in ai.get("agents", []) if p.get("id") in ids), default=0)
-    return select_executor(ai.get("agents", []), registry, allowed_ids=ids,
+    overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in inputs.profiles if p.get("id") in ids), default=0)
+    return select_executor(inputs.profiles, inputs.registry, allowed_ids=ids,
         skill_ids=skills, input_tokens=len(text.encode()) + overhead, source_provider=str(owner.get("provider") or ""),
-        runtime_check=ready, preferred_id=preferred, require_tools=False, usage=usage,
-        is_available=lambda provider: _provider_is_available(provider, ai.get("providers", {}).get(provider, {})))
+        runtime_check=ready, preferred_id=preferred, require_tools=False, usage=inputs.usage, is_available=inputs.provider_available)
 
 
 def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scope: ExecutionScope, skills: list[str], refs: list[dict[str, Any]], *, read_only: bool = False, temporary: bool = False, extra_instructions: tuple[str, ...] = ()) -> tuple[AgentExecutionSnapshot, Any]:

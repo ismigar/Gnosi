@@ -91,17 +91,12 @@ def _totals(runs: list[AgentRun], calls: dict[str, list[dict[str, Any]]]) -> dic
 
 def team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
     store.read(scope, run_id)  # Validate the root before inspecting its descendants.
-    tree = """WITH RECURSIVE descendants(id) AS (
-        SELECT run_id FROM agent_runs WHERE run_id=?
-        UNION SELECT r.run_id FROM agent_runs r JOIN descendants d
-        ON json_valid(r.payload) AND CAST(json_extract(r.payload,'$.parent_run_id') AS TEXT)=d.id)
-    """
     with store.connect() as db:
-        rows = db.execute(tree + """SELECT r.payload FROM descendants d CROSS JOIN agent_runs r ON r.run_id=d.id
+        rows = db.execute(store.RUN_TREE_CTE + """SELECT r.payload FROM descendants d CROSS JOIN agent_runs r ON r.run_id=d.id
             WHERE r.user_id=? AND r.workspace_id=? AND r.vault_path=?
             AND COALESCE(json_extract(r.request,'$.mode'),'')!='job'""",
             (run_id, scope.user_id, scope.workspace_id, scope.vault_path)).fetchall()
-        tool_calls = db.execute(tree + """SELECT COUNT(*) FROM descendants d
+        tool_calls = db.execute(store.RUN_TREE_CTE + """SELECT COUNT(*) FROM descendants d
             CROSS JOIN agent_runs r ON r.run_id=d.id CROSS JOIN agent_trace_events e ON e.run_id=d.id
             WHERE e.kind='tool.request' AND r.user_id=? AND r.workspace_id=? AND r.vault_path=?""",
             (run_id, scope.user_id, scope.workspace_id, scope.vault_path)).fetchone()[0]

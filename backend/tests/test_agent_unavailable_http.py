@@ -29,7 +29,7 @@ def test_chat_http_outage_preserves_language_and_failed_outcome(monkeypatch, tmp
     })
     monkeypatch.setattr(chat_route, "_vault_scope", lambda: (tmp_path, "synthetic-vault"))
     monkeypatch.setattr(chat_route, "_chat_user_content", lambda request, **_: (request.message, []))
-    monkeypatch.setattr(learning_context, "prepare_learning_context", lambda *_: ("", [], "", None))
+    monkeypatch.setattr(learning_context, "prepare_learning_context", lambda *args, **kwargs: ("", [], "", None))
     calls = []
 
     async def unavailable(*args, **kwargs):

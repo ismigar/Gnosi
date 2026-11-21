@@ -15388,6 +15388,11 @@ export interface components {
             agent_id: string;
             /** Attachments */
             attachments?: components["schemas"]["AttachmentRef"][];
+            /**
+             * Cancel Id
+             * @description Fresh cancellation handle for this submission attempt.
+             */
+            cancel_id?: string | null;
             /** Context Refs */
             context_refs?: components["schemas"]["TurnContextRef"][];
             /** History */
@@ -18628,6 +18633,8 @@ export interface components {
              * @enum {string}
              */
             language: "ca" | "en" | "es" | "fr";
+            /** Profile Id */
+            profile_id?: string | null;
             /** Session Id */
             session_id: string;
         };

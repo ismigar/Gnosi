@@ -67,7 +67,9 @@ describe('typed chat submission', () => {
     expect(request?.context_refs).not.toBe(f.context.contextRefs);
     expect(request?.context_refs).toEqual(f.context.contextRefs);
     expect(typeof request?.turn_id).toBe('string');
-    expect(request).toEqual({ message: 'ask @Page ', agent_id: 'agent', session_id: 'session', llm_mode: 'agent_default', notebook_id: 'notebook', turn_id: request?.turn_id, mentions: [{ id: 'p', type: 'page', label: 'Page' }], context_refs: [{ id: 'p', ref: 'page:p', type: 'page' }], attachments: [{ name: 'document.txt', size: 4, type: 'text/plain', path: null, url: '/fixture/file' }] });
+    expect(request).toEqual({ message: 'ask @Page ', agent_id: 'agent', session_id: 'session', llm_mode: 'agent_default', notebook_id: 'notebook', turn_id: request?.turn_id, cancel_id: request?.cancel_id, mentions: [{ id: 'p', type: 'page', label: 'Page' }], context_refs: [{ id: 'p', ref: 'page:p', type: 'page' }], attachments: [{ name: 'document.txt', size: 4, type: 'text/plain', path: null, url: '/fixture/file' }] });
+    expect(typeof request?.cancel_id).toBe('string');
+    expect(request?.cancel_id).not.toBe(request?.turn_id);
     expect(f.messages()[0]).toMatchObject({ content: 'ask @Page ', role: 'user', turnId: request?.turn_id, mentions: request?.mentions, attachments: request?.attachments });
     expect(f.messages()[1]).toMatchObject({ role: 'assistant', content: 'answer' });
     expect(typeof f.messages()[1]?.processingMs).toBe('number');

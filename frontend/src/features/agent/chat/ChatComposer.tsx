@@ -1,29 +1,33 @@
+import { useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, Paperclip, AtSign, Blocks, Plus, Archive } from 'lucide-react';
 import { chatScrollDeltaForComposerKey } from '../model/agentChatKeyboardUtils';
 import { CHAT_ATTACHMENT_ACCEPT } from './composerModel';
+import './chat-composer.css';
 import type { ChatComposerProps } from './chatComposerTypes';
 
 export function ChatComposer({
-  readOnly, embedded, isLoading, agentHasModel, isUploadingAttachment,
+  tools, readOnly, embedded, isLoading, agentHasModel, isUploadingAttachment,
   showMentionMenu, showSessionsView, inputValue, inputRef, fileInputRef,
   messagesContainerRef, attachments, contextRefs, mentionResults, setInputValue,
   setShowSessionsView, handleSubmit, handlePickAttachment, handleAttachmentInputChange,
   removeAttachment, applyMention, createNewSession
 }: ChatComposerProps) {
   const { t } = useTranslation();
-  const autoResizeInput = () => {
-    if (!inputRef.current) return;
-    inputRef.current.style.height = '0px';
-    inputRef.current.style.height = `${String(inputRef.current.scrollHeight)}px`;
-  };
+  const canSubmit = !isUploadingAttachment && agentHasModel && Boolean(inputValue.trim() || attachments.length);
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    if (inputValue) input.style.height = String(input.scrollHeight) + 'px';
+  }, [inputRef, inputValue, readOnly]);
   return (
     readOnly ? (
         <div role="status" style={{ padding: '12px 16px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.78rem', textAlign: 'center' }}>
             {t('notebooks.chat_read_only', 'You can read this conversation. An editor role is required to send messages.')}
         </div>
-    ) : <div style={{ padding: '10px 10px 8px 10px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--bg-primary)' }}>
-        <div style={{ position: 'relative' }}>
+    ) : <div className="chat-composer">
+        <div className="chat-composer__entry">
             <form onSubmit={(event) => { void handleSubmit(event); }} style={{
                 display: 'flex', gap: '8px', alignItems: 'flex-end',
                 background: 'var(--settings-input-bg, #f9fafb)', padding: '6px',
@@ -43,10 +47,7 @@ export function ChatComposer({
                 <textarea
                     ref={inputRef}
                     value={inputValue}
-                    onChange={(e) => {
-                        setInputValue(e.target.value);
-                        requestAnimationFrame(autoResizeInput);
-                    }}
+                    onChange={event => { setInputValue(event.target.value); }}
                     onKeyDown={(e) => {
                         const scrollDelta = chatScrollDeltaForComposerKey({
                             key: e.key,
@@ -74,28 +75,27 @@ export function ChatComposer({
                             void handleSubmit(e);
                         }
                     }}
-                    onInput={() => requestAnimationFrame(autoResizeInput)}
                     placeholder={embedded
                         ? t('notebooks.chat_placeholder', 'Ask a question about these sources...')
                         : t('chat.input_placeholder', "Write a message... (use @ to mention)")}
                     style={{
-                        flex: 1, padding: '8px', border: 'none', outline: 'none',
+                        flex: 1, minWidth: 0, padding: '8px', border: 'none', outline: 'none',
                         background: 'transparent', color: 'var(--text-primary)',
                         fontSize: '0.9rem', resize: 'none',
                         minHeight: '24px',
-                        overflow: 'hidden'
+                        maxHeight: 'min(10rem, 24dvh)', overflowY: 'auto', overflowX: 'hidden'
                     }}
                     rows={1}
                 />
                 <button
                     type="submit"
-                    disabled={isUploadingAttachment || !agentHasModel || (!inputValue.trim() && attachments.length === 0)}
+                    disabled={!canSubmit}
                     aria-label={isLoading ? t('chat.queue.add', 'Queue next turn') : t('chat.send_message', 'Send message')}
                     title={agentHasModel ? (isLoading ? t('chat.queue.add', 'Queue next turn') : t('chat.send_message', 'Send message')) : t('chat.model_required', 'Configure this agent before sending a message')}
                     style={{
                         width: '36px', height: '36px', borderRadius: '12px',
-                        backgroundColor: agentHasModel && (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',
-                        color: 'white', border: 'none', cursor: agentHasModel ? 'pointer' : 'not-allowed',
+                        backgroundColor: canSubmit ? 'var(--gnosi-action-bg)' : 'var(--bg-tertiary)',
+                        color: canSubmit ? 'white' : 'var(--text-secondary)', border: 'none', cursor: canSubmit ? 'pointer' : 'default',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'all 0.2s'
                     }}
@@ -174,15 +174,12 @@ export function ChatComposer({
             )}
         </div>
 
-        {!embedded && <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <button onClick={() => { void createNewSession(); }} disabled={isLoading} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Plus size={12} />
-                </button>
-                <button onClick={() => { setShowSessionsView((v) => !v); }} title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Archive size={12} />
-                </button>
-            </div>
+        {tools}
+        {!embedded && <div className="chat-composer__sessions">
+            <button type="button" className="gnosi-icon-button" onClick={() => { void createNewSession(); }} disabled={isLoading}
+                title={t('chat.new_session', 'New session')} aria-label={t('chat.new_session', 'New session')}><Plus size={15} /></button>
+            <button type="button" className="gnosi-icon-button" onClick={() => { setShowSessionsView(v => !v); }} aria-expanded={showSessionsView}
+                title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')}><Archive size={15} /></button>
         </div>}
     </div>
   );

@@ -38,6 +38,7 @@ from backend.domains.agent.routes.shared import (
     _validated_identifier,
     _validated_skill_ids,
     _vault_scope,
+    chat_stream_scope,
 )
 from backend.domains.agent.routes.state import cfg
 from backend.domains.agent.routes.workflow import get_agent_workflow
@@ -45,7 +46,9 @@ from backend.services.agent_cancellation import (
     bind_stream as bind_agent_stream,
 )
 from backend.services.agent_cancellation import (
+    cancel as cancel_agent_turn,
     create_cancel_token,
+    is_cancelled,
 )
 from backend.services.agent_cancellation import (
     release as release_agent_turn,
@@ -185,6 +188,7 @@ async def _finish_failed_turn(
     agent_id: str,
     session_id: str,
 ) -> None:
+    cancelled = is_cancelled(cancel_token)
     if cancel_token:
         release_agent_turn(cancel_token)
     if turn_claimed and chat_req.turn_id:
@@ -196,12 +200,31 @@ async def _finish_failed_turn(
             agent_id=agent_id,
             session_id=session_id,
             turn_id=chat_req.turn_id,
-            state="failed",
+            state="cancelled" if cancelled else "failed",
         )
 
 
-def _unavailable_response(
-    error: HTTPException | MetadataUnavailable,
+def _require_active_turn(token: str) -> None:
+    if is_cancelled(token):
+        raise HTTPException(status_code=409, detail="Agent turn cancelled.")
+
+
+def _bind_submission(token: str, chat_req: ChatRequest, scope: dict[str, str]) -> None:
+    if chat_req.cancel_id and not bind_agent_stream(token, f"request-{chat_req.cancel_id}", scope):
+        raise HTTPException(status_code=409, detail="Submission attempt already active.")
+    _require_active_turn(token)
+
+
+async def _accept_chat_stream(request: Request, token: str, stream_id: str, scope: dict[str, str]) -> None:
+    # A legacy client can only abort its HTTP request before the opening frame.
+    if await request.is_disconnected():
+        cancel_agent_turn(token)
+    _require_active_turn(token)
+    bind_agent_stream(token, stream_id, scope)
+
+
+def _setup_error_response(
+    error: Exception | asyncio.CancelledError,
     *,
     request: Request,
     trace_id: str,
@@ -210,6 +233,10 @@ def _unavailable_response(
     agent_id: str,
     session_id: str,
 ) -> StreamingResponse:
+    if isinstance(error, asyncio.CancelledError):
+        raise error
+    if not isinstance(error, (HTTPException, MetadataUnavailable)):
+        raise HTTPException(status_code=500, detail=safe_error_detail(error, context="POST /api/agent/chat")) from error
     language = _response_language(chat_req.message)
     if isinstance(error, MetadataUnavailable):
         error_code = "metadata_unavailable"
@@ -236,12 +263,7 @@ def _unavailable_response(
             stream_id=trace_id,
             trace_id=trace_id,
             turn_id=chat_req.turn_id or "",
-            journal_scope={
-                "workspace_id": workspace_context.workspace_id,
-                "user_id": workspace_context.user_id,
-                "agent_id": agent_id,
-                "session_id": session_id,
-            },
+            journal_scope=chat_stream_scope(workspace_context, agent_id, session_id),
         ),
         media_type="application/x-ndjson",
         status_code=200,
@@ -272,6 +294,11 @@ async def chat_endpoint(
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
+        # Transport identity uses the submitted conversation, even when a
+        # notebook resolves to a different internal checkpoint principal.
+        stream_scope = chat_stream_scope(workspace_context, agent_id, session_id)
+        cancel_token = create_cancel_token(owner=asyncio.current_task())
+        _bind_submission(cancel_token, chat_req, stream_scope)
         # Checkpoint identity stays stable when the conversation changes profile.
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
@@ -329,7 +356,7 @@ async def chat_endpoint(
 
             project_text, project_refs, learning_project_id, learning_memory = await asyncio.to_thread(
                 prepare_learning_context, workspace_context, agent_id, session_id,
-                chat_req.turn_id or "", chat_req.message,
+                chat_req.turn_id or "", chat_req.message, target_profile_id=profile_id,
             )
             user_content += project_text
 
@@ -347,6 +374,7 @@ async def chat_endpoint(
             **({"direct_agent": True} if command_selected else {}),
             **({"memory_project_id": learning_project_id} if learning_project_id else {}),
         }
+        _require_active_turn(cancel_token)
         workflow, llm_selection = await get_agent_workflow(
             request,
             profile_id,
@@ -360,17 +388,6 @@ async def chat_endpoint(
             **workflow_options,
         )
         workflow_ready_at = time.monotonic()
-        cancel_token = create_cancel_token()
-        bind_agent_stream(
-            cancel_token,
-            trace_id,
-            {
-                "workspace_id": workspace_context.workspace_id,
-                "user_id": workspace_context.user_id,
-                "agent_id": agent_id,
-                "session_id": session_id,
-            },
-        )
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -480,23 +497,21 @@ async def chat_endpoint(
             ):
                 yield event
 
+        await _accept_chat_stream(request, cancel_token, trace_id, stream_scope)
         return StreamingResponse(
             protocolize_stream(
                 event_generator(),
                 stream_id=trace_id,
                 trace_id=trace_id,
                 turn_id=chat_req.turn_id or "",
-                journal_scope={
-                    "workspace_id": workspace_context.workspace_id,
-                    "user_id": workspace_context.user_id,
-                    "agent_id": agent_id,
-                    "session_id": session_id,
-                },
+                journal_scope=stream_scope,
             ),
             media_type="application/x-ndjson",
         )
 
-    except (HTTPException, MetadataUnavailable) as error:
+    except (Exception, asyncio.CancelledError) as error:
+        if isinstance(error, asyncio.CancelledError):
+            cancel_agent_turn(cancel_token)
         await _finish_failed_turn(
             cancel_token=cancel_token,
             turn_claimed=turn_claimed,
@@ -507,27 +522,12 @@ async def chat_endpoint(
             agent_id=agent_id,
             session_id=session_id,
         )
-        return _unavailable_response(
+        return _setup_error_response(
             error,
             request=request,
             trace_id=trace_id,
             chat_req=chat_req,
             workspace_context=workspace_context,
             agent_id=agent_id,
-            session_id=session_id,
-        )
-    except Exception as error:
-        await _finish_failed_turn(
-            cancel_token=cancel_token,
-            turn_claimed=turn_claimed,
-            chat_req=chat_req,
-            vault_scope=vault_scope,
-            workspace_context=workspace_context,
-            chat_principal=chat_principal,
-            agent_id=agent_id,
-            session_id=session_id,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(error, context="POST /api/agent/chat"),
+            session_id=chat_req.session_id.strip(),
         )

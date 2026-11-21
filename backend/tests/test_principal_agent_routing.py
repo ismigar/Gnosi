@@ -345,3 +345,32 @@ def test_catalog_describes_personal_capabilities_and_unavailable_models(team_run
     assert catalog[0]["available"] is True
     monkeypatch.setattr(model_router, "load_registry", lambda: [])
     assert planning_catalog(snapshot.profile, scope, "Revisa aquest paràgraf")[0]["available"] is False
+
+
+def test_planning_reuses_provider_and_budget_only_within_one_decision(team_runtime, monkeypatch):
+    from backend.agent import model_router
+    from backend.domains.agent import llm
+    from backend.services.agent_team_routing import planning_catalog
+
+    scope, snapshot, _, config = team_runtime
+    config["agents"][0]["model"] = "cheap"
+    lookups = []
+    budgets = []
+    connected = True
+
+    def available(provider, _settings):
+        lookups.append(provider)
+        return connected
+
+    def budget():
+        budgets.append(True)
+        return {"over_cap": False}
+
+    monkeypatch.setattr(llm, "_provider_is_available", available)
+    monkeypatch.setattr(model_router, "budget_status", budget)
+    members = planning_catalog(snapshot.profile, scope, "Hola", include_owner=True)
+    assert {m["id"] for m in members if m["available"]} == {"director", "worker"}
+    connected = False
+    members = planning_catalog(snapshot.profile, scope, "Hola", include_owner=True)
+    assert all(not m["available"] for m in members)
+    assert lookups == ["local", "local"] and len(budgets) == 2

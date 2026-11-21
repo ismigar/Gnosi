@@ -1,6 +1,29 @@
-.agent-workspace { flex: 0 0 auto; border-top: 1px solid var(--settings-border); color: var(--text-primary); padding: 8px 12px; font-size: .85rem; }
-.agent-workspace > summary { cursor: pointer; }
-.agent-workspace__body { max-height: 320px; overflow: auto; padding-top: 8px; }
+.agent-workspace__trigger.gnosi-icon-button {
+  grid-area: tools;
+  justify-self: start;
+  width: auto;
+  gap: 5px;
+  padding-inline: 6px;
+  font-size: .75rem;
+}
+
+.agent-workspace {
+  grid-area: panel;
+  min-width: 0;
+  max-height: min(16rem, 32dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: .85rem;
+}
+
+.agent-workspace > .agent-workspace__actions { justify-content: space-between; }
+.agent-workspace > .agent-workspace__actions > label { display: grid; gap: 4px; min-width: 0; }
 .agent-workspace__section { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
 .agent-workspace__section label { display: flex; flex-direction: column; gap: 4px; }
 .agent-workspace__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

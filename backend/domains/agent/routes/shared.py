@@ -45,6 +45,16 @@ def _validated_identifier(value: str, label: str) -> str:
     return candidate
 
 
+def chat_stream_scope(context: WorkspaceContext, agent_id: str, session_id: str) -> dict[str, str]:
+    return {
+        "workspace_id": context.workspace_id,
+        "user_id": context.user_id,
+        "vault_path": str(context.vault_path.resolve()),
+        "agent_id": agent_id,
+        "session_id": session_id,
+    }
+
+
 def _notebook_conversation_scope(
     notebook_id: Optional[str],
     workspace_context: WorkspaceContext,

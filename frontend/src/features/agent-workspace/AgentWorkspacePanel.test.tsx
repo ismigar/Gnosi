@@ -5,18 +5,18 @@ import { AgentWorkspacePanel } from './AgentWorkspacePanel';
 
 const mocks = vi.hoisted(() => ({
   request: vi.fn<(path: string, identity: unknown, body?: unknown, method?: string, signal?: AbortSignal) => Promise<unknown>>(),
-  pages: vi.fn(), native: vi.fn(),
+  pages: vi.fn(), native: vi.fn(), stopVoice: vi.fn(), toggleVoice: vi.fn(),
   translation: { t: (key: string) => key, i18n: { language: 'en' } },
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => mocks.translation }));
 vi.mock('../../shared/api/agent-workspace', () => ({ workspaceRequest: mocks.request, uploadWorkspaceFile: vi.fn(), checkedWorkspaceDownload: vi.fn() }));
 vi.mock('../../shared/api/vaults', () => ({ fetchVaultPages: mocks.pages }));
-vi.mock('./useVoiceConversation', () => ({ useVoiceConversation: () => ({ active: false, supported: false, failed: false, toggle: vi.fn(), stop: vi.fn(), output: { state: 'idle', error: false } }) }));
-vi.mock('../../shared/speech/SpeechSettings', () => ({ SpeechSettings: () => null }));
+vi.mock('./useVoiceConversation', () => ({ useVoiceConversation: () => ({ active: false, supported: true, failed: false, toggle: mocks.toggleVoice, stop: mocks.stopVoice, output: { state: 'idle', error: false } }) }));
+vi.mock('../../shared/speech/SpeechSettings', () => ({ SpeechSettings: () => <span data-voice-settings /> }));
 let container: HTMLDivElement;
 let root: Root;
 const props = { scopeKey: 'vault-a', agentId: 'agent', sessionId: 'session', readOnly: false,
-  onPrompt: vi.fn(), onVoicePrompt: vi.fn(), latestAssistantReply: '', isAgentBusy: false };
+  onVoicePrompt: vi.fn(), latestAssistantReply: '', isAgentBusy: false };
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 async function settle() { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); }
 async function render(overrides: Partial<typeof props> = {}) {
@@ -28,10 +28,13 @@ async function click(label: string) {
   if (!button) throw new Error(`Missing button ${label}`);
   await act(async () => { button.click(); await Promise.resolve(); }); await settle();
 }
+function trigger() {
+  const element = container.querySelector<HTMLButtonElement>('button[aria-label="agent_workbench.title"]');
+  if (!element) throw new Error('Missing chat tools');
+  return element;
+}
 async function open() {
-  const details = container.querySelector('details');
-  if (!details) throw new Error('Missing workspace');
-  await act(async () => { details.open = true; details.dispatchEvent(new Event('toggle')); await Promise.resolve(); }); await settle();
+  await act(async () => { trigger().click(); await Promise.resolve(); }); await settle();
 }
 async function select(index: number, value: string) {
   const control = container.querySelectorAll('select')[index];
@@ -64,7 +67,7 @@ describe('scoped agent workspace panel', () => {
   it('does not load or initialize native permissions while closed or read-only', async () => {
     Object.defineProperty(window, 'electronAPI', { configurable: true, value: { workspaceOperation: mocks.native } });
     await render(); expect(mocks.request).not.toHaveBeenCalled();
-    await render({ readOnly: true }); expect(container.querySelector('details')).toBeNull();
+    await render({ readOnly: true }); expect(container.querySelector('button')).toBeNull();
     await settle(); expect(mocks.request).not.toHaveBeenCalled(); expect(mocks.native).not.toHaveBeenCalled();
   });
   it('loads grants, status, document history and analysis only when opened', async () => {
@@ -73,13 +76,36 @@ describe('scoped agent workspace panel', () => {
     expect(container.textContent).toContain('Authorized folder');
     for (const call of mocks.request.mock.calls) expect(call[1]).toEqual({ agent_id: 'agent', session_id: 'session' });
   });
+  it('exposes all five tools, stops voice on tab changes or dismissal, and restores keyboard focus', async () => {
+    await render();
+    const panel = document.getElementById(trigger().getAttribute('aria-controls') ?? '');
+    expect(panel?.hidden).toBe(true);
+    expect(trigger().title).toBe('agent_workbench.tools_hint');
+    await open();
+    const selectTool = panel?.querySelector('select');
+    if (!selectTool) throw new Error('Missing tool selector');
+    expect([...selectTool.options].map(option => option.value))
+      .toEqual(['files', 'document', 'analysis', 'native', 'voice']);
+    await select(0, 'voice'); await click('agent_workbench.start_voice');
+    expect(mocks.toggleVoice).toHaveBeenCalledOnce();
+    mocks.stopVoice.mockClear(); await select(0, 'analysis'); expect(mocks.stopVoice).toHaveBeenCalledOnce();
+    await select(0, 'voice');
+    const voiceSettings = container.querySelector('[data-voice-settings]');
+    expect(voiceSettings).not.toBeNull();
+    mocks.stopVoice.mockClear();
+    await act(async () => { voiceSettings?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await Promise.resolve(); });
+    expect(panel?.hidden).toBe(true);
+    expect(mocks.stopVoice).toHaveBeenCalledOnce();
+    expect(container.querySelector('[data-voice-settings]')).toBeNull();
+    expect(document.activeElement).toBe(trigger());
+  });
   it('revokes an initialized native scope and resets the panel when the vault changes', async () => {
     Object.defineProperty(window, 'electronAPI', { configurable: true, value: { workspaceOperation: mocks.native } });
     await render(); await open(); await select(0, 'native');
     await click('agent_workbench.read_browser');
     expect(mocks.native).toHaveBeenCalledWith(expect.objectContaining({ action: 'browser-snapshot', scopeKey: 'native-a' }));
     await render({ scopeKey: 'vault-b' });
-    expect(container.querySelector('details')?.open).toBe(false);
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
     expect(mocks.native).toHaveBeenCalledWith(expect.objectContaining({ action: 'revoke', scopeKey: 'native-a' }));
   });
   it('requires preview before apply, displays conflicts, and retains the request identity on retry', async () => {

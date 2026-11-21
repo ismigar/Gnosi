@@ -12,6 +12,7 @@ export interface ChatMessageRowProps extends ReturnType<typeof useChatMessageAct
   readonly agentName: string;
   readonly isLoading: boolean;
   readonly isRewinding: boolean;
+  readonly showTurnRewind: boolean;
   readonly detailsMessageIndex: number | null;
   readonly confirmationTitle: (confirmation: AgentConfirmation) => string;
   readonly setPendingConfirmation: (confirmation: AgentConfirmation) => void;

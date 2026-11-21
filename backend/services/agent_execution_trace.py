@@ -56,12 +56,23 @@ def sanitize(value: Any, path: str = "$") -> tuple[Any, list[str]]:
     return {"unavailable_type": type(value).__name__}, hidden
 
 
+_EXPIRABLE = """json_valid(payload) AND json_extract(payload,'$.status') IN ('completed','failed','cancelled')
+    AND COALESCE(json_extract(payload,'$.trace_state'),'') NOT IN ('expired','deleted')"""
+_SNAPSHOT_REF = "CASE WHEN json_valid(snapshot) THEN json_extract(snapshot,'$._snapshot_ref') END"
+
+
 def _schema(db: Any) -> None:
     db.execute("CREATE TABLE IF NOT EXISTS agent_trace_blobs (digest TEXT PRIMARY KEY, payload TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS agent_trace_events (id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, created REAL NOT NULL, kind TEXT NOT NULL, digest TEXT NOT NULL)")
     db.execute("CREATE INDEX IF NOT EXISTS agent_trace_run ON agent_trace_events(run_id,id)")
     db.execute("CREATE TABLE IF NOT EXISTS agent_trace_links (root TEXT, leaf TEXT, PRIMARY KEY(root,leaf))")
     db.execute("CREATE TABLE IF NOT EXISTS agent_trace_settings (user_id TEXT, workspace_id TEXT, vault_path TEXT, days INTEGER NOT NULL, PRIMARY KEY(user_id,workspace_id,vault_path))")
+    db.execute("CREATE INDEX IF NOT EXISTS agent_trace_digest ON agent_trace_events(digest)")
+    db.execute("CREATE INDEX IF NOT EXISTS agent_trace_leaf ON agent_trace_links(leaf)")
+    db.execute(f"""CREATE INDEX IF NOT EXISTS agent_trace_expiry ON agent_runs
+        (user_id,workspace_id,vault_path,json_extract(payload,'$.closed_at')) WHERE {_EXPIRABLE}""")
+    db.execute(f"CREATE INDEX IF NOT EXISTS agent_snapshot_ref ON agent_runs ({_SNAPSHOT_REF})")
+
 
 
 def _encode(value: Any, leaves: dict[str, str]) -> Any:
@@ -91,9 +102,16 @@ def _decode(value: Any, db: Any) -> Any:
 
 
 def _prune(db: Any) -> None:
-    db.execute("DELETE FROM agent_trace_links WHERE root NOT IN (SELECT digest FROM agent_trace_events)")
-    db.execute("DELETE FROM agent_trace_blobs WHERE digest NOT IN (SELECT digest FROM agent_trace_events UNION SELECT leaf FROM agent_trace_links)")
-    db.execute("DELETE FROM agent_run_snapshots WHERE digest NOT IN (SELECT json_extract(snapshot,'$._snapshot_ref') FROM agent_runs WHERE json_extract(snapshot,'$._snapshot_ref') IS NOT NULL)")
+    # Reading an up-to-date history must not take the SQLite writer lock.
+    # Recheck references in the DELETE so a concurrently reused blob survives.
+    for table, unreferenced in (
+        ("agent_trace_links", "NOT EXISTS (SELECT 1 FROM agent_trace_events e WHERE e.digest=agent_trace_links.root)"),
+        ("agent_trace_blobs", """NOT EXISTS (SELECT 1 FROM agent_trace_events e WHERE e.digest=agent_trace_blobs.digest)
+            AND NOT EXISTS (SELECT 1 FROM agent_trace_links l WHERE l.leaf=agent_trace_blobs.digest)"""),
+        ("agent_run_snapshots", f"NOT EXISTS (SELECT 1 FROM agent_runs r WHERE {_SNAPSHOT_REF}=agent_run_snapshots.digest)"),
+    ):
+        if db.execute(f"SELECT 1 FROM {table} WHERE {unreferenced} LIMIT 1").fetchone():
+            db.execute(f"DELETE FROM {table} WHERE {unreferenced}")
 
 
 def _discard_finished_input(db: Any, run_id: str, payload: dict[str, Any]) -> None:
@@ -123,13 +141,16 @@ def expire(scope: Any) -> None:
     cutoff = time.time() - retention(scope) * 86400
     with store.connect() as db:
         _schema(db)
-        rows = db.execute("SELECT run_id,payload FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?", (scope.user_id, scope.workspace_id, scope.vault_path)).fetchall()
+        candidates = f"""SELECT run_id,payload FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
+            AND {_EXPIRABLE} AND json_extract(payload,'$.closed_at')<=? AND json_extract(payload,'$.closed_at')!=0"""
+        parameters = (scope.user_id, scope.workspace_id, scope.vault_path, cutoff)
+        if db.execute(candidates + " LIMIT 1", parameters).fetchone():
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(candidates, parameters).fetchall()
+        else:
+            rows = []
         for row in rows:
             payload = json.loads(row["payload"])
-            if payload.get("trace_state") in {"expired", "deleted"}:
-                continue
-            if payload.get("status") not in {"completed", "failed", "cancelled"} or not payload.get("closed_at") or payload["closed_at"] > cutoff:
-                continue
             db.execute("DELETE FROM agent_trace_events WHERE run_id=?", (row["run_id"],))
             payload["trace_state"] = "expired"
             _discard_finished_input(db, row["run_id"], payload)

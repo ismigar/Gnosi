@@ -46,20 +46,24 @@ def validate_assignments(plan: TeamPlan, members: list[dict[str, Any]], owner_id
 def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str,
                      *, include_owner: bool = False) -> list[dict[str, Any]]:
     from backend.services.agent_team_policy import team_for
-    from backend.services.agent_team_runtime import _candidate, _config, _runtime
+    from backend.services.agent_team_runtime import _candidate, _config, _runtime, candidate_inputs
 
     roles = {member.agent_id: member.roles for member in team_for(owner).members}
     if include_owner:
         roles[owner["id"]] = ["director"]
     catalog = []
-    for profile in _config().get("agents", []):
+    inputs = candidate_inputs(_config())
+    for profile in inputs.profiles:
         identifier = profile.get("id")
         if identifier not in roles or (identifier == owner["id"] and not include_owner):
             continue
         if not profile.get("enabled", True) or profile.get("plugin_suspended"):
             continue
         runtime = _runtime(profile, scope, list(profile.get("skill_ids") or []))
-        eligible, reason, _ = _candidate(owner, scope, [identifier], [], original, allow_owner=include_owner)
+        # No skills are activated by the eligibility probe. Missing assignments
+        # are independent of activation and already known for this member.
+        eligible, reason, _ = _candidate(owner, scope, [identifier], [], original, allow_owner=include_owner,
+            inputs=inputs, catalog_assignments_available=not runtime.missing_skill_ids)
         skills = [{
             "id": entry.descriptor.metadata.get("effective_skill_id", entry.descriptor.id),
             "canonical_id": entry.descriptor.id,

@@ -1,8 +1,9 @@
-import type { ChangeEvent, Dispatch, RefObject, SetStateAction, SyntheticEvent } from 'react';
+import type { ChangeEvent, Dispatch, ReactNode, RefObject, SetStateAction, SyntheticEvent } from 'react';
 import type { AgentChatProps } from './agentChatTypes';
 import type { CatalogMention, ChatAttachment } from './composerModel';
 
 export interface ChatComposerProps {
+  readonly tools?: ReactNode;
   readonly readOnly: boolean;
   readonly embedded: boolean;
   readonly isLoading: boolean;

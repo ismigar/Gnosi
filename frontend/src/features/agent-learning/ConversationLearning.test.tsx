@@ -20,11 +20,11 @@ it('turns an explicit chat request into one draft even under StrictMode', async 
     const root = createRoot(container);
     const consumed = vi.fn();
     try {
-        await act(async () => { root.render(<StrictMode><I18nextProvider i18n={locale}><ConversationLearning agentId="helper" sessionId="session" contextRefs={[]} hasConversation initialGoal="Crea una habilitat per resumir" onRequestConsumed={consumed} onClose={() => undefined} /></I18nextProvider></StrictMode>); await Promise.resolve(); });
+        await act(async () => { root.render(<StrictMode><I18nextProvider i18n={locale}><ConversationLearning agentId="helper" profileId="specialist" sessionId="session" contextRefs={[]} hasConversation initialGoal="Crea una habilitat per resumir" onRequestConsumed={consumed} onClose={() => undefined} /></I18nextProvider></StrictMode>); await Promise.resolve(); });
         await act(async () => { await vi.runOnlyPendingTimersAsync(); });
         expect(api.draft).toHaveBeenCalledTimes(1);
         expect(consumed).toHaveBeenCalledTimes(1);
-        expect(api.draft).toHaveBeenCalledWith(expect.objectContaining({ goal: 'Crea una habilitat per resumir', language: 'ca' }), expect.any(AbortSignal));
+        expect(api.draft).toHaveBeenCalledWith(expect.objectContaining({ agent_id: 'helper', profile_id: 'specialist', session_id: 'session', goal: 'Crea una habilitat per resumir', language: 'ca' }), expect.any(AbortSignal));
         expect(container.textContent).toContain('Draft ready');
     } finally {
         await act(async () => { root.unmount(); await Promise.resolve(); });
