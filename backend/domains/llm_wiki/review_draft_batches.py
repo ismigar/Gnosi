@@ -13,7 +13,7 @@ from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.ingestion import ReviewRuntime
-    from backend.domains.llm_wiki.contextual_reading import ContextualReader
+    from backend.domains.llm_wiki.contextual_reading import CheckpointScope, ContextualReader
 
 Validate = Callable[[dict[str, object], list[dict[str, object]], list[dict[str, object]]], None]
 
@@ -106,7 +106,7 @@ def additional_review_calls(reviewer: ReviewRuntime, chunks: list[dict[str, obje
 
 def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                     drafts: list[dict[str, object]], support: list[dict[str, object]], coverage: list[object],
-                    key: str, validate: Validate) -> dict[str, object]:
+                    key: str, validate: Validate, scope: CheckpointScope | None = None) -> dict[str, object]:
     def original_request(subset: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
         return note_batch_request(primary, subset, support, coverage, worker.dimensions)
 
@@ -130,7 +130,7 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
             if any(change["position"] == 0 for change in records(answer["changes"])):
                 raise ValueError("Only the full-passage coverage check may add notes")
         answer = worker.ask(slot, "source-audit", payload, check_batch, record(payload["output_schema"]),
-                            executor=reviewer, page_context=context, checkpoint_only=checkpoint_only,
+                            executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,
                             restore_legacy=lambda item: restore_audit(item, primary, original_sources, worker.dimensions, len(subset)))
         accepted = apply_changes(answer, subset, primary, sources, worker.dimensions)
         claims.append({"assessment": answer["assessment"], "retained": [n["title"] for n in accepted]})
@@ -139,7 +139,7 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     start = 0
     while start < len(drafts):
         slot = f"audit-notes-{key[:24]}-{start}"
-        if worker.has_checkpoint(slot):
+        if worker.has_checkpoint(slot, scope):
             # A paid batch could fit before adding the adjacent page. Recover its
             # original extent and validate it before partitioning the unpaid suffix.
             old_end, _, _ = note_batch_end(start, drafts, original_request, fits)
@@ -164,7 +164,7 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     def audit_coverage(items: list[dict[str, object]], *, checkpoint_only: bool = False) -> dict[str, object]:
         return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
                           lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
-                          executor=reviewer, page_context=context, checkpoint_only=checkpoint_only,
+                          executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,
                           restore_legacy=lambda item: restore_audit(item, primary, [primary], worker.dimensions, 0))
     try:
         coverage_answer = audit_coverage(claims, checkpoint_only=not coverage_fits(claims))
