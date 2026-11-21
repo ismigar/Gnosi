@@ -89,4 +89,5 @@ def state_progress(state: dict[str, Any]) -> tuple[int, ...]:
     reviews = len(state.get("reviewed_groups", {})) if state.get("review_quality_version") == REVIEW_QUALITY_VERSION else 0
     return (len(state.get("plans", {})), reviews,
             int(bool(state.get("notes_map"))), int(bool(state.get("global_map"))), len(state.get("maps", [])),
-            len(state.get("independent_reviews", {})), int(bool(state.get("independent_synthesis"))))
+            len(state.get("independent_reviews", {})), int(bool(state.get("independent_synthesis"))),
+            sum(len(draft["chunks"]) for draft in state.get("review_drafts", {}).values()))

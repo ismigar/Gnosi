@@ -201,6 +201,18 @@ describe('ProcessResourceModal', () => {
         expect(document.body.textContent).toContain('A distant definition remains uncertain.');
     });
 
+    it('shows pending passages while other fragments are processed', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...runningJob, phase: 'reviewing', chunks_done: 5, chunks_total: 8, pending_passages: 2,
+        });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(document.body.textContent).toContain('2 passages awaiting review');
+        expect(document.body.textContent).toContain('5 of 8 fragments completed');
+        expect(vi.getTimerCount()).toBe(1);
+    });
+
     it('keeps polling while the provider cooldown is in progress', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, phase: 'retrying', chunks_done: 1, chunks_total: 85,

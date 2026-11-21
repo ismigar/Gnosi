@@ -19976,6 +19976,8 @@ export interface components {
             origins_total?: number | null;
             /** Pages Touched */
             pages_touched?: number | null;
+            /** Pending Passages */
+            pending_passages?: number | null;
             /** Phase */
             phase?: string | null;
             /** Progress */

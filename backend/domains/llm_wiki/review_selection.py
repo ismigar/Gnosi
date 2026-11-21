@@ -19,6 +19,10 @@ def passage_key(segment: dict[str, object]) -> str:
     return str(segment["id"])
 
 
+def passage_occurrence(chunk: dict[str, object], segment: dict[str, object]) -> str:
+    return fingerprint([chunk["id"], passage_key(segment)])
+
+
 def sample_passages(chunks: list[dict[str, object]]) -> set[str]:
     chapters: dict[tuple[str, tuple[str, ...]], list[str]] = defaultdict(list)
     for chunk in chunks:

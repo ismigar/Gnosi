@@ -114,6 +114,7 @@ class LlmWikiJobResponse(BaseModel):
     origins_done: int | None = None
     chunks_total: int | None = None
     chunks_done: int | None = None
+    pending_passages: int | None = None
     pages_touched: int | None = None
     created: list[str] | None = None
     updated: list[str] | None = None

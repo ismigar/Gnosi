@@ -9,6 +9,17 @@ class ReadingInputTooLarge(RuntimeError):
     """The local input check refused the request before a provider call."""
 
 
+class PassageReviewIssue(ValueError):
+    """The specialist's answer failed a source or output check for one passage."""
+
+
+class PendingPassagesRemaining(RuntimeError):
+    """Extraction is partial and synthesis must wait for the remaining reviews."""
+
+    def __init__(self, count: int) -> None:
+        super().__init__(f"reading_passages_pending: {count}")
+
+
 class IncompleteReadingBatch(ValueError):
     """A structured answer ended before its JSON was complete."""
 

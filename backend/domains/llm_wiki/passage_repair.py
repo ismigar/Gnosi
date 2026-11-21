@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Collection
+from typing import TYPE_CHECKING, Any, cast
 
 from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
@@ -10,6 +11,7 @@ from backend.domains.llm_wiki.pdf_page_context import PageContext, page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.independent_review import fits_review
 from backend.domains.llm_wiki.passage_repair_notes import amended_passage, amendment_schema
+from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.reading_quality import adjacent_originals
 from backend.domains.llm_wiki.review_draft_batches import check_note_capacity
 from backend.domains.llm_wiki.review_selection import passage_key
@@ -54,7 +56,7 @@ def audited_draft_notes(reader: ContextualReader, reviewer: ReviewRuntime, prima
 
 def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                    draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str,
-                   context: PageContext) -> dict[str, object]:
+                   context: PageContext, checkpoint_jobs: tuple[str, ...] = ()) -> dict[str, object]:
     retained = []
     supported_notes = []
     contract = note_schema(reader.dimensions)
@@ -97,10 +99,11 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         payload["rejected_draft"] = {"omitted": "The rejected draft exceeded your input capacity. "
                                      "Reconstruct the passage from the supplied originals and return concise notes."}
 
-    def validate(answer: dict[str, object]) -> None:
+    def check_answer(answer: dict[str, object]) -> None:
         validate_schema(answer, schema)
         if answer["unresolved_issues"]:
-            raise ValueError("The reviewer must resolve the rejected passage before extraction can continue")
+            details = "; ".join(cast(list[str], answer["unresolved_issues"]))
+            raise ValueError("The reviewer must resolve the rejected passage: " + details)
         quote = str(answer["evidence_quote"])
         if not quote.strip() or quote not in str(primary["text"]):
             raise ValueError("The correction must cite an exact quotation from the primary passage")
@@ -110,21 +113,30 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         if citation_issues and any(citation_issues(notes, reader.origins)):
             raise ValueError("The corrected notes must cite valid locations in their originals")
 
+    def validate(answer: dict[str, object]) -> None:
+        try:
+            check_answer(answer)
+        except ValueError as error:
+            raise PassageReviewIssue(str(error)) from error
+
     key = "passage-repair-" + fingerprint([reviewer.identity, draft, payload])[:24]
     answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, quote_evidence=evidence, offer_excerpts=True,
-                        pdf_citations=partial_citations(supported_notes, evidence), page_context=context)
+                        pdf_citations=partial_citations(supported_notes, evidence), page_context=context, checkpoint_jobs=checkpoint_jobs)
     return {**amended_passage(answer, retained, primary), "needs_specialist": True}
 
 
 def _rejected_passages(
     reader: ContextualReader, reviewer: ReviewRuntime, primary: list[dict[str, object]],
     passages: list[dict[str, Any]], evidence: list[dict[str, object]],
+    completed_positions: Collection[int] = (),
 ) -> dict[int, str]:
     passage_schema = interpretation_schema(1, reader.dimensions, flag_review=True)["properties"]["passages"]["items"]
     rejected: dict[int, str] = {}
     notes = []
     owners = []
     for position, (source, draft) in enumerate(zip(primary, passages, strict=True)):
+        if position in completed_positions:
+            continue
         try:
             if "reader_validation_error" in draft:
                 raise ValueError(str(draft["reader_validation_error"]))
@@ -148,6 +160,9 @@ def _rejected_passages(
 def bind_reviewed_interpretation(
     reader: ContextualReader, reviewer: ReviewRuntime, chunks: list[dict[str, object]],
     evidence: list[dict[str, object]], answer: dict[str, object],
+    *, completed: Collection[str] = (), before_repair: Callable[[], None] | None = None,
+    defer: Callable[[int, str, dict[str, object], str], None] | None = None,
+    checkpoint_jobs: tuple[str, ...] = (),
 ) -> tuple[dict[str, Any], dict[str, object]]:
     items = answer["passages"]
     if not isinstance(items, list):
@@ -156,15 +171,32 @@ def bind_reviewed_interpretation(
                                               "reader_output": p} for p in items]
     candidate = {**answer, "passages": passages}
     primary = [s for chunk in chunks for s in records(chunk["segments"])]
+    owners = [str(chunk["id"]) for chunk in chunks for _ in records(chunk["segments"])]
     available = list(evidence)
-    rejected = _rejected_passages(reader, reviewer, primary, passages, evidence)
+    withheld = set(completed)
+    rejected = _rejected_passages(reader, reviewer, primary, passages, evidence,
+                                  {pos for pos, owner in enumerate(owners) if owner in completed})
     if rejected:
+        if before_repair:
+            before_repair()
         neighbours = adjacent_originals(reader.chunks, key=passage_key)
         for position in sorted(rejected):
+            owner = owners[position]
             source, draft = primary[position], passages[position]
             sources = repair_sources(source, draft, neighbours[passage_key(source)], evidence)
             cited = repair_sources(source, draft, [], sources)
             context = page_context(reader.pdf_edges, sources, cited)
-            passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position], context)
+            try:
+                passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position], context, checkpoint_jobs)
+            except PassageReviewIssue as issue:
+                if defer is None:
+                    raise
+                defer(position, owner, source, str(issue))
+                withheld.add(owner)
+                continue
             available = list({segment_source_key(s): s for s in [*available, *sources, *context.additions]}.values())
-    return bind_interpretation(candidate, chunks, available, reader.dimensions, flag_review=True), candidate
+    ready = [chunk for chunk in chunks if str(chunk["id"]) not in withheld]
+    if not ready:
+        return {}, candidate
+    ready_answer = {**candidate, "passages": [p for owner, p in zip(owners, passages, strict=True) if owner not in withheld]}
+    return bind_interpretation(ready_answer, ready, available, reader.dimensions, flag_review=True), candidate

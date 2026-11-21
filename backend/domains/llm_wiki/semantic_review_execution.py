@@ -10,8 +10,11 @@ from typing import Any, TYPE_CHECKING, cast
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
+from backend.domains.llm_wiki.reading_batch_recovery import (
+    PassageReviewIssue, PendingPassagesRemaining, ReadingInputTooLarge, _has_answer_tokens,
+)
+from backend.domains.llm_wiki.review_selection import passage_occurrence
 from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
-from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge, _has_answer_tokens
 from backend.domains.llm_wiki.semantic_context import auxiliary_limit, groups, relevant, source_view
 from backend.domains.llm_wiki.semantic_contracts import bind_review, fields, review_schema
 from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
@@ -35,6 +38,7 @@ class ReviewBatch:
     schema: dict[str, Any]
     key: str
     pdf_reviewer: bool
+    checkpoint_owners: tuple[str, ...] = ()
 
     @property
     def evidence(self) -> list[dict[str, object]]:
@@ -53,14 +57,22 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
     reader = engine.reader
     maximum = engine.state.get("review_size_limit", len(entries))
     batch = groups(entries[offset:], engine.deps.count_tokens, reader.budget // 3, maximum)[0]
-    previous_size = engine.state.get("reviewed_ranges", {}).get(str(offset))
-    if previous_size and checkpoints.key(offset, previous_size) in engine.state["reviewed_groups"]:
-        batch = entries[offset:offset + previous_size]
+    ranges = {}
+    accepted = engine.state["reviewed_groups"]
+    for start, size in engine.state.get("reviewed_ranges", {}).items():
+        position = int(start)
+        if 0 < size <= len(entries) - position and checkpoints.key(position, size) in accepted:
+            ranges[position] = size
+    pending = engine.state.get("pending_review_groups", {})
+    for key, finding in pending.items():
+        position, size = finding["offset"], finding["size"]
+        if 0 < size <= min(maximum, len(entries) - position) and checkpoints.key(position, size) == key:
+            ranges.setdefault(position, size)
+    if offset in ranges:
+        batch = entries[offset:offset + ranges[offset]]
     else:
-        for start, size in engine.state.get("reviewed_ranges", {}).items():
-            position = int(start)
-            if (offset < position < offset + len(batch)
-                    and checkpoints.key(position, size) in engine.state["reviewed_groups"]):
+        for position in ranges:
+            if offset < position < offset + len(batch):
                 batch = batch[:position - offset]
         for position in range(offset + 1, offset + len(batch)):
             if (position in pdf_repairs) != (offset in pdf_repairs):
@@ -94,35 +106,40 @@ def prepare_batch(engine: SemanticReader, entries: list[dict[str, object]], dest
         " A following truncated list does not erase a preceding complete, supported claim; do not invent its missing items."
         " Correct supported points missing from the bodies, and preserve them when editing wording, citations or links."
         " Another supplied note may cover the point, but verify that its body actually explains it.")
+    key = checkpoints.key(offset, len(batch))
     return ReviewBatch(offset, batch, targets, retrieved, payload,
                        review_schema(len(batch), reader.dimensions, require_resolution=True, allow_requests=True),
-                       checkpoints.key(offset, len(batch)),
-                       any(i in pdf_repairs for i in range(offset, offset + len(batch))))
+                       key, any(i in pdf_repairs for i in range(offset, offset + len(batch))),
+                       tuple(pending.get(key, {}).get("review_jobs", [])))
 
 
 def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: ContextualReader) -> None:
     from backend.domains.llm_wiki.semantic_contracts import validate_schema
-    validate_schema(answer, batch.schema)
-    requests = records(answer.get("evidence_requests"))
-    if any(not str(r["query"]).strip() and not r["pages"] for r in requests):
-        raise ValueError("Evidence requests need a query or concrete pages")
-    notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
+    try:
+        validate_schema(answer, batch.schema)
+        requests = records(answer.get("evidence_requests"))
+        if any(not str(r["query"]).strip() and not r["pages"] for r in requests):
+            raise ValueError("Evidence requests need a query or concrete pages")
+        notes = bind_review(answer, batch.evidence_targets, reader.dimensions, shared_evidence=batch.evidence)
+        if not requests:
+            validate_reviewed_prose(notes, batch.evidence, reader.language)
+    except ValueError as error:
+        raise PassageReviewIssue(str(error)) from error
     if not requests:
         retained = [(i, n) for i, n in enumerate(notes) if "_review_omission" not in n]
-        validate_reviewed_prose(notes, batch.evidence, reader.language)
         citation_check = getattr(reader.dependencies, "citation_issues", None)
         if citation_check:
             issues = [f"note_{i + 1}: {issue}" for (i, _), group in zip(
                 retained, citation_check([n for _, n in retained], reader.origins), strict=True) for issue in group]
             if issues:
-                raise ValueError("reading_quality_unresolved: " + encoded(issues))
+                raise PassageReviewIssue("reading_quality_unresolved: " + encoded(issues))
         unresolved = [*cast(list[str], answer.get("unresolved_issues", [])), *cast(list[str], answer.get("warnings", []))]
         if unresolved:
             # Report semantic non-resolution INSIDE the governed validator, so
             # its existing single correction can act on the actual diagnosis.
             # The prior implementation accepted the operation, then stopped
             # outside the repair boundary without offering any correction.
-            raise ValueError("reading_quality_unresolved: " + encoded(unresolved) +
+            raise PassageReviewIssue("reading_quality_unresolved: " + encoded(unresolved) +
                 " This review is unfinished. Correct the affected notes, use a source-grounded exclusion only as allowed"
                 " by the active policy, or request the particular missing originals in evidence_requests."
                 " Do not merely clear this list or move unfinished corrections into warnings."
@@ -134,7 +151,7 @@ def validate_answer(answer: dict[str, object], batch: ReviewBatch, reader: Conte
 def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, object], list[str], list[dict[str, object]]]:
     # Only this isolated reader writes its unique phase checkpoint. Shared state,
     # progress, warnings and the final note order belong to the coordinator.
-    worker = replace(reader, models=[], warnings=[], report_progress=False)
+    worker = replace(reader, models=[], warnings=[], report_progress=False, checkpoint_owners=batch.checkpoint_owners)
     reviewer = getattr(reader.dependencies, "reviewer", None)
     retained = partial_citations([t[2] for t in batch.targets], batch.evidence) if reviewer else []
     seen: set[str] = set()
@@ -146,9 +163,15 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
             anchors = [t[3] for t in batch.targets] + [s for s in batch.evidence if s["id"] in cited]
             context = page_context(reader.pdf_edges, batch.evidence, anchors)
             expanded = replace(batch, retrieved=[*batch.retrieved, *context.additions])
+        def check_round(value: dict[str, object]) -> None:
+            validate_answer(value, expanded, worker)
+            requested = records(value.get("evidence_requests"))
+            if requested and (round_number == evidence_lookup.MAX_EVIDENCE_ROUNDS or fingerprint(requested) in seen):
+                raise PassageReviewIssue("reading_quality_unresolved: evidence requests did not converge: " + encoded(requested))
+
         answer = worker.ask(f"semantic-review-{batch.key[:20]}-v{REVIEW_QUALITY_VERSION}-evidence-{round_number}", "verify",
                             {"reading_engine": "semantic", **batch.payload, "output_schema": batch.schema},
-                            lambda value: validate_answer(value, expanded, worker), batch.schema,
+                            check_round, batch.schema,
                             executor=reviewer if batch.pdf_reviewer else None,
                             quote_evidence=batch.evidence, offer_excerpts=batch.pdf_reviewer or bool(retained),
                             pdf_citations=retained, page_context=context)
@@ -156,12 +179,9 @@ def ask_batch(reader: ContextualReader, batch: ReviewBatch) -> tuple[dict[str, o
         requests = records(answer.get("evidence_requests"))
         if not requests:
             if answer["unresolved_issues"]:
-                raise RuntimeError("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
+                raise PassageReviewIssue("reading_quality_unresolved: " + encoded(answer["unresolved_issues"]))
             return answer, worker.models, batch.retrieved
-        identity = fingerprint(requests)
-        if round_number == evidence_lookup.MAX_EVIDENCE_ROUNDS or identity in seen:
-            raise RuntimeError("reading_quality_unresolved: evidence requests did not converge: " + encoded(requests))
-        seen.add(identity)
+        seen.add(fingerprint(requests))
         found, reports = evidence_lookup.retrieve(evidence_lookup.originals(reader.chunks), requests, batch.evidence,
                                                   reader.dependencies.count_tokens, reader.budget // 4)
         retrieved = list({segment_source_key(s): s for s in [*batch.retrieved, *found]}.values())
@@ -177,6 +197,7 @@ def store_result(engine: SemanticReader, batch: ReviewBatch,
     engine.reader.models.extend(models)
     engine.state["step"] += 1
     engine.state["reviewed_groups"][batch.key] = answer
+    engine.state.get("pending_review_groups", {}).pop(batch.key, None)
     engine.state.setdefault("reviewed_ranges", {})[str(batch.offset)] = len(batch.entries)
     engine.state.setdefault("review_sources", {})[batch.key] = evidence_lookup.references(retrieved)
     engine.save()
@@ -214,10 +235,15 @@ def recover_wave(engine: SemanticReader, failures: list[tuple[ReviewBatch, Excep
     return not failures
 
 
-def run_wave(engine: SemanticReader, batches: list[ReviewBatch]) -> bool:
-    pending = [checked for batch in batches if (checked := revalidate_saved_batch(engine, batch)) is not None]
+def run_wave(engine: SemanticReader, batches: list[ReviewBatch], deferred: set[str]) -> bool:
+    pending = [checked for batch in batches if batch.key not in deferred
+               if (checked := revalidate_saved_batch(engine, batch)) is not None]
     if not pending:
         return True
+    prior = engine.state.get("pending_review_groups", {})
+    for batch in pending:
+        if batch.key in prior and engine.reader.job_id:
+            prior[batch.key]["review_jobs"] = list(dict.fromkeys((*batch.checkpoint_owners, engine.reader.job_id)))
     engine.state.update(last_action={"phase": "verify"}, last_result={})
     engine.save()
     failures: list[tuple[ReviewBatch, Exception]] = []
@@ -230,6 +256,18 @@ def run_wave(engine: SemanticReader, batches: list[ReviewBatch]) -> bool:
             batch = futures[future]
             try:
                 result = future.result()
+            except PassageReviewIssue as issue:
+                # A joint finding can cover several notes. Keep its original
+                # range pending until a successful review covers every target.
+                engine.state.setdefault("pending_review_groups", {})[batch.key] = {
+                    "passages": {passage_occurrence(engine.reader.chunks[t[0]], t[3]): t[3].get("locator") for t in batch.targets},
+                    "offset": batch.offset, "size": len(batch.entries), "reason": str(issue),
+                    "review_jobs": list(dict.fromkeys(job for job in
+                        (*batch.checkpoint_owners, engine.reader.resume_job_id, engine.reader.job_id) if job)),
+                }
+                engine.state["completed"] = False
+                deferred.add(batch.key)
+                engine.save()
             except Exception as error:
                 failures.append((batch, error))
             else:
@@ -264,6 +302,7 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
                    global_map: str, notes_map: str, pdf_repairs: set[int], *,
                    checkpoints_only: bool = False) -> Iterator[tuple[ReviewBatch, list[dict[str, object]]]]:
     offset = 0
+    deferred: set[str] = set()
     checkpoints = evidence_lookup.ReviewCheckpointKeys(entries, [t[4] for t in destinations])
     checkpoints.recover_unique_ranges(engine.state)
     while offset < len(entries):
@@ -279,9 +318,11 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
         if checkpoints_only:
             if any(b.key not in engine.state["reviewed_groups"] for b in batches):
                 raise ReadingCheckpointUnavailable("The original joint review is incomplete")
-        elif not run_wave(engine, batches):
+        elif not run_wave(engine, batches, deferred):
             continue
         for batch in batches:
+            if batch.key in deferred:
+                continue
             saved_sources = engine.state.get("review_sources", {}).get(batch.key)
             if saved_sources is not None:
                 batch = replace(batch, retrieved=evidence_lookup.restore(evidence_lookup.originals(engine.reader.chunks), saved_sources))
@@ -293,3 +334,12 @@ def review_batches(engine: SemanticReader, entries: list[dict[str, object]], des
             engine.reader.warnings.extend(str(w) for w in answer["warnings"])
             yield batch, validated
         offset = end
+    if not checkpoints_only:
+        pending = engine.state.get("pending_review_groups", {})
+        # A changed batch size can replace old ranges with fully verified new
+        # ones. Prune old findings only after traversing all current targets.
+        engine.state["pending_review_groups"] = {k: v for k, v in pending.items() if k in deferred}
+        if pending or deferred:
+            engine.save()
+        if deferred:
+            raise PendingPassagesRemaining(engine.pending_count())

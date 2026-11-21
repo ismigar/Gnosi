@@ -26,7 +26,8 @@ def validate_note_batch(validate: Validate, answer: dict[str, object], notes: li
                         sources: list[dict[str, object]]) -> None:
     validate(answer, notes, sources)
     if any(change["position"] == 0 for change in records(answer["changes"])):
-        raise ValueError("Only the full-passage coverage check may add notes")
+        from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+        raise PassageReviewIssue("Only the full-passage coverage check may add notes")
 
 
 def note_batch_sources(primary: dict[str, object], subset: list[dict[str, object]],
@@ -149,7 +150,7 @@ class AuditRanges:
                    tuple[dict[str, object], list[dict[str, object]]]], fits: Callable[[dict[str, object]], bool],
                    ) -> Iterator[tuple[str, int]]:
         # A range is only a hint. Its request and citation owners must still validate.
-        for job in dict.fromkeys([self.worker.job_id, self.worker.resume_job_id]):
+        for job in self.worker.checkpoint_jobs:
             if job:
                 hint = record(self.worker.dependencies.load_checkpoint(job, f"audit-range-{self.passage_id}-{start}"))
                 slot, count = hint.get("slot"), hint.get("count")

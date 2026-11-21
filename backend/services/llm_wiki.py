@@ -627,7 +627,7 @@ def start_ingest(
             logger.exception("llm_wiki ingest failed for %s: %s", source_page_id, error_message)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             status = llm_wiki_storage.get_job_status(job_id)
-            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") else PHASE_ERROR
+            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") or status.get("pending_passages") else PHASE_ERROR
             llm_wiki_storage.finish_job(
                 job_id,
                 phase=phase,

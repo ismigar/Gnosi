@@ -142,6 +142,8 @@ class ReadingRuntime:
         return result.result, result.model
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
+        import jsonschema
+        from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
         from backend.services.agent_execution import run_sync
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
@@ -165,10 +167,17 @@ class ReadingRuntime:
         if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
             from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
             raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
+        source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
+                         and envelope.get("phase") in {"source-repair", "source-audit", "verify"})
         def checked(text: str) -> str:
-            answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
-            if not isinstance(answer, dict):
-                raise ValueError("Return a JSON object")
+            try:
+                answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
+                if not isinstance(answer, dict):
+                    raise ValueError("Return a JSON object")
+            except (ValueError, jsonschema.ValidationError) as error:
+                if source_review:
+                    raise PassageReviewIssue(str(error)) from error
+                raise
             try:
                 validate(answer)
             except (TypeError, KeyError) as error:
@@ -179,7 +188,6 @@ class ReadingRuntime:
             return text if selection else json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
-        import jsonschema
         try:
             review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
                 if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
@@ -192,6 +200,9 @@ class ReadingRuntime:
                 snapshot=self.snapshot, output_validator=checked, output_repair=repair,
                 **({"draft_schema": draft_schema} if draft_schema is not None else {}))
         except jsonschema.ValidationError as error:
+            if source_review:
+                from backend.services.structured_output_diagnostics import repair_diagnostic
+                raise PassageReviewIssue(repair_diagnostic(error)) from error
             if selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
                 from backend.services.structured_output_diagnostics import repair_diagnostic
                 raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error

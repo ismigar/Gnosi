@@ -6,6 +6,7 @@ import pytest
 
 from backend.domains.llm_wiki import semantic_review_execution as execution
 from backend.domains.llm_wiki import semantic_review_evidence as lookup
+from backend.domains.llm_wiki.reading_batch_recovery import PendingPassagesRemaining
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.tests.test_semantic_reading import response, setup
@@ -143,8 +144,9 @@ def test_requests_can_defer_known_prose_defects_but_final_acceptance_cannot(monk
         return encoded(answer), 'offline'
     engine.deps.generate_structured = generate
     if final_defect:
-        with pytest.raises(ValueError, match='Unresolved internal source IDs'):
+        with pytest.raises(PendingPassagesRemaining):
             engine.review(gm, nm)
+        assert any('Unresolved internal source IDs' in group['reason'] for group in engine.state['pending_review_groups'].values())
     else:
         result = engine.review(gm, nm)
         assert '[[123]]' not in result[0][1]['notes'][0]['body_md']
@@ -162,10 +164,23 @@ def test_repeated_requests_stop_without_marking_batch_reviewed(monkeypatch):
         validate(answer)
         return encoded(answer), 'offline'
     engine.deps.generate_structured = generate
-    with pytest.raises(RuntimeError, match='did not converge'):
+    with pytest.raises(PendingPassagesRemaining):
         engine.review(gm, nm)
-    assert len(calls) == 2 and len(engine.state['reviewed_groups']) == 1
+    pending, = engine.state['pending_review_groups'].values()
+    assert 'did not converge' in pending['reason']
+    assert len(calls) == 2 and len(engine.state['reviewed_groups']) == 3
     assert calls[1]['evidence_lookup'][0]['matched_passages'] == 0
+    retried = []
+    def resolve(prompt, validate, timeout):
+        request = json.loads(prompt)
+        retried.append(request)
+        answer = response(request)
+        validate(answer)
+        return encoded(answer), 'offline'
+    engine.deps.generate_structured = resolve
+    assert len(engine.review(gm, nm)) == 8
+    assert len(retried) == 1 and retried[0]['provisional_review']
+    assert not engine.state['pending_review_groups']
 
 
 def test_complete_pages_query_scope_and_saved_evidence_integrity():
@@ -248,8 +263,10 @@ def test_unresolved_review_gets_one_governed_correction_and_stops_on_remaining_d
                 assert result[0][1]['notes'][0]['title'] == 'Qualified claim'
                 assert len(checkpoints['new', 'semantic-state']['reviewed_groups']) == 1
             else:
-                with pytest.raises(ValueError, match='reading_quality_unresolved'):
+                with pytest.raises(PendingPassagesRemaining):
                     engine.review(gm, nm)
+                pending, = engine.state['pending_review_groups'].values()
+                assert 'reading_quality_unresolved' in pending['reason']
                 assert not checkpoints['new', 'semantic-state']['reviewed_groups']
     assert len(calls) == 2
     feedback = str(calls[1]['messages'][-1].content)
