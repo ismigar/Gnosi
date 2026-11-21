@@ -76,7 +76,7 @@ def test_early_repair_preserves_reader_work_and_uses_same_budget_on_resume(tmp_p
     resumed.job_id = "resumed"
     attach_reviewer(resumed, reviewer)
     discovered = []
-    def discover(evidence, origins):
+    def discover(evidence, origins, retained):
         discovered.append(evidence[0]["text"].split(":")[0])
         return {}
     resumed.dependencies.pdf_quote_excerpts = discover

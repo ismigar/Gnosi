@@ -62,7 +62,8 @@ class ContextualReader:
         payload: dict[str, object],
         validate: Callable[[dict[str, object]], None],
         contract: dict[str, object] | None = None,
-        *, executor: ReviewRuntime | None = None, pdf_evidence: list[dict[str, object]] | None = None,
+        *, executor: ReviewRuntime | None = None, quote_evidence: list[dict[str, object]] | None = None,
+        offer_excerpts: bool = False, pdf_citations: list[tuple[str, str]] | None = None,
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -77,6 +78,12 @@ class ContextualReader:
         if phase in {"extract", "review"}:
             request["alternative_output_contract"] = REQUEST_CONTRACT
             request["max_note_utf8_bytes"] = self.budget // 4
+        from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
+        bindings = quote_bindings(quote_evidence or [])
+        if len({visible for visible, _ in bindings}) < len(set(bindings)):
+            # Visually identical passages in different attachments need separate
+            # choices and a source-specific checkpoint even when both quotes are whole.
+            request["pdf_quote_sources"] = bindings
         prompt = encoded(request)
         identity = fingerprint(
             [
@@ -98,15 +105,13 @@ class ContextualReader:
                 if self.job_id:
                     self.dependencies.save_checkpoint(self.job_id, key, saved)
                 return answer
-        # Saved answers contain literal quotes and are revalidated above. Only
-        # a fresh specialist call needs a model-facing catalog of PDF excerpts.
+        # Saved answers retain their literal quotes. Discover additional verified
+        # choices only for a fresh review that needs them.
         finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
-        if pdf_evidence and finder:
-            excerpts = finder(pdf_evidence, self.origins)
+        if offer_excerpts and quote_evidence and finder:
+            excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
             if excerpts:
-                from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
-                prompt = encoded({**request, "verified_pdf_excerpts": excerpts,
-                                  "pdf_quote_sources": quote_bindings(pdf_evidence)})
+                prompt = encoded({**request, "verified_pdf_excerpts": excerpts, "pdf_quote_sources": bindings})
         display_phase = (
             "reviewing"
             if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))

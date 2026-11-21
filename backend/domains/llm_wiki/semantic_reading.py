@@ -67,11 +67,13 @@ class SemanticReader:
                                  effective_batch_size=batch_limit(self.deps.batch_size, self.state),
                                  reading_engine="semantic", reading_step=self.state["step"])
 
-    def ask(self, key: str, phase: str, payload: dict[str, object], schema: dict[str, Any], validate: Callable[[dict[str, object]], None]) -> dict[str, object]:
+    def ask(self, key: str, phase: str, payload: dict[str, object], schema: dict[str, Any], validate: Callable[[dict[str, object]], None],
+            *, quote_evidence: list[dict[str, object]] | None = None) -> dict[str, object]:
         if phase != "interpret":
             self.state.update(last_action={"phase": phase}, last_result={})
             self.save()
-        result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema)
+        result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema,
+                                 quote_evidence=quote_evidence)
         if phase == "interpret":
             # A specialist's later length failure must resume this paid draft,
             # never shrink the reader's batch and generate a different draft.
@@ -201,7 +203,7 @@ class SemanticReader:
                 "missing evidence or a difficult inference needs an independent check. An open question from the author "
                 "that the draft faithfully preserves need not trigger another review.")
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
-        answer = self.ask(key, "interpret", payload, schema, validate)
+        answer = self.ask(key, "interpret", payload, schema, validate, quote_evidence=evidence)
         if reviewer is not None:
             from backend.domains.llm_wiki.passage_repair import bind_reviewed_interpretation
             plans, answer = bind_reviewed_interpretation(self.reader, reviewer, selected, evidence, answer)

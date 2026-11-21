@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from backend.domains.llm_wiki.chunking import records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
+from backend.domains.llm_wiki.pdf_review_excerpts import partial_citations
 from backend.domains.llm_wiki.independent_review import fits_review
 from backend.domains.llm_wiki.passage_repair_notes import amended_passage, amendment_schema
 from backend.domains.llm_wiki.reading_quality import adjacent_originals
@@ -53,6 +54,7 @@ def audited_draft_notes(reader: ContextualReader, reviewer: ReviewRuntime, prima
 def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                    draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str) -> dict[str, object]:
     retained = []
+    supported_notes = []
     contract = note_schema(reader.dimensions)
     for note in records(draft.get("notes")):
         try:
@@ -63,6 +65,7 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
         citation_issues = getattr(reader.dependencies, "citation_issues", None)
         if not citation_issues or not any(citation_issues(supported, reader.origins)):
             retained.append(note)
+            supported_notes.extend(supported)
     passage_schema = interpretation_schema(1, reader.dimensions)["properties"]["passages"]
     schema = obj({"passages": passage_schema, "evidence_quote": TEXT, "unresolved_issues": TEXTS,
                   **({"amendments": amendment_schema(len(retained))} if retained else {})})
@@ -106,7 +109,8 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
             raise ValueError("The corrected notes must cite valid locations in their originals")
 
     key = "passage-repair-" + fingerprint([reviewer.identity, draft, payload])[:24]
-    answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, pdf_evidence=evidence)
+    answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, quote_evidence=evidence, offer_excerpts=True,
+                        pdf_citations=partial_citations(supported_notes, evidence))
     return {**amended_passage(answer, retained, primary), "needs_specialist": True}
 
 

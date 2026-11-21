@@ -208,7 +208,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     excerpts = payload.pop("verified_pdf_excerpts", None)
     bindings = payload.pop("pdf_quote_sources", None)
     catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
-    quote_ids = [[choice["quote_id"] for span in source["quotes"]
+    quote_ids = [[choice["quote_id"] for span in [*source["quotes"], *source.get("retained_quotes", [])]
                   for choice in span.get("verified_excerpts", [span])] for source in catalog]
     owners = [binding[1] for binding in bindings] if bindings is not None else [source_key(s) for s in sources]
     quote_sources = {number: owner for owner, identifier in zip(owners, source_ids, strict=True)
@@ -256,6 +256,8 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             " When a whole PDF quotation cannot be highlighted, its complete text remains visible and"
             " verified_excerpts gives the shorter literal choices with confirmed locations. Select the"
             " numbered excerpts that support the claim, including its qualifications; use several if needed."
+            " Retained_quotes lists other previously cited excerpts verified in this source. You may keep"
+            " that exact evidence when revising a note."
             " Report unresolved issues if those excerpts cannot support it. When adjacent pages complete"
             " a sentence, explain the supported conclusion and its attribution.")
     payload["instruction"] = str(payload.get("instruction", "")) + (

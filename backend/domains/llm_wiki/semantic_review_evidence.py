@@ -32,18 +32,6 @@ def originals(chunks: list[dict[str, object]]) -> list[dict[str, object]]:
     return [{**s, "origin_label": c.get("origin_label", "")} for c in chunks for s in records(c.get("segments"))]
 
 
-def has_partial_citation(note: dict[str, object], sources: list[dict[str, object]]) -> bool:
-    from backend.domains.llm_wiki.semantic_repairs import original_spans
-    for citation in records(note.get("citations")):
-        for source in sources:
-            if source["id"] == citation["segment_id"] and any(
-                str(citation["quote"]) in span and str(citation["quote"]) != span
-                for span in original_spans(str(source["text"]))
-            ):
-                return True
-    return False
-
-
 def catalog(sources: list[dict[str, object]], count: Callable[[str], int], limit: int) -> dict[str, object]:
     sections: dict[tuple[str, str], dict[str, object]] = {}
     for source in sources:
