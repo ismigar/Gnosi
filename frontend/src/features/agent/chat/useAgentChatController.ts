@@ -202,8 +202,9 @@ export function useAgentChatController({
         setMessages, pendingConfirmation, setPendingConfirmation,
         pollingEnabled: embedded || (isOpen && !isMinimized),
     });
+    const agentName = (agentConfig && profileDisplayName(agentConfig, t)) || 'Gnosi Copilot';
     const { focusComposerWith, copyMessage, quoteMessage, markMessage, submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage } = useChatMessageActions({
-        messages, setMessages, agentName: agentConfig?.name, selectedAgentId, sessionId, isLoading,
+        messages, setMessages, agentName, selectedAgentId, sessionId, isLoading,
         inputRef, setInputValue, setShowMentionMenu,
     });
     const confirmConversationRewind = useChatRewind({
@@ -213,7 +214,6 @@ export function useAgentChatController({
     });
 
 
-    const agentName = (agentConfig && profileDisplayName(agentConfig, t)) || 'Gnosi Copilot';
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const agentHasModel = Boolean(agentConfig?.provider && agentConfig.model);
     const agentModel = agentHasModel
