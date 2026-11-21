@@ -23,7 +23,7 @@ def _excerpts(sentence: str) -> list[str]:
     clauses = [part.strip() for run in runs for part in _CLAUSE.split(run)]
     # Also cover passages without punctuation or a visible hyphen. Slice the
     # original characters, including internal whitespace, at word boundaries.
-    windows = []
+    windows: list[str] = []
     for run in runs:
         words = list(re.finditer(r"\S+", run))
         width = min(8, max(2, (len(words) + 1) // 2))
@@ -53,7 +53,7 @@ def partial_citations(notes: list[dict[str, object]], evidence: list[dict[str, o
     for note in notes:
         for citation in records(note.get("citations")):
             by_source[str(citation["segment_id"])].append(str(citation["quote"]))
-    partials = []
+    partials: list[tuple[str, str]] = []
     for source in evidence:
         key, text = str(source["id"]), str(source["text"])
         if key in by_source:
