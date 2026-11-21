@@ -104,7 +104,9 @@ class ContextualReader:
         if pdf_evidence and finder:
             excerpts = finder(pdf_evidence, self.origins)
             if excerpts:
-                prompt = encoded({**request, "verified_pdf_excerpts": excerpts})
+                from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
+                prompt = encoded({**request, "verified_pdf_excerpts": excerpts,
+                                  "pdf_quote_sources": quote_bindings(pdf_evidence)})
         display_phase = (
             "reviewing"
             if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))

@@ -789,7 +789,7 @@ Quan actives Coneixement, Gnosi crea dos bots editables. Coneixement llegeix tot
 
 Si Gnosi rebutja l’extracció d’un passatge, el Revisor de lectura rep l’original, els passatges veïns, l’esborrany i el motiu del rebuig. Ha de resoldre el problema i citar l’original perquè Gnosi pugui donar el fragment per completat. En reprendre la lectura, Gnosi pot reutilitzar els altres esborranys i les correccions desades. Els passatges corregits també entren a la revisió final.
 
-Quan Gnosi no pot ressaltar una cita sencera del PDF, el Revisor de lectura pot triar cites literals més curtes que Gnosi ha localitzat a la mateixa pàgina. El revisor veu la frase original completa. Abans de desar la correcció, Gnosi comprova que cada cita triada conserva la font i es pot ressaltar al PDF.
+Quan Gnosi no pot ressaltar una cita sencera del PDF, el Revisor de lectura pot triar cites literals més curtes que Gnosi ha localitzat a la mateixa pàgina. El revisor veu la frase original completa. Abans de desar la correcció, Gnosi comprova que cada cita triada conserva la font i es pot ressaltar al PDF. En reprendre una lectura, el revisor també corregeix les cites dels esborranys desats que no superen aquesta comprovació. Una revisió ordinària pot conservar la cita curta verificada quan modifica la nota.
 
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el

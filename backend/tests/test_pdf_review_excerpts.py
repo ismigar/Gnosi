@@ -1,11 +1,13 @@
 """A rejected PDF sentence can yield verified, source-specific citation choices."""
+from copy import deepcopy
 import json
 
 import pytest
 
+from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
 from backend.domains.llm_wiki.semantic_context import source_view
-from backend.domains.llm_wiki.semantic_contracts import TEXT, TEXTS, interpretation_schema, obj
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_contracts import TEXT, TEXTS, bind_note, interpretation_schema, obj
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services.llm_wiki_pdf_annotations import reading_citation_issues, reading_pdf_quote_excerpts
 from backend.tests.test_llm_wiki_pdf_annotations import _demo_pdf, _origin
@@ -22,12 +24,12 @@ def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_pat
     origins = [{**_origin(pdf), "segments": [primary, context, good, wrong_page]}]
     sources = [primary, context, good, wrong_page, unknown]
     choices = reading_pdf_quote_excerpts(sources, origins)
-    assert set(choices) == {source_key(source_view(s)) for s in (primary, context)}
+    assert set(choices) == {segment_source_key(s) for s in (primary, context)}
     schema = obj({"passages": interpretation_schema(1, [])["properties"]["passages"],
                   "evidence_quote": TEXT, "unresolved_issues": TEXTS})
     selection = quote_selection({"phase": "source-repair", "reading_engine": "semantic",
         "primary_passages": [source_view(primary)], "neighbours": [source_view(s) for s in sources[1:]],
-        "output_schema": schema, "verified_pdf_excerpts": choices})
+        "output_schema": schema, "verified_pdf_excerpts": choices, "pdf_quote_sources": quote_bindings(sources)})
     catalog = json.loads(selection.input)["source_quotes"]
     first, second = (catalog[i]["quotes"][0] for i in (0, 1))
     assert first["text"] == text and "quote_id" not in first
@@ -42,7 +44,7 @@ def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_pat
               "evidence_quote": good["text"], "unresolved_issues": []}
     result = json.loads(selection.restore(json.dumps(answer)))["passages"][0]["notes"][0]
     assert result["quotes"] == [*[item["text"] for item in excerpts], foreign["text"]]
-    assert result["quote_source_keys"] == [*[source_key(source_view(primary))] * len(options), source_key(source_view(context))]
+    assert result["quote_source_keys"] == [*[segment_source_key(primary)] * len(options), segment_source_key(context)]
     checked = [{"citations": [{"segment_id": "first", "quote": q}]} for q in [*result["quotes"], text]]
     failures = reading_citation_issues(checked, origins)
     assert all(not row for row in failures[:-1]) and failures[-1]
@@ -58,6 +60,51 @@ def test_non_pdf_and_repeated_ambiguous_passages_never_supply_verified_options(t
     b = {"id": "b", "text": repeated, "locator": {"page": 1}}
     origins = [{**_origin(pdf), "segments": [a]}, {"origin_id": "text", "kind": "text", "segments": [b]}]
     assert reading_pdf_quote_excerpts([a, b], origins) == {}
+
+
+def test_damaged_middle_word_preserves_both_unique_two_word_excerpts(tmp_path):
+    text = "Persistent citation OCRERROR multiple lines"
+    segment = {"id": "a", "text": text, "locator": {"page": 1}}
+    origins = [{**_origin(_demo_pdf(tmp_path)), "segments": [segment]}]
+    ranges = reading_pdf_quote_excerpts([segment], origins)[segment_source_key(segment)]["0"]
+    assert [text[a:b] for a, b in ranges] == ["Persistent citation", "multiple lines"]
+
+
+def test_two_pdfs_with_identical_visible_source_keep_their_own_geometry(tmp_path):
+    sources, origins = [], []
+    for name, repetitions in (("first", 6), ("second", 1)):
+        folder = tmp_path / name
+        folder.mkdir()
+        pdf = _demo_pdf(folder, context_repetitions=repetitions)
+        segment = {"id": name, "text": "Persistent citation OCRERROR Ordinary surrounding prose",
+                   "origin_label": pdf.name, "locator": {"page": 1}}
+        sources.append(segment)
+        origins.append({**_origin(pdf), "origin_id": name, "_annotation_source_uri": pdf.as_uri(), "segments": [segment]})
+    assert source_view(sources[0]) == source_view(sources[1])
+    choices = reading_pdf_quote_excerpts(sources, origins)
+    schema = obj({"passages": interpretation_schema(1, [])["properties"]["passages"],
+                  "evidence_quote": TEXT, "unresolved_issues": TEXTS})
+    selection = quote_selection({"reading_engine": "semantic", "phase": "source-repair",
+        "primary_passages": [source_view(sources[0])], "neighbours": [source_view(sources[1])],
+        "output_schema": schema, "verified_pdf_excerpts": choices, "pdf_quote_sources": quote_bindings(sources)})
+    primary, context = [s["quotes"][0]["verified_excerpts"] for s in json.loads(selection.input)["source_quotes"]]
+    assert [choice["text"] for choice in primary] == ["Persistent citation"]
+    extra = next(q for q in context if q["text"] == "Ordinary surrounding prose")
+    note = {"title": "A reading", "body_md": "The source provides surrounding prose.", "properties": {},
+            "primary_quote_ids": [primary[0]["quote_id"]], "context_quote_ids": [extra["quote_id"]]}
+    answer = {"passages": {"passage_1": {"notes": [note], "reason": "The sources support the reading."}},
+              "evidence_quote": extra["text"], "unresolved_issues": []}
+    value = json.loads(selection.restore(json.dumps(answer)))["passages"][0]["notes"][0]
+    bound = bind_note(value, sources[0], sources, [])
+    assert [c["segment_id"] for c in bound["citations"]] == ["first", "second"]
+    assert reading_citation_issues([bound], origins) == [[]]
+    note["primary_quote_ids"] = [extra["quote_id"]]
+    with pytest.raises(ValueError):
+        selection.restore(json.dumps(answer))
+    legacy = {**value, "quotes": [primary[0]["text"]], "quote_source_keys": [source_key(source_view(sources[0]))]}
+    with pytest.raises(ValueError, match="identify one source"):
+        bind_note(legacy, sources[0], sources, [])
+    assert bind_note(legacy, sources[0], [sources[0]], [])["citations"][0]["segment_id"] == "first"
 
 
 def test_only_the_bad_citation_triggers_early_review_in_a_well_formed_reader_batch(tmp_path):
@@ -96,3 +143,74 @@ def test_only_the_bad_citation_triggers_early_review_in_a_well_formed_reader_bat
     plans = SemanticReader(reader).interpret(reader.chunks, "Overview")
     quotes = [n["citations"][0]["quote"] for plan in plans.values() for n in plan["notes"]]
     assert repairs == ["in this portable PDF fixture"] and quotes == [good, *repairs]
+
+
+@pytest.mark.parametrize("saved_short_quote", [False, True])
+def test_resume_preserves_paid_extraction_and_reviews_pdf_citations_with_the_correct_agent(tmp_path, saved_short_quote):
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.origins import finalize_origin
+    from backend.domains.llm_wiki.semantic_reading import SemanticReader
+    from backend.tests.test_reading_passage_repair import attach_reviewer
+    from backend.tests.test_semantic_reading import response, setup
+
+    whole = "Unreadable OCR; in this portable PDF fixture"
+    short = "in this portable PDF fixture"
+    good = "Persistent citation highlights span multiple lines"
+    origin = finalize_origin({**_origin(_demo_pdf(tmp_path)), "label": "Fixture", "input_order": 0,
+        "segments": [{"text": text, "locator": {"page": 1, "paragraph": i}} for i, text in enumerate((good, whole), 1)]})
+    chunks = reading_chunks([origin], budget=2000, count=len)
+
+    def earlier(request):
+        result = response(request)
+        for source, passage in zip(request["primary_passages"], result["passages"], strict=True):
+            if saved_short_quote and source["text"] == whole:
+                passage["notes"][0]["quotes"] = [short]
+        return result
+
+    previous, _, checkpoints = setup(generate=earlier)
+    previous.origins, previous.chunks = [origin], chunks
+    SemanticReader(previous).extract("Overview")
+    paid = deepcopy(checkpoints["new", "semantic-state"]["plans"])
+
+    resumed, _, _ = setup(checkpoints=checkpoints, resume="new")
+    resumed.job_id, resumed.origins, resumed.chunks = "resumed", [origin], chunks
+    roles = []
+
+    def joint_review(role, prompt, validate):
+        request = json.loads(prompt)
+        assert request["phase"] == "verify"
+        titles = [entry["note"]["title"] for entry in request["notes"]]
+        roles.extend((role, title) for title in titles)
+        if whole not in titles:
+            assert "verified_pdf_excerpts" not in request
+            answer = response(request)
+        else:
+            selection = quote_selection(request)
+            wire = json.loads(selection.input)
+            index = titles.index(whole)
+            original = wire["notes"][index]["primary"]["source"]
+            span = wire["source_quotes"][original - 1]["quotes"][0]
+            assert span["text"] == whole and "quote_id" not in span
+            verified = next(choice for choice in span["verified_excerpts"] if choice["text"] == short)
+            changes = {f"note_{i + 1}": None for i in range(len(titles))}
+            changes[f"note_{index + 1}"] = {"title": "The fixture", "body_md": "The original describes a portable PDF fixture.",
+                "properties": {}, "primary_quote_ids": [verified["quote_id"]], "context_quote_ids": []}
+            answer = json.loads(selection.restore(json.dumps({"assessment": "The cited passage supports the description.",
+                "changes": changes, "warnings": [], "unresolved_issues": [], "evidence_requests": []})))
+        validate(answer)
+        return json.dumps(answer), role
+
+    attach_reviewer(resumed, lambda prompt, validate, timeout: joint_review("specialist", prompt, validate))
+    resumed.dependencies.generate_structured = lambda prompt, validate, timeout: joint_review("reader", prompt, validate)
+    resumed.dependencies.citation_issues = reading_citation_issues
+    resumed.dependencies.pdf_quote_excerpts = reading_pdf_quote_excerpts
+    engine = SemanticReader(resumed)
+    engine.extract("Overview")
+    reviewed = engine.review("Overview", "The notes cover the fixture.")
+    assert engine.state["plans"] == paid
+    assert sorted(roles) == sorted([("reader", good), ("reader" if saved_short_quote else "specialist", whole)])
+    notes = [n for _, plan in reviewed for n in plan["notes"]]
+    assert [n["citations"][0]["quote"] for n in notes] == [good, short]
+    assert reading_citation_issues(notes, [origin]) == [[], []]
+    engine.review("Overview", "The notes cover the fixture.")
+    assert len(roles) == 2
