@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 645 | 126071 |
+| `domains` | 645 | 126075 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1144 modules** and **216330 source lines**.
+Total: **1144 modules** and **216334 source lines**.
 
 ## agent
 
@@ -379,7 +379,7 @@ Total: **1144 modules** and **216330 source lines**.
 | [`backend/domains/llm_wiki/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed LLM Wiki extraction and provenance domains. |
 | [`backend/domains/llm_wiki/audit_amendments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_amendments.py) | 164 | 0 | 8 | 0 | 0 | Adjudicate a source audit's open findings without regenerating accepted prose. |
 | [`backend/domains/llm_wiki/audit_checkpoint_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_checkpoint_provenance.py) | 135 | 1 | 6 | 0 | 2 | Bind an audit to the documents actually cited by the reviewed drafts. |
-| [`backend/domains/llm_wiki/audit_citation_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_citation_repairs.py) | 227 | 4 | 9 | 0 | 3 | Offer a reviewer highlightable excerpts for individual rejected citations. |
+| [`backend/domains/llm_wiki/audit_citation_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_citation_repairs.py) | 231 | 4 | 9 | 0 | 3 | Offer a reviewer highlightable excerpts for individual rejected citations. |
 | [`backend/domains/llm_wiki/brain_fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/brain_fields.py) | 42 | 0 | 2 | 0 | 0 | Read Brain fields through stable roles and immutable property IDs. |
 | [`backend/domains/llm_wiki/chunking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/chunking.py) | 134 | 0 | 7 | 0 | 0 | Structure-aware, bounded primary chunks with separately labelled neighbours. |
 | [`backend/domains/llm_wiki/citation_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/citation_rendering.py) | 87 | 0 | 4 | 0 | 0 | Deterministic source locators and citation links for generated reading notes. |
