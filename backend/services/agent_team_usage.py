@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from backend.config.data_dir import resolve_data_dir
+from backend.services.agent_chat_timing import current_chat_timing
 from backend.services import agent_execution_store as store
 from backend.services.agent_execution_models import AgentRun, ExecutionScope
 
@@ -35,7 +36,10 @@ async def attach_team_usage(pending: Any, scope: ExecutionScope, run_id: str, st
         message.additional_kwargs["gnosi_team_usage"] = usage
         if started:
             timings = message.additional_kwargs["gnosi_timings"]
-            timings.update(total_ms=max(0, int((time.monotonic() - started) * 1000)), team_usage=usage)
+            total_ms = max(0, int((time.monotonic() - started) * 1000))
+            timings.update(total_ms=total_ms, team_usage=usage)
+            if (clock := current_chat_timing.get()) is not None and clock.trace_id == run_id:
+                timings.update(clock.phases(timings["response_ms"], total_ms))
             for key in ("model_calls", "tool_calls", "input_tokens", "output_tokens", "estimated_cost_usd"):
                 if key in usage:
                     timings[key] = usage[key]

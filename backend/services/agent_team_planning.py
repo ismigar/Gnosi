@@ -3,16 +3,34 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from backend.services import agent_team_store as artifacts
+from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_trace import record
 from backend.services.agent_team_context import planning_input
 from backend.services.agent_team_continuation import continuation_plan
-from backend.services.agent_team_models import DirectRoute, TeamPlan, TeamTask
+from backend.services.agent_team_models import AgentTeam, DirectRoute, TeamPlan, TeamTask
 from backend.services.agent_team_policy import chat_operation, team_for
 from backend.services.agent_team_routing import planning_catalog
+
+
+if TYPE_CHECKING:
+    from backend.services.agent_team_runtime import CandidateInputs
+
+
+def _catalog_and_supplied_task(
+    owner: dict[str, Any], scope: ExecutionScope, original: str, state: dict[str, Any], team: AgentTeam,
+    route: DirectRoute | None, supplied: str, *, inputs: CandidateInputs, include_owner: bool,
+) -> tuple[list[dict[str, Any]], TeamPlan | None]:
+    from backend.services.agent_team_supplied import supplied_task_plan
+
+    catalog = planning_catalog(owner, scope, original, include_owner=include_owner, inputs=inputs)
+    if not supplied:
+        return catalog, None
+    plan = supplied_task_plan(owner, scope, team, catalog, supplied, original, route, state, inputs=inputs)
+    return catalog, plan
 
 
 def _director_input(
@@ -46,7 +64,7 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
                        ) -> tuple[TeamPlan, dict[str, Any], list[dict[str, Any]], DirectRoute | None, bool]:
     from backend.services.agent_operation_catalog import skill_id
     from backend.domains.agent.supplied_tasks import current_supplied_operation
-    from backend.services.agent_team_runtime import _candidate, _config, _phase
+    from backend.services.agent_team_runtime import _candidate, _config, _phase, candidate_inputs
     team = team_for(owner)
     from backend.services.agent_gauntlet_policy import needs_planning
     supplied = "" if operation_mode else current_supplied_operation(state, original)
@@ -66,20 +84,25 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
             return greeting, {**state, "greeting_reply": True}, [], None, False
     semantic_plan = needs_planning(original, refs, state, operation_mode=operation_mode)
     required = [skill_id(operation)] if route else []
-    direct, reason, cost = (
-        await asyncio.to_thread(
-            _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode,
+    config = await asyncio.to_thread(_config)
+    inputs = await asyncio.to_thread(candidate_inputs, config)
+    # Share discovery for this planning decision. Dispatch opens the current
+    # catalog and checks eligibility and permissions again before execution.
+    with team_metadata_catalog():
+        direct, reason, cost = (
+            await asyncio.to_thread(
+                _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode, inputs=inputs,
+            )
+            if route and not semantic_plan and not supplied else (None, "director_required", None)
         )
-        if route and not semantic_plan and not supplied else (None, "director_required", None)
-    )
-    include_owner = not operation_mode and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id")
-    catalog = await asyncio.to_thread(planning_catalog, owner, scope, original, include_owner=include_owner)
+        include_owner = not operation_mode and owner["id"] == config.get("active_agent_id")
+        catalog, routine = await asyncio.to_thread(
+            _catalog_and_supplied_task, owner, scope, original, state, team, route, "" if saved else supplied,
+            include_owner=include_owner, inputs=inputs,
+        )
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
-    from backend.services.agent_team_supplied import supplied_task_plan
-    routine = (await asyncio.to_thread(supplied_task_plan, owner, scope, team, catalog, supplied, original, route, state)
-               if supplied else None)
     if routine is not None:
         executor = routine.tasks[0].agent_id
         supplied_measurement = {"version": 1, "mode": "direct", "reason": "unique_eligible_specialist",

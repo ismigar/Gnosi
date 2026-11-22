@@ -16,6 +16,7 @@ import httpx
 
 from backend.agent.model_router import UsageStore
 from backend.security.ai_credentials import resolve_provider_api_key
+from backend.services.agent_chat_timing import chat_wait
 
 JEV_ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 JEV_MODEL = "jev-latest"
@@ -154,7 +155,8 @@ def decide_with_jev(
     call_id, started = str(uuid.uuid4()), time.time()
     accounting: dict[str, Any] = {"call_id": call_id, "started": started, "attribution": attribution}
     try:
-        payload = _request_jev(api_key, body)
+        with chat_wait("model"):
+            payload = _request_jev(api_key, body)
         record("selector.response", payload)
         if not isinstance(payload, dict):
             _record_usage({}, estimated_tokens, **accounting, status="failed")

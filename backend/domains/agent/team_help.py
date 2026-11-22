@@ -9,6 +9,7 @@ from langchain_core.messages import BaseMessage, ToolMessage, messages_to_dict
 
 from backend.domains.agent.policy import AgentState
 from backend.services.agent_behavior import resource
+from backend.services.agent_chat_timing import root_reply_timings
 from backend.services.agent_team_policy import team_for
 
 HELP_NAME = "request_team_help"
@@ -129,6 +130,9 @@ class TeamHelp:
                 content="The team planner cannot fit this request. No team assignments ran. "
                         "Complete the original request yourself using the full supplied context and required output format.",
                 name=HELP_NAME, tool_call_id=call["id"])]) from error
+        if not self.operation_mode and (timings := root_reply_timings(state.get("trace_id"))) is not None:
+            for message in result["messages"]:
+                message.additional_kwargs["gnosi_timings"] = dict(timings)
         # Resolve the control call in history, including pending confirmation results.
         return {**result, "messages": [ToolMessage(content="Team handoff completed; the following messages contain its result.",
                                                    name=HELP_NAME, tool_call_id=call["id"]), *result["messages"]]}

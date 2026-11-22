@@ -2,6 +2,8 @@
 from collections import Counter
 from types import SimpleNamespace
 
+import pytest
+
 from backend.agent import model_router
 from backend.services import agent_skill_catalog as catalogs, agent_team_runtime as teams
 from backend.services.agent_execution_models import ExecutionScope
@@ -70,9 +72,11 @@ def test_each_metadata_phase_reads_shared_assignments_once_and_execution_recheck
     scope = ExecutionScope(user_id="fixture", workspace_id="local", role="owner", vault_path=str(tmp_path))
     with execution_scope(scope, origin="chat"):
         director = catalogs.resolve_agent_runtime(owner, vault_path=tmp_path)
-        profile = SimpleNamespace(agent_data=owner, resolved_runtime=director)
+        profile = SimpleNamespace(agent_data=owner, resolved_runtime=director, ai_cfg=config)
         calls.clear()
-        graph, selection = teams.build_team_workflow(profile, operation_mode=False, original="Hola")
+        with monkeypatch.context() as roster:
+            roster.setattr(teams, "_config", lambda: pytest.fail("The prepared profile already has the team configuration"))
+            graph, selection = teams.build_team_workflow(profile, operation_mode=False, original="Hola")
         expected_reads = {"tools": 1, "skills": 1, "user.personal": 1, "user.base": 1, "user.missing": 1}
         assert graph is not None and calls == expected_reads
         assert selection["tools"][0]["skill_ids"] == ["plugin.lookup.sources"]

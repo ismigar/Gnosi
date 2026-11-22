@@ -24,6 +24,7 @@ from backend.agent.action_confirmations import (
 )
 from backend.security.secret_redaction import redact_secrets
 from backend.services.agent_cancellation import invoke_cancellable, is_cancelled
+from backend.services.agent_chat_timing import chat_wait
 from backend.services.agent_capability_health import (
     record_capability_failure,
     record_capability_success,
@@ -36,7 +37,17 @@ log = logging.getLogger(__name__)
 _tool_batch_cancelled: ContextVar[Event | None] = ContextVar("tool_batch_cancelled", default=None)
 
 
-class GovernedToolNode(ToolNode):
+class TimedToolNode(ToolNode):
+    def invoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
+        with chat_wait("tools"):
+            return super().invoke(input, config, **kwargs)
+
+    async def ainvoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
+        with chat_wait("tools"):
+            return await super().ainvoke(input, config, **kwargs)
+
+
+class GovernedToolNode(TimedToolNode):
     async def ainvoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
         """Run synchronous permission checks and tools off the event loop, in call order."""
         worker_config = ensure_config(config)
@@ -116,7 +127,8 @@ def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
         attributes={"model": getattr(model, "model_name", "") or getattr(model, "model", "")},
     ):
         try:
-            response = invoke_cancellable(model, prompt, str(token or ""))
+            with chat_wait("model"):
+                response = invoke_cancellable(model, prompt, str(token or ""))
         except BaseException as error:
             details: dict[str, Any] = {"type": type(error).__name__, "message": str(error)}
             if isinstance(error, LengthFinishReasonError):

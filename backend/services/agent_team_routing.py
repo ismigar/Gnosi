@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
@@ -10,6 +10,9 @@ from backend.services.agent_behavior import resource, revision
 from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_team_models import TeamPlan, TeamTask
+
+if TYPE_CHECKING:
+    from backend.services.agent_team_runtime import CandidateInputs
 
 
 def validate_assignments(plan: TeamPlan, members: list[dict[str, Any]], owner_id: str) -> None:
@@ -46,7 +49,7 @@ def validate_assignments(plan: TeamPlan, members: list[dict[str, Any]], owner_id
 
 @team_metadata_catalog()
 def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str,
-                     *, include_owner: bool = False) -> list[dict[str, Any]]:
+                     *, include_owner: bool = False, inputs: CandidateInputs | None = None) -> list[dict[str, Any]]:
     from backend.services.agent_team_policy import team_for
     from backend.services.agent_team_runtime import _candidate, _config, _runtime, candidate_inputs
 
@@ -54,7 +57,8 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
     if include_owner:
         roles[owner["id"]] = ["director"]
     catalog = []
-    inputs = candidate_inputs(_config())
+    if inputs is None:
+        inputs = candidate_inputs(_config())
     for profile in inputs.profiles:
         identifier = profile.get("id")
         if identifier not in roles or (identifier == owner["id"] and not include_owner):

@@ -654,7 +654,9 @@ def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) ->
     metadata = {}
     members = team_for(owner).members
     with team_metadata_catalog():
-        config = _config() if members else {}
+        config = getattr(profile, "ai_cfg", None)
+        if members and (config is None or "agents" not in config):
+            config = _config()
         for member in members:
             try:
                 member_profile = _profile(member.agent_id, config=config)
