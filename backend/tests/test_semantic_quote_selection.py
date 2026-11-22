@@ -43,6 +43,26 @@ def test_single_document_context_is_shared_without_changing_originals_or_quotes(
     assert restored['passages'][0]['notes'][0]['quote_source_keys'][0] == source_key(request['primary_passages'][0])
 
 
+def test_joint_review_preserves_a_source_without_a_highlight_and_grounds_other_replacements():
+    from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
+    from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
+    bad = {"id": "a", "text": "Ambiguous scan.", "locator": {"page": 1}}
+    good = {"id": "b", "text": "An anchored claim.", "locator": {"page": 2}}
+    note = {"title": "Reading", "body_md": "A grounded claim.", "properties": {}, "quotes": [good["text"]]}
+    selection = quote_selection({"reading_engine": "semantic", "phase": "verify", "output_schema": review_schema(2, []),
+        "notes": [{"note": note, "primary": source_view(s), "support": []} for s in (bad, good)],
+        "pdf_quote_sources": quote_bindings([bad, good]), "verified_pdf_excerpts": {segment_source_key(bad): {"0": []}}})
+    assert selection.primary_ids == [[], [1]]
+    assert json.loads(selection.input)["source_quotes"][0]["quotes"] == [{"text": bad["text"], "verified_excerpts": []}]
+    replacement = {"title": "Reading", "body_md": good["text"], "properties": {}, "primary_quote_ids": [1], "context_quote_ids": []}
+    answer = {"assessment": "Reviewed.", "changes": {"note_1": None, "note_2": replacement}, "warnings": []}
+    restored = json.loads(selection.restore(encoded(answer)))
+    assert restored["changes"][0]["replacement"]["quotes"] == [good["text"]]
+    answer["changes"]["note_1"] = replacement
+    with pytest.raises(ValueError):
+        selection.restore(encoded(answer))
+
+
 def test_review_reuses_identical_primary_contracts_without_loosening_quote_choices():
     _, primary, _, answer, interpretation = selection_case()
     note = json.loads(interpretation.restore(encoded(answer)))['passages'][0]['notes'][0]

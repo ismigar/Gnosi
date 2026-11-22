@@ -93,7 +93,10 @@ class QuoteSelection:
         schema = deepcopy(self.schema)
         if self.phase == "interpret":
             for passage in schema["properties"]["passages"]["properties"].values():
-                choice = passage["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]
+                notes = passage["properties"]["notes"]
+                if notes.get("maxItems") == 0:
+                    continue
+                choice = notes["items"]["properties"]["primary_quote_ids"]
                 choice["items"] = {"type": "integer", "minimum": 1, "maximum": len(self.quotes)}
         answer = json.loads(text)
         validate_schema(answer, schema)
@@ -174,7 +177,11 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
         choices = {}
         for i, identifiers in enumerate(primary_ids):
             value = deepcopy(passage)
-            value["properties"]["notes"]["items"] = primary_note_schema(note, identifiers, quote_count)
+            notes = value["properties"]["notes"]
+            if identifiers:
+                notes["items"] = primary_note_schema(note, identifiers, quote_count)
+            else:
+                notes.update(maxItems=0, items={"type": "null"})
             choices[f"passage_{i + 1}"] = value
         result["properties"]["passages"] = obj(choices)
     else:
@@ -189,13 +196,14 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
         changes = {}
         for i, identifiers in enumerate(primary_ids):
             key = tuple(identifiers)
-            if key not in contracts:
+            options = [{"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}})]
+            if identifiers and key not in contracts:
                 name = f"reading_primary_note_{len(contracts) + 1}"
                 contracts[key] = name
                 definitions[name] = primary_note_schema(note, identifiers, quote_count)
-            changes[f"note_{i + 1}"] = {"anyOf": [
-                {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),
-                {"$ref": f"#/$defs/{contracts[key]}"}]}
+            if identifiers:
+                options.append({"$ref": f"#/$defs/{contracts[key]}"})
+            changes[f"note_{i + 1}"] = {"anyOf": options}
         result["properties"]["changes"] = obj(changes)
     result["$defs"] = definitions
     return result
@@ -274,6 +282,8 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             " When a whole PDF quotation cannot be highlighted, its complete text remains visible and"
             " verified_excerpts gives the shorter literal choices with confirmed locations. Select the"
             " numbered excerpts that support the claim, including its qualifications; use several if needed."
+            " A span with no numbered choices is available only for reading. If a substantive claim still"
+            " lacks evidence that can be highlighted, report the specific unresolved claim."
             " Retained_quotes lists other previously cited excerpts verified in this source. You may keep"
             " that exact evidence when revising a note."
             " Report unresolved issues if those excerpts cannot support it. When adjacent pages complete"
