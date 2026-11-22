@@ -221,10 +221,10 @@ def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, obje
     if not normalized:
         raise LlmWikiActionError(400, "item_id is required")
     job = llm_wiki.get_job_status(normalized, str(source_table_id or "").strip())
-    if job.get("budget_id"):
+    if job.get("budget_id") or job.get("job_id"):
         from backend.services import reading_budget
         from backend.domains.llm_wiki import legacy_ports
-        job["budget"] = reading_budget.book_status(str(job["budget_id"]), legacy_ports.path_for("VAULT"),
+        job["budget"] = reading_budget.book_status(str(job.get("budget_id") or ""), legacy_ports.path_for("VAULT"),
             str(job.get("source_table_id") or source_table_id), str(job.get("resource_id") or item_id))
     return job
 

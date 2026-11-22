@@ -6,6 +6,9 @@ from functools import partial
 from collections.abc import Callable
 from typing import Any, TYPE_CHECKING, cast
 
+from backend.domains.llm_wiki.audit_findings import (
+    check_resolutions, finding_coverage, named_findings, resolution_schema, saved_findings, without_resolutions,
+)
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, verified_legacy_answer
 from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationCheck, SourceAuditValidator, citation_slots
 from backend.domains.llm_wiki.chunking import encoded, record, records
@@ -58,7 +61,7 @@ def restore_audit(answer: dict[str, object], primary: dict[str, object],
                   original_sources: list[dict[str, object]], dimensions: list[dict[str, object]],
                   draft_count: int) -> dict[str, object]:
     """Resolve older literal answers in the exact source set available when they were paid for."""
-    validate_schema(answer, audit_schema(draft_count, dimensions, bound_sources=True))
+    validate_schema(without_resolutions(answer), audit_schema(draft_count, dimensions, bound_sources=True))
     changes = records(answer["changes"])
     for change in changes:
         replacement = change["replacement"]
@@ -90,7 +93,7 @@ def synthesis_changes(answer: dict[str, object], sources: list[dict[str, object]
 
 def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], primary: dict[str, object],
                   evidence: list[dict[str, object]], dimensions: list[dict[str, object]]) -> list[dict[str, object]]:
-    validate_schema(answer, audit_schema(len(drafts), dimensions, bound_sources=True))
+    validate_schema(without_resolutions(answer), audit_schema(len(drafts), dimensions, bound_sources=True))
     if answer["unresolved_issues"]:
         raise ValueError("The independent reviewer must resolve outstanding source issues before acceptance: "
                          + "; ".join(cast(list[str], answer["unresolved_issues"])))
@@ -128,14 +131,22 @@ def apply_changes(answer: dict[str, object], drafts: list[dict[str, object]], pr
 
 
 def audit_payload(primary: dict[str, object], drafts: list[dict[str, object]], support: list[dict[str, object]],
-                  coverage: list[object], dimensions: list[dict[str, object]]) -> dict[str, object]:
+                  coverage: list[object], dimensions: list[dict[str, object]], *, resolve_findings: bool = True) -> dict[str, object]:
+    schema = audit_schema(len(drafts), dimensions)
+    instruction = ""
+    if resolve_findings and (findings := named_findings(coverage)):
+        schema["properties"]["finding_resolutions"] = resolution_schema(findings)
+        schema["required"].append("finding_resolutions")
+        instruction = (" For each finding_id in coverage, give its disposition and a specific reason grounded"
+                       " in the supplied original. Apply necessary changes, explain source limitations and"
+                       " leave any remaining defect unresolved. Include the supporting evidence in your assessment.")
     return {"reading_engine": "semantic", "original": source_view(primary), "support": [source_view(s) for s in support],
             "drafts": drafts, "properties": fields(dimensions), "coverage": coverage,
             "instruction": "Verify these drafts against this original. Return only justified corrections. "
             "Use position 0 for a missing substantive idea or the one-based position to replace a draft. "
             "Return a null replacement only to exclude an unsupported note and explain why. Quote the original literally. "
-            "Report any remaining defects in unresolved_issues.",
-            "output_schema": audit_schema(len(drafts), dimensions)}
+            "Report any remaining defects in unresolved_issues." + instruction,
+            "output_schema": schema}
 
 
 def fits_review(reviewer: ReviewRuntime, phase: str, title: str, language: str, payload: dict[str, object],
@@ -144,7 +155,7 @@ def fits_review(reviewer: ReviewRuntime, phase: str, title: str, language: str, 
     # Exact runtime counting is needed only near the limit. Even a byte tokenizer
     # with repeated schema and JSON escaping fits under this conservative shortcut.
     count = reviewer.count_tokens
-    if phase == "source-audit" and not canonical:
+    if phase in {"source-audit", "source-audit-batch"} and not canonical:
         count = getattr(reviewer, "count_structured_tokens", count)
     return len(prompt.encode()) * 6 + 4096 <= reviewer.input_budget or count(prompt) <= reviewer.input_budget
 
@@ -177,11 +188,11 @@ def original_audit(worker: ContextualReader, reviewer: ReviewRuntime, primary: d
 
 
 def _validate_audit(worker: ContextualReader, primary: dict[str, object], citation_issues: CitationCheck | None,
-                    check_anchor: bool, answer: dict[str, object], subset: list[dict[str, object]],
+                    answer: dict[str, object], subset: list[dict[str, object]],
                     sources: list[dict[str, object]]) -> None:
     checked = apply_changes(answer, subset, primary, sources, worker.dimensions)
     validate_reviewed_prose(checked, sources, worker.language)
-    if citation_issues and check_anchor:
+    if citation_issues:
         anchor: dict[str, object] = {"citations": [{"segment_id": primary["id"], "quote": answer["evidence_quote"]}]}
         for errors in citation_issues([anchor], worker.origins):
             if errors:
@@ -193,13 +204,11 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
                   drafts: list[dict[str, object]], evidence: list[dict[str, object]],
                   plan: dict[str, object], saved: dict[str, Any],
                   citation_issues: Callable[[list[dict[str, object]], list[dict[str, object]]], list[list[str]]] | None,
-                  *, lookup_only: bool = False, finding: str = "",
+                  *, lookup_only: bool = False, findings: list[str] | None = None,
                   ) -> tuple[str, dict[str, object]]:
     coverage: list[object] = [row["reason"] for row in records(plan["coverage"]) if row["segment_id"] == primary["id"]]
-    if finding:
-        coverage.append({"independent_finding": finding, "resolution_required":
-            "Recheck every issue against the supplied originals. Make all necessary corrections and explain"
-            " the resolution or an evidence-based disagreement in assessment. Keep outstanding defects open."})
+    coverage.extend(finding_coverage(findings or []))
+    required = named_findings(coverage)
     key, payload, support = original_audit(worker, reviewer, primary, drafts, evidence, coverage)
     schema = record(payload["output_schema"])
     cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
@@ -208,22 +217,26 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     state_key = fingerprint([key, scope.identity]) if scope else key
     context = page_context(worker.pdf_edges, original_sources, [primary, *(s for s in support if s["id"] in cited)])
     evidence = [*original_sources, *context.additions]
-    validate = partial(_validate_audit, worker, primary, citation_issues, bool(finding))
+    validate = partial(_validate_audit, worker, primary, citation_issues)
     def validate_transport(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
         try:
-            validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
+            validate_schema(without_resolutions(answer), audit_schema(len(subset), worker.dimensions, bound_sources=True))
             validate(answer, subset, sources)
         except AuditCitationIssue:
             raise
         except ValueError as error:
             raise PassageReviewIssue(str(error)) from error
 
+    def validate_complete(answer: dict[str, object]) -> None:
+        check_resolutions(answer, required)
+        validate_transport(answer, drafts, evidence)
+
     matches = saved.get("key") == state_key or (scope and saved.get("key") == key and (
         scope.matches_legacy(worker.resume_job_id) or verified_legacy_answer(worker, primary, drafts, original_sources, saved, key)))
     answer = saved.get("answer") if matches else None
     if isinstance(answer, dict):
         try:
-            validate_transport(answer, drafts, evidence)
+            validate_complete(answer)
         except PassageReviewIssue:
             pass  # Reopen only the individual receipt whose evidence no longer passes.
         else:
@@ -244,7 +257,7 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
                 return state_key, covered
     try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
-                            SourceAuditValidator(lambda item: validate_transport(item, drafts, evidence), worker, evidence),
+                            SourceAuditValidator(validate_complete, worker, evidence),
                             schema, executor=reviewer,
                             page_context=context, checkpoint_scope=scope, checkpoint_only=lookup_only or not fits,
                             recover_governed=lookup_only, restore_legacy=lambda item:
@@ -255,7 +268,7 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
             raise
         from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
         answer = audit_in_batches(worker, reviewer, primary, drafts, support, coverage, key, validate_transport, scope)
-        validate(answer, drafts, evidence)
+        validate_complete(answer)
     return state_key, answer
 
 
@@ -322,29 +335,35 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
     for case in cases:
         saved = results.get(case.receipt, results.get(passage_key(case.primary), {}))
         prior = pending.get(case.occurrence, {})
-        finding = prior.get("batch_finding") or saved.get("batch_finding", "")
+        outstanding = saved_findings(prior or saved)
         worker.checkpoint_owners = tuple(prior.get("review_jobs", []))
         if prior and reader.job_id and reader.job_id not in worker.checkpoint_owners:
             prior["review_jobs"] = worker.checkpoint_jobs
             engine.save()
         try:
             key, answer = audit_passage(worker, reviewer, case.primary, case.drafts, case.evidence, case.plan,
-                                       saved, engine.deps.citation_issues, finding=finding)
+                                       saved, engine.deps.citation_issues, findings=outstanding)
         except PassageReviewIssue as issue:
-            pending[case.occurrence] = {**prior, **pending_review(worker, case, str(issue))}
+            pending[case.occurrence] = {**pending_review(worker, case, str(issue)),
+                                        "audit_findings": list(dict.fromkeys([*outstanding, str(issue)]))}
             engine.state["completed"] = False
             engine.save()
             continue
         was_pending = pending.pop(case.occurrence, None)
-        if key != saved.get("key") or case.receipt not in results:
-            results[case.receipt] = {"key": key, "answer": answer, **({"batch_finding": finding} if finding else {})}
+        if key != saved.get("key") or answer != saved.get("answer") or case.receipt not in results:
+            results[case.receipt] = {"key": key, "answer": answer, **({"audit_findings": outstanding} if outstanding else {})}
             engine.state["step"] += 1
             reader.models.extend(worker.models)
             worker.models.clear()
             engine.save()
         elif was_pending:
             engine.save()
-        findings.append(_finding(worker, case, answer, document_numbers))
+        summary = _finding(worker, case, answer, document_numbers)
+        if outstanding:
+            dispositions = record(answer["finding_resolutions"])
+            summary["review_findings"] = [{"finding": issue, **record(dispositions[f"issue_{i}"])}
+                                          for i, issue in enumerate(outstanding, 1)]
+        findings.append(summary)
     if count := engine.pending_count():
         raise PendingPassagesRemaining(count)
     from backend.domains.llm_wiki.review_synthesis import synthesize

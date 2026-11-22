@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 from backend.domains.llm_wiki.audit_checkpoint_provenance import passage_sources
+from backend.domains.llm_wiki.audit_findings import issue_texts
 from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
@@ -129,9 +130,11 @@ def checked_decision(case: ReviewPassage, decision: dict[str, Any], worker: Cont
                      payload: dict[str, Any], slot: str) -> dict[str, object]:
     from backend.domains.llm_wiki.independent_review import apply_changes
     from backend.domains.llm_wiki.reading_quality import validate_reviewed_prose
+    issues = issue_texts(decision.get("unresolved_issues"))
+    if issues:
+        raise PassageReviewIssue(" ".join(issues))
+    validate_schema(decision, DECISION)
     quote, assessment = decision["evidence_quote"], decision["assessment"]
-    if decision["unresolved_issues"]:
-        raise PassageReviewIssue(" ".join(decision["unresolved_issues"]))
     if not isinstance(quote, str):
         if isinstance(quote, float) and quote.is_integer():
             quote = int(quote)
@@ -173,10 +176,9 @@ def fill_batch(engine: SemanticReader, worker: ContextualReader, reviewer: Revie
     schema = payload["output_schema"]
     slot = "independent-batch-" + fingerprint(payload)[:32]
     def validate(result: dict[str, object]) -> None:
-        try:
-            validate_schema(result, schema)
-        except ValueError as error:
-            raise PassageReviewIssue(str(error)) from error
+        # Cache the received envelope before checking each named decision separately.
+        # A malformed sibling must never erase another original's paid finding.
+        validate_schema(result, {"type": "object"})
     try:
         decisions = worker.ask(slot, "source-audit-batch", payload, validate, schema, executor=reviewer)
     except (PassageReviewIssue, IncompleteReadingBatch) as error:
@@ -184,16 +186,24 @@ def fill_batch(engine: SemanticReader, worker: ContextualReader, reviewer: Revie
         diagnostic = str(error)
     else:
         diagnostic = ""
+    extra_issues = [issue for name in decisions.keys() - payload["passages"].keys()
+                    for issue in issue_texts(record(decisions[name]).get("unresolved_issues"))]
     for index, (case, key) in enumerate(entries, 1):
+        slot = f"passage_{index}"
+        decision = record(decisions.get(slot))
         try:
-            if diagnostic or not decisions:
-                raise PassageReviewIssue(diagnostic or "The batch reviewer returned no decisions")
-            slot = f"passage_{index}"
-            answer = checked_decision(case, record(decisions[slot]), worker, payload, slot)
+            if extra_issues:
+                findings = [*issue_texts(decision.get("unresolved_issues")),
+                            "Check whether these unassigned batch findings apply to this original:", *extra_issues]
+                raise PassageReviewIssue(" ".join(findings))
+            if diagnostic or slot not in decisions:
+                raise PassageReviewIssue(diagnostic or "The batch reviewer omitted this original")
+            answer = checked_decision(case, decision, worker, payload, slot)
         except ValueError as error:
             reason = str(error)
             engine.state["pending_audits"][case.occurrence] = {**pending_review(worker, case, reason),
-                                                            "batch_finding": reason}
+                                                            "audit_findings": issue_texts(decision.get("unresolved_issues"))
+                                                            if not extra_issues and decision.get("unresolved_issues") else [reason]}
         else:
             engine.state["independent_reviews"][case.receipt] = {"key": key, "answer": answer}
             engine.state["step"] += 1

@@ -121,8 +121,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "review_cost_out_per_million_usd": review_rates["cost_out"] if review_rates else None}
         identity = job_identity(identity, reviewer.identity)
     budget = None
-    if previous.get("budget_id"):
-        budget = reading_budget.book_status(str(previous["budget_id"]), vault_root, str(source_table.get("id") or ""), resource_id)
+    if previous.get("job_id") or previous.get("budget_id"):
+        budget = reading_budget.book_status(str(previous.get("budget_id") or ""), vault_root, str(source_table.get("id") or ""), resource_id)
     return {**semantic_cost, **review_fields, "_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high, flex]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
             "processing_tier": "flex" if flex else "default",
