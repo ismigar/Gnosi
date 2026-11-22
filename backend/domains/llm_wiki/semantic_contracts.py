@@ -14,7 +14,7 @@ from backend.domains.llm_wiki.reading_action_contracts import (
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.reading_quality import validate_boundary_coverage, validate_reviewed_prose
 from backend.domains.llm_wiki.semantic_context import source_view
-from backend.domains.llm_wiki.semantic_quote_contracts import source_key
+from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key, source_key
 
 
 def obj(properties: dict[str, Any]) -> dict[str, Any]:
@@ -82,8 +82,16 @@ def validate_schema(answer: dict[str, object], schema: dict[str, Any]) -> None:
 
 def bind_note(value: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
               dimensions: list[dict[str, object]], *, verified_segment_ids: list[str] | None = None) -> dict[str, object]:
+    note, _ = bind_note_sources(value, primary, evidence, dimensions, verified_segment_ids=verified_segment_ids)
+    return note
+
+
+def bind_note_sources(value: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
+                      dimensions: list[dict[str, object]], *, verified_segment_ids: list[str] | None = None,
+                      ) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Never fix or guess a quote. Prefer its known primary; reject ambiguous support."""
     citations = []
+    sources = []
     quotes = value.get("quotes", [])
     keys = value.get("quote_source_keys")
     if keys is not None and (not isinstance(keys, list) or not isinstance(quotes, list) or len(keys) != len(quotes)):
@@ -92,8 +100,8 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
         raise ValueError("Verified citations must retain the segment and source fingerprint for every quotation")
     for index, quote in enumerate(quotes if isinstance(quotes, list) else []):
         if isinstance(keys, list):
-            matches = [s for s in [primary, *evidence] if source_key(source_view(s)) == keys[index]
-                       and isinstance(quote, str) and quote in str(s["text"])]
+            matches = [s for s in [primary, *evidence] if isinstance(quote, str) and quote in str(s["text"])
+                       and (source_key(source_view(s)) == keys[index] or segment_source_key(s) == keys[index])]
         elif isinstance(quote, str) and quote in str(primary["text"]):
             matches = [primary]
         else:
@@ -104,6 +112,7 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
         if len(identifiers) != 1:
             raise ValueError("Quote must occur verbatim in the supplied original and identify one source passage")
         citations.append({"segment_id": next(iter(identifiers)), "quote": quote})
+        sources.append(matches[0])
     properties = record(value.get("properties"))
     note = {"title": value.get("title"), "body_md": value.get("body_md"),
             "source_segment_id": primary["id"], "citations": citations,
@@ -113,7 +122,17 @@ def bind_note(value: dict[str, object], primary: dict[str, object], evidence: li
     plan: dict[str, object] = {"notes": [note], "coverage": [{"segment_id": primary["id"], "reason": "interpreted"}]}
     validate_notes(plan, [primary], evidence)
     validate_note_dimensions(plan, dimensions)
-    return note
+    return note, sources
+
+
+def bind_passage(passage: dict[str, object], primary: dict[str, object], evidence: list[dict[str, object]],
+                 dimensions: list[dict[str, object]], language: str = "") -> list[dict[str, object]]:
+    validate_boundary_coverage(passage["reason"])
+    if not str(passage["reason"]).strip():
+        raise ValueError("Explain the claims retained or the reason for omitting this passage")
+    notes = [bind_note(note, primary, evidence, dimensions) for note in records(passage["notes"])]
+    validate_reviewed_prose(notes, evidence, language)
+    return notes
 
 
 def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object]],
@@ -128,11 +147,9 @@ def bind_interpretation(answer: dict[str, object], chunks: list[dict[str, object
         coverage = []
         for segment in records(chunk.get("segments")):
             passage = next(passages)
-            validate_boundary_coverage(passage['reason'])
-            notes.extend(bind_note(n, segment, evidence, dimensions) for n in records(passage["notes"]))
+            notes.extend(bind_passage(passage, segment, evidence, dimensions))
             coverage.append({"segment_id": segment["id"], "reason": passage["reason"]})
         plan: dict[str, object] = {"notes": notes, "coverage": coverage, "warnings": answer["warnings"], "evidence_segments": evidence}
-        validate_reviewed_prose(notes, evidence)
         validate_notes(plan, records(chunk.get("segments")), evidence)
         plans[str(chunk["id"])] = plan
     return plans

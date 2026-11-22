@@ -13,7 +13,7 @@ from typing import Any
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
-from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch, resume_incomplete_review
+from backend.domains.llm_wiki.reading_batch_recovery import PendingPassagesRemaining, batch_limit, reduce_batch, resume_incomplete_review
 from backend.domains.llm_wiki.reading_identity import reading_identity, identity_parts, map_identity, resume_semantic_state
 from backend.domains.llm_wiki.semantic_map_windows import map_windows
 from backend.domains.llm_wiki.semantic_map_reduction import MapSizeLimit, map_limit, reduce_maps
@@ -23,6 +23,11 @@ from backend.domains.llm_wiki.semantic_contracts import (
 )
 
 ENGINE_VERSION = 2
+
+
+def _labelled_chunks(chunks: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [{**c, "segments": [{**s, "origin_label": c.get("origin_label")} for s in records(c.get("segments"))]}
+            for c in chunks]
 
 
 class SemanticReader:
@@ -64,14 +69,21 @@ class SemanticReader:
         if self.reader.job_id:
             self.deps.save_checkpoint(self.reader.job_id, "semantic-state", self.state)
             self.deps.update_job(self.reader.job_id, chunks_done=len(self.state["plans"]),
+                                 pending_passages=self.pending_count(),
                                  effective_batch_size=batch_limit(self.deps.batch_size, self.state),
                                  reading_engine="semantic", reading_step=self.state["step"])
 
-    def ask(self, key: str, phase: str, payload: dict[str, object], schema: dict[str, Any], validate: Callable[[dict[str, object]], None]) -> dict[str, object]:
+    def ask(self, key: str, phase: str, payload: dict[str, object], schema: dict[str, Any], validate: Callable[[dict[str, object]], None],
+            *, quote_evidence: list[dict[str, object]] | None = None) -> dict[str, object]:
         if phase != "interpret":
             self.state.update(last_action={"phase": phase}, last_result={})
             self.save()
-        result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema)
+        result = self.reader.ask(key, phase, {"reading_engine": "semantic", **payload, "output_schema": schema}, validate, schema,
+                                 quote_evidence=quote_evidence)
+        if phase == "interpret":
+            # A specialist's later length failure must resume this paid draft,
+            # never shrink the reader's batch and generate a different draft.
+            self.state.update(last_action={"phase": "interpretation-received"}, last_result={})
         self.state["step"] += 1
         self.save()
         return result
@@ -165,18 +177,22 @@ class SemanticReader:
     def interpret(self, selected: list[dict[str, object]], global_map: str) -> dict[str, Any]:
         # Chunks own the document label; their stored segment records need not
         # duplicate it. Bind exactly the same source view as the model receives.
-        selected = [{**chunk, "segments": [{**segment, "origin_label": chunk.get("origin_label")}
-                     for segment in records(chunk.get("segments"))]} for chunk in selected]
+        selected = _labelled_chunks(selected)
         context = reading_context(self.reader.chunks, selected, self.state["plans"], self.deps.count_tokens, self.reader.budget)
         primary = [s for c in selected for s in records(c.get("segments"))]
         evidence = records(context.pop("evidence"))
-        paired = bool(getattr(self.deps, "reviewer", None))
+        reviewer = getattr(self.deps, "reviewer", None)
+        paired = reviewer is not None
         schema = interpretation_schema(len(primary), self.reader.dimensions, flag_review=paired)
+        draft_schema = deepcopy(schema)
+        draft_schema["properties"]["passages"]["items"] = {}
         def validate(answer: dict[str, object]) -> None:
-            plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
-            if reviewer := getattr(self.deps, "reviewer", None):
-                from backend.domains.llm_wiki.review_draft_batches import check_draft_capacity
-                check_draft_capacity(reviewer, selected, plans, self.reader.dimensions, self.reader.title, self.reader.language)
+            if paired:
+                # This is only a staged draft. Each passage must pass its
+                # source and review-capacity checks before any chunk is credited.
+                validate_schema(answer, draft_schema)
+            else:
+                bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         from backend.domains.llm_wiki.semantic_context import relevant
         observations: list[dict[str, object]] = [{"text": encoded(value)} for value in self.state["observations"].values()]
         selected_memory = relevant(observations, encoded([source_view(s) for s in primary]), self.deps.count_tokens,
@@ -192,17 +208,78 @@ class SemanticReader:
                 "missing evidence or a difficult inference needs an independent check. An open question from the author "
                 "that the draft faithfully preserves need not trigger another review.")
         key = "semantic-extract-" + fingerprint([c["id"] for c in selected])[:20]
-        answer = self.ask(key, "interpret", payload, schema, validate)
-        plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions, flag_review=paired)
+        answer = self.ask(key, "interpret", payload, schema, validate, quote_evidence=evidence)
+        if reviewer is not None:
+            draft = {"chunks": [str(c["id"]) for c in selected], "evidence": evidence, "answer": answer, "issues": {}}
+            return self.review_draft(key, selected, draft)
+        plans = bind_interpretation(answer, selected, evidence, self.reader.dimensions)
         self.state["observations"][key] = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
-        if paired:
-            from backend.domains.llm_wiki.review_selection import passage_key
-            self.state["observations"][key]["review_passages"] = [
-                passage_key(s) for s, outcome in zip(primary, records(answer["passages"])) if outcome["needs_specialist"]]
+        return plans
+
+    def pending_count(self) -> int:
+        passages = set(self.state.get("pending_audits", {}))
+        for group in self.state.get("pending_review_groups", {}).values():
+            passages.update(group["passages"])
+        return len(passages) + sum(len(draft["issues"]) for draft in self.state.get("review_drafts", {}).values())
+
+    def review_draft(self, key: str, selected: list[dict[str, object]], draft: dict[str, Any]) -> dict[str, Any]:
+        from backend.domains.llm_wiki.passage_repair import bind_reviewed_interpretation
+        from backend.domains.llm_wiki.review_selection import passage_key
+        reviewer = getattr(self.deps, "reviewer", None)
+        if reviewer is None:
+            raise RuntimeError("A pending reading draft requires its independent reviewer")
+        drafts = self.state.setdefault("review_drafts", {})
+        issues: dict[str, Any] = {}
+        owners = draft.setdefault("review_jobs", [])
+
+        def stage() -> None:
+            if key not in drafts or (self.reader.job_id and self.reader.job_id not in owners):
+                # Freeze the paid reader's evidence before review. Later chunks can
+                # add observations to the normal prompt without invalidating it.
+                drafts[key] = draft
+                if self.reader.job_id and self.reader.job_id not in owners:
+                    owners.append(self.reader.job_id)
+                self.state["completed"] = False
+                self.save()
+
+        def defer(position: int, owner: str, source: dict[str, object], reason: str) -> None:
+            entry = {"chunk_id": owner, "source": passage_key(source), "locator": source.get("locator"),
+                     "reason": reason}
+            issues[str(position)] = entry
+            draft["issues"][str(position)] = entry
+            self.save()
+
+        plans, answer = bind_reviewed_interpretation(self.reader, reviewer, selected, draft["evidence"], draft["answer"],
+            completed=self.state["plans"], before_repair=stage, defer=defer, checkpoint_jobs=tuple(owners))
+        self.state["plans"].update(plans)
+        flags = list(draft.get("review_passages", []))
+        primary = [s for c in selected for s in records(c.get("segments"))]
+        flags.extend(passage_key(s) for s, outcome in zip(primary, records(answer["passages"]), strict=True)
+                     if outcome.get("needs_specialist"))
+        if issues:
+            draft["issues"] = issues
+            draft["review_passages"] = list(dict.fromkeys(flags))
+        else:
+            observations = {k: answer[k] for k in ("themes", "questions", "contradictions", "warnings")}
+            observations["review_passages"] = list(dict.fromkeys(flags))
+            self.state["observations"][key] = observations
+            drafts.pop(key, None)
         return plans
 
     def extract(self, global_map: str) -> None:
-        remaining = [c for c in self.reader.chunks if str(c["id"]) not in self.state["plans"]]
+        existing = dict(self.state.get("review_drafts", {}))
+        previously_pending = {key for key, draft in existing.items() if draft["issues"]}
+        chunks = {str(c["id"]): c for c in self.reader.chunks}
+        staged_ids = {identifier for draft in existing.values() for identifier in draft["chunks"]}
+
+        def resume_draft(key: str, draft: dict[str, Any]) -> None:
+            self.review_draft(key, _labelled_chunks([chunks[i] for i in draft["chunks"]]), draft)
+            self.save()
+
+        for key, draft in existing.items():
+            if key not in previously_pending:
+                resume_draft(key, draft)
+        remaining = [c for i, c in chunks.items() if i not in self.state["plans"] and i not in staged_ids]
         while remaining:
             cap = batch_limit(self.deps.batch_size, self.state)
             views = groups([chunk_view(c) for c in remaining], self.deps.count_tokens, self.reader.budget // 5, cap)
@@ -220,6 +297,13 @@ class SemanticReader:
             self.state["plans"].update(plans)
             remaining = remaining[len(selected):]
             self.save()
+        # Each previous unresolved batch gets one turn after untouched material.
+        # A newly deferred passage is retried only on an explicit later resume.
+        for key, draft in existing.items():
+            if key in previously_pending:
+                resume_draft(key, draft)
+        if count := sum(len(draft["issues"]) for draft in self.state.get("review_drafts", {}).values()):
+            raise PendingPassagesRemaining(count)
 
     def note_map(self) -> str:
         if (not self.state.get("notes_map")
@@ -252,6 +336,8 @@ class SemanticReader:
         if getattr(self.deps, "reviewer", None):
             from backend.domains.llm_wiki.independent_review import review_reading
             global_map = review_reading(self, reviewed, global_map, notes_map)
+        if pending := self.pending_count():
+            raise PendingPassagesRemaining(pending)
         notes, warnings = self.deps.reduce_plans(reviewed, self.reader.origins, self.reader.dimensions)
         self.reader.warnings.extend(warnings)
         self.state["completed"] = True

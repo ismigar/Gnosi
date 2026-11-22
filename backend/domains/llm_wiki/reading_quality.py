@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 
 from backend.domains.llm_wiki.chunking import records
 
@@ -11,10 +12,31 @@ REVIEW_QUALITY_VERSION = 10
 # cached interpretations. Retain paid source work, but recheck old reviews.
 REVALIDATABLE_REVIEW_VERSIONS = {REVIEW_QUALITY_VERSION}
 
-_SOURCE_BOUNDARY = re.compile(r"\b(?:fragment\w*|passatg\w*|pasaj\w*|passage\w*|excerpt\w*|text\w*|original\w*|cita\w*|oraci[oó]n|frase|sentence)\b", re.I)
-_UNFINISHED = re.compile(r"\b(?:incomplet\w*|inconclu\w*|trunc\w*|tronqu\w*|interrump\w*|interromp\w*|cortad\w*|cort[ae]\w*|tallat\w*|coup[ée]\w*|mitad|meitat|cut\s+(?:off|short)|missing\s+continuation)\b", re.I)
-_MISSING_EXPLANATION = re.compile(r"\b(?:sin|sense|without|sans)\s+(?:(?:una?|an?|une?)\s+)?(?:explicaci\w*|explanation|explication|continuaci\w*|continuation)\s+(?:complet\w*|compl[eè]\w*|full)\b", re.I)
-_ABSENT_CONTINUATION = re.compile(r"\b(?:no\s+(?:contiene|conté|incluye|inclou)|does\s+not\s+(?:include|contain)|ne\s+contient\s+pas)\s+(?:la\s+|the\s+)?(?:continuaci\w*|continuation)\b", re.I)
+_SOURCE_UNIT = r"(?:fragments?|fragmentos?|passatges?|pasajes?|passages?|excerpts?|texts?|textos?|textes?|original(?:es|s)?|citas?|citations?|oracion(?:es)?|frases?|phrases?|sentences?)"
+_CUT_STATE = r"(?:incomplet\w*|inconclu\w*|truncad\w*|truncat\w*|tronqu\w*|interrumpid\w*|interromp\w*|interrupt\w*|cortad\w*|talla[dt]\w*|coupee?s?|cut (?:off|short))"
+_UNIT_MODIFIERS = r"(?:\s+(?:disponibles?|facilitad[oa]s?|originals?|posterior|siguiente|seguent|suivant\w*|final|available|supplied|provided|itself))*"
+_LINKING_VERB = (r"(?:is|was|were|are|remains?|ends?|(?:has|have|had) been|esta|es|queda|resta|est|reste|se ve"
+                 r"|(?:ha|han) (?:sido|estat|quedad[oa]s?|quedats?)|(?:a|ont) ete)")
+_UNFINISHED_SOURCE = re.compile(
+    rf"\b{_SOURCE_UNIT}\b{_UNIT_MODIFIERS}\s+(?:"
+    rf"(?:{_LINKING_VERB}\s+)?{_CUT_STATE}\b"
+    r"|(?:se |s['’])(?:interrump\w*|interromp\w*|cort[ae]|atura|arrete)\b"
+    r"|(?:ends?|termina|acaba|s'acaba|finit)\s+(?:mid[- ](?:sentence|list)|(?:in the middle|a (?:la )?(?:mitad|meitat)|au milieu)\b)"
+    r"|no (?:contiene|conte|incluye|inclou)\s+(?:la )?continuaci\w*"
+    r"|(?:does not (?:include|contain)|ne contient pas)\s+(?:the |la )?continuation\b)",
+    re.I,
+)
+_BOUNDARY_ONLY = re.compile(rf"^(?:(?:a|an|the)\s+)?{_CUT_STATE}\s+{_SOURCE_UNIT}[.!?]?$", re.I)
+_MISSING_EXPLANATION = re.compile(
+    rf"\b{_SOURCE_UNIT}\b(?:\s+\w+){{0,5}}\s+{_LINKING_VERB}\s+(?:sin|sense|without|sans)\s+"
+    r"(?:(?:una?|an?|une?)\s+)?(?:(?:explicaci\w*|explanation|explication|continuaci\w*|continuation)\s+complet\w*"
+    r"|(?:complete|full)\s+(?:explanation|continuation))\b", re.I,
+)
+
+
+def _boundary_caveat(sentence: str) -> bool:
+    text = ''.join(c for c in unicodedata.normalize('NFKD', sentence) if not unicodedata.combining(c)).strip()
+    return bool(_UNFINISHED_SOURCE.search(text) or _BOUNDARY_ONLY.fullmatch(text) or _MISSING_EXPLANATION.search(text))
 
 
 def validate_boundary_coverage(reason: object) -> None:
@@ -23,16 +45,14 @@ def validate_boundary_coverage(reason: object) -> None:
     This is a diagnostic requiring source-grounded correction, not a semantic
     completeness classifier. Never delete a claim or invent the missing tail.
     """
-    text = ''.join(c for c in unicodedata.normalize('NFKD', str(reason)) if not unicodedata.combining(c))
-    if ((_SOURCE_BOUNDARY.search(text) or re.search(r'\bphrase\w*\b', text, re.I)) and
-            any(p.search(text) for p in (_UNFINISHED, _MISSING_EXPLANATION, _ABSENT_CONTINUATION))):
+    if any(_boundary_caveat(sentence) for sentence in re.split(r"(?<=[.!?])\s+|[;\n]+", str(reason))):
         raise ValueError(
             "Reading coverage requires source-grounded review: a truncated sentence or list does not erase "
-            "complete claims before its boundary. Preserve those claims in note bodies with their original "
-            "evidence; distinguish theoretical limits from practical justification and retain attribution. "
+            "complete claims before its boundary. Preserve those claims, their attribution and their "
+            "qualifications using evidence from the supplied originals. "
             "Do not invent the missing continuation. Replace the processing-boundary rationale with "
             "the substantive claims retained or a source-grounded reason why none can be supported. "
-            "If unresolved, stop for review rather than certifying coverage.")
+            "Report any unresolved claim for this passage so it can be reviewed before completion.")
 
 
 def validate_coverage_rows(coverage: object) -> None:
@@ -54,8 +74,7 @@ def prose_issues(note: dict[str, object], evidence: list[dict[str, object]], lan
     # A final reading note explains the source, not an unfinished processing
     # boundary. This flags residual wording for source-grounded correction;
     # it never reconstructs or deletes the uncertain claim automatically.
-    if language and any(_SOURCE_BOUNDARY.search(sentence)
-                        and any(pattern.search(sentence) for pattern in (_UNFINISHED, _MISSING_EXPLANATION, _ABSENT_CONTINUATION))
+    if language and any(_boundary_caveat(sentence)
                         and sentence.casefold() not in originals.casefold()
                         for sentence in re.split(r"(?<=[.!?])\s+|\n+", str(note.get("body_md", "")))):
         issues.append("Residual processing-boundary caveat in the note. Read the complete adjacent originals and"
@@ -84,7 +103,8 @@ def validate_reviewed_prose(notes: list[dict[str, object]], evidence: list[dict[
         raise ValueError("Reading quality validation failed: " + " | ".join(failures))
 
 
-def adjacent_originals(chunks: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+def adjacent_originals(chunks: list[dict[str, object]], *, key: Callable[[dict[str, object]], str] | None = None,
+                       ) -> dict[str, list[dict[str, object]]]:
     """Full neighbouring passages remain available across PDF page boundaries."""
     origins: dict[str, list[dict[str, object]]] = {}
     for chunk in chunks:
@@ -94,5 +114,6 @@ def adjacent_originals(chunks: list[dict[str, object]]) -> dict[str, list[dict[s
     result: dict[str, list[dict[str, object]]] = {}
     for segments in origins.values():
         for index, segment in enumerate(segments):
-            result.setdefault(str(segment["id"]), []).extend(segments[max(0, index - 1):index] + segments[index + 1:index + 2])
+            identifier = key(segment) if key else str(segment["id"])
+            result.setdefault(identifier, []).extend(segments[max(0, index - 1):index] + segments[index + 1:index + 2])
     return result

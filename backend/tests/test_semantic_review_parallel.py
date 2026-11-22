@@ -13,6 +13,30 @@ from backend.tests.test_semantic_reading import response, setup
 from backend.tests.test_agent_execution import runtime as runtime
 
 
+def test_unique_review_groups_keep_historical_keys_and_colliding_groups_keep_only_proven_owners():
+    from backend.domains.llm_wiki.contextual_reading import fingerprint
+    from backend.domains.llm_wiki.semantic_review_evidence import ReviewCheckpointKeys
+
+    entries = [{"note": title} for title in ("Shared", "Edition one", "Shared", "Edition two")]
+    originals = [[{"id": str(i), "text": entry["note"], "origin_label": "Book"},
+                  {"id": f"heading-{i}", "text": "Common heading", "origin_label": "Book"}] for i, entry in enumerate(entries)]
+    keys = ReviewCheckpointKeys(entries, originals)
+    legacy = fingerprint(entries[:1])
+    assert keys.key(0, 1) != keys.key(2, 1)
+    assert keys.key(1, 1) == fingerprint(entries[1:2])
+    for start in (0, 2):
+        assert keys.key(start, 2) == fingerprint(entries[start:start + 2])
+    answer = {"assessment": "Previously checked"}
+    sources = [{"id": "2"}]
+    state = {"reviewed_groups": {legacy: answer}, "reviewed_ranges": {"2": 1}, "review_sources": {legacy: sources}}
+    keys.recover_unique_ranges(state)
+    assert state["reviewed_groups"] == {keys.key(2, 1): answer}
+    assert state["review_sources"] == {keys.key(2, 1): sources}
+    mixed = {"reviewed_groups": {legacy: answer}, "reviewed_ranges": {"0": 1, "2": 1}, "review_sources": {legacy: sources}}
+    keys.recover_unique_ranges(mixed)
+    assert not mixed["reviewed_groups"] and mixed["invalidated_review_groups"][legacy]["answer"] == answer
+
+
 def prepared(generate=response, *, count=8, size=2):
     reader, calls, checkpoints = setup(count=count, generate=generate)
     engine = SemanticReader(reader)
@@ -101,13 +125,16 @@ def test_truncation_splits_only_failed_range_with_later_success_retained():
     assert checkpoints['new', 'semantic-state']['reviewed_ranges'] == {'0': 2, '2': 2, '4': 4}
 
 
-@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted'])
-def test_reservation_rejection_splits_complete_review_without_dropping_notes(reason):
+@pytest.mark.parametrize('reason', ['reading_budget_pending_cost', 'reading_budget_exhausted', 'input_capacity'])
+def test_pretransmission_rejection_splits_complete_review_without_dropping_notes(reason):
+    from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
     from backend.services.reading_budget import ReadingBudgetError
     accepted = []
     def generate(request):
         if request['phase'] == 'verify':
             if len(request['notes']) > 2:
+                if reason == 'input_capacity':
+                    raise ReadingInputTooLarge("The reviewer's context cannot fit this group.")
                 raise ReadingBudgetError(reason)
             accepted.extend(n['note']['title'] for n in request['notes'])
         return response(request)

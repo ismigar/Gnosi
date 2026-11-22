@@ -6,6 +6,14 @@ import json
 from typing import Any
 
 
+class ModelOutputError(ValueError):
+    """A response was received and its contents failed local output validation."""
+
+
+class ModelOutputJSONError(json.JSONDecodeError, ModelOutputError):
+    """Malformed JSON in a returned model answer, distinct from a transport decoding failure."""
+
+
 def reading_error(error: Exception, output: str, schema: dict[str, Any] | None) -> Exception:
     """Diagnose the chosen action, not jsonschema's unrelated anyOf branch."""
     if not isinstance(error, jsonschema.ValidationError) or not schema:

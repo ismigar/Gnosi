@@ -10,6 +10,8 @@ describe('resource processing errors', () => {
     it.each(Object.entries({ ca, en, es, fr }))('localizes provider timeouts in %s', async (lng, translation) => {
         const i18n = createInstance();
         await i18n.init({ lng, resources: { [lng]: { translation } } });
+        expect(resourceProcessingError('reading_passages_pending: 1', i18n.t)).toBe(translation.llm_wiki.reading_pending_resume_one);
+        expect(resourceProcessingError('reading_passages_pending: 3', i18n.t)).toBe(translation.llm_wiki.reading_pending_resume_other.replace('{{count}}', '3'));
         expect(resourceProcessingError(
             'The AI provider did not respond in time. Retry to resume saved progress.', i18n.t,
         )).toBe(translation.llm_wiki.error_provider_timeout);

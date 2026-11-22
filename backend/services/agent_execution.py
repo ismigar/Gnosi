@@ -9,10 +9,11 @@ import uuid
 
 import jsonschema
 from openai import APIConnectionError, InternalServerError, RateLimitError
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,11 +21,12 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from backend.services import agent_execution_store as store
 from backend.services.agent_run_middleware import report_run
-from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin
+from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin, ExecutionScope
 from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
+from backend.services.structured_output_diagnostics import ModelOutputError, ModelOutputJSONError
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
@@ -312,12 +314,12 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
 
 
 def _reject_json_constant(value: str) -> None:
-    raise ValueError(f"Non-finite number in structured output: {value}")
+    raise ModelOutputError(f"Non-finite number in structured output: {value}")
 
 
 def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
     if not text.strip():
-        raise ValueError("agent_empty_result")
+        raise ModelOutputError("agent_empty_result")
     if schema is None:
         return text
     cleaned = text.strip()
@@ -329,14 +331,14 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         value = json.loads(cleaned, parse_constant=_reject_json_constant)
     except json.JSONDecodeError as error:
         if error.msg != "Extra data":
-            raise
+            raise ModelOutputJSONError(error.msg, error.doc, error.pos) from error
         value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
         # Keep the complete document when followed by one root closer or a
         # bare tool-control opener. Never discard another value, prose, a named
         # tool call, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
         if not closer or cleaned[end:].strip() not in {closer, "<function", "<function="}:
-            raise
+            raise ModelOutputJSONError(error.msg, error.doc, error.pos) from error
     from backend.services.json_contracts import validate_json_value
     validate_json_value(value, schema)
     return json.dumps(value, ensure_ascii=False)
@@ -364,12 +366,21 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     return snapshot, ai, runtime
 
 
-def _checked_checkpoint(request: AgentOperation, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validator: Callable[[str], str] | None) -> AgentRun | None:
+def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
+    revalidate_scope(scope)
+    if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
+        from backend.services.agent_cancellation import AgentTurnCancelled
+        raise AgentTurnCancelled("agent_run_cancelled")
+
+
+async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validate: Callable[[str], Awaitable[str]]) -> AgentRun | None:
     cached = store.phase_checkpoint(snapshot.scope, parent_id, key)
     if cached is not None:
-        _validate_output(cached.result, request.output_schema)
-        if validator is not None:
-            validator(cached.result)
+        try:
+            _validate_output(cached.result, schema)
+            await validate(cached.result)
+        finally:
+            _require_active(snapshot.scope, cached.run_id, parent_id)
         report_run(cached.run_id)
     return cached
 
@@ -459,24 +470,47 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
     return workflow.compile(), selection
 
 
-def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None) -> str:
-    if repair is not None:
-        text = _validate_output(repair.restore(text), request.output_schema)
-    return validator(text) if validator is not None else text
+async def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None = None) -> str:
+    def check() -> str:
+        restored = _validate_output(repair.restore(text), request.output_schema) if repair is not None else text
+        return validator(restored) if validator is not None else restored
+
+    # Reading validators may need to wait for a coordinated original PDF.
+    # Keep the event loop free and propagate the authenticated vault and budget.
+    if request.operation == "knowledge.process-source.phase" and (validator is not None or repair is not None):
+        return await asyncio.to_thread(check)
+    return check()
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False) -> AgentRun:
+async def _build_output_repair(request: AgentOperation, builder: RepairBuilder | None, text: str,
+                               error: Exception, require_active: Callable[[], None]) -> OutputRepair | None:
+    if builder is None:
+        return None
+    if request.operation != "knowledge.process-source.phase":
+        return builder(text, error)
+    try:
+        return await asyncio.to_thread(builder, text, error)
+    finally:
+        require_active()
+
+
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
     context = await asyncio.to_thread(_operation_context, request, snapshot)
     snapshot, ai, runtime = context
     parent_id = request.parent_run_id or snapshot.parent_run_id or _run.get()
+    # A paired reader may stage a known misplaced citation for its reviewer.
+    # The provider still generates against the original per-passage schema.
+    initial_schema = request.output_schema if draft_schema is None else draft_schema
     checkpoint_key = hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
-    cached = None if private_result else _checked_checkpoint(request, snapshot, parent_id, checkpoint_key, output_validator)
+    cached = None if private_result else await _checked_checkpoint(initial_schema, snapshot, parent_id, checkpoint_key,
+        lambda text: _operation_output(text, request, output_validator))
     if cached is not None:
         return cached
     run_id = uuid.uuid4().hex
+    require_active = partial(_require_active, snapshot.scope, run_id, parent_id)
     row = AgentRun(run_id=run_id, parent_run_id=parent_id,
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
@@ -505,17 +539,17 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     try:
         application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
-        reused = reading_cached_result(request, snapshot, reading_cache_key,
+        reused = await reading_cached_result(request, snapshot, reading_cache_key,
             str(selection.get("provider") or ""), str(selection.get("model") or ""), row,
-            lambda text: _operation_output(_validate_output(text, request.output_schema), request, output_validator, None),
-            revalidate_scope)
+            lambda text: _operation_output(_validate_output(text, initial_schema), request, output_validator),
+            require_active)
         if reused is not None:
             return reused
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request, provider=str(selection.get("provider") or "")))]
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
         partial_repair: OutputRepair | None = None
-        response_schema = request.output_schema
+        response_schema = initial_schema
         for attempt in range(request.max_model_calls):
             previous_text = text if attempt else ""
             text = ""
@@ -537,11 +571,11 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 messages = [*messages, *handoff.messages]
                 continue
             try:
-                text = _validate_output(text, response_schema)
-                text = _operation_output(text, request, output_validator, partial_repair)
-                revalidate_scope(snapshot.scope)
-                if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
-                    raise AgentTurnCancelled("agent_run_cancelled")
+                try:
+                    text = _validate_output(text, response_schema)
+                    text = await _operation_output(text, request, output_validator, partial_repair)
+                finally:
+                    require_active()
                 completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
@@ -561,7 +595,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                         "Return the same patch contract, not a rewritten reading action.\n" +
                         json.dumps({"validation_error": diagnostic}, ensure_ascii=False))]
                     continue
-                partial_repair = output_repair(text, validation_error) if output_repair is not None else None
+                partial_repair = await _build_output_repair(request, output_repair, text, validation_error, require_active)
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema
                     repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})
@@ -599,12 +633,13 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             _run.reset(run_token)
 
 
-def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
+def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, draft_schema: dict[str, Any] | None = None) -> AgentRun:
     # Sync services run in worker threads. Reject accidental event-loop blocking.
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator, output_repair=output_repair))
+        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator,
+                                           output_repair=output_repair, draft_schema=draft_schema))
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 

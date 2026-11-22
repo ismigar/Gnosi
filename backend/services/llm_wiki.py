@@ -458,6 +458,7 @@ def process_resource(
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
         citation_issues=llm_wiki_pdf_annotations.reading_citation_issues,
+        pdf_quote_excerpts=llm_wiki_pdf_annotations.reading_pdf_quote_excerpts,
         load_manifest=llm_wiki_storage.load_manifest,
         save_manifest=llm_wiki_storage.save_manifest,
         clock=time.time,
@@ -626,7 +627,7 @@ def start_ingest(
             logger.exception("llm_wiki ingest failed for %s: %s", source_page_id, error_message)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             status = llm_wiki_storage.get_job_status(job_id)
-            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") else PHASE_ERROR
+            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") or status.get("pending_passages") else PHASE_ERROR
             llm_wiki_storage.finish_job(
                 job_id,
                 phase=phase,

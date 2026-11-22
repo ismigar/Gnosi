@@ -41,6 +41,9 @@ function ProcessingCard({ task, onOpen }: { readonly task: ResourceProcessingTas
                 {(task.job?.chunks_total ?? 0) > 0 && <span className="resource-processing-card-status">
                     {t('llm_wiki.fragments_progress', { defaultValue: '{{count}} of {{total}} fragments completed', count: task.job?.chunks_done ?? 0, total: task.job?.chunks_total ?? 0 })}
                 </span>}
+                {(task.job?.pending_passages ?? 0) > 0 && <span className="resource-processing-card-status">
+                    {t('llm_wiki.reading_pending_count', { defaultValue: '{{count}} passages awaiting review', count: task.job?.pending_passages ?? 0 })}
+                </span>}
                 {running && <span className="resource-processing-card-progress" role="progressbar" aria-label={status}
                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress ?? undefined}>
                     <span className={progress === null ? 'animate-pulse' : ''} style={{ width: `${String(progress ?? 25)}%` }} />

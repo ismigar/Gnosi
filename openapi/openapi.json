@@ -20757,6 +20757,17 @@
             ],
             "title": "Pages Touched"
           },
+          "pending_passages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Passages"
+          },
           "phase": {
             "anyOf": [
               {

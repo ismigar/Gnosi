@@ -13,6 +13,12 @@ def source_key(source: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(view, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
+def segment_source_key(segment: dict[str, Any]) -> str:
+    """Keep same-named PDF attachments and slices of original segments distinct."""
+    from backend.domains.llm_wiki.semantic_context import source_view
+    return hashlib.sha256(f'{source_key(source_view(segment))}:{segment["id"]}'.encode()).hexdigest()
+
+
 def shared_note_schema(original: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     note = deepcopy(original)
     definitions = {"reading_note_properties": note["properties"]["properties"]}
