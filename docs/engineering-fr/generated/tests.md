@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3576 |
-| pytest | 832 | 6471 |
+| pytest | 832 | 6472 |
 
 ## Fichiers
 
@@ -1080,7 +1080,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_graph_temporary_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_temporary_storage.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_graph_unresolved_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_unresolved_nodes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_graph_wedged_dirs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_wedged_dirs.py) | 10 | Python AST |
-| pytest | [`backend/tests/test_grouped_book_audits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_grouped_book_audits.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_grouped_book_audits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_grouped_book_audits.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_handwriting_download.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_download.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_handwriting_input_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_input_contracts.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_health_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_api_contract.py) | 5 | Python AST |
