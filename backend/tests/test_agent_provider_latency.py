@@ -128,120 +128,77 @@ def test_configured_metering_skips_hydration_and_protected_calls_keep_it(monkeyp
     assert hydrated == [True]
 
 
-def test_slow_statistics_follow_the_response_and_stay_with_the_original_call(tmp_path, monkeypatch):
-    from concurrent.futures import Future
-    from backend.services import artificial_analysis
-    class PendingProfile(Future):
-        def result(self, timeout=1):
-            return super().result(timeout)
-    pending = PendingProfile()
+def test_usage_commits_with_the_original_profile_before_restart(tmp_path, monkeypatch):
+    from backend.services import artificial_analysis as analysis
+    report = tmp_path / "comparison.json"
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(artificial_analysis, "route_profiles", lambda: pending)
-    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: {"cost_in": 2, "cost_out": 7})
+    monkeypatch.setattr(analysis, "_cache_path", lambda: report)
+    monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: None)
     monkeypatch.setattr(model_router, "load_registry", lambda **_: [])
-    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: dict.fromkeys(
-        ("agent_id", "agent_name", "operation", "origin", "run_id", "workspace_id", "user_id", "profile"), ""))
+    data = {"models": [{"profile": "expert", "routes": [{"provider": "remote", "model_id": "model"}]}]}
+    analysis._write_cache(data)
     callback = ai_usage_transport.UsageCallback("remote", "model")
-    callback.on_chat_model_start({}, [], run_id="first")
-    callback.on_llm_error(RuntimeError("fixture"), run_id="first")
+    for call in ("paid", "failed"):
+        callback.on_chat_model_start({}, [], run_id=call)
+    data["models"][0]["profile"] = "worker"
+    analysis._write_cache(data)
+    monkeypatch.setattr(analysis, "published_route_profile", lambda *_: pytest.fail("Profile lookup after model response"))
+    ai_usage_transport.observe({"model": "model", "usage": {"prompt_tokens": 13, "completion_tokens": 4, "cost": 0.021}},
+                               state=callback.pending["paid"])
+    callback.on_llm_end(SimpleNamespace(generations=[]), run_id="paid")
+    callback.on_llm_error(RuntimeError("fixture"), run_id="failed")
     with ai_usage_ledger.connect() as db:
-        before = dict(db.execute("SELECT * FROM usage_calls WHERE id='first'").fetchone())
-    assert before["profile"] == "unrated" and before["status"] == "failed"
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "other"))
-    import sqlite3
-    from contextlib import closing
-    with closing(sqlite3.connect(tmp_path / "llm_usage.sqlite")) as writer:
-        writer.execute("BEGIN IMMEDIATE")
-        pending.set_result({("remote", "model"): "expert"})
-        writer.commit()
-    ai_usage_ledger.flush_call_profiles()
-    assert not (tmp_path / "other").exists()
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    with ai_usage_ledger.connect() as db:
-        after = dict(db.execute("SELECT * FROM usage_calls WHERE id='first'").fetchone())
-    assert after == {**before, "profile": "expert"}
+        assert tuple(db.execute("SELECT profile,input_tokens,output_tokens,cost_usd FROM usage_calls WHERE id='paid'").fetchone()) == ("expert", 13, 4, "0.021")
+        assert tuple(db.execute("SELECT profile,status FROM usage_calls WHERE id='failed'").fetchone()) == ("expert", "failed")
 
 
-def test_concurrent_profile_lookups_share_one_read_per_report(tmp_path, monkeypatch):
-    import threading
+def test_current_profile_index_survives_restart_and_rebuilds_for_replaced_reports(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
     from backend.services import artificial_analysis as analysis
     report = tmp_path / "comparison.json"
     monkeypatch.setattr(analysis, "_cache_path", lambda: report)
     data = {"models": [{"profile": "first", "routes": [{"provider": "p", "model_id": "m"}]}]}
     report.write_text(json.dumps(data))
-    read = analysis._read_route_profiles
-    proceed = threading.Event()
+    make_index = analysis._index_model_profiles
     reads = []
-    def delayed(stream):
+    def counted(payload):
         reads.append(1)
-        assert proceed.wait(3)
-        return read(stream)
-    monkeypatch.setattr(analysis, "_read_route_profiles", delayed)
-    try:
-        first = analysis.route_profiles()
-        assert analysis.route_profiles() is first
-        data["models"][0]["profile"] = "second"
-        analysis._write_cache(data)
-        second = analysis.route_profiles()
-        assert second is not first
-    finally:
-        proceed.set()
-    assert first.result(3) == {("p", "m"): "first"}
-    assert second.result(3) == {("p", "m"): "second"}
-    assert len(reads) == 2
+        return make_index(payload)
+    monkeypatch.setattr(analysis, "_index_model_profiles", counted)
+    with ThreadPoolExecutor(4) as pool:
+        assert list(pool.map(lambda _: analysis.published_route_profile("p", "m"), range(8))) == ["first"] * 8
+    assert reads == [1]
+    monkeypatch.setattr(analysis, "_profiles_source", None)
+    assert analysis.published_route_profile("p", "m") == "first"
+    assert reads == [1]
+    data["models"][0]["profile"] = "second"
+    analysis._write_cache(data)
+    monkeypatch.setattr(analysis, "_profiles_source", None)
+    assert analysis.published_route_profile("p", "m") == "second"
+    assert reads == [1, 1]
+    sidecar = report.with_name(report.name + ".profiles-v1.json")
+    sidecar.write_text("{")
+    monkeypatch.setattr(analysis, "_profiles_source", None)
+    assert analysis.published_route_profile("p", "m") == "second"
+    assert reads == [1, 1, 1]
 
 
-@pytest.mark.parametrize("failure", [RecursionError(), None])
+@pytest.mark.parametrize("failure", [RecursionError(), OSError()])
 def test_failed_profile_statistics_do_not_lose_real_usage(tmp_path, monkeypatch, failure):
-    from concurrent.futures import Future
-    from backend.services import artificial_analysis
-    lookup = Future()
-    if failure is None:
-        lookup.cancel()
-    else:
-        lookup.set_exception(failure)
+    from backend.services import artificial_analysis as analysis
+    def failed_lookup(*_):
+        raise failure
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(artificial_analysis, "route_profiles", lambda: lookup)
+    monkeypatch.setattr(analysis, "published_route_profile", failed_lookup)
     monkeypatch.setattr(model_catalog, "catalog_model_cost", lambda *_: None)
     monkeypatch.setattr(model_router, "load_registry", lambda **_: [])
-    monkeypatch.setattr(ai_usage_ledger, "context_metadata", lambda: dict.fromkeys(
-        ("agent_id", "agent_name", "operation", "origin", "run_id", "workspace_id", "user_id", "profile"), ""))
     callback = ai_usage_transport.UsageCallback("fixture", "model")
     callback.on_chat_model_start({}, [], run_id="paid")
     ai_usage_transport.observe({"model": "model", "usage": {"prompt_tokens": 13, "completion_tokens": 4, "cost": 0.021}})
     callback.on_llm_end(SimpleNamespace(generations=[]), run_id="paid")
     with ai_usage_ledger.connect() as db:
         row = db.execute("SELECT input_tokens,output_tokens,cost_usd,profile FROM usage_calls WHERE id='paid'").fetchone()
-    assert tuple(row) == (13, 4, "0.021", "unrated")
-
-
-def test_graceful_exit_finishes_accepted_usage_updates(tmp_path, monkeypatch):
-    import os
-    import subprocess
-    import sys
-    from textwrap import dedent
-    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    ai_usage_ledger.write_call(provider="remote", model_id="model", call_id="paid", input_tokens=13,
-                               output_tokens=4, cost_usd="0.021", cost_source="reported", settle_budget=False)
-    # A separate interpreter exits while the real comparison read is still pending.
-    program = dedent("""
-        from concurrent.futures import ThreadPoolExecutor
-        from threading import Event
-        from time import sleep
-        from backend.services.ai_usage_ledger import complete_call_profile
-        exiting = Event()
-        def classify():
-            exiting.wait()
-            sleep(0.2)
-            return {("remote", "model"): "expert"}
-        profiles = ThreadPoolExecutor(max_workers=1).submit(classify)
-        complete_call_profile("paid", ("remote", "model"), profiles)
-        exiting.set()
-    """)
-    subprocess.run([sys.executable, "-c", program], env=os.environ.copy(), check=True, timeout=20)
-    with ai_usage_ledger.connect() as db:
-        result = db.execute("SELECT profile,input_tokens,output_tokens,cost_usd FROM usage_calls WHERE id='paid'")
-        assert tuple(result.fetchone()) == ("expert", 13, 4, "0.021")
+        assert tuple(row) == (13, 4, "0.021", "unrated")
 
 
 def test_ordinary_metering_combines_configured_and_published_tariffs(tmp_path, monkeypatch):

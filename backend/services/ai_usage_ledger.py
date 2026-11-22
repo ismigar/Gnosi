@@ -6,10 +6,9 @@ import logging
 import os
 import shutil
 import sqlite3
-from concurrent.futures import Future, ThreadPoolExecutor
 import time
 import uuid
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -150,41 +149,6 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                 if bound is not None:
                     refine_reservation(db, identifier, max(bound, cost or Decimal(0)))
         return bool(cursor.rowcount)
-
-
-_profile_updates = ThreadPoolExecutor(max_workers=1, thread_name_prefix="usage-profiles")
-
-
-def _write_call_profile(database: Path, call_id: str, route: tuple[str, str],
-                        profiles: Future[dict[tuple[str, str], str]]) -> None:
-    try:
-        label = profiles.result().get(route)
-    except Exception:
-        return  # The call's tokens and cost have already been committed.
-    if not label or label == "unrated":
-        return
-    while True:
-        try:
-            with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=30)) as db, db:
-                db.execute("UPDATE usage_calls SET profile=? WHERE id=? AND profile='unrated'", (label, call_id))
-            return
-        except sqlite3.Error as error:
-            code = getattr(error, "sqlite_errorcode", 0) or 0
-            if (code & 0xff) not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
-                log.warning("Could not update usage profile (%s)", type(error).__name__)
-                return
-            time.sleep(0.05)
-
-
-def complete_call_profile(call_id: str, route: tuple[str, str], profiles: Future[dict[tuple[str, str], str]]) -> None:
-    """Schedule the write before returning so normal process exit drains accepted work."""
-    database = resolve_data_dir(create=False) / "llm_usage.sqlite"
-    _profile_updates.submit(_write_call_profile, database, call_id, route, profiles)
-
-
-def flush_call_profiles() -> None:
-    """Wait for previously accepted writes on the serial worker during server shutdown."""
-    _profile_updates.submit(lambda: None).result()
 
 
 def monthly() -> dict[str, dict[str, dict[str, Any]]]:

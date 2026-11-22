@@ -192,8 +192,8 @@ class UsageCallback(BaseCallbackHandler):
             state["rates"] = rates
             profile = row.get("profile")
             if not profile:
-                from backend.services.artificial_analysis import route_profiles
-                state["profile_lookup"] = route_profiles()
+                from backend.services.artificial_analysis import published_route_profile
+                profile = published_route_profile(self.provider, self.model)
             state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
             state.setdefault("rates", None)
@@ -231,13 +231,6 @@ class UsageCallback(BaseCallbackHandler):
             same_model = observed == self.model or (bool(observed) and self.model == reading_model(self.provider, observed))
             if error is not None or not same_model:
                 pricing = None  # Keep the full hold for failed/changed-model calls.
-            lookup = state.get("profile_lookup")
-            if lookup is not None and lookup.done():
-                try:
-                    state["attribution"]["profile"] = lookup.result().get((self.provider, self.model), "unrated")
-                except Exception:
-                    pass  # Every failure of optional classification leaves the provider charge intact.
-                lookup = None
             # A wallet charge of zero does not mean subscription credits were
             # unused. Keep the direct provider's measured consumption separate.
             defer_budget = self.provider in {'openrouter', 'openai'} and state.get('reading_budget_active', False)
@@ -247,8 +240,6 @@ class UsageCallback(BaseCallbackHandler):
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
                 metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget,
                 pricing_details=pricing, refine_budget=self.provider == 'openai' and state.get('reading_budget_active', False))
-            if added and lookup is not None:
-                ledger.complete_call_profile(state["id"], (self.provider, self.model), lookup)
             funding_confirmed = False
             if added and defer_budget and self.provider == 'openrouter':
                 from backend.services.ai_usage_openrouter import budget_cost

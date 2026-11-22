@@ -8,7 +8,6 @@ single page is only a partial model list.
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
-from concurrent.futures import Future, ThreadPoolExecutor
 import json
 import math
 import os
@@ -16,7 +15,7 @@ import re
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -76,62 +75,74 @@ def _read_cache() -> Optional[Dict[str, Any]]:
     return payload if isinstance(payload, dict) and payload.get("models") else None
 
 
-_profiles_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="model-profiles")
 _profiles_lock = threading.Lock()
-_profiles_source: tuple[Path, int, int, int, int, int] | None = None
-_profiles_future: Future[dict[tuple[str, str], str]] | None = None
+_profiles_source: tuple[Path, tuple[int, ...]] | None = None
+_profiles_index: dict[str, dict[str, str]] = {}
 
 
-def _read_route_profiles(report: BinaryIO) -> dict[tuple[str, str], str]:
-    """Retain just the first published classification of each exact provider route."""
-    index: dict[tuple[str, str], str] = {}
-    with report:
-        models = json.load(report)["models"]
-    for model in models:
+def _index_model_profiles(payload: Dict[str, Any]) -> dict[str, dict[str, str]]:
+    index: dict[str, dict[str, str]] = {}
+    for model in payload.get("models") or []:
         if not isinstance(model, dict):
             continue
         for route in model.get("routes") or []:
             if isinstance(route, dict) and isinstance(route.get("provider"), str) and isinstance(route.get("model_id"), str):
-                index.setdefault((route["provider"], route["model_id"]), str(model.get("profile") or "unrated"))
+                index.setdefault(route["provider"], {}).setdefault(route["model_id"], str(model.get("profile") or "unrated"))
     return index
 
 
-def route_profiles() -> Future[dict[tuple[str, str], str]] | None:
-    """Share one local report read while callers dispatch their model requests."""
-    global _profiles_source, _profiles_future
-    path = _cache_path()
-    if path is None:
-        return None
+def _saved_profiles(path: Path, revision: tuple[int, ...]) -> dict[str, dict[str, str]] | None:
     try:
-        stat = path.stat()
-    except OSError:
-        return None
-    identity = (path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
-    with _profiles_lock:
-        pending = _profiles_future
-        if pending is None or identity != _profiles_source or (pending.done() and (pending.cancelled() or pending.exception() is not None)):
+        data = json.loads(path.read_bytes())
+        if data["revision"] != list(revision):
+            return None
+        profiles = data["profiles"]
+        if isinstance(profiles, dict) and all(isinstance(row, dict) and all(isinstance(label, str) for label in row.values())
+                                              for row in profiles.values()):
+            return profiles
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        pass
+    return None
+
+
+def _published_profiles(path: Path) -> dict[str, dict[str, str]]:
+    """The open report binds the small index to one published revision even during an atomic refresh."""
+    global _profiles_source, _profiles_index
+    with _profiles_lock, path.open("rb") as report:
+        stat = os.fstat(report.fileno())
+        revision = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        if _profiles_source == (path, revision):
+            return _profiles_index
+        index_path = path.with_name(path.name + ".profiles-v1.json")
+        index = _saved_profiles(index_path, revision)
+        if index is None:
+            index = _index_model_profiles(json.load(report))
             try:
-                report = path.open("rb")
+                safe_write_json(index_path, {"revision": revision, "profiles": index}, indent=None)
             except OSError:
-                return None
-            try:
-                stat = os.fstat(report.fileno())
-                _profiles_future = _profiles_worker.submit(_read_route_profiles, report)
-                _profiles_source = (path, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
-            except BaseException:
-                report.close()
-                raise
-        return _profiles_future
+                pass  # A read-only cache can still supply the correct in-memory classification.
+        _profiles_index, _profiles_source = index, (path, revision)
+        return index
+
+
+def published_route_profile(provider: str, model_id: str) -> str | None:
+    path = _cache_path()
+    if path:
+        try:
+            return _published_profiles(path).get(provider, {}).get(model_id)
+        except (OSError, ValueError, KeyError, AttributeError, TypeError, RecursionError):
+            pass
+    return None
 
 
 def _write_cache(payload: Dict[str, Any]) -> None:
     path = _cache_path()
-    if not path:
-        return
-    try:
-        safe_write_json(path, payload, indent=None)
-    except OSError:
-        return
+    if path:
+        try:
+            safe_write_json(path, payload, indent=None)
+            _published_profiles(path)
+        except (OSError, ValueError, KeyError, AttributeError, TypeError, RecursionError):
+            pass
 
 
 def _cache_is_fresh(
