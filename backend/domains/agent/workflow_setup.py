@@ -197,11 +197,11 @@ def _select_model_route(
     if llm_mode != "agent_default" or not provider_name or not model_name:
         return provider_name, model_name, strategy
 
-    registry = load_registry()
     configured_strategy = normalize_model_strategy(profile.agent_data)
     if configured_strategy["mode"] == "pinned":
         return provider_name, model_name, strategy
-    usage, budget = ({}, {}) if configured_strategy["mode"] == "pinned" else current_routing_limits()
+    registry = load_registry()
+    usage, budget = current_routing_limits()
     strategy = choose_agent_model(
         user_message,
         profile.agent_data,

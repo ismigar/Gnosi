@@ -10,10 +10,10 @@ Discovered **136 variables** across **273 source references**.
 
 | Variable | Entorn d’execució | Valor per defecte al codi | Consumidors |
 | --- | --- | --- | --- |
-| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:641`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L641) |
+| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:653`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L653) |
 | `ANTHROPIC_API_KEY` | Python | redacted | [`backend/domains/agent/llm.py:178`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py#L178) |
 | `APPIMAGE` | Node.js | runtime-provided | [`desktop/platform-updaters.test.js:27`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L27)<br>[`desktop/platform-updaters.test.js:28`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L28)<br>[`desktop/platform-updaters.test.js:31`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L31) |
-| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:641`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L641) |
+| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:653`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L653) |
 | `AVAILABLE` | Node.js | runtime-provided | [`desktop/backend-process.test.js:146`](https://github.com/ismigar/Gnosi/blob/main/desktop/backend-process.test.js#L146) |
 | `BACKEND_PORT` | Node.js | runtime-provided | [`desktop/backend-process.test.js:182`](https://github.com/ismigar/Gnosi/blob/main/desktop/backend-process.test.js#L182) |
 | `BASE_URL` | Vite | runtime-provided | [`frontend/src/features/vault/editor/spellcheck/nspellManager.ts:140`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/spellcheck/nspellManager.ts#L140) |
