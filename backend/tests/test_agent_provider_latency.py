@@ -221,3 +221,23 @@ def test_ordinary_metering_combines_configured_and_published_tariffs(tmp_path, m
     with ai_usage_ledger.connect() as db:
         assert tuple(db.execute("SELECT cost_usd,cost_source FROM usage_calls WHERE id='paid'").fetchone()) == (
             "0.00013", "estimated")
+
+
+@pytest.mark.parametrize("message", ["Hola", "Quant fan vuit més cinc?"])
+def test_pinned_workflow_constructs_selected_model_without_registry_discovery(monkeypatch, message):
+    from backend.domains.agent import workflow_setup
+    profile = workflow_setup.ProfileSetup(
+        {}, {"remote": {}}, [],
+        {"id": "test", "provider": "remote", "model": "chosen", "model_strategy": {"mode": "pinned"}},
+        "test", None)
+    monkeypatch.setattr(workflow_setup, "load_registry", lambda: pytest.fail("Fixed model triggered registry discovery"))
+    constructed = []
+    def get_model(**settings):
+        constructed.append((settings["provider"], settings["model"]))
+        return object()
+    dependencies = SimpleNamespace(resolve_provider_api_key=lambda *_: "fixture", get_llm=get_model,
+                                   provider_fallbacks=lambda *args, **kwargs: [])
+    selected, failure = workflow_setup.resolve_model(profile, llm_mode="agent_default", llm_provider=None,
+        llm_model=None, user_message=message, timeout=60, dependencies=dependencies)
+    assert selected and not failure and selected.strategy["mode"] == "pinned"
+    assert constructed == [("remote", "chosen")]

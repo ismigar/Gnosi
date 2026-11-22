@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3587 |
-| pytest | 839 | 6523 |
+| pytest | 839 | 6524 |
 
 ## Archivos
 
@@ -892,7 +892,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_phase_two.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_two.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_preparation_latency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_preparation_latency.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_profile_identifiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_profile_identifiers.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_agent_provider_latency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_provider_latency.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_agent_provider_latency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_provider_latency.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_agent_provider_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_provider_routing.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_quality_telemetry.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
