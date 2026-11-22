@@ -24,6 +24,21 @@ L’application de bureau adaptée à votre système et un dossier accessible en
 
 Vous disposez d’un Vault sélectionné, de deux pages enregistrées et d’un lien fonctionnel. Ajoutez ensuite une source et une note de lecture.
 
+## Personnaliser l’accueil {#personal-home}
+
+Cliquez sur le **G** dans la barre latérale. **Modifier l’accueil → Ajouter un bloc** affiche les blocs disponibles pour les extensions actives du Vault. Choisissez une largeur d’une, deux ou trois colonnes. Faites glisser un bloc ou déplacez-le avec les flèches. Cliquez sur **Enregistrer** pour conserver la disposition de votre compte dans ce Vault.
+
+| Application | Contenu disponible sur l’accueil |
+| --- | --- |
+| Connaissances et Graphe | Un tableau de bord, une de ses sections ou une vue filtrée. Le graphe affiche jusqu’à cinq liens directs de la dernière note modifiée sur cet appareil ou d’une note que vous épinglez. |
+| Calendrier et Lecteur | L’agenda du jour, l’audio du jour avec reprise de la lecture et les articles non lus. |
+| Contacts, Ressources et Carnets | Les contacts récemment modifiés, les recherches bibliographiques récentes et les carnets avec leur nombre de ressources. |
+| Courrier, Planification, Réseaux sociaux, Médias et Sites web | Les messages non lus par compte, les projets, les publications programmées, les fichiers récents et les sites. Le bloc indique la date de la dernière consultation des données sur cet appareil. |
+| Automatisations, Tableau de contrôle et Réglages | Les prochaines exécutions, l’état du système et vos raccourcis clavier. |
+| Assistant et Favoris | Les conversations à reprendre et les favoris à ouvrir. |
+
+Si le Vault a déjà une page d’accueil épinglée, le G continue à l’ouvrir. Pour ouvrir les blocs, choisissez **Réglages → Général → Système → Écran d’accueil de ce Vault → Mon espace de blocs**.
+
 ## En cas de problème {#troubleshooting}
 
 Si une fonction manque, vérifiez le Vault actif et ses extensions. Si le dossier ne s’ouvre pas, contrôlez son emplacement et les droits d’écriture avant d’en créer une autre copie.

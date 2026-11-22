@@ -1,6 +1,7 @@
 import type { ChatStreamRequest } from '../../../shared/api/chat-streaming';
 
 export interface AgentChatProps {
+  readonly openRequest?: { readonly sessionId?: string };
   readonly storageIdentity?: string;
   readonly contextRefs?: Readonly<NonNullable<ChatStreamRequest['context_refs']>>;
   readonly embedded?: boolean;

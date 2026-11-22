@@ -1,5 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
+import { requestContextHeaders, type RequestContext } from './request-context';
 import { unwrapApiResult } from './errors';
 
 
@@ -195,11 +196,13 @@ function parseLinkMentionsResult(value: unknown): BlockEditorLinkMentionsResult 
 export async function fetchBlockEditorBacklinks(
   pageId: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<BlockEditorBacklink[]> {
   const payload = unwrapApiResult<unknown, unknown>(
     await apiClient.GET('/api/vault/backlinks', {
       params: { query: { id: pageId } },
       signal,
+      headers: requestContextHeaders(context),
     }),
   );
   return requireArray(payload, 'backlinks').map(parseBacklink);
@@ -209,11 +212,13 @@ export async function fetchBlockEditorBacklinks(
 export async function fetchBlockEditorOutlinks(
   pageId: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<BlockEditorOutlinks> {
   const payload = unwrapApiResult<unknown, unknown>(
     await apiClient.GET('/api/vault/outlinks', {
       params: { query: { id: pageId } },
       signal,
+      headers: requestContextHeaders(context),
     }),
   );
   return parseOutlinks(payload);

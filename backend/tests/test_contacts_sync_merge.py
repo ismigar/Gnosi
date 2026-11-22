@@ -16,6 +16,7 @@ providers (authentic parse_to_internal); only the list_contacts network call is 
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import os
 import tempfile
 
@@ -73,6 +74,19 @@ def _seed_local(db, **overrides):
     }
     data.update(overrides)
     return svc.create_contact(data)
+
+
+def test_recent_contact_preview_limits_inside_the_workspace_and_preserves_default_order(db):
+    first = _seed_local(db, name="Alpha")
+    last = _seed_local(db, name="Zulu")
+    other = ContactsService(db, "another-workspace").create_contact({"name": "Other", "email": "other@example.test"})
+    first.updated_at = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    last.updated_at = datetime(2025, 1, 2, tzinfo=timezone.utc)
+    other.updated_at = datetime(2025, 1, 3, tzinfo=timezone.utc)
+    db.commit()
+    service = ContactsService(db, WS)
+    assert [row.name for row in service.list_contacts(limit=1, sort="updated")] == ["Zulu"]
+    assert [row.name for row in service.list_contacts()] == ["Alpha", "Zulu"]
 
 
 def _engine_with_fake_remote(db, integration, remote_people):

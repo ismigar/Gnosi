@@ -7008,6 +7008,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/home-canvas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Home Canvas */
+        get: operations["get_home_canvas_api_vault_home_canvas_get"];
+        /** Save Home Canvas */
+        put: operations["save_home_canvas_api_vault_home_canvas_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/images/{image_path}": {
         parameters: {
             query?: never;
@@ -18188,6 +18206,35 @@ export interface components {
             status: "ok";
             /** Vault Configured */
             vault_configured: boolean;
+        };
+        /** HomeCanvasBlock */
+        HomeCanvasBlock: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Settings */
+            settings?: {
+                [key: string]: string;
+            };
+            /**
+             * Width
+             * @enum {integer}
+             */
+            width: 1 | 2 | 3;
+        };
+        /** HomeCanvasState */
+        HomeCanvasState: {
+            /** Blocks */
+            blocks?: components["schemas"]["HomeCanvasBlock"][] | null;
+            /** Revision */
+            revision?: string | null;
+            /**
+             * Start Mode
+             * @default page
+             * @enum {string}
+             */
+            start_mode: "page" | "canvas";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -33560,6 +33607,8 @@ export interface operations {
             query?: {
                 calendar_id?: string | null;
                 email?: string | null;
+                /** @description Expand external recurring events within a time-zone-aware window of up to 25 hours. */
+                expand_instances?: boolean;
                 include_vault?: boolean;
                 search?: string | null;
                 time_max?: string | null;
@@ -35040,7 +35089,9 @@ export interface operations {
     list_contacts_api_contacts_get: {
         parameters: {
             query?: {
+                limit?: number | null;
                 search?: string | null;
+                sort?: "name" | "updated";
                 source?: string | null;
                 type?: string | null;
             };
@@ -44755,6 +44806,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HandwritingWarmupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_home_canvas_api_vault_home_canvas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeCanvasState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_home_canvas_api_vault_home_canvas_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomeCanvasState"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeCanvasState"];
                 };
             };
             /** @description Validation Error */

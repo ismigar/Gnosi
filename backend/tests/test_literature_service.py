@@ -28,6 +28,11 @@ def literature_env(tmp_path, monkeypatch):
     return vault
 
 
+def test_empty_search_history_does_not_create_a_vault_directory(literature_env):
+    assert literature_service.list_searches(literature_env, 5) == []
+    assert not (literature_env / ".gnosi" / "literature").exists()
+
+
 def test_configuration_is_vault_native_and_credentials_are_not_persisted(literature_env):
     saved = literature_service.save_config(literature_env, {
         "contact_email": "research@example.org",

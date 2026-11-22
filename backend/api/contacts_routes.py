@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, Header, HTTPException, Depends, BackgroundTasks, Query
 from backend.config.logger_config import get_logger
 from backend.domains.contacts.schemas import (
     ContactDeleteResponse,
@@ -13,7 +13,7 @@ from backend.data.management_db import get_mgmt_db
 from backend.services.contacts_service import ContactsService
 from backend.services.contacts_sync_engine import ContactsSyncEngine
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext
-from typing import Any, cast
+from typing import Annotated, Any, Literal, cast
 import json
 import asyncio
 import functools
@@ -101,17 +101,20 @@ async def list_contacts(
     source: str | None = None,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
+    *,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+    sort: Literal["name", "updated"] = "name",
 ) -> Any:
     try:
         x_workspace_id = context.workspace_id
-        cache_key = f"{x_workspace_id}:{type}:{search}:{source}"
+        cache_key = json.dumps([x_workspace_id, type, search, source, limit, sort])
         cached = _contacts_cache.get(cache_key)
         if cached is not None:
             return cached
 
         def _fetch() -> list[Contact]:
             service = ContactsService(db, x_workspace_id)
-            return service.list_contacts(type, search, source)
+            return service.list_contacts(type, search, source, limit=limit, sort=sort)
 
         # asyncio.get_event_loop() is deprecated inside async functions and can
         # fail in Python 3.12+. asyncio.to_thread is the modern equivalent.

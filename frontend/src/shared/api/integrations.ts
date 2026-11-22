@@ -1,6 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { requestContextHeaders, type RequestContext } from './request-context';
 
 
 export type IntegrationsDocument = components['schemas']['IntegrationsDocument'];
@@ -25,9 +26,10 @@ export type IntegrationConnectionTestResult =
 
 export async function fetchIntegrations(
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<IntegrationsDocument> {
   return unwrapApiResult<IntegrationsDocument, unknown>(
-    await apiClient.GET('/api/integrations', { signal }),
+    await apiClient.GET('/api/integrations', { signal, headers: requestContextHeaders(context) }),
   );
 }
 

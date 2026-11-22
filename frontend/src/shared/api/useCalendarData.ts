@@ -4,6 +4,8 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { getActiveVaultId } from './vault-context';
+import { currentRequestContext, type RequestContext } from './request-context';
+import { useRequestContext } from '../hooks/useRequestContext';
 
 import {
   dismissMeetingReminder,
@@ -23,12 +25,16 @@ function readForVault<T>(vaultId: string, read: () => Promise<T>): Promise<T> {
   return read();
 }
 
+export function calendarPrincipalKey(context: RequestContext = currentRequestContext()): string {
+  return JSON.stringify([context.workspaceId, context.userId, context.userEmail]);
+}
+
 export const calendarQueryKeys = {
   all: ['calendar'] as const,
   vault: (vaultId = getActiveVaultId()) => ['calendar', vaultId] as const,
-  calendars: (email?: string, vaultId = getActiveVaultId()) => ['calendar', vaultId, 'calendars', email ?? ''] as const,
-  events: (query: CalendarEventsQuery, vaultId = getActiveVaultId()) => ['calendar', vaultId, 'events', query] as const,
-  localSources: (vaultId = getActiveVaultId()) => ['calendar', vaultId, 'local-sources'] as const,
+  calendars: (email?: string, vaultId = getActiveVaultId(), principal = calendarPrincipalKey()) => ['calendar', vaultId, 'calendars', email ?? '', principal] as const,
+  events: (query: CalendarEventsQuery, vaultId = getActiveVaultId(), principal = calendarPrincipalKey()) => ['calendar', vaultId, 'events', query, principal] as const,
+  localSources: (vaultId = getActiveVaultId(), principal = calendarPrincipalKey()) => ['calendar', vaultId, 'local-sources', principal] as const,
   reminders: (vaultId = getActiveVaultId()) => ['calendar', vaultId, 'reminders'] as const,
   reminderSettings: (vaultId = getActiveVaultId()) => ['calendar', vaultId, 'reminder-settings'] as const,
 };
@@ -36,22 +42,25 @@ export const calendarQueryKeys = {
 
 export function useCalendarList(email?: string) {
   const vaultId = getActiveVaultId();
+  const context = useRequestContext();
   return useQuery({
-    queryFn: () => readForVault(vaultId, () => fetchCalendarList(email)),
-    queryKey: calendarQueryKeys.calendars(email, vaultId),
+    queryFn: ({ signal }) => readForVault(vaultId, () => fetchCalendarList(email, signal, { ...context, vaultId })),
+    queryKey: calendarQueryKeys.calendars(email, vaultId, calendarPrincipalKey(context)),
   });
 }
 
 
 export function useCalendarEvents(query: CalendarEventsQuery, enabled = true) {
   const vaultId = getActiveVaultId();
+  const context = useRequestContext();
+  const principal = calendarPrincipalKey(context);
   return useQuery<CalendarEvent[]>({
     enabled,
     placeholderData: (data, previousQuery) => (
-      previousQuery?.queryKey[1] === vaultId ? data : undefined
+      previousQuery?.queryKey[1] === vaultId && previousQuery.queryKey[4] === principal ? data : undefined
     ),
-    queryFn: ({ signal }) => readForVault(vaultId, () => fetchCalendarEvents(query, signal)),
-    queryKey: calendarQueryKeys.events(query, vaultId),
+    queryFn: ({ signal }) => readForVault(vaultId, () => fetchCalendarEvents(query, signal, { ...context, vaultId })),
+    queryKey: calendarQueryKeys.events(query, vaultId, principal),
     staleTime: 30_000,
   });
 }

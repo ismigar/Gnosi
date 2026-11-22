@@ -1,4 +1,5 @@
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
+import { emitAppEvent } from '../../../shared/platform/app-events';
 import { moveQueuedPrompt, mutatePromptQueue, queuedDraftStillCurrent, queueStorageKey, restorePromptQueue, type QueuedPrompt } from './promptQueue';
 import { isLearningRequest } from '../../agent-learning';
 import { useState, useRef, useEffect, useEffectEvent, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
@@ -32,7 +33,7 @@ import { useChatScroll } from './useChatScroll';
 export function useAgentChatController({
   storageIdentity = '', contextRefs = [], embedded = false, forcedSessionId = '',
   forcedAgentId = '', notebookId = '', conversationMode = 'private_member', readOnly = false,
-  initiallyOpen = false,
+  initiallyOpen = false, openRequest,
 }: AgentChatProps) {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
@@ -118,6 +119,19 @@ export function useAgentChatController({
     useNotebookConversation(sessionContext);
     const { selectSession, archiveCurrentSession, createNewSession, deleteSessionById } =
         useChatSessionSelection(sessionContext);
+    const handledOpenRequest = useRef<AgentChatProps['openRequest']>(undefined);
+    useEffect(() => {
+        if (!openRequest || embedded || !scopeReady || handledOpenRequest.current === openRequest) return;
+        setIsDockOpen(false);
+        setIsMinimized(false);
+        setIsOpen(true);
+        if (openRequest.sessionId && isLoading) return;
+        handledOpenRequest.current = openRequest;
+        if (openRequest.sessionId) void selectSession(openRequest.sessionId);
+    }, [openRequest, embedded, scopeReady, isLoading, selectSession, setIsDockOpen, setIsMinimized, setIsOpen]);
+    useEffect(() => {
+        if (!embedded && !isOpen) emitAppEvent('gnosi:assistant-closed');
+    }, [embedded, isOpen]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 

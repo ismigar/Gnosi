@@ -55,7 +55,9 @@ vi.mock('../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabl
 vi.mock('../../shared/notifications/toast', () => ({ toast: mocks.toast }));
 vi.mock('../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
 vi.mock('../../shared/api/scheduler', () => ({ runScheduledTask: mocks.runTask }));
-vi.mock('../../shared/platform/app-events', () => ({ emitAppEvent: mocks.emitEvent }));
+vi.mock('../../shared/platform/app-events', async importOriginal => ({
+    ...await importOriginal<typeof import('../../shared/platform/app-events')>(), emitAppEvent: mocks.emitEvent,
+}));
 vi.mock('../../shared/api/reader', async () => {
     const actual = await vi.importActual<typeof import('../../shared/api/reader')>(
         '../../shared/api/reader',

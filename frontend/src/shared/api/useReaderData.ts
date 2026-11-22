@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRequestContext } from '../hooks/useRequestContext';
+import type { RequestContext } from './request-context';
 
 import {
   createReaderSource,
@@ -7,6 +9,7 @@ import {
   fetchReaderArticles,
   fetchReaderInventory,
   fetchReaderPodcastInfo,
+  fetchReaderPodcastStatus,
   fetchReaderSources,
   importReaderOpml,
   markReaderArticleRead,
@@ -24,7 +27,8 @@ export const readerQueryKeys = {
   articles: (query: ReaderArticlesQuery) => ['reader', 'articles', query] as const,
   inventory: (query: ReaderInventoryQuery) => ['reader', 'inventory', query] as const,
   newsletterAccount: ['reader', 'newsletter-account'] as const,
-  podcastInfo: ['reader', 'podcast', 'info'] as const,
+  podcastInfo: (context: RequestContext) => ['reader', 'podcast', 'info', context] as const,
+  podcastStatus: (context: RequestContext) => ['reader', 'podcast', 'status', context] as const,
   sources: ['reader', 'sources'] as const,
 };
 
@@ -188,10 +192,21 @@ export function useMarkReaderArticleRead() {
 }
 
 
-export function useReaderPodcastInfo(enabled = true) {
+export function useReaderPodcastInfo(enabled = true, refetchInterval: number | false = false) {
+  const context = useRequestContext();
   return useQuery({
-    enabled,
-    queryFn: fetchReaderPodcastInfo,
-    queryKey: readerQueryKeys.podcastInfo,
+    enabled, refetchInterval, refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => fetchReaderPodcastInfo(context, signal),
+    queryKey: readerQueryKeys.podcastInfo(context),
+  });
+}
+
+export function useReaderPodcastStatus() {
+  const context = useRequestContext();
+  return useQuery({
+    queryFn: ({ signal }) => fetchReaderPodcastStatus(context, signal),
+    queryKey: readerQueryKeys.podcastStatus(context),
+    refetchInterval: query => query.state.data?.running ? 5_000 : 60_000,
+    refetchOnWindowFocus: true,
   });
 }

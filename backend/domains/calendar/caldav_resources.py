@@ -38,16 +38,17 @@ def caldav_datetime(value: str) -> str:
         raise CalendarProviderError(422, "A timestamp with a time zone is required") from error
 
 
-def event_query(*, uid: str | None = None, time_min: str = "", time_max: str = "") -> str:
-    condition = (
-        '<c:prop-filter name="UID"><c:text-match collation="i;octet">'
-        f"{escape(uid)}</c:text-match></c:prop-filter>"
-        if uid is not None
-        else f'<c:time-range start="{caldav_datetime(time_min)}" '
-        f'end="{caldav_datetime(time_max)}"/>'
-    )
+def event_query(*, uid: str | None = None, time_min: str = "", time_max: str = "", expand_instances: bool = False) -> str:
+    data = "<c:calendar-data/>"
+    if uid is not None:
+        condition = f'<c:prop-filter name="UID"><c:text-match collation="i;octet">{escape(uid)}</c:text-match></c:prop-filter>'
+    else:
+        bounds = f'start="{caldav_datetime(time_min)}" end="{caldav_datetime(time_max)}"'
+        condition = f"<c:time-range {bounds}/>"
+        if expand_instances:
+            data = f"<c:calendar-data><c:expand {bounds}/></c:calendar-data>"
     return f"""<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
-<d:prop><d:getetag/><c:calendar-data/></d:prop><c:filter><c:comp-filter name="VCALENDAR">
+<d:prop><d:getetag/>{data}</d:prop><c:filter><c:comp-filter name="VCALENDAR">
 <c:comp-filter name="VEVENT">{condition}</c:comp-filter>
 </c:comp-filter></c:filter></c:calendar-query>"""
 

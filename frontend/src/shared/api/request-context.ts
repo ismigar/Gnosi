@@ -45,6 +45,16 @@ export interface RequestContext {
   readonly workspaceId: string;
 }
 
+/** Pin a request to its originating scope. Omitted scopes use the client middleware. */
+export function requestContextHeaders(context?: RequestContext): Record<string, string> | undefined {
+  if (!context) return undefined;
+  return {
+    'X-Vault-ID': context.vaultId,
+    'X-Workspace-ID': context.workspaceId,
+    'X-User-ID': context.userId,
+    'X-User-Email': context.userEmail,
+  };
+}
 
 export function currentRequestContext(): RequestContext {
   return {

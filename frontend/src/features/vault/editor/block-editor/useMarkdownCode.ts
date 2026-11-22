@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { patchVaultPage } from '../../../../shared/api/vaults';
+import { useRequestContext } from '../../../../shared/hooks/useRequestContext';
+import { recordPersonalNoteEdit } from '../../../../shared/records/personalNoteEdits';
+import { patchEditedPage } from '../patchEditedPage';
 import { toast } from '../../../../shared/notifications/toast';
 import { logError, notifyError } from '../../../../shared/notifications/notifyError';
 import { extractOutgoingPageLinks } from './outgoingLinks';
@@ -11,6 +13,8 @@ export function useMarkdownCode({
     noteFilename, initialContent, metadata, idToTitle, onUpdate, onRefreshNotes, onOutgoingLinksChange, readOnly, registerSave,
 }: MarkdownCodeEditorProps) {
     const { t } = useTranslation();
+    const scope = useRequestContext();
+    const lastEditAt = useRef<number | undefined>(undefined);
     const source = codeContent(initialContent);
     const [draft, setDraft] = useState<MarkdownDraft>(() => ({ source, text: source, dirty: false }));
     // Synchronize a clean draft during rendering, not after paint. Dirty edits
@@ -24,17 +28,20 @@ export function useMarkdownCode({
 
     const save = useCallback(async (text: string, { silent = true } = {}): Promise<boolean> => {
         if (!noteFilename || readOnly) return false;
+        const editedAt = lastEditAt.current;
         const data = { title: metadata?.title || t('editor.untitled'), content: text, metadata: metadata || {} };
         try {
             // Keep responses and disk writes ordered when typing continues
             // during a slow save. A failed write does not block a later retry.
-            const persist = () => patchVaultPage(noteFilename, data);
+            const persist = () => patchEditedPage(scope, noteFilename, data);
             const promise = saveQueue.current ? saveQueue.current.then(persist, persist) : persist();
             saveQueue.current = promise;
             // A mode switch mounts the visual editor before the parent receives
             // the saved response. Publish the draft synchronously for that handoff.
             inFlightSaves.set(noteFilename, { content: text, metadata: data.metadata, promise, timestamp: Date.now() });
-            await promise;
+            const page = await promise;
+            recordPersonalNoteEdit(scope, page, editedAt);
+            if (lastEditAt.current === editedAt) lastEditAt.current = undefined;
             lastSavedText.current = text;
             onUpdate?.(noteFilename, text, { metadata: data.metadata, title: data.title });
             onRefreshNotes?.();
@@ -50,7 +57,7 @@ export function useMarkdownCode({
             else notifyError('save-markdown', error, t('editor.markdown_save_error'));
             return false;
         }
-    }, [noteFilename, metadata, onUpdate, onRefreshNotes, readOnly, t]);
+    }, [noteFilename, metadata, onUpdate, onRefreshNotes, readOnly, scope, t]);
     const latestSave = useRef(save);
     useLayoutEffect(() => {
         latestSave.current = save;
@@ -102,6 +109,7 @@ export function useMarkdownCode({
 
     const onChange = (text: string) => {
         if (readOnly) return;
+        lastEditAt.current = Date.now();
         setDraft(previous => ({ ...previous, dirty: true, text }));
         onOutgoingLinksChange?.(extractOutgoingPageLinks(text, idToTitle, noteFilename || ''));
     };

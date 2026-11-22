@@ -1,5 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
+import { requestContextHeaders, type RequestContext } from './request-context';
 import { assertApiSuccess, unwrapApiResult } from './errors';
 
 
@@ -48,9 +49,11 @@ export interface NotebookSourcesQuery {
 export async function fetchNotebooks(
   query: NotebookListQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<NotebookPage> {
   return unwrapApiResult<NotebookPage, unknown>(
     await apiClient.GET('/api/notebooks', {
+      headers: context && requestContextHeaders(context),
       params: {
         query: {
           page: query.page,

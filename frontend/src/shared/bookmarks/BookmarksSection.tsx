@@ -63,7 +63,8 @@ function ScopedBookmarks({ onPageSelect, pages, activePageId, expanded: controll
   const createView = () => {
     if (!currentView) return;
     const current = pages.find((page) => page.id === activePageId);
-    const label = current?.title || document.title.replace(/\s*[·|—]\s*Gnosi.*$/u, '').trim() || t('bookmarks.route', 'Gnosi view');
+    const viewTitle = document.title === t('home_canvas.window_title') ? '' : document.title.replace(/\s*[·|—]\s*Gnosi.*$/u, '').trim();
+    const label = current?.title || viewTitle || t('bookmarks.route', 'Gnosi view');
     setActionError(null); setActionsOpen(false); setLocalExpanded(true); onExpandedChange?.(true);
     setDraft(normalizeBookmarkDestination({ id: crypto.randomUUID(), kind: 'route', label: bookmarkLabel(label), target: currentView, group: '' }));
   };

@@ -1,21 +1,14 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Layout } from '../shared/ui/layout/Layout';
-import HomePage from './HomePage';
-
-
-const mocks = vi.hoisted(() => ({
-  emitAppEvent: vi.fn(),
-  isEnabled: vi.fn((pluginId: string) => pluginId === 'contacts'),
-}));
 
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key,
+    i18n: { language: 'en' },
   }),
 }));
 
@@ -29,15 +22,6 @@ vi.mock('../shared/hooks/useMediaQuery', () => ({
   useMediaQuery: () => false,
 }));
 
-
-vi.mock('../shared/plugins/usePlugins', () => ({
-  usePlugins: () => ({ isEnabled: mocks.isEnabled }),
-}));
-
-
-vi.mock('../shared/platform/app-events', () => ({
-  emitAppEvent: mocks.emitAppEvent,
-}));
 
 
 const reactTestGlobal = globalThis as typeof globalThis & {
@@ -117,25 +101,4 @@ describe('shell pages', () => {
     expect(container.textContent).toContain('Connections');
   });
 
-  it('filters plugin modules and opens settings through the typed event bus', () => {
-    act(() => {
-      root.render(
-        <MemoryRouter>
-          <HomePage />
-        </MemoryRouter>,
-      );
-    });
-
-    expect(container.textContent).toContain('Research');
-    expect(container.textContent).toContain('Contacts');
-    expect(container.textContent).not.toContain('Mail (Inbox)');
-    const settings = container.querySelector('[data-testid="home-settings-card"]');
-    if (!(settings instanceof HTMLButtonElement)) {
-      throw new Error('Settings card was not rendered');
-    }
-    act(() => {
-      settings.click();
-    });
-    expect(mocks.emitAppEvent).toHaveBeenCalledWith('open-settings', null);
-  });
 });

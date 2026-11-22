@@ -1,6 +1,8 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { APP_PREVIEW_LIMIT, rememberAppPreview } from './app-previews';
+import { currentRequestContext, requestContextHeaders } from './request-context';
 
 
 export type SocialStream = components['schemas']['Stream'];
@@ -142,9 +144,15 @@ export async function scheduleSocialPosts(
 
 
 export async function fetchScheduledSocialPosts(): Promise<ScheduledSocialPost[]> {
-  return unwrapApiResult<ScheduledSocialPost[], unknown>(
-    await apiClient.GET('/api/social/scheduled'),
+  const scope = currentRequestContext();
+  const posts = unwrapApiResult<ScheduledSocialPost[], unknown>(
+    await apiClient.GET('/api/social/scheduled', { headers: requestContextHeaders(scope) }),
   );
+  const upcoming = [...posts].sort((a, b) => Date.parse(a.scheduled_time) - Date.parse(b.scheduled_time));
+  rememberAppPreview('social', scope, upcoming.slice(0, APP_PREVIEW_LIMIT).map(post => ({
+    id: post.id, title: post.content, date: post.scheduled_time, detail: post.networks.join(', '),
+  })));
+  return posts;
 }
 
 

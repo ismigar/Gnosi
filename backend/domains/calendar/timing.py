@@ -22,6 +22,7 @@ from time import perf_counter
 from typing import Literal, ParamSpec, TypeVar
 
 from backend.utils.request_profile import RequestProfile, start_request_profile
+from backend.domains.calendar.cache_scope import calendar_cache_owner, calendar_cache_scope
 
 Phase = Literal[
     "total", "queue", "integrations", "calendars", "events", "hidden_db",
@@ -109,17 +110,19 @@ def calendar_worker_map(
     executor: ThreadPoolExecutor, function: Callable[[_A], _T], items: Sequence[_A]
 ) -> list[_T]:
     timing = _CURRENT.get()
-    if timing is None:
+    owner = calendar_cache_owner.get()
+    if timing is None and not owner:
         return list(executor.map(function, items))
     # Diagnostics must not propagate vault/auth ContextVars that the normal
-    # executor does not inherit. Share only the locked timing accumulator.
+    # executor does not inherit. Workers share the cache key and timing accumulator.
 
     def run(item: _A) -> _T:
         token = _CURRENT.set(timing)
         try:
-            if timing._profile is not None:
-                return timing._profile.run(function, item)
-            return function(item)
+            with calendar_cache_scope(owner):
+                if timing is not None and timing._profile is not None:
+                    return timing._profile.run(function, item)
+                return function(item)
         finally:
             _CURRENT.reset(token)
 

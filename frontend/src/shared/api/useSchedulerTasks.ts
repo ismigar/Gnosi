@@ -12,7 +12,7 @@ export const schedulerTaskQueryKey = ['scheduler', 'tasks'] as const;
 
 export function useScheduledTasks() {
   return useQuery({
-    queryFn: fetchScheduledTasks,
+    queryFn: ({ signal }) => fetchScheduledTasks(signal),
     queryKey: schedulerTaskQueryKey,
   });
 }

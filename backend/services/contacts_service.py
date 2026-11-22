@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,9 @@ class ContactsService:
         contact_type: Optional[str] = None,
         search: Optional[str] = None,
         source: Optional[str] = None,
+        *,
+        limit: int | None = None,
+        sort: Literal["name", "updated"] = "name",
     ) -> List[Contact]:
         query = self.db.query(Contact).filter(Contact.workspace_id == self.workspace_id)
 
@@ -37,7 +40,11 @@ class ContactsService:
                 | (Contact.company.ilike(search_term))
             )
 
-        return query.order_by(Contact.name).all()
+        if sort == "updated":
+            query = query.order_by(Contact.updated_at.desc(), Contact.id)
+        else:
+            query = query.order_by(Contact.name)
+        return (query.limit(limit) if limit is not None else query).all()
 
     def get_contact(self, contact_id: str) -> Optional[Contact]:
         return (

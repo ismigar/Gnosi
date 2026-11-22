@@ -1,6 +1,6 @@
 """Reader podcast generation and download HTTP routes."""
 
-import os
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, cast
 
@@ -50,33 +50,26 @@ def get_podcast_status() -> RouteReturn:
     }
 
 
-def get_podcast_info() -> RouteReturn:
-    """Returns information about the last generated podcast"""
-    import os
-    from datetime import datetime
-
+def _latest_episode() -> Path | None:
     from backend.services.audio_summarizer import get_podcast_output_dir
 
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    pod_dir.mkdir(parents=True, exist_ok=True)
+    directory = get_podcast_output_dir()
+    try:
+        return max((item for item in directory.iterdir() if item.suffix == ".mp3" and item.is_file()), default=None)
+    except FileNotFoundError:
+        return None
 
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
+
+def get_podcast_info() -> RouteReturn:
+    """Returns information about the last generated podcast"""
+    episode = _latest_episode()
+    if episode is None:
         return {"exists": False}
-
-    latest_file = sorted(files, reverse=True)[0]
-    # Previous bug: file_path was built using AUDIO_OUTPUT_DIR (config.paths.AUDIO)
-    # but the files lived in pod_dir → getmtime failed with FileNotFoundError.
-    file_path = os.path.join(pod_dir, latest_file)
-
-    # Get the modification date
-    mtime = os.path.getmtime(file_path)
-    dt = datetime.fromtimestamp(mtime)
+    dt = datetime.fromtimestamp(episode.stat().st_mtime).astimezone()
 
     return {
         "exists": True,
-        "filename": latest_file,
+        "filename": episode.name,
         "created_at": dt.isoformat(),
         "formatted_date": dt.strftime("%d/%m/%Y"),
         "formatted_time": dt.strftime("%H:%M"),
@@ -85,22 +78,10 @@ def get_podcast_info() -> RouteReturn:
 
 def get_latest_podcast() -> RouteReturn:
     """Download/Stream the most recent podcast"""
-    from backend.services.audio_summarizer import get_podcast_output_dir
-
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    if not os.path.exists(pod_dir):
+    episode = _latest_episode()
+    if episode is None:
         raise HTTPException(status_code=404, detail="No podcasts available")
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    # Sort files by name (which contains the date format YYYY_MM_DD) to get the latest
-    latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(pod_dir, latest_file)
-
-    return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+    return FileResponse(episode, media_type="audio/mpeg", filename="gnosi_daily.mp3")
 
 
 def register_routes(router: APIRouter) -> None:

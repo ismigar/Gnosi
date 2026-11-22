@@ -21,6 +21,8 @@ import {
 } from '../../shared/api/usePlanningData';
 import type { PlanningLevelingProposal } from '../../shared/api/planning';
 import { getActiveVaultId } from '../../shared/api/vault-context';
+import { APP_PREVIEW_LIMIT, rememberAppPreview } from '../../shared/api/app-previews';
+import { useRequestContext } from '../../shared/hooks/useRequestContext';
 import type { VaultPageReference } from '../../shared/api/vaults';
 import {
     fetchVaultPageReferencesByTable,
@@ -62,6 +64,7 @@ const PlanningTimeline = VaultTimeline as unknown as ComponentType<
 
 export default function ProjectPlanningPage() {
     const vaultId = getActiveVaultId();
+    const context = useRequestContext();
     const { getPluginSettings, loaded: pluginsLoaded, loadError: pluginsLoadError } = usePlugins();
     const projectTableId = projectTableIdFromSettings(
         getPluginSettings('project-planning'),
@@ -69,14 +72,14 @@ export default function ProjectPlanningPage() {
     const projectsQuery = useQuery({
         enabled: pluginsLoaded && Boolean(projectTableId),
         staleTime: 0,
-        queryKey: planningQueryKeys.projectReferences(projectTableId ?? ''),
-        queryFn: ({ signal }) => fetchVaultPageReferencesByTable(
-            projectTableId ?? '',
-            { include_templates: false },
-            signal,
-        ),
+        queryKey: [...planningQueryKeys.projectReferences(projectTableId ?? ''), context],
+        queryFn: async ({ signal }) => {
+            const rows = await fetchVaultPageReferencesByTable(projectTableId ?? '', { include_templates: false }, signal, context);
+            if (!signal.aborted) rememberAppPreview('planning', context, rows.slice(0, APP_PREVIEW_LIMIT), projectTableId);
+            return rows;
+        },
     });
-    const [projectId, setProjectId] = useState('default');
+    const [projectId, setProjectId] = useState(() => new URLSearchParams(window.location.search).get('project') || 'default');
     const visibleProjects = projectTableId ? projectsQuery.data ?? [] : [];
     const selectedProjectId = projectTableId
         ? visibleProjects.find((project) => project.id === projectId)?.id
