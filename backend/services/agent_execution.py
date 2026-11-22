@@ -529,7 +529,7 @@ async def _build_output_repair(request: AgentOperation, builder: RepairBuilder |
         await require_active()
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None, observe_model_output: Callable[[str, bool], None] | None = None) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
@@ -605,6 +605,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     raise
                 messages = [*messages, *handoff.messages]
                 continue
+            # A reviewer may return a new objection alongside an invalid answer.
+            # Reading persists those observations before a schema, amendment or
+            # retry budget can reject the response. Other operations omit the hook.
+            if observe_model_output is not None:
+                require_active()
+                await asyncio.to_thread(observe_model_output, text, partial_repair is not None)
             try:
                 try:
                     text = _validate_output(text, response_schema)
@@ -669,13 +675,14 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             _run.reset(run_token)
 
 
-def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, draft_schema: dict[str, Any] | None = None) -> AgentRun:
+def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, draft_schema: dict[str, Any] | None = None, observe_model_output: Callable[[str, bool], None] | None = None) -> AgentRun:
     # Sync services run in worker threads. Reject accidental event-loop blocking.
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator,
-                                           output_repair=output_repair, draft_schema=draft_schema))
+                                           output_repair=output_repair, draft_schema=draft_schema,
+                                           observe_model_output=observe_model_output))
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 
