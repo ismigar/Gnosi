@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
-from typing import Any, Never, TYPE_CHECKING
+from typing import Any, Never, TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
@@ -57,6 +57,11 @@ def _validated_structured_output(text: str, selection: QuoteSelection | None, dr
     return text if selection else json.dumps(answer, ensure_ascii=False)
 
 
+class _OutputOptions(TypedDict, total=False):
+    draft_schema: dict[str, Any]
+    observe_model_output: Callable[[str, bool], None]
+
+
 def _draft_schema(envelope: Any, selection: QuoteSelection | None, paired_reader: bool) -> dict[str, Any] | None:
     # Keep strict contracts on the provider request. Store provisional siblings
     # locally so a rejected passage cannot erase a paid decision on another.
@@ -65,9 +70,9 @@ def _draft_schema(envelope: Any, selection: QuoteSelection | None, paired_reader
     return selection.draft_schema() if selection and paired_reader else None
 
 
-def _observe_audit_findings(text: str, validate: Callable[[dict[str, object]], None], seen: dict[str, None]) -> str:
+def _observe_audit_findings(text: str, amendment: bool, validate: Callable[[dict[str, object]], None], seen: dict[str, None]) -> str:
     import jsonschema
-    from backend.domains.llm_wiki.audit_amendments import open_findings
+    from backend.domains.llm_wiki.audit_amendments import open_findings, amendment_findings
     from backend.services.agent_execution import _validate_output
     try:
         normalized = _validate_output(text, {"type": "object"})
@@ -75,6 +80,8 @@ def _observe_audit_findings(text: str, validate: Callable[[dict[str, object]], N
     except (ValueError, jsonschema.ValidationError):
         return text
     issues = list(open_findings(proposal).values())
+    if amendment:
+        issues.extend(amendment_findings(proposal))
     seen.update(dict.fromkeys(issues))
     record = getattr(validate, "record_findings", None)
     if issues and record:
@@ -314,17 +321,14 @@ class ReadingRuntime:
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
                          and envelope.get("phase") in {"source-repair", "source-audit", "source-audit-batch", "verify"})
         individual = source_review and envelope["phase"] == "source-audit"
-        # The provider receives the strict contract. Observe parseable findings before
-        # any domain rejection, follow-up reservation, cancellation or parent restart.
-        admitted_schema = {"type": "object"} if individual and hasattr(validate, "record_findings") else draft_schema
         audit_findings: dict[str, None] = {}
+        def observe(text: str, amendment: bool) -> None:
+            _observe_audit_findings(text, amendment, validate, audit_findings)
         def checked(text: str) -> str:
-            if individual:
-                text = _observe_audit_findings(text, validate, audit_findings)
             return _validated_structured_output(text, selection, draft_schema, source_review, validate)
         def repair(text: str, error: Exception) -> OutputRepair | None:
             if individual:
-                text = _observe_audit_findings(text, validate, audit_findings)
+                text = _observe_audit_findings(text, False, validate, audit_findings)
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
             operation = self._reading_operation(operation_prompt, schema, timeout, envelope)
@@ -337,8 +341,12 @@ class ReadingRuntime:
                     return self.recover_audit(prompt, validate, timeout, literal_only=True)
                 except ReadingCheckpointUnavailable:
                     pass
-            result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair,
-                **({"draft_schema": admitted_schema} if admitted_schema is not None else {}))
+            options: _OutputOptions = {}
+            if draft_schema is not None:
+                options["draft_schema"] = draft_schema
+            if individual:
+                options["observe_model_output"] = observe
+            result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair, **options)
         except (ValueError, jsonschema.ValidationError) as error:
             _structured_error(error, audit_findings, source_review, selection)
         return selection.restore(result.result, draft_schema=draft_schema) if selection else result.result, result.model

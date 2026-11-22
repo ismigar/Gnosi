@@ -294,7 +294,7 @@ def test_a_paid_individual_assessment_with_an_unlocatable_pdf_quote_reopens_only
     assert receipt["answer"]["evidence_quote"] == valid
 
 
-@pytest.mark.parametrize("stop", ["budget", "budget_with_open_disposition", "invalid_amendment"])
+@pytest.mark.parametrize("stop", ["budget", "budget_with_open_disposition", "invalid_amendment", "revised_audit", "unresolved_patch"])
 def test_every_paid_objection_survives_an_interrupted_amendment(runtime, monkeypatch, tmp_path, stop):
     from backend.services import agent_execution as execution, ai_usage_ledger as ledger
     from backend.services.agent_execution_scope import execution_scope
@@ -317,8 +317,20 @@ def test_every_paid_objection_survives_an_interrupted_amendment(runtime, monkeyp
     if stop == "budget_with_open_disposition":
         first_audit.update(unresolved_issues=findings[1:2], finding_resolutions={"issue_1": {
             "status": "unresolved", "reason": findings[2]}})
-    answers = [grouped, first_audit, {"findings": {}, "correction": {"keep_changes": {}}},
-               decision(3), {"summary": "Experience qualifies the opponent's claim."}]
+    amendment = {"findings": {}, "correction": {"keep_changes": {}}}
+    if stop == "revised_audit":
+        new_issues = ["What kind of experience?", "Does the author offer an alternative?"]
+        revised = {**decision(1), "unresolved_issues": new_issues}
+        amendment = {"findings": {name: {"status": "addressed", "reason": reason, "evidence_excerpt": 1}
+                                  for name, reason in (("issue_1", " "), ("issue_2", "The text attributes the claim."))},
+                     "correction": {"revised_audit": revised, "prior_changes": {}}}
+        findings.extend(new_issues)
+        reasons.extend([{"status": "source_limitation", "reason": "The short original does not specify this."}] * 2)
+    if stop == "unresolved_patch":
+        findings.append("Does the opponent qualify the claim?")
+        reasons.append({"status": "addressed", "reason": "The original attributes an unqualified position to the opponent."})
+        amendment["findings"] = {"issue_1": {"status": "unresolved", "reason": findings[-1], "evidence_excerpt": 1}}
+    answers = [grouped, first_audit, amendment, decision(len(findings)), {"summary": "Experience qualifies the opponent's claim."}]
     class Responses:
         def __getitem__(self, index):
             if stop.startswith("budget"):

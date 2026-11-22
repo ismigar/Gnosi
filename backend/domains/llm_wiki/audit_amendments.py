@@ -50,6 +50,16 @@ def open_findings(proposal: dict[str, Any]) -> dict[str, str]:
     return issues
 
 
+def amendment_findings(proposal: dict[str, Any]) -> list[str]:
+    """Read observations independently of whether another part of the amendment is valid."""
+    correction = record(proposal.get("correction"))
+    revised = record(correction.get("revised_audit"))
+    # The amendment's findings are dispositions of observations from the
+    # original audit. Each unresolved reason can report further evidence.
+    dispositions = {"finding_resolutions": proposal.get("findings")}
+    return [*open_findings(revised).values(), *open_findings(dispositions).values()]
+
+
 def _repairable_slots(selection: QuoteSelection, text: str, proposed: dict[str, Any],
                       validate: Callable[[dict[str, object]], None], error: Exception) -> list[CitationSlot] | None:
     try:
