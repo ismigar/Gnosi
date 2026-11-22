@@ -47,6 +47,12 @@ _RAW_AMBIGUOUS = re.compile(
     r"\b(?:and|then|also|but|while|despres|tambe|pero|mentre|y|luego|tambien|mientras|et|puis|aussi|mais)\b|(?<=\s)i\b|"
     r"\b(?:attached|previous|above|below|adjunt\w*|anterior\w*|precedent\w*|ci-dessus|"
     r"reader|lector|lecteur|vault|attachment|fichier|document|fitxer|archivo|url|"
+    # An unquoted description of a passage in a named source needs retrieval.
+    # Quoted passages have already been delimited and bypass this disambiguation.
+    r"notes?|notas?|notebooks?|quaderns?|cahiers?|cuadernos?|pages?|pagines?|paginas?|"
+    r"articles?|articulos?|repl(?:y|ies)|respostes?|respostas?|respuestas?|reponses?|"
+    r"paragraphs?|paragrafs?|parrafos?|paragraphes?|sentences?|phrases?|frases?|passages?|passatges?|pasajes?|"
+    r"highlight(?:ed)?|underlined|marked|ressalt\w*|subratll\w*|subray\w*|surlign\w*|souligne\w*|marcad\w*|"
     r"gmail|email|mail|inbox|correo|correu|courriel|zotero|notion|"
     r"latest|selected|derni[èe]r\w*|darrer\w*|ultim\w*|seleccion\w*)\b|"
     r"^(?:it|this|that|aixo|aquesta?|esto|eso|cela|ca)(?: (?:sentence|text[oe]?|paragraph|"
