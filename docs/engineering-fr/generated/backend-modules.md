@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 647 | 126498 |
+| `domains` | 647 | 126501 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1146 modules** and **216971 source lines**.
+Total: **1146 modules** and **216974 source lines**.
 
 ## agent
 
@@ -377,7 +377,7 @@ Total: **1146 modules** and **216971 source lines**.
 | [`backend/domains/literature/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/storage.py) | 70 | 0 | 8 | 0 | 0 | Vault-native files and local SQLite storage for literature workflows. |
 | [`backend/domains/literature/sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/sync.py) | 509 | 0 | 11 | 0 | 4 | Durable academic repository and saved-review synchronization. |
 | [`backend/domains/llm_wiki/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed LLM Wiki extraction and provenance domains. |
-| [`backend/domains/llm_wiki/audit_amendments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_amendments.py) | 181 | 0 | 9 | 0 | 1 | Adjudicate a source audit's open findings without regenerating accepted prose. |
+| [`backend/domains/llm_wiki/audit_amendments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_amendments.py) | 184 | 0 | 9 | 0 | 1 | Adjudicate a source audit's open findings without regenerating accepted prose. |
 | [`backend/domains/llm_wiki/audit_checkpoint_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_checkpoint_provenance.py) | 135 | 1 | 6 | 0 | 2 | Bind an audit to the documents actually cited by the reviewed drafts. |
 | [`backend/domains/llm_wiki/audit_citation_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_citation_repairs.py) | 235 | 4 | 9 | 0 | 3 | Offer a reviewer highlightable excerpts for individual rejected citations. |
 | [`backend/domains/llm_wiki/audit_findings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_findings.py) | 67 | 1 | 7 | 0 | 1 | Keep each outstanding observation attached to its original until Sol accounts for it. |
