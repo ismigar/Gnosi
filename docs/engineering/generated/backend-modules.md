@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 643 | 125672 |
+| `domains` | 643 | 125673 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1142 modules** and **215899 source lines**.
+Total: **1142 modules** and **215900 source lines**.
 
 ## agent
 
@@ -421,7 +421,7 @@ Total: **1142 modules** and **215899 source lines**.
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 126 | 0 | 6 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 30 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
 | [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 152 | 0 | 5 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
-| [`backend/domains/llm_wiki/review_draft_batches.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/review_draft_batches.py) | 270 | 1 | 9 | 0 | 1 | Audit multiple notes on one original within a smaller reviewer's context. |
+| [`backend/domains/llm_wiki/review_draft_batches.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/review_draft_batches.py) | 271 | 1 | 9 | 0 | 1 | Audit multiple notes on one original within a smaller reviewer's context. |
 | [`backend/domains/llm_wiki/review_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/review_selection.py) | 74 | 0 | 5 | 0 | 1 | Select independent checks from source structure and saved reading observations. |
 | [`backend/domains/llm_wiki/review_synthesis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/review_synthesis.py) | 87 | 0 | 3 | 0 | 0 | Ground the final synthesis in accepted changes, including their exact quotations. |
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
