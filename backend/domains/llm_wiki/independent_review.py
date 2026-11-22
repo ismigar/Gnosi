@@ -136,11 +136,15 @@ def audit_payload(primary: dict[str, object], drafts: list[dict[str, object]], s
             "output_schema": audit_schema(len(drafts), dimensions)}
 
 
-def fits_review(reviewer: ReviewRuntime, phase: str, title: str, language: str, payload: dict[str, object]) -> bool:
+def fits_review(reviewer: ReviewRuntime, phase: str, title: str, language: str, payload: dict[str, object],
+                *, canonical: bool = False) -> bool:
     prompt = encoded({"phase": phase, "resource": title, "language": language, **payload})
     # Exact runtime counting is needed only near the limit. Even a byte tokenizer
     # with repeated schema and JSON escaping fits under this conservative shortcut.
-    return len(prompt.encode()) * 6 + 4096 <= reviewer.input_budget or reviewer.count_tokens(prompt) <= reviewer.input_budget
+    count = reviewer.count_tokens
+    if phase == "source-audit" and not canonical:
+        count = getattr(reviewer, "count_structured_tokens", count)
+    return len(prompt.encode()) * 6 + 4096 <= reviewer.input_budget or count(prompt) <= reviewer.input_budget
 
 
 def validate_review_capacity(reviewer: ReviewRuntime, chunks: list[dict[str, object]], dimensions: list[dict[str, object]],
@@ -162,7 +166,8 @@ def original_audit(worker: ContextualReader, reviewer: ReviewRuntime, primary: d
     support = [s for s in evidence if segment_source_key(s) != primary_key]
     payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
     cited = {c["segment_id"] for n in drafts for c in records(n.get("citations"))}
-    if not fits_review(reviewer, "source-audit", worker.title, worker.language, payload):
+    # Paid checkpoints use this original selection of supporting passages in their identity.
+    if not fits_review(reviewer, "source-audit", worker.title, worker.language, payload, canonical=True):
         support = [s for s in support if s["id"] in cited]
         payload = audit_payload(primary, notes, support, coverage, worker.dimensions)
     key = fingerprint([reviewer.identity, worker.title, worker.language, payload, payload["output_schema"]])
@@ -202,7 +207,20 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     if isinstance(answer, dict):
         validate(answer, drafts, evidence)
         return state_key, answer
-    fits = fits_review(reviewer, "source-audit", worker.title, worker.language, context.prompt(payload, audit=True))
+    request = context.prompt(payload, audit=True)
+    fits = fits_review(reviewer, "source-audit", worker.title, worker.language, request)
+    if fits and not fits_review(reviewer, "source-audit", worker.title, worker.language, request, canonical=True):
+        from backend.domains.llm_wiki.review_draft_batches import AuditRanges, review_coverage
+        fits = not AuditRanges(worker, reviewer, primary, key).started(scope)
+        if fits and not drafts:
+            # Empty groups have no saved range. A coverage operation may have committed before the phase write.
+            try:
+                covered = review_coverage(worker, reviewer, primary, coverage, [], key, validate_transport, scope, recover_only=True)
+            except ReadingCheckpointUnavailable:
+                pass
+            else:
+                validate(covered, drafts, evidence)
+                return state_key, covered
     try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
                             lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer,

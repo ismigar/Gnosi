@@ -240,7 +240,8 @@ def test_numbered_audit_citations_bind_to_the_selected_original_and_slice(lookal
         assert before != 2 and after == 3
         sources = wire["support"]
         assert sources[before - 2]["text"] == left["text"]
-        choice = {"evidence_quote": primary["text"], "assessment": "The observation is conditional.", "unresolved_issues": [],
+        assert wire["original"]["evidence_excerpts"]["1"] == primary["text"]
+        choice = {"evidence_quote_id": 1, "assessment": "The observation is conditional.", "unresolved_issues": [],
                   "changes": [{"position": 1, "reason": "Retain the observed condition.", "replacement": {**note, "quotes": [
                       {"source": 1, "text": primary["text"]}, {"source": 2, "text": other["text"]},
                       {"source": before, "text": left["text"]}, {"source": after, "text": right["text"]}]}}]}
