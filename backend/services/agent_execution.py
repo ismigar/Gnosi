@@ -609,7 +609,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             # Reading persists those observations before a schema, amendment or
             # retry budget can reject the response. Other operations omit the hook.
             if observe_model_output is not None:
-                require_active()
+                await require_active()
                 await asyncio.to_thread(observe_model_output, text, partial_repair is not None)
             try:
                 try:
