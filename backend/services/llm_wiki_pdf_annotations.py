@@ -293,9 +293,10 @@ def _zotero_annotation(
 def _resolve_annotation_candidates(
     candidates: dict[str, _CitationCandidate],
     position_resolver: Optional[PositionResolver],
-) -> tuple[dict[str, tuple[_CitationCandidate, dict[str, object]]], list[str]]:
+) -> tuple[dict[str, tuple[_CitationCandidate, dict[str, object]]], list[str], set[str]]:
     """Resolve PDF geometry while reusing opened documents per attachment."""
     resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]] = {}
+    confirmed_misses: set[str] = set()
     warnings: list[str] = []
     documents: dict[str, _PdfDocument] = {}
     indexes: dict[str, dict[int, PageTextIndex]] = {}
@@ -340,6 +341,9 @@ def _resolve_annotation_candidates(
             except Exception as exc:  # noqa: BLE001
                 logger.warning("llm_wiki PDF citation geometry failed: %s", exc)
                 position = None
+            else:
+                if position is None:
+                    confirmed_misses.add(key)
             if position:
                 resolved[key] = (candidate, position)
             else:
@@ -349,7 +353,7 @@ def _resolve_annotation_candidates(
                 )
     finally:
         sources.close()
-    return resolved, warnings
+    return resolved, warnings, confirmed_misses
 
 
 def _select_annotation_highlights(
@@ -490,7 +494,7 @@ def _persist_managed_annotations(
 
 def _reading_citation_geometry(
     notes: list[dict[str, object]], origins: list[dict[str, object]],
-) -> tuple[list[dict[str, _CitationCandidate]], set[str]]:
+) -> tuple[list[dict[str, _CitationCandidate]], set[str], set[str]]:
     """Resolve each original segment in the batch with the same PDF highlight matcher."""
     segments = {str(segment["id"]): (origin, segment) for origin in origins
                 for segment in iterable_values(origin.get("segments") or []) if isinstance(segment, dict)}
@@ -507,10 +511,10 @@ def _reading_citation_geometry(
         groups.append(_citation_candidates([{"citations": citations}], origins, "reading-review"))
     candidates = {key: value for group in groups for key, value in group.items()}
     if not candidates:
-        return groups, set()
+        return groups, set(), set()
     with _READING_GEOMETRY_LOCK:
-        resolved, _ = _resolve_annotation_candidates(candidates, None)
-    return groups, set(resolved)
+        resolved, _, misses = _resolve_annotation_candidates(candidates, None)
+    return groups, set(resolved), misses
 
 
 def reading_pdf_quote_excerpts(
@@ -523,8 +527,9 @@ def reading_pdf_quote_excerpts(
     def locate(choices: list[tuple[str, str]]) -> list[bool | None]:
         notes: list[dict[str, object]] = [
             {"citations": [{"segment_id": segment, "quote": quote}]} for segment, quote in choices]
-        groups, resolved = _reading_citation_geometry(notes, origins)
-        return [set(group).issubset(resolved) if group else None for group in groups]
+        groups, resolved, misses = _reading_citation_geometry(notes, origins)
+        checked = resolved | misses
+        return [resolved.issuperset(group) if group and checked.issuperset(group) else None for group in groups]
 
     return verified_excerpts(evidence, locate, retained)
 
@@ -533,7 +538,7 @@ def reading_citation_issues(
     notes: list[dict[str, object]], origins: list[dict[str, object]],
 ) -> list[list[str]]:
     """Check full PDF geometry before review accepts notes, without writing highlights."""
-    groups, resolved = _reading_citation_geometry(notes, origins)
+    groups, resolved, _ = _reading_citation_geometry(notes, origins)
     return [[f"PDF citation on page {item['page']} cannot be located as one complete, unambiguous highlight: "
              f"{item['quote']!r}. Select a meaningful exact original quote that can be located, or remove this"
              " redundant citation while retaining the note's substantive evidence. Do not discard the idea"
@@ -552,7 +557,7 @@ def sync_generated_pdf_annotations(
     """Keep sparse key-idea highlights while retaining all evidence in the notes."""
     candidates = _citation_candidates(notes, origins, resource_id)
     with _READING_GEOMETRY_LOCK:
-        matched, warnings = _resolve_annotation_candidates(candidates, position_resolver)
+        matched, warnings, _ = _resolve_annotation_candidates(candidates, position_resolver)
     resolved = _select_annotation_highlights(matched)
     # Do not retain a previously guessed prefix highlight when full evidence
     # matching now fails. Unavailable attachments preserve prior annotations.

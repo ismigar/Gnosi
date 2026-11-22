@@ -158,6 +158,37 @@ def test_catalog_overhead_is_checked_before_any_model_call(monkeypatch):
         runtime.generate_structured(original, lambda _: None, 240)
 
 
+def test_pending_review_omits_optional_finding_if_the_constrained_request_exceeds_capacity(monkeypatch):
+    reader, _, request, answer, _ = selection_case()
+    reader.job_id = ""
+    request["phase"] = "source-repair"
+    snapshot = SimpleNamespace(behavior_resources=True, model_dump=lambda **kwargs: {"profile": {}})
+    reviewer = ReadingRuntime("reviewer", "test", "fake", "", 1_000_000, snapshot)
+    operations = []
+    def execute(operation, **kwargs):
+        operations.append(operation)
+        kwargs["output_validator"](encoded(answer))
+        return SimpleNamespace(result=encoded(answer), model="fake")
+    monkeypatch.setattr("backend.services.agent_execution.run_sync", execute)
+    prompts = []
+    generate = reviewer.generate_structured
+    def observe(prompt, validate, timeout):
+        prompts.append(prompt)
+        return generate(prompt, validate, timeout)
+    monkeypatch.setattr(reviewer, "generate_structured", observe)
+    def review(finding):
+        return reader.ask("repair", "source-repair", request, lambda _: None, request["output_schema"],
+                          executor=reviewer, prior_review_issue=finding)
+    finding = "Identify which author qualifies the claim. " * 12
+    expected = review("")
+    assert review(finding) == expected and json.loads(operations[-1].input)["prior_review_issue"] == finding
+    # Both the original operation and the enriched canonical input fit. Only the enriched wire schema overflows.
+    reviewer.input_budget = max(reviewer.count_structured_tokens(prompts[0]), reviewer.count_tokens(prompts[1]))
+    assert reviewer.count_tokens(operations[1].input, output_schema=operations[1].output_schema) > reviewer.input_budget
+    assert review(finding) == expected
+    assert len(operations) == 3 and operations[2].input == operations[0].input
+
+
 def test_semantic_transport_sends_schema_separately_and_preserves_literal_validation(monkeypatch):
     _, _, request, answer, selection = selection_case()
     runtime = ReadingRuntime('test', 'test', 'fake', '', 1_000_000, SimpleNamespace(behavior_resources=True))
