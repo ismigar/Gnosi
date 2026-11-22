@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, previous_passage
 from backend.domains.llm_wiki.audit_citation_repairs import SourceAuditValidator
+from backend.domains.llm_wiki.audit_findings import check_resolutions, named_findings
 from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review, original_audit, restore_audit
 from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
@@ -41,7 +42,7 @@ def note_batch_sources(primary: dict[str, object], subset: list[dict[str, object
 def note_batch_request(primary: dict[str, object], subset: list[dict[str, object]], support: list[dict[str, object]],
                        coverage: list[object], dimensions: list[dict[str, object]]) -> tuple[dict[str, object], list[dict[str, object]]]:
     sources = note_batch_sources(primary, subset, support)
-    payload = audit_payload(primary, [semantic_note(n, dimensions) for n in subset], sources[1:], coverage, dimensions)
+    payload = audit_payload(primary, [semantic_note(n, dimensions) for n in subset], sources[1:], coverage, dimensions, resolve_findings=False)
     payload["instruction"] = ("Check these notes against the original. Return only corrections or exclusions "
         "at their one-based positions, each with a source-grounded reason. The separate coverage pass checks for omissions. "
         "Summarize the supported claims in your assessment and give an exact primary quotation.")
@@ -254,7 +255,10 @@ def review_coverage(worker: ContextualReader, reviewer: ReviewRuntime, primary: 
         request = context.prompt({**payload, "reviewed_claims": items}, audit=True)
         return fits_review(reviewer, "source-audit", worker.title, worker.language, request)
     def audit_coverage(items: list[dict[str, object]], *, checkpoint_only: bool = False) -> dict[str, object]:
-        check = SourceAuditValidator(lambda result: validate(result, [], coverage_sources), worker, coverage_sources)
+        def check_complete(result: dict[str, object]) -> None:
+            check_resolutions(result, named_findings(coverage))
+            validate(result, [], coverage_sources)
+        check = SourceAuditValidator(check_complete, worker, coverage_sources)
         return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
                           check, record(payload["output_schema"]),
                           executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,

@@ -94,7 +94,7 @@ def status(identifier: str, account: BookAccount | None = None) -> dict[str, Any
         return totals(db, identifier, account)
 
 
-def book_status(identifier: str, vault_root: str | Path, table_id: str, resource_id: str) -> dict[str, Any]:
+def book_status(identifier: str, vault_root: str | Path, table_id: str, resource_id: str) -> dict[str, Any] | None:
     with ledger.connect() as db:
         schema(db)
         linked = db.execute("SELECT book_key FROM reading_budget_books WHERE budget_id=?", (identifier,)).fetchone()
@@ -102,7 +102,18 @@ def book_status(identifier: str, vault_root: str | Path, table_id: str, resource
             if linked[0] != _book_key(vault_root, table_id, resource_id):
                 raise ReadingBudgetError("reading_budget_book_mismatch")
             return totals(db, identifier)
-        return totals(db, identifier, book_account(vault_root, table_id, resource_id))
+        account = book_account(vault_root, table_id, resource_id)
+        if not identifier:
+            # A crash can persist the job before its budget ID. The latest
+            # ledger row supplies its limit; every book member contributes usage.
+            members = set(account.history) | _members(db, account.key)
+            row = db.execute("""SELECT id FROM reading_budgets WHERE id IN
+                (SELECT value FROM json_each(?)) ORDER BY rowid DESC LIMIT 1""",
+                (json.dumps(sorted(members)),)).fetchone()
+            if not row:
+                return None
+            identifier = row[0]
+        return totals(db, identifier, account)
 
 
 def _attach_book(db: Any, identifier: str, account: BookAccount) -> None:

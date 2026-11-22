@@ -152,6 +152,8 @@ def test_misspelled_literal_can_only_be_replaced_from_the_numbered_source_with_p
 def test_native_passage_validation_exposes_citation_options_only_after_a_rejection():
     worker, _, _ = setup(count=1)
     primary = {**worker.chunks[0]["segments"][0], "origin_label": "Argument"}
+    anchor = "The author presents an objection."
+    primary["text"] = anchor + " " + primary["text"]
     sources = [primary]
     full = primary["text"]
     short = "experience contradicts this."
@@ -161,7 +163,7 @@ def test_native_passage_validation_exposes_citation_options_only_after_a_rejecti
         return {segment_source_key(primary): {"retained": [(before, len(full))]}}
     worker.dependencies.pdf_quote_excerpts = finder
     def check(notes, _):
-        return [["unlocatable" for c in n["citations"] if c["quote"] != short] for n in notes]
+        return [["unlocatable" for c in n["citations"] if c["quote"] not in (short, anchor)] for n in notes]
     value = {"assessment": "Experience challenges the claim.", "evidence_quote_id": 1,
              "unresolved_issues": [], "changes": [{"position": 0, "reason": "Retain the objection.",
                  "replacement": {"title": "An objection", "body_md": short, "quotes": [full], "properties": {}}}]}

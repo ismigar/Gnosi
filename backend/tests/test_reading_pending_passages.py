@@ -198,6 +198,10 @@ def test_independent_audits_continue_and_synthesis_waits_for_the_last_passage():
             problems = ["Uncertain attribution."] if unresolved and original.startswith("Argument 0:") else []
             answer = {"assessment": "The source supports the claim.", "evidence_quote": original,
                       "unresolved_issues": problems, "changes": []}
+            if any(isinstance(item, dict) for item in request["coverage"]):
+                assert "Uncertain attribution." in json.dumps(request["coverage"])
+                answer["finding_resolutions"] = {"issue_1": {"status": "addressed",
+                    "reason": "The text expressly attributes the initial claim to the opponent."}}
         validate(answer)
         return encoded(answer), "reviewer-model"
 

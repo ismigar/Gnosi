@@ -624,3 +624,5 @@ Una substitució rebutjada perquè repetia el text pot conservar la seva àncora
 L’índex de claus de citació comprova la taula coneguda de la memòria cau abans d’obrir fitxers sense clau. Les taules de tasques o notes no relacionades no provoquen lectures de fitxers al núvol en desar una referència. Les metadades incompletes i els fitxers de la taula de referències conserven la lectura alternativa de la capçalera; si no hi ha una taula de referències configurada, es conserva el comportament anterior sense àmbit de taula.
 
 El diàleg de processament mostra l’equivalent del límit compartit de 5 USD per llibre en la moneda seleccionada. Descompta els càrrecs i les reserves del recurs, inclosos els intents anteriors. Si s’esgota el pressupost, el llibre queda pendent amb els passatges desats.
+
+Cada decisió del revisor correspon a un passatge. Si una resposta té un error de format, es conserven les decisions vàlides dels altres passatges. En reprendre la lectura, el revisor ha de respondre a cada observació pendent i Gnosi comprova la cita de la valoració al PDF abans de fer la síntesi.

@@ -342,3 +342,14 @@ def test_legacy_book_over_cap_stays_paused_without_rewriting_old_charges_or_crea
     with ledger.connect() as db:
         assert db.execute("SELECT count(*) FROM reading_budgets").fetchone()[0] == 2
         assert db.execute("SELECT count(*) FROM reading_budget_books").fetchone()[0] == 0
+
+
+def test_book_status_recovers_history_when_latest_job_lost_its_budget_link(monkeypatch, tmp_path):
+    from backend.services import llm_wiki_storage as jobs
+    old = budget.configure(25)
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("historic", old, "5.50", None))
+    monkeypatch.setattr(jobs, "resource_budget_ids", lambda table, book: (old,) if book == "old-book" else ())
+    status = budget.book_status("", tmp_path, "table", "old-book")
+    assert status == {"id": old, "limit_usd": 5.0, "spent_usd": 0.0, "reserved_usd": 5.5, "remaining_usd": 0.0}
+    assert budget.book_status("", tmp_path, "table", "new-book") is None

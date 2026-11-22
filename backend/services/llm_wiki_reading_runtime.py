@@ -57,6 +57,14 @@ def _validated_structured_output(text: str, selection: QuoteSelection | None, dr
     return text if selection else json.dumps(answer, ensure_ascii=False)
 
 
+def _draft_schema(envelope: Any, selection: QuoteSelection | None, paired_reader: bool) -> dict[str, Any] | None:
+    # Keep strict contracts on the provider request. Store provisional siblings
+    # locally so a rejected passage cannot erase a paid decision on another.
+    if isinstance(envelope, dict) and envelope.get("phase") == "source-audit-batch":
+        return {"type": "object"}
+    return selection.draft_schema() if selection and paired_reader else None
+
+
 def _open_audit_findings(text: str) -> tuple[str, dict[str, str]]:
     import jsonschema
     from backend.domains.llm_wiki.audit_amendments import open_findings
@@ -284,7 +292,7 @@ class ReadingRuntime:
             raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
         paired_reader = (selection is not None and self.skill_id == SKILL_ID and envelope["phase"] == "interpret"
                          and "needs_specialist" in envelope["output_schema"]["properties"]["passages"]["items"]["properties"])
-        draft_schema = selection.draft_schema() if selection and paired_reader else None
+        draft_schema = _draft_schema(envelope, selection, paired_reader)
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
                          and envelope.get("phase") in {"source-repair", "source-audit", "source-audit-batch", "verify"})
         def checked(text: str) -> str:

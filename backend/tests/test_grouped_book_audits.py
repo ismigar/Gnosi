@@ -27,6 +27,12 @@ def decisions(request):
     return output
 
 
+def resolved(request):
+    return {"finding_resolutions": {row["finding_id"]: {"status": "addressed",
+            "reason": "The primary attributes the thesis to the opponent and describes experience as contrary evidence."}
+            for row in request["coverage"] if isinstance(row, dict) and "finding_id" in row}}
+
+
 def configure(reader, call):
     def ask(prompt, validate, timeout):
         req = json.loads(prompt)
@@ -87,7 +93,7 @@ def test_only_the_failed_passage_is_revisited_and_its_finding_survives_a_restart
         assert any(isinstance(c, dict) and c["independent_finding"] for c in request["coverage"])
         if attempts.count(phase) == 1:
             raise PassageReviewIssue("The original still requires interpretation.")
-        return {"assessment": "The passage attributes innate knowledge to the opponent.",
+        return {**resolved(request), "assessment": "The passage attributes innate knowledge to the opponent.",
                 "evidence_quote": request["original"]["text"], "changes": [], "unresolved_issues": []}
     def attach(reader):
         configure(reader, generate)
@@ -119,9 +125,9 @@ def test_batch_rejects_an_omitted_or_unassigned_decision_before_synthesis():
         raise PassageReviewIssue("The full source must be checked individually.")
     reader, _, saved = setup(count=2)
     configure(reader, generate)
-    with pytest.raises(PendingPassagesRemaining, match=": 2"):
+    with pytest.raises(PendingPassagesRemaining, match=": 1"):
         reader.run()
-    assert not saved["new", "semantic-state"]["independent_reviews"]
+    assert len(saved["new", "semantic-state"]["independent_reviews"]) == 1
     assert not saved["new", "semantic-state"].get("independent_synthesis")
 
 
@@ -162,3 +168,127 @@ def test_interrupted_group_operation_is_restored_on_a_new_parent_without_a_secon
     operations = [json.loads(json.loads(call["messages"][0].content)["input"]) for call in calls]
     assert [op["phase"] for op in operations] == ["source-audit-batch", "source-synthesis"]
     assert "output_schema" not in operations[0] and set(operations[0]["passages"]) == {"passage_1", "passage_2"}
+
+
+def test_open_findings_survive_malformed_siblings_and_restarts_until_each_has_a_disposition():
+    group_issue = "Is the opponent the speaker?"
+    individual_issue = "Does the draft retain the qualification on experience?"
+    calls = []
+    def generate(req):
+        phase = req["phase"]
+        calls.append(phase)
+        if phase == "source-audit-batch":
+            result = decisions(req)
+            result["passage_1"]["unresolved_issues"] = [group_issue]
+            result["passage_2"]["assessment"] = None
+            return result
+        if phase == "source-synthesis":
+            return {"summary": "Claims and objections have been separated."}
+        answer = {"assessment": "The opponent claims what experience contradicts.", "changes": [],
+                  "evidence_quote": req["original"]["text"], "unresolved_issues": []}
+        if req["original"]["text"].startswith("Argument 0"):
+            assert group_issue in json.dumps(req["coverage"])
+            if calls.count(phase) == 1:
+                raise PassageReviewIssue(individual_issue)
+            assert individual_issue in json.dumps(req["coverage"])
+            if calls.count(phase) == 3:
+                return answer  # A generic approval cannot close named findings.
+        return {**answer, **resolved(req)}
+    first, _, store = setup(count=3)
+    configure(first, generate)
+    with pytest.raises(PendingPassagesRemaining):
+        first.run()
+    pending, = store["new", "semantic-state"]["pending_audits"].values()
+    assert pending["audit_findings"] == [group_issue, individual_issue]
+    assert len(store["new", "semantic-state"]["independent_reviews"]) == 2
+    for previous, job in [("new", "partial"), ("partial", "finished")]:
+        again, ordinary, _ = setup(count=3, checkpoints=store, resume=previous)
+        again.job_id = job
+        configure(again, generate)
+        if job == "partial":
+            with pytest.raises(PendingPassagesRemaining):
+                again.run()
+            assert not store[job, "semantic-state"].get("independent_synthesis")
+        else:
+            plan, _ = again.run()
+            assert plan["reviewed"] and not store[job, "semantic-state"]["pending_audits"]
+        assert not ordinary
+    receipts = store["finished", "semantic-state"]["independent_reviews"]
+    matching = next(r for r in receipts.values() if group_issue in r.get("audit_findings", []))
+    assert individual_issue in matching["audit_findings"] and len(matching["answer"]["finding_resolutions"]) >= 2
+    assert calls.count("source-audit-batch") == calls.count("source-synthesis") == 1
+
+
+def test_governed_batch_keeps_an_open_finding_when_a_sibling_has_a_schema_error(runtime, monkeypatch):
+    from backend.services import agent_execution as execution
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    from backend.tests.test_agent_execution import install_workflow
+    scope, snapshot = runtime
+    issue = "Check the role assigned to experience."
+    base = {"assessment": "The passage attributes the assertion to the opponent.",
+            "evidence_quote": "The opponent", "unresolved_issues": []}
+    grouped = {"passage_1": {**base, "unresolved_issues": [issue]}, "passage_2": {**base, "assessment": None},
+               "passage_3": base}
+    targeted = {"assessment": "The opponent makes the claim and experience challenges it.",
+                "evidence_quote_id": 1, "unresolved_issues": [], "changes": [], "finding_resolutions": {
+                    "issue_1": {"status": "addressed", "reason": "The original names experience as the counterexample."}}}
+    calls = install_workflow(monkeypatch, [json.dumps(x) for x in
+        (grouped, targeted, targeted, {"summary": "The original attributes each claim to its speaker."})])
+    reader, _, states = setup(count=3)
+    with execution_scope(scope):
+        parent = execution.create_job_run(snapshot, "batch-with-findings", "knowledge.process-source")
+        reader.dependencies.reviewer = ReadingRuntime("personal", "test", "fake", "", 48000, parent,
+                                                     skill_id=parent.skill_ids[0])
+        reader.dependencies.citation_issues = None
+        plan, _ = reader.run()
+    requests = [json.loads(json.loads(call["messages"][0].content)["input"]) for call in calls]
+    assert [r["phase"] for r in requests] == ["source-audit-batch", "source-audit", "source-audit", "source-synthesis"]
+    assert issue in json.dumps(requests[1]["coverage"]) and issue not in json.dumps(requests[2]["coverage"])
+    assert issue in json.dumps(states["new", "semantic-state"]["independent_reviews"]) and plan["reviewed"]
+
+
+def test_a_paid_individual_assessment_with_an_unlocatable_pdf_quote_reopens_only_that_original(tmp_path):
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.origins import finalize_origin
+    from backend.services.llm_wiki_pdf_annotations import reading_citation_issues
+    from backend.tests.test_llm_wiki_pdf_annotations import _demo_pdf, _origin
+    from backend.tests.test_semantic_reading import response
+    valid, invalid = "in this portable PDF fixture", "A cached OCR error"
+    source = finalize_origin({**_origin(_demo_pdf(tmp_path)), "label": "Fixture", "input_order": 0, "segments": [
+        {"text": f"{invalid}. {valid}", "locator": {"page": 1, "paragraph": 1}}]})
+    chunks = reading_chunks([source], budget=2000, count=len)
+    def extract(req):
+        answer = response(req)
+        if req["phase"] == "interpret":
+            for passage in answer["passages"]:
+                passage["notes"][0].update(title="The PDF fixture", body_md="The text refers to a PDF fixture.", quotes=[valid])
+        return answer
+    def historical(req):
+        if req["phase"] == "source-synthesis":
+            raise reading_budget.ReadingBudgetError("paused_before_synthesis")
+        return {"assessment": "The passage concerns a PDF fixture.", "evidence_quote": invalid, "changes": [], "unresolved_issues": []}
+    reader, _, store = setup(generate=extract)
+    reader.origins, reader.chunks = [source], chunks
+    configure(reader, historical)
+    reader.dependencies.reviewer.audit_batch_size = 1
+    reader.dependencies.citation_issues = None  # An older receipt covered only the note quotations.
+    with pytest.raises(reading_budget.ReadingBudgetError):
+        reader.run()
+    resumed, ordinary, _ = setup(generate=extract, checkpoints=store, resume="new")
+    resumed.job_id = "resumed"
+    resumed.origins, resumed.chunks = [source], chunks
+    phases = []
+    def corrected(req):
+        phases.append(req["phase"])
+        if req["phase"] == "source-synthesis":
+            assert req["findings"][0]["quote"] == valid
+            return {"summary": "The cited wording appears in the PDF fixture."}
+        assert req["phase"] == "source-audit"
+        return {"assessment": "The passage concerns the portable PDF fixture.", "evidence_quote": valid, "changes": [], "unresolved_issues": []}
+    configure(resumed, corrected)
+    resumed.dependencies.citation_issues = reading_citation_issues
+    plan, _ = resumed.run()
+    assert plan["reviewed"] and not ordinary and phases == ["source-audit", "source-synthesis"]
+    receipt, = store["resumed", "semantic-state"]["independent_reviews"].values()
+    assert receipt["answer"]["evidence_quote"] == valid

@@ -326,6 +326,11 @@ def quote_selection(request: dict[str, Any], *, number_audit_evidence: bool = Tr
 
 
 def _audit_selection(request: dict[str, Any], number_evidence: bool) -> QuoteSelection | None:
+    if ("finding_resolutions" in request.get("output_schema", {}).get("properties", {})
+            and request.get("original", {}).get("location", {}).get("page")):
+        # A complete sentence from OCR need not be highlightable. A targeted
+        # review may choose a shorter literal and the PDF checker verifies it.
+        number_evidence = False
     if not request.get("pdf_page_pairs") and (not number_evidence or
             "evidence_quote" not in request.get("output_schema", {}).get("properties", {})):
         return None

@@ -573,3 +573,5 @@ Una sustitución rechazada por repetir el texto puede conservar su ancla origina
 El índice de claves de cita comprueba la tabla conocida de la caché antes de abrir archivos sin clave. Las tablas de tareas o notas no relacionadas no provocan lecturas de archivos en la nube al guardar una referencia. Los metadatos incompletos y los archivos de la tabla de referencias conservan la lectura alternativa de la cabecera; si no hay una tabla de referencias configurada, se conserva el comportamiento anterior sin ámbito de tabla.
 
 El diálogo de procesamiento muestra el equivalente del límite compartido de 5 USD por libro en la moneda seleccionada. Descuenta los cargos y las reservas del recurso, incluidos los intentos anteriores. Al agotarse el presupuesto, el libro queda pendiente con los pasajes guardados.
+
+Cada decisión del revisor corresponde a un pasaje. Si una respuesta tiene un error de formato, se conservan las decisiones válidas de los demás pasajes. Al reanudar la lectura, el revisor debe responder a cada observación pendiente y Gnosi comprueba la cita de la valoración en el PDF antes de elaborar la síntesis.
