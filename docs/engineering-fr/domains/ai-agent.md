@@ -853,6 +853,8 @@ Si Gnosi rejette l’interprétation d’un passage, le Réviseur de lecture re�
 
 Lorsque Gnosi ne peut pas surligner une citation entière du PDF, le Réviseur de lecture peut choisir des extraits littéraux plus courts dont Gnosi a vérifié la position sur la même page. Il voit la phrase originale complète. Avant d’enregistrer la correction, Gnosi vérifie la source de chaque extrait retenu et sa position dans le PDF. À la reprise, le réviseur corrige également les citations des brouillons enregistrés qui échouent à cette vérification. Une révision ordinaire peut conserver un extrait court vérifié lorsqu’elle modifie la note.
 
+Lorsqu’un second examen est nécessaire, le réviseur peut conserver les notes proposées et répondre à chaque objection en justifiant sa décision par un extrait du texte original. Si une citation du PDF échoue au contrôle, Gnosi peut proposer des extraits repérés sur la même page de la source. Le réviseur peut également reprendre toute son analyse. Gnosi vérifie les notes et les citations obtenues avant de valider le passage. Le livre reste en attente tant qu’une objection demeure ouverte.
+
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
 déterministe avec un rapport dans la même vue et des propositions de connexion

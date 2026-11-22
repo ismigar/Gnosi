@@ -742,6 +742,8 @@ When a passage draft fails a grounding or coverage check during extraction, the 
 
 If a whole PDF quotation cannot be highlighted, the reviewer can select shorter literal excerpts with verified positions on that page. It sees the complete original sentence when choosing evidence. Each selected excerpt retains its original source and passes the PDF highlight check before Gnosi saves the correction. On resume, the specialist also repairs citations in previously saved drafts that fail this check. Ordinary revisions can retain a verified shorter excerpt after editing the note.
 
+When a second review is needed, the reviewer can keep the proposed notes and answer each open finding with a reason and evidence from the original. For a rejected PDF citation, Gnosi can offer excerpts it has located on the same source page. The reviewer can also revise the entire assessment. Gnosi checks the resulting notes and citations before accepting the passage. Any issue the reviewer leaves open keeps the book pending.
+
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
 connection proposals that refresh and open the existing connection inbox.
