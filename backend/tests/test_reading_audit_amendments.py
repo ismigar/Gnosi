@@ -10,8 +10,9 @@ from backend.domains.llm_wiki.audit_amendments import build_audit_amendment
 from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, SourceAuditValidator, citation_slots
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage
+from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.semantic_quote_contracts import segment_source_key
-from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection, quote_selection
 from backend.services import agent_execution as execution
 from backend.services.agent_execution_scope import execution_scope
 from backend.services.llm_wiki_reading_runtime import ReadingRuntime
@@ -82,7 +83,8 @@ def test_each_previous_finding_is_required_even_when_the_reviewer_revises_the_wh
         answers["issue_2"]["reason"] = " "
     elif action == "new_error":
         revised["changes"][0]["replacement"]["quotes"] = ["invented"]
-    response = encoded({"findings": answers, "correction": {"revised_audit": revised}})
+    response = encoded({"findings": answers, "correction": {"revised_audit": revised, "prior_changes": {
+        "change_1": {"reason": "The revised note retains the qualification.", "evidence_excerpt": 2}}}})
     if action == "resolved":
         actual = json.loads(selection.restore(amendment.restore(response)))
         validate(actual)
@@ -138,7 +140,8 @@ def test_misspelled_literal_can_only_be_replaced_from_the_numbered_source_with_p
     check = SourceAuditValidator(lambda a: apply_changes(a, [], primary, [primary, support], []), worker, [primary, support])
     amendment = build_audit_amendment(selection, encoded(proposal), check, ValueError())
     if not available:
-        assert amendment is None
+        assert "keep_changes" not in encoded(amendment.output_schema)
+        assert json.loads(amendment.input)["findings"] == dict(zip(findings(), proposal["unresolved_issues"]))
         return
     assert json.loads(amendment.input)["citation_choices"] == {"change_1_quote_2": {"1": short}}
     fixed = amendment.restore(encoded({"findings": findings(), "correction": {"keep_changes": {"change_1_quote_2": 1}}}))
@@ -175,13 +178,57 @@ def test_native_passage_validation_exposes_citation_options_only_after_a_rejecti
     assert answer["changes"][0]["replacement"]["quotes"] == [short]
 
 
-def test_a_tight_repair_budget_or_a_second_kind_of_defect_keeps_the_normal_audit_retry():
+def test_a_tight_repair_budget_or_a_second_defect_preserves_the_reviewers_open_findings():
     request, primary, other = audit_case(False)
     selection = quote_selection(request)
     reviewer = ReadingRuntime("r", "test", "fake", "", 64, SimpleNamespace(behavior_resources=True))
     def validate(item):
         apply_changes(item, [], primary, [primary, other], [])
     proposal = previous()
-    assert reviewer._repair_structured("", request, selection, validate, encoded(proposal), ValueError()) is None
+    with pytest.raises(PassageReviewIssue, match="first edition"):
+        reviewer._repair_structured("", request, selection, validate, encoded(proposal), ValueError())
     proposal["changes"][0]["replacement"]["quotes"] = ["absent"]
-    assert build_audit_amendment(selection, encoded(proposal), validate, ValueError()) is None
+    full = build_audit_amendment(selection, encoded(proposal), validate, ValueError())
+    assert "keep_changes" not in encoded(full.output_schema)
+    with pytest.raises(ValueError):
+        full.restore(encoded({**proposal, "unresolved_issues": [], "changes": []}))
+
+
+@pytest.mark.parametrize("paired", [False, True])
+def test_literal_first_operation_can_fully_revise_a_malformed_proposal_only_after_addressing_its_findings(paired):
+    request, primary, support = audit_case(paired)
+    selection = quote_selection(request, number_audit_evidence=False) or QuoteSelection(
+        encoded(request), request["output_schema"], {}, "source-audit", [])
+    original = previous()
+    original["evidence_quote"] = "és incerta."
+    del original["evidence_quote_id"]
+    original["changes"][0]["replacement"]["quotes"] = [{"source": 1, "text": "és incerta."}] if paired else ["és incerta."]
+    first = {**original, "assessment": None}
+    bind = lambda a: apply_changes(a, [], primary, [primary, support], [])
+    plan = build_audit_amendment(selection, encoded(first), bind, ValueError())
+    assert "keep_changes" not in encoded(plan.output_schema)
+    assert "".join(json.loads(plan.input)["original"]["evidence_excerpts"].values()) == primary["text"]
+    second = {"correction": {"revised_audit": {**original, "unresolved_issues": []}, "prior_changes": {
+        "change_1": {"reason": "The note retains the author's qualification.", "evidence_excerpt": 2}}}, "findings": findings()}
+    accepted = json.loads(selection.restore(plan.restore(encoded(second))))
+    bind(accepted)
+    assert accepted["evidence_quote"] == original["evidence_quote"]
+    assert "The edition is unspecified." in accepted["assessment"]
+    del second["correction"]["prior_changes"]["change_1"]
+    with pytest.raises(ValueError):
+        plan.restore(encoded(second))
+
+
+def test_full_review_fits_without_repeating_first_proposals_citations_or_ignoring_findings():
+    request, primary, support = audit_case(False)
+    selection = quote_selection(request)
+    first = previous()
+    seen = []
+    def fits(plan):
+        seen.append(json.loads(plan.input))
+        return "prior_proposals" in seen[-1]
+    plan = build_audit_amendment(selection, encoded(first),
+        lambda a: apply_changes(a, [], primary, [primary, support], []), ValueError(), fits)
+    assert len(seen) == 2 and seen[1]["findings"] == seen[0]["findings"]
+    assert seen[1]["prior_proposals"]["change_1"]["replacement"]["body_md"] == first["changes"][0]["replacement"]["body_md"]
+    assert "keep_changes" not in encoded(plan.output_schema)
