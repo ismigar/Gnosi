@@ -256,7 +256,8 @@ class ContextualReader:
         structured_generate = executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None)
         count = executor.count_tokens if executor else self.dependencies.count_tokens
         capacity = executor.input_budget if executor else self.budget
-        request = _with_prior_review_issue(request, prior_review_issue, count, capacity)
+        count_review = getattr(executor, "count_structured_tokens", count)
+        request = _with_prior_review_issue(request, prior_review_issue, count_review, capacity)
         prompt = encoded(request)
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):

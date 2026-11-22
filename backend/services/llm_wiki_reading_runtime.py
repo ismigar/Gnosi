@@ -75,6 +75,16 @@ class ReadingRuntime:
         serialized = json.dumps([message.model_dump(mode="json")], ensure_ascii=False)
         return count_tokens(serialized, self.model if self.snapshot.behavior_resources else "").tokens
 
+    def count_structured_tokens(self, prompt: str) -> int:
+        """Account for both the canonical request and the quote contract sent to the model."""
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+        canonical = self.count_tokens(prompt)
+        selection = quote_selection(json.loads(prompt))
+        if selection is None:
+            return canonical
+        operation = compact_structured_input(selection.input)
+        return max(canonical, self.count_tokens(operation, output_schema=selection.schema))
+
     @property
     def identity(self) -> str:
         frozen = self.snapshot.model_dump(exclude={"parent_run_id", "origin", "catalog_revision", "revision"})

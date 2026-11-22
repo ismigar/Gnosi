@@ -13,6 +13,23 @@ from backend.services.llm_wiki_pdf_annotations import reading_citation_issues, r
 from backend.tests.test_llm_wiki_pdf_annotations import _demo_pdf, _origin
 
 
+@pytest.mark.parametrize("file_exists", [False, True], ids=["offline", "unreadable"])
+def test_unavailable_pdf_preserves_literal_choices_until_geometry_can_be_checked(tmp_path, file_exists):
+    pdf = tmp_path / "attachment.pdf"
+    if file_exists:
+        pdf.write_bytes(b"Unreadable PDF for this attempt")
+    segment = {"id": "cached", "text": "The original sentence.", "locator": {"page": 1}}
+    origins = [{**_origin(pdf), "segments": [segment]}]
+    choices = reading_pdf_quote_excerpts([segment], origins)
+    assert choices == {}
+    request = {"phase": "source-repair", "reading_engine": "semantic", "primary_passages": [source_view(segment)],
+               "output_schema": interpretation_schema(1, []), "verified_pdf_excerpts": choices}
+    selection = quote_selection(request)
+    assert selection.quotes == {1: segment["text"]} and selection.primary_ids == [[1]]
+    notes = [{"citations": [{"segment_id": segment["id"], "quote": segment["text"]}]}]
+    assert reading_citation_issues(notes, origins)[0]
+
+
 def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_path):
     pdf = _demo_pdf(tmp_path)
     text = "Persistent citation highlights span multiple lines unread\u00ad able in this portable PDF fixture"
