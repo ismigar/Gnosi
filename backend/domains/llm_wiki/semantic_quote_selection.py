@@ -123,7 +123,8 @@ class QuoteSelection:
 
     def _restore_audit(self, answer: dict[str, Any]) -> None:
         if self.audit_evidence:
-            answer["evidence_quote"] = self.audit_evidence[answer.pop("evidence_quote_id") - 1]
+            number = int(answer.pop("evidence_quote_id"))
+            answer["evidence_quote"] = self.audit_evidence[number - 1]
         if not self.quote_sources:
             return
         for change in answer["changes"]:
@@ -330,8 +331,9 @@ def _audit_selection(request: dict[str, Any], number_evidence: bool) -> QuoteSel
         schema["required"] = ["evidence_quote_id" if name == "evidence_quote" else name for name in schema["required"]]
         payload["instruction"] += (
             " Choose the evidence_quote_id from the primary original's numbered evidence_excerpts that supports your assessment. Gnosi supplies its"
-            " exact text. Explain any support from other pages and the source's own uncertainties in assessment."
-            " Preserve genuine unresolved defects in unresolved_issues.")
+            " exact text. Explain support from other pages and limitations of the source (including damaged text)"
+            " in assessment. Judge the drafts after your corrections. Keep any unsupported or missing substantive"
+            " claim that your changes cannot resolve in unresolved_issues.")
     if not payload.get("pdf_page_pairs"):
         return QuoteSelection(encoded(payload), schema, {}, "source-audit", [], audit_evidence=evidence) if evidence else None
     return _bound_audit_selection(request, payload, evidence)

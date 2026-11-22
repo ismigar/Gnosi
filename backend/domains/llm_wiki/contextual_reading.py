@@ -261,7 +261,7 @@ class ContextualReader:
         prompt = encoded(request)
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):
-            size = count(prompt)
+            size = count_review(prompt) if phase == "source-audit" else count(prompt)
             if size > capacity and page_context and page_context.additions and phase == "source-repair":
                 # Keep both originals and individually retained notes when the
                 # rejected draft would crowd them out of the reviewer's context.

@@ -146,6 +146,16 @@ class AuditRanges:
             self.worker.dependencies.save_checkpoint(self.worker.job_id, f"audit-range-{self.passage_id}-{start}",
                                                      {"slot": slot, "count": end - start})
 
+    def started(self, scope: CheckpointScope | None) -> bool:
+        """Prefer a previously split audit when the new single request would also fit."""
+        coverage = f"audit-coverage-{self.parent_key[:24]}"
+        slots = [f"audit-range-{self.passage_id}-0", f"audit-notes-{self.parent_key[:24]}-0", coverage]
+        if scope:
+            slots.append(coverage + "-" + scope.identity[:20])
+        if any(self.worker.has_checkpoint(slot) for slot in slots):
+            return True
+        return bool(self.historical and self.worker.has_checkpoint(f"audit-notes-{self.historical[0][:24]}-0"))
+
     def candidates(self, start: int, drafts: list[dict[str, object]], request_for: Callable[[list[dict[str, object]]],
                    tuple[dict[str, object], list[dict[str, object]]]], fits: Callable[[dict[str, object]], bool],
                    ) -> Iterator[tuple[str, int]]:
@@ -210,7 +220,8 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
     start = 0
     while start < len(drafts):
         seen: set[tuple[str, int]] = set()
-        for slot, end in ranges.candidates(start, drafts, original_request, fits):
+        for slot, end in ranges.candidates(start, drafts, original_request, lambda payload:
+                fits_review(reviewer, "source-audit", worker.title, worker.language, payload, canonical=True)):
             if (slot, end) in seen:
                 continue
             seen.add((slot, end))
