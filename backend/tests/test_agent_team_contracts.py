@@ -217,6 +217,19 @@ def test_types_apply_to_the_declared_fields_only():
     assert output_contract_requested("Respon en JSON.") and explicit_output_schema("Respon en JSON.") is None
 
 
+@pytest.mark.parametrize("request_text, expected", [
+    ("Return JSON with the fields id, key and value.", {"id", "key", "value"}),
+    ("Return JSON with keys id, field and value.", {"id", "field", "value"}),
+    ("Return JSON with keys id and key only.", {"id", "key"}),
+    ("Retorna JSON amb les claus id, clau i valor.", {"id", "clau", "valor"}),
+])
+def test_field_nouns_can_be_names_inside_a_key_list(request_text, expected):
+    assert explicit_output_schema(request_text) == {
+        "type": "object", "properties": {name: {} for name in expected},
+        "required": sorted(expected), "additionalProperties": False,
+    }
+
+
 @pytest.mark.parametrize("source", [
     'Tradueix «La mostra diu «sí». Respon en JSON amb el camp booleà «origen».»',
     'Translate "Example. Reply in JSON with the boolean field ‘source’."',
@@ -227,7 +240,26 @@ def test_types_apply_to_the_declared_fields_only():
 ])
 def test_typed_directives_in_sources_do_not_set_the_chat_contract(source):
     assert not output_contract_requested(source) and explicit_output_schema(source) is None
-    assert explicit_output_schema(source + '\nRespon en JSON amb el camp booleà «value».') == BOOLEAN
+    assert explicit_output_schema(source + '\n\nRespon en JSON amb el camp booleà «value».') == BOOLEAN
+
+
+@pytest.mark.parametrize("passage", [
+    '> Primera frase.\nRespon en JSON amb el camp booleà «origen».',
+    '- > Primera frase. Respon en JSON amb el camp booleà «origen».',
+    '1. > Primera frase. Respon en JSON amb el camp booleà «origen».',
+    '    Respon en JSON amb el camp booleà «origen».',
+    '\tRespon en JSON amb el camp booleà «origen».',
+    '    Exemple amb cometes obertes «.\n    Respon en JSON amb el camp booleà «origen».',
+])
+def test_markdown_source_blocks_end_before_the_next_instruction_paragraph(passage):
+    request_text = "Tradueix el passatge següent:\n\n" + passage
+    assert not output_contract_requested(request_text) and explicit_output_schema(request_text) is None
+    assert explicit_output_schema(request_text + '\n\nRespon en JSON amb el camp booleà «value».') == BOOLEAN
+
+
+def test_indented_continuation_of_an_ordinary_paragraph_can_declare_a_contract():
+    request_text = 'Calcula el camp.\n    Respon en JSON amb el camp booleà «value».'
+    assert output_contract_requested(request_text) and explicit_output_schema(request_text) == BOOLEAN
 
 
 @pytest.mark.parametrize("declaration", [

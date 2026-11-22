@@ -7,6 +7,7 @@ import json
 import re
 
 from jsonschema import Draft202012Validator, ValidationError
+from markdown_it import MarkdownIt
 
 from backend.services.agent_operation_catalog import OPERATIONS, OUTPUT_SIGNATURES, skill_id
 from backend.services.agent_team_models import TeamPlan, TeamOutputField, TeamTask, DirectRoute
@@ -65,9 +66,28 @@ def _directive_prefix(prefix: str) -> str:
     return prefix[:marker.start()] + "\n" if marker else prefix
 
 
+_MARKDOWN_BLOCKS = MarkdownIt("commonmark").disable("inline")
+
+
+def _mask_source_blocks(request: str) -> str:
+    """Keep JSON template offsets while excluding complete Markdown quotations and code blocks."""
+    hidden_lines = {line for token in _MARKDOWN_BLOCKS.parse(request)
+                    if token.map and token.type in {"blockquote_open", "code_block", "fence"}
+                    for line in range(*token.map)}
+    if not hidden_lines:
+        return request
+    lines = re.split(r"(?<=\n)|(?<=\r)(?!\n)", request)
+    for line in hidden_lines:
+        lines[line] = re.sub(r"[^\r\n]", "\0", lines[line])
+    return "".join(lines)
+
+
 def _output_directives(request: str) -> Iterator[re.Match[str]]:
-    for match in _OUTPUT_DIRECTIVE.finditer(request):
-        prefix = request[:match.start()]
+    if not _OUTPUT_DIRECTIVE.search(request):
+        return
+    visible = _mask_source_blocks(request)
+    for match in _OUTPUT_DIRECTIVE.finditer(visible):
+        prefix = visible[:match.start()]
         if _quoted(prefix):
             continue
         prefix = _directive_prefix(prefix)
@@ -170,9 +190,13 @@ def _named_output_schema(text: str) -> dict[str, Any] | None:
         if not separator:
             raise ValueError(_AMBIGUOUS_KEYS)
         text = text[separator.end():]
-        header = _FIELD_HEADER.match(text)
-        if header and not _FIELD_NAME.match(text, header.end()):
-            header = None  # A final bare key may itself be called "field".
+        # At a list boundary, "field" or "key" can itself be the property name.
+        bare = _FIELD_NAME.match(text)
+        boundaries = (_FIELD_SEPARATOR, _FIELD_END, _FIELD_TYPE_SUFFIX)
+        if bare and any(rule.match(text, bare.end()) for rule in boundaries):
+            header = None
+        else:
+            header = _FIELD_HEADER.match(text)
     return {"type": "object", "properties": properties, "required": sorted(properties), "additionalProperties": False}
 
 
@@ -262,24 +286,15 @@ def _output_template(text: str) -> str:
 
 
 _QUOTE_PAIRS = {'"': '"', "'": "'", '«': '»', '“': '”', '‘': '’'}
-_SOURCE_MARKERS = re.compile(
-    r"""^[ \t]*>[^\n]*|^[ \t]*(?P<fence>`{3,}|~{3,})(?=(?P<info>[^\n]*))|\\.|`+|["«»“”‘]|(?<!\w)['’]|['’](?!\w)""", re.M)
+_SOURCE_MARKERS = re.compile(r"""\\.|`+|["«»“”‘]|(?<!\w)['’]|['’](?!\w)""")
 
 
 def _quoted(text: str) -> bool:
-    """Check the position of an instruction within prose quotations and Markdown sources."""
-    if re.match(r"[ \t]*>", text.rpartition("\n")[2]):
-        return True
+    """Check the position of an instruction within prose quotations and inline code."""
     closing: list[str] = []
-    fence = ""
     for marker in _SOURCE_MARKERS.finditer(text):
-        token = marker["fence"] or marker.group()
-        if fence:
-            if marker["fence"] and token.startswith(fence) and not marker["info"].strip():
-                fence = ""
-        elif marker["fence"] and not closing:
-            fence = token
-        elif closing:
+        token = marker.group()
+        if closing:
             delimiter = closing[-1]
             if token == delimiter:
                 closing.pop()
@@ -290,7 +305,7 @@ def _quoted(text: str) -> bool:
                 closing.append(_QUOTE_PAIRS[token])
         elif token.startswith("`"):
             closing.append(token)
-    return bool(fence or closing)
+    return bool(closing)
 
 
 def operation_for_output_keys(keys: set[str] | None, members: list[dict[str, Any]]) -> str:
