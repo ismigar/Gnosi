@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .availability import AvailabilityReason, MetadataUnavailable
-from .coordinated import copy_coordinated
+from .coordinated import copy_coordinated, verify_skill_sources
 
 
 def revision(info: os.stat_result) -> tuple[int, ...]:
@@ -83,12 +83,34 @@ class CoordinatedReads:
         self._workers = workers
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="gnosi-file-access")
         self._guard = threading.Lock()
+        self._verification_slot = threading.BoundedSemaphore(1)
         self._jobs: dict[tuple[Path, tuple[int, ...] | None], _Request] = {}
         self._failures: OrderedDict[Path, tuple[float, tuple[int, ...] | None, AvailabilityReason]] = OrderedDict()
         # A synchronous compatibility caller on an event loop cannot await a
         # download. Hand it its same, verified result on the next HTTP attempt.
         self._handoffs: OrderedDict[Path, tuple[float, VaultFileSnapshot]] = OrderedDict()
         self._expiry: threading.Timer | None = None
+
+    def can_verify_source(self, path: Path, info: os.stat_result) -> bool:
+        version = revision(info)
+        with self._guard:
+            failure = self._failures.get(path)
+            return ((path, version) not in self._jobs and not (
+                failure and failure[0] > time.monotonic() and failure[1] == version))
+
+    def verify_skill_sources(self, expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
+        # This optimization uses the same worker pool as foreground reads. Skip it
+        # under contention and let the normal per-file requests observe their grants.
+        if not self._verification_slot.acquire(blocking=False):
+            return {}
+        try:
+            with self._guard:
+                if self._jobs:
+                    return {}
+                pending = self._pool.submit(lambda: asyncio.run(verify_skill_sources(expected)))
+            return pending.result()
+        finally:
+            self._verification_slot.release()
 
     def request(
         self, path: Path, info: os.stat_result | None, *,

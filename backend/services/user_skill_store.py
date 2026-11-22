@@ -11,6 +11,7 @@ import threading
 import unicodedata
 import uuid
 import weakref
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import ExitStack
 from contextvars import copy_context
@@ -97,7 +98,7 @@ class UserSkillStore:
         return self.root / normalized
 
     @staticmethod
-    def _read_limited(path: Path, maximum: int) -> str:
+    def _read_limited(path: Path, maximum: int, read_text: Callable[[Path], str]) -> str:
         try:
             size = path.stat().st_size
         except OSError as exc:
@@ -105,11 +106,13 @@ class UserSkillStore:
         if size > maximum:
             raise UserSkillStoreError(f"{path.name} exceeds the size limit")
         try:
-            return read_metadata_text(path, encoding="utf-8")
+            return read_text(path)
         except OSError as exc:
             raise UserSkillStoreError(f"could not read {path.name}: {exc}") from exc
 
-    def _load_package(self, package: Path) -> SkillDescriptor:
+    def _load_package(
+        self, package: Path, read_text: Callable[[Path], str] = read_metadata_text,
+    ) -> SkillDescriptor:
         if package.is_symlink():
             raise UserSkillStoreError("symlinked skill packages are not allowed")
         descriptor_path = package / "skill.yaml"
@@ -118,7 +121,7 @@ class UserSkillStore:
             raise UserSkillStoreError("skill.yaml is required and cannot be a symlink")
         if not instructions_path.is_file() or instructions_path.is_symlink():
             raise UserSkillStoreError("SKILL.md is required and cannot be a symlink")
-        raw_text = self._read_limited(descriptor_path, MAX_DESCRIPTOR_BYTES)
+        raw_text = self._read_limited(descriptor_path, MAX_DESCRIPTOR_BYTES, read_text)
         try:
             raw = yaml.safe_load(raw_text) or {}
         except yaml.YAMLError as exc:
@@ -126,7 +129,7 @@ class UserSkillStore:
         if not isinstance(raw, dict):
             raise UserSkillStoreError("skill.yaml must contain an object")
         raw["instructions"] = self._read_limited(
-            instructions_path, MAX_INSTRUCTIONS_BYTES
+            instructions_path, MAX_INSTRUCTIONS_BYTES, read_text
         )
         # Ownership is derived from the storage boundary. A copied package
         # cannot impersonate core or plugin content by editing its YAML.

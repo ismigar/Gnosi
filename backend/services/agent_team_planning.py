@@ -88,7 +88,7 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     inputs = await asyncio.to_thread(candidate_inputs, config)
     # Share discovery for this planning decision. Dispatch opens the current
     # catalog and checks eligibility and permissions again before execution.
-    with team_metadata_catalog():
+    with team_metadata_catalog(personal_phase="planning"):
         direct, reason, cost = (
             await asyncio.to_thread(
                 _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode, inputs=inputs,

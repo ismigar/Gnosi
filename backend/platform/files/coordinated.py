@@ -170,29 +170,72 @@ async def _snapshot_fields(path: Path, target: BinaryIO, timeout: float) -> obje
         raise MetadataUnavailable.from_oserror(path, exc) from exc
 
 
+def _source_stat(fields: object) -> os.stat_result:
+    if not isinstance(fields, list) or len(fields) != 20 or not all(type(n) is int for n in fields):
+        raise ValueError("Invalid source stat")
+    mode, ino, dev, nlink, uid, gid, size = fields[:7]
+    if not stat.S_ISREG(mode) or size < 0:
+        raise ValueError("Invalid coordinated source")
+    times = fields[7:13]
+    flags, blocks, block_size, rdev, gen, birth_seconds, birth_nanos = fields[13:]
+    extra: dict[str, int | float] = {
+        "st_flags": flags, "st_blocks": blocks, "st_blksize": block_size, "st_rdev": rdev,
+        "st_gen": gen, "st_birthtime": birth_seconds + birth_nanos / 1_000_000_000,
+        "st_birthtime_ns": birth_seconds * 1_000_000_000 + birth_nanos,
+    }
+    for index, name in enumerate(("st_atime", "st_mtime", "st_ctime")):
+        seconds, nanos = times[2 * index:2 * index + 2]
+        extra[name] = seconds + nanos / 1_000_000_000
+        extra[f"{name}_ns"] = seconds * 1_000_000_000 + nanos
+    return os.stat_result((mode, ino, dev, nlink, uid, gid, size, *times[::2]), extra)
+
+
 async def copy_coordinated(path: Path, target: BinaryIO, timeout: float) -> os.stat_result:
     """Copy the complete coordinated revision and return its descriptor metadata."""
     try:
-        fields = await _snapshot_fields(path, target, timeout)
-        if not isinstance(fields, list) or len(fields) != 20 or not all(type(n) is int for n in fields):
-            raise ValueError("Invalid source stat")
-        mode, ino, dev, nlink, uid, gid, size = fields[:7]
-        times = fields[7:13]
-        flags, blocks, block_size, rdev, gen, birth_seconds, birth_nanos = fields[13:]
-        if not stat.S_ISREG(mode) or size != os.fstat(target.fileno()).st_size:
+        source = _source_stat(await _snapshot_fields(path, target, timeout))
+        if source.st_size != os.fstat(target.fileno()).st_size:
             raise ValueError("Incomplete coordinated read")
-        extra: dict[str, int | float] = {
-            "st_flags": flags, "st_blocks": blocks, "st_blksize": block_size, "st_rdev": rdev,
-            "st_gen": gen, "st_birthtime": birth_seconds + birth_nanos / 1_000_000_000,
-            "st_birthtime_ns": birth_seconds * 1_000_000_000 + birth_nanos,
-        }
-        for index, name in enumerate(("st_atime", "st_mtime", "st_ctime")):
-            seconds, nanos = times[2 * index:2 * index + 2]
-            extra[name] = seconds + nanos / 1_000_000_000
-            extra[f"{name}_ns"] = seconds * 1_000_000_000 + nanos
-        return os.stat_result((mode, ino, dev, nlink, uid, gid, size, *times[::2]), extra)
-    except (ValueError, TypeError, OSError) as exc:
+        return source
+    except (ValueError, TypeError, OverflowError, OSError) as exc:
         raise MetadataUnavailable("Incomplete coordinated file", path=path) from exc
+
+
+async def verify_skill_sources(expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
+    """Ask the bundled coordinator for fresh grants. Missing proof requires individual reads."""
+    if sys.platform != "darwin" or not 1 <= len(expected) <= 256 or _shutdown_requested.is_set():
+        return {}
+    process = None
+    try:
+        helper = helper_path()
+        if helper != _bundled_helper():
+            return {}
+        process = await asyncio.create_subprocess_exec(
+            str(helper), "--verify-skill-sources", stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        )
+        _active_materializations.add(process)
+        if _shutdown_requested.is_set():
+            return {}
+        data = json.dumps([(str(path), stamp) for path, stamp in expected.items()], ensure_ascii=False).encode()
+        output, _ = await asyncio.wait_for(process.communicate(data), timeout=3)
+        if process.returncode:
+            return {}
+        rows = json.loads(output)
+        if not isinstance(rows, list) or len(rows) != len(expected):
+            return {}
+        return {path: _source_stat(row) for path, row in zip(expected, rows, strict=True)}
+    except (OSError, TimeoutError, ValueError, TypeError, OverflowError):
+        return {}
+    finally:
+        if process is not None:
+            if process.returncode is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+            await process.wait()
+            _active_materializations.discard(process)
 
 
 async def materialize_coordinated(path: Path, timeout: float) -> bool:

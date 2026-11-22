@@ -14,7 +14,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 146 | 59 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 371 | 160 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 371 | 161 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 108 | 66 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 108 | 49 | 0 |
@@ -23,7 +23,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 350 | 130 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 70 | 41 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 19 | 10 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 157 | 58 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 158 | 59 | 0 |
 
 ## Platform foundation and runtime
 

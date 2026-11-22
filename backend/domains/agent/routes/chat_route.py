@@ -43,6 +43,7 @@ from backend.domains.agent.routes.shared import (
 )
 from backend.domains.agent.routes.state import cfg
 from backend.domains.agent.routes.workflow import get_agent_workflow
+from backend.services.agent_team_skill_sources import bind_chat_skill_sources
 from backend.services.agent_cancellation import (
     bind_stream as bind_agent_stream,
 )
@@ -274,7 +275,7 @@ def _setup_error_response(
 
 
 # The endpoint's public contract is an incremental NDJSON stream, not one JSON body.
-@router.post("/chat", response_model=None)
+@router.post("/chat", response_model=None, dependencies=[Depends(bind_chat_skill_sources, scope="request")])
 async def chat_endpoint(
     request: Request,
     chat_req: ChatRequest,
@@ -306,7 +307,8 @@ async def chat_endpoint(
         # Checkpoint identity stays stable when the conversation changes profile.
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
-        profiles = (await asyncio.to_thread(ensure_migrated)).get("agents", [])
+        conversation_ai = await asyncio.to_thread(ensure_migrated)
+        profiles = conversation_ai.get("agents", [])
         from backend.services.agent_commands import resolve_command
         try:
             command = resolve_command(chat_req.message, profiles)
@@ -385,7 +387,9 @@ async def chat_endpoint(
         from backend.services.agent_catalog_snapshot import team_metadata_catalog
 
         # Share discovery between the principal and its roster only while preparing this request.
-        with team_metadata_catalog():
+        team = (addressed_profile or {}).get("team") or {}
+        principal_team = team.get("enabled") and profile_id == conversation_ai.get("active_agent_id") and not command_selected
+        with team_metadata_catalog(personal_phase="capture" if principal_team else None):
             workflow, llm_selection = await get_agent_workflow(
                 request,
                 profile_id,

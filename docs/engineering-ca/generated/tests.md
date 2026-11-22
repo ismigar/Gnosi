@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3588 |
-| pytest | 844 | 6595 |
+| pytest | 845 | 6604 |
 
 ## Fitxers
 
@@ -859,6 +859,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_chat_reply_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_reply_timing.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_safety.py) | 55 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_schema_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_schema_transport.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_agent_chat_skill_discovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_skill_discovery.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_stream_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_stream_cancellation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_commands.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_agent_confirmation_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_confirmation_presentation.py) | 5 | Python AST |
@@ -910,7 +911,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_task_evaluations.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_agent_team.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team.py) | 48 | Python AST |
 | pytest | [`backend/tests/test_agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_contracts.py) | 53 | Python AST |
-| pytest | [`backend/tests/test_agent_team_efficiency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_efficiency.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_agent_team_efficiency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_efficiency.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_agent_team_personal_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_personal_skills.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_team_planning_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_planning_schema.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_title_change_regression.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_title_change_regression.py) | 4 | Python AST |
