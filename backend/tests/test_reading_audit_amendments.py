@@ -7,7 +7,7 @@ import pytest
 
 from backend.domains.agent.structured_output import _has_dynamic_object
 from backend.domains.llm_wiki.audit_amendments import build_audit_amendment
-from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, SourceAuditValidator, citation_slots
+from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, SourceAuditValidator, citation_slots, validate_revision_origins
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage
 from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
@@ -272,3 +272,21 @@ def test_full_revision_cannot_silently_reassign_a_citation_only_edit(different_c
     else:
         with pytest.raises(PassageReviewIssue, match="original source"):
             plan.restore(changed)
+
+
+@pytest.mark.parametrize("positions,titles", [([1, 2], ["I", "II"]), ([0, 0], ["I", "II"]), ([0, 0], ["I", "I"])])
+def test_identical_note_bodies_keep_their_own_citations_in_full_revisions(positions, titles):
+    request, _, _ = audit_case(True)
+    selection = quote_selection(request)
+    def change(pos, title, owners):
+        return {"position": pos, "replacement": {"title": title, "body_md": "Shared wording.",
+                "quotes": [{"source": owner, "text": str(owner)} for owner in owners]}}
+    first = {"changes": [change(positions[0], titles[0], [1]), change(positions[1], titles[1], [1, 2])]}
+    reordered = deepcopy(first)
+    reordered["changes"][1]["replacement"]["quotes"] = [{"source": 2, "text": "new B"}, {"source": 1, "text": "new A"}]
+    reordered["changes"].reverse()
+    validate_revision_origins(first, reordered, selection)
+    replaced = deepcopy(reordered)
+    replaced["changes"][0]["replacement"]["quotes"][0]["source"] = 1
+    with pytest.raises(PassageReviewIssue, match="original source"):
+        validate_revision_origins(first, replaced, selection)

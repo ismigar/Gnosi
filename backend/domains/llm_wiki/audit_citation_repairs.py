@@ -1,6 +1,7 @@
 """Offer a reviewer highlightable excerpts for individual rejected citations."""
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 import json
@@ -63,10 +64,56 @@ def _preserves_origins(before: list[Any], after: list[Any], texts: list[str]) ->
             displaced.append(citation)
     old = [_quote_owner(c, texts) for c in displaced]
     new = [_quote_owner(c, texts) for c in unused]
-    if len(old) == len(new):
-        return all(a is None or a == b for a, b in zip(old, new))
-    # A redundant citation may disappear only if the note still cites its owner.
-    return {n for n in old if n is not None}.issubset({_quote_owner(c, texts) for c in after})
+    required = Counter(n for n in old if n is not None)
+    supplied = Counter(n for n in new if n is not None)
+    if len(new) >= len(old):
+        # The order of the evidence may change when the same owners supply
+        # the replacements. Each displaced, known source still needs its own quote.
+        return required <= supplied
+    # Fewer citations can remove redundancy, provided each displaced source
+    # remains cited and the surviving replacements retain their available owners.
+    removed = len(old) - len(new)
+    return ((required - supplied).total() <= removed and
+            set(required).issubset({_quote_owner(c, texts) for c in after}))
+
+
+@dataclass(frozen=True)
+class _Claim:
+    position: object
+    title: object
+    citations: list[Any]
+
+
+def _claims(answer: dict[str, Any]) -> dict[str, list[_Claim]]:
+    claims: dict[str, list[_Claim]] = defaultdict(list)
+    for change in records(answer.get("changes")):
+        note = record(change.get("replacement"))
+        citations = note.get("quotes")
+        if isinstance(citations, list) and (body := _claim_text(note)):
+            claims[body].append(_Claim(change.get("position"), note.get("title"), citations))
+    return claims
+
+
+def _claim_matches(prior: list[_Claim], revised: _Claim, texts: list[str]) -> list[int]:
+    positions = [i for i, c in enumerate(prior) if c.position == revised.position]
+    possible = positions or list(range(len(prior)))
+    titles = [i for i in possible if prior[i].title == revised.title]
+    return [i for i in titles or possible if _preserves_origins(prior[i].citations, revised.citations, texts)]
+
+
+def _distinct_origins(matches: list[list[int]]) -> bool:
+    """Assign overlapping added notes one-to-one without depending on their order."""
+    assigned: dict[int, int] = {}
+    def place(revision: int, seen: set[int]) -> bool:
+        for previous in matches[revision]:
+            if previous in seen:
+                continue
+            seen.add(previous)
+            if previous not in assigned or place(assigned[previous], seen):
+                assigned[previous] = revision
+                return True
+        return False
+    return all(place(i, set()) for i in range(len(matches)))
 
 
 def validate_revision_origins(previous: dict[str, Any], revised: dict[str, Any], selection: QuoteSelection) -> None:
@@ -74,17 +121,16 @@ def validate_revision_origins(previous: dict[str, Any], revised: dict[str, Any],
     request = json.loads(selection.input)
     primary = "".join(selection.audit_evidence) if selection.audit_evidence else request["original"]["text"]
     texts = [primary, *(s["text"] for s in request.get("support", []))]
-    prior: dict[str, list[list[Any]]] = {}
-    for change in records(previous.get("changes")):
-        note = record(change.get("replacement"))
-        citations = note.get("quotes")
-        if isinstance(citations, list) and (claim := _claim_text(note)):
-            prior.setdefault(claim, []).append(citations)
-    for change in records(revised.get("changes")):
-        note = record(change.get("replacement"))
-        owners = prior.get(_claim_text(note), [])
-        citations = note.get("quotes")
-        if owners and isinstance(citations, list) and not any(_preserves_origins(q, citations, texts) for q in owners):
+    prior = _claims(previous)
+    for body, claims in _claims(revised).items():
+        if body not in prior:
+            continue
+        matches = [_claim_matches(prior[body], claim, texts) for claim in claims]
+        if len(matches) > len(prior[body]) and all(matches):
+            # Additional notes may share a claim after a full revision. Retain
+            # distinct evidence for the earlier proposals as the group grows.
+            matches = [[i for i, candidates in enumerate(matches) if j in candidates] for j in range(len(prior[body]))]
+        if not _distinct_origins(matches):
             raise PassageReviewIssue("A citation-only correction must keep its original source. Reassess the claim "
                                      "and its attribution if a different document supports a substantive revision.")
 
