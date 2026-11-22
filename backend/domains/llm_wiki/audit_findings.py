@@ -8,6 +8,15 @@ from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.semantic_contracts import TEXT, obj, validate_schema
 
 
+class ReportedAuditIssues(PassageReviewIssue):
+    """Keep separate model objections even if a later correction is rejected."""
+
+    def __init__(self, issues: list[str], diagnostic: str = "") -> None:
+        self.issues = list(dict.fromkeys(issues))
+        message = "The independent reviewer must resolve outstanding source issues: " + " ".join(self.issues)
+        super().__init__(" ".join(filter(None, (message, diagnostic))))
+
+
 def issue_texts(value: object) -> list[str]:
     values = value if isinstance(value, list) else [value]
     return [item.strip() for item in values if isinstance(item, str) and item.strip()]
@@ -38,7 +47,7 @@ def check_resolutions(answer: dict[str, object], findings: dict[str, str]) -> No
     # Retain fresh semantic objections even when another field is malformed.
     open_issues = issue_texts(answer.get("unresolved_issues"))
     if open_issues:
-        raise PassageReviewIssue("The independent reviewer must resolve outstanding source issues: " + " ".join(open_issues))
+        raise ReportedAuditIssues(open_issues)
     if not findings:
         return
     decisions = record(answer.get("finding_resolutions"))

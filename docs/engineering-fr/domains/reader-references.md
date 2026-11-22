@@ -619,4 +619,4 @@ L’index des clés de citation vérifie la table connue dans le cache avant d�
 
 La fenêtre de traitement affiche l’équivalent du plafond partagé de 5 USD par livre dans la devise sélectionnée. Elle déduit les frais et réservations de la ressource, y compris ceux des tentatives précédentes. Lorsque le budget est épuisé, le livre reste en attente et conserve les passages enregistrés.
 
-Chaque décision du réviseur correspond à un passage. Si une réponse contient une erreur de format, les décisions valides des autres passages sont conservées. À la reprise, le réviseur doit répondre à chaque observation en attente et Gnosi vérifie la citation de son évaluation dans le PDF avant la synthèse.
+Chaque décision du réviseur correspond à un passage. Gnosi enregistre chaque nouvelle observation avant de réserver le montant de la correction. Si une réponse contient une erreur de format, les décisions valides des autres passages sont conservées. À la reprise, le réviseur doit répondre à chaque observation en attente et Gnosi vérifie la citation de son évaluation dans le PDF avant la synthèse.

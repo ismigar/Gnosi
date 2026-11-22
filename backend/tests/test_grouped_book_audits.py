@@ -292,3 +292,65 @@ def test_a_paid_individual_assessment_with_an_unlocatable_pdf_quote_reopens_only
     assert plan["reviewed"] and not ordinary and phases == ["source-audit", "source-synthesis"]
     receipt, = store["resumed", "semantic-state"]["independent_reviews"].values()
     assert receipt["answer"]["evidence_quote"] == valid
+
+
+@pytest.mark.parametrize("stop", ["budget", "budget_with_open_disposition", "invalid_amendment"])
+def test_every_paid_objection_survives_an_interrupted_amendment(runtime, monkeypatch, tmp_path, stop):
+    from backend.services import agent_execution as execution, ai_usage_ledger as ledger
+    from backend.services.agent_execution_scope import execution_scope
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    from backend.tests.test_agent_execution import install_workflow
+    scope, snapshot = runtime
+    monkeypatch.setattr(ledger, "resolve_data_dir", lambda **_: tmp_path)
+    identifier = reading_budget.configure(5, book=reading_budget.BookAccount("fixture-book", ()))
+    rates = {"cost_in": 0, "cost_out": 1}
+    findings = ["Who advances the claim?", "Is the qualification retained?", "What is the role of experience?"]
+    grouped = {"passage_1": {"assessment": "The passage discusses a claim.", "evidence_quote": "The opponent",
+                              "unresolved_issues": findings[:1]}}
+    reasons = [{"status": "addressed", "reason": text} for text in
+               ("The opponent advances it.", "The draft retains the qualification.", "Experience challenges the claim.")]
+    def decision(count):
+        return {"assessment": "The opponent advances the claim and experience contradicts it.",
+                "changes": [], "evidence_quote_id": 1, "unresolved_issues": findings[count:],
+                "finding_resolutions": {f"issue_{i + 1}": v for i, v in enumerate(reasons[:count])}}
+    first_audit = decision(1)
+    if stop == "budget_with_open_disposition":
+        first_audit.update(unresolved_issues=findings[1:2], finding_resolutions={"issue_1": {
+            "status": "unresolved", "reason": findings[2]}})
+    answers = [grouped, first_audit, {"findings": {}, "correction": {"keep_changes": {}}},
+               decision(3), {"summary": "Experience qualifies the opponent's claim."}]
+    class Responses:
+        def __getitem__(self, index):
+            if stop.startswith("budget"):
+                reading_budget.reserve(f"call-{index}", [], {"max_tokens": 1_000_000}, rates, "test")
+            return json.dumps(answers[index])
+    calls = install_workflow(monkeypatch, Responses())
+    def attach(reader, name):
+        parent = execution.create_job_run(snapshot, name, "knowledge.process-source")
+        reader.dependencies.reviewer = ReadingRuntime("personal", "test", "fake", "", 48000, parent, skill_id=parent.skill_ids[0])
+        reader.dependencies.citation_issues = None
+    with execution_scope(scope), reading_budget.session(identifier):
+        if stop.startswith("budget"):
+            reading_budget.reserve("historical", [], {"max_tokens": 2_400_000}, rates, "test")
+            with ledger.connect() as db:
+                reading_budget.settle(db, "historical", 2.4)
+        first, _, store = setup(count=1)
+        attach(first, "initial")
+        with pytest.raises(reading_budget.ReadingBudgetError if stop.startswith("budget") else PendingPassagesRemaining):
+            first.run()
+        state = store["new", "semantic-state"]
+        pending, = state["pending_audits"].values()
+        assert pending["audit_findings"] == findings and not state["completed"] and not state["independent_synthesis"]
+        if stop.startswith("budget"):
+            assert reading_budget.status(identifier)["remaining_usd"] == .4
+            with ledger.connect() as db:
+                for call in ("call-0", "call-1"):
+                    reading_budget.settle(db, call, .01)
+        next_book, ordinary, _ = setup(count=1, checkpoints=store, resume="new")
+        next_book.job_id = "resumed"
+        attach(next_book, "resumed")
+        plan, _ = next_book.run()
+    assert plan["reviewed"] and not ordinary and not store["resumed", "semantic-state"]["pending_audits"]
+    requests = [json.loads(json.loads(call["messages"][0].content)["input"]) for call in calls]
+    assert [item["independent_finding"] for item in requests[3]["coverage"] if isinstance(item, dict)] == findings
+    assert [r["finding"] for r in requests[-1]["findings"][0]["review_findings"]] == findings
