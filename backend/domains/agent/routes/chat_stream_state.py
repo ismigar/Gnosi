@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from backend.agent.model_router import model_cost_rates
+from backend.services.agent_chat_timing import ChatTiming
 
 
 @dataclass
@@ -26,6 +27,7 @@ class AgentStreamState:
     model_calls: int = 0
     tool_calls_count: int = 0
     team_usage: Dict[str, Any] | None = None
+    chat_timing: ChatTiming | None = None
     response_ms: int | None = None
     team_reply_streamed: bool = False
     last_phase: str = ""
@@ -42,14 +44,6 @@ class AgentStreamState:
     def __post_init__(self) -> None:
         self.quality_plan = dict(self.turn_plan)
 
-    @staticmethod
-    def phase_for_node(node_name: str) -> str:
-        if node_name in {"brain_tools", "coder_tools"}:
-            return "tools"
-        if node_name in {"brain", "coder", "general"}:
-            return "model"
-        return "routing"
-
     def phase_event(self, phase: str) -> Optional[str]:
         normalized = str(phase or "routing").strip().lower()
         if normalized == self.last_phase:
@@ -57,23 +51,30 @@ class AgentStreamState:
         self.last_phase = normalized
         return json.dumps({"type": "phase", "trace_id": self.trace_id, "phase": normalized}) + "\n"
 
-    def metrics_payload(self) -> Dict[str, Any]:
+    def phase_timings(self) -> dict[str, int]:
         total_ms = max(0, int((time.monotonic() - self.request_started_at) * 1000))
+        if self.chat_timing is not None:
+            end_ms = self.chat_timing.direct_reply_ms
+            if self.llm_selection.get("mode") == "team":
+                end_ms = self.response_ms if self.response_ms is not None else total_ms
+            elif self.response_ms is None:
+                end_ms = total_ms
+            if end_ms is not None:
+                return {"total_ms": total_ms, **self.chat_timing.phases(end_ms, total_ms)}
         setup_ms = max(0, int((self.workflow_ready_at - self.request_started_at) * 1000))
         routing_ms = max(0, int(self.phase_ms["routing"]))
         model_ms = max(0, int(self.phase_ms["model"]))
         tools_ms = max(0, int(self.phase_ms["tools"]))
         other_ms = max(0, total_ms - setup_ms - routing_ms - model_ms - tools_ms)
+        return {"setup_ms": setup_ms, "routing_ms": routing_ms, "model_ms": model_ms,
+                "tools_ms": tools_ms, "other_ms": other_ms, "total_ms": total_ms}
+
+    def metrics_payload(self) -> Dict[str, Any]:
         budgets = self.turn_plan.get("budgets") or {}
         timings = {
             "type": "turn_metrics",
             "trace_id": self.trace_id,
-            "setup_ms": setup_ms,
-            "routing_ms": routing_ms,
-            "model_ms": model_ms,
-            "tools_ms": tools_ms,
-            "other_ms": other_ms,
-            "total_ms": total_ms,
+            **self.phase_timings(),
             **({"response_ms": self.response_ms} if self.response_ms is not None else {}),
             **({"team_usage": self.team_usage} if self.team_usage is not None else {}),
             "budget": dict(budgets),
@@ -108,7 +109,8 @@ class AgentStreamState:
 
     def mark_response(self) -> None:
         if self.response_ms is None:
-            self.response_ms = max(0, int((time.monotonic() - self.request_started_at) * 1000))
+            ready = self.chat_timing.direct_reply_ms if self.chat_timing else None
+            self.response_ms = ready if ready is not None else max(0, int((time.monotonic() - self.request_started_at) * 1000))
 
     def apply_team_usage(self, usage: Dict[str, Any]) -> None:
         self.team_usage = usage

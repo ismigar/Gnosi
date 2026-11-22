@@ -7,12 +7,10 @@ from backend.services.agent_behavior import resource as behavior_resource, froze
 import time
 from dataclasses import dataclass
 from backend.agent.tools import bind_model_tools
-
 from typing import Any
 
 from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
 
 from backend.agent.turn_contract import verify_response
 from backend.domains.agent.context import (
@@ -41,6 +39,7 @@ from backend.domains.agent.messages import _bounded_model_messages
 from backend.domains.agent.policy import (
     AgentState,
     GovernedToolNode,
+    TimedToolNode,
     _invoke_agent_model,
     _tool_policy_wrapper,
     _turn_authorized_tool_names,
@@ -57,6 +56,7 @@ from backend.domains.agent.runtime_tools import (
     _turn_model_tools,
 )
 from backend.services.agent_cancellation import AgentTurnCancelled
+from backend.services.agent_chat_timing import current_chat_timing
 from backend.domains.agent.team_help import HELP_NAME, HELP_TOOL, TeamHelp, requested_help, can_request_help
 from backend.domains.agent.supplied_tasks import current_supplied_operation
 
@@ -146,13 +146,15 @@ class AgentWorkflowNodes:
     team_help: TeamHelp | None = None
     memory_provenance: list[dict[str, Any]] | None = None
 
-    def _with_memory(self, response: Any) -> Any:
-        """Persist the exact memory revisions included in this workflow prompt."""
+    def _final_message(self, response: Any, state: AgentState) -> Any:
+        """Bind the root reply's ready time and memory revisions before checkpointing."""
         if not getattr(response, "tool_calls", None):
             response.additional_kwargs = {
                 **getattr(response, "additional_kwargs", {}),
                 "memory_provenance": [dict(row) for row in self.memory_provenance or []],
             }
+            if (timing := current_chat_timing.get()) is not None and timing.trace_id == state.get("trace_id"):
+                response.additional_kwargs["gnosi_timings"] = timing.checkpoint_reply()
         return response
 
     @staticmethod
@@ -236,7 +238,7 @@ class AgentWorkflowNodes:
             messages=messages,
             plan=state.get("turn_plan") or {},
         )
-        return {"messages": [self._with_memory(response)], "next": "supervisor"}
+        return {"messages": [self._final_message(response, state)], "next": "supervisor"}
 
     def general_node(self, state: AgentState) -> dict[str, Any]:
         """Answer a tool-free conversational turn with the configured persona."""
@@ -259,7 +261,7 @@ class AgentWorkflowNodes:
             messages=messages,
             plan=state.get("turn_plan") or {},
         )
-        return {"messages": [self._with_memory(response)], "next": "FINISH"}
+        return {"messages": [self._final_message(response, state)], "next": "FINISH"}
 
     def _context_route(self, messages: Any, latest_user: str, request_mode: str, title_edit: Any = None) -> ContextRoute:
         """Select the one mandatory context read for a lookup or analysis turn."""
@@ -555,7 +557,7 @@ class AgentWorkflowNodes:
             messages=turn.messages,
             plan=turn.turn_plan,
         )
-        return {"messages": [self._with_memory(response)], "next": "FINISH"}
+        return {"messages": [self._final_message(response, turn.state)], "next": "FINISH"}
 
     def _deterministic_brain_result(
         self, turn: BrainTurn, progress: BrainProgress
@@ -737,7 +739,7 @@ class AgentWorkflowNodes:
             messages=turn.messages,
             plan=turn.turn_plan,
         )
-        return {"messages": [self._with_memory(response)], "next": "supervisor"}
+        return {"messages": [self._final_message(response, state)], "next": "supervisor"}
 
     @staticmethod
     def coder_router(state: AgentState) -> str:
@@ -766,7 +768,7 @@ class AgentWorkflowNodes:
         if self.team_help:
             workflow.add_node("team_help", self.team_help.execute)
             workflow.add_edge("team_help", END)
-        workflow.add_node("coder_tools", ToolNode(self.coder_tools))
+        workflow.add_node("coder_tools", TimedToolNode(self.coder_tools))
         workflow.add_node(
             "brain_tools",
             GovernedToolNode(self.brain_tools, wrap_tool_call=_tool_policy_wrapper(self.tool_policies)),

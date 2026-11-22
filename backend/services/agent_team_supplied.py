@@ -1,7 +1,7 @@
 """Plan an already classified routine chat turn using the live team catalog."""
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from backend.services.agent_team_routing import executor_input
 from backend.domains.agent.supplied_tasks import supplied_table_output_directive
@@ -9,6 +9,9 @@ from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_team_contracts import explicit_output_schema, output_contract_requested, output_schema
 from backend.services.agent_team_models import AgentTeam, DirectRoute, TeamOutputContract, TeamOutputField, TeamPlan, TeamTask
+
+if TYPE_CHECKING:
+    from backend.services.agent_team_runtime import CandidateInputs
 
 
 def _flat_contract(schema: dict[str, Any]) -> TeamOutputContract | None:
@@ -34,8 +37,9 @@ def _operation_assignments(member: dict[str, Any], operation: str) -> list[str]:
 
 
 def supplied_task_plan(owner: dict[str, Any], scope: ExecutionScope, team: AgentTeam, catalog: list[dict[str, Any]],
-                       operation: str, original: str, route: DirectRoute | None, state: dict[str, Any]) -> TeamPlan | None:
-    from backend.services.agent_team_runtime import _candidate, _config, candidate_inputs
+                       operation: str, original: str, route: DirectRoute | None, state: dict[str, Any],
+                       *, inputs: CandidateInputs) -> TeamPlan | None:
+    from backend.services.agent_team_runtime import _candidate
 
     # A request with a richer output contract still needs the director to describe it.
     directive = supplied_table_output_directive(original) if operation == "tables" else ""
@@ -51,7 +55,6 @@ def supplied_task_plan(owner: dict[str, Any], scope: ExecutionScope, team: Agent
     text = executor_input(task, original, state, {}, operation_mode=False, output_schema=schema)
     allowed = set(route.agent_ids if route else (m.agent_id for m in team.members))
     allowed.difference_update((owner["id"], team.director_id))
-    inputs = candidate_inputs(_config())
     matches = []
     for member in catalog:
         if member["id"] not in allowed or not member["available"]:

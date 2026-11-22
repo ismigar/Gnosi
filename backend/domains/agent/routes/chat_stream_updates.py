@@ -16,6 +16,7 @@ from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import _acquire_turn_lock, _public_gauntlet_metadata
 from backend.domains.agent.routes.shared import _message_text, _tool_stream_event
 from backend.services.agent_cancellation import is_cancelled
+from backend.services.agent_chat_timing import track_chat
 
 
 def _deadline_event(
@@ -49,17 +50,24 @@ def _update_phase(
     state: AgentStreamState,
     *,
     node_name: str,
-    update_elapsed_ms: float,
+    started: float,
+    ended: float,
     update_usages: list[Any],
 ) -> str:
+    elapsed = max(0.0, (ended - started) * 1000)
+    waits = state.chat_timing.waits(started, ended) if state.chat_timing else {"model": 0.0, "tools": 0.0}
     if node_name in {"brain_tools", "coder_tools"}:
-        phase = "tools"
-    elif any(update_usages):
-        phase = "model"
-    else:
-        phase = "routing"
-    state.phase_ms[phase] += update_elapsed_ms
-    return phase
+        waits["tools"] = max(0.0, elapsed - waits["model"])
+    elif not any(waits.values()) and any(update_usages):
+        # Retain timing for external graph nodes that report provider usage
+        # without passing through Gnosi's instrumented model boundary.
+        waits["model"] = elapsed
+    for phase, duration in waits.items():
+        state.phase_ms[phase] += duration
+    state.phase_ms["routing"] += max(0.0, elapsed - sum(waits.values()))
+    if waits["model"]:
+        return "model"
+    return "tools" if waits["tools"] else "routing"
 
 
 def _assistant_metadata(
@@ -72,7 +80,8 @@ def _assistant_metadata(
     if not isinstance(metadata, dict):
         metadata = {}
     timings = state.metrics_payload() if state.team_usage is not None else {"response_ms": state.response_ms}
-    metadata["gnosi_timings"] = timings
+    if state.chat_timing is None or state.chat_timing.direct_reply_ms is None:
+        metadata["gnosi_timings"] = timings
     if untrusted_context_flags:
         evidence_security = dict(metadata.get("gnosi_evidence_security") or {})
         categories = list(evidence_security.get("categories") or [])
@@ -237,18 +246,19 @@ def _node_events(
     untrusted_context_flags: list[str],
 ) -> tuple[list[str], float]:
     events = _deadline_event(state, turn_timeout_seconds=turn_timeout_seconds)
-    phase_event = state.phase_event(state.phase_for_node(node_name))
-    if phase_event:
-        events.append(phase_event)
     update_at = time.monotonic()
     update_messages = state_update.get("messages", [])
     update_usages = [usage_from_message(message) for message in update_messages]
     phase = _update_phase(
         state,
         node_name=node_name,
-        update_elapsed_ms=max(0.0, (update_at - previous_update_at) * 1000),
+        started=previous_update_at,
+        ended=update_at,
         update_usages=update_usages,
     )
+    phase_event = state.phase_event(phase)
+    if phase_event:
+        events.append(phase_event)
     events.append(
         json.dumps(
             {
@@ -299,10 +309,14 @@ async def iter_workflow_events(
     async with _acquire_turn_lock(turn_lock):
         if is_cancelled(inputs.get("cancel_token", "")):
             return
-        async with asyncio.timeout(turn_timeout_seconds) as execution_deadline:
-            async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
-                agent_app = workflow.compile(checkpointer=saver)
-                previous_update_at = time.monotonic()
+        async with (
+            asyncio.timeout(turn_timeout_seconds) as execution_deadline,
+            AsyncSqliteSaver.from_conn_string(str(db_path)) as saver,
+        ):
+            agent_app = workflow.compile(checkpointer=saver)
+            previous_update_at = time.monotonic()
+            with track_chat(state.trace_id, state.request_started_at, state.workflow_ready_at, previous_update_at) as timing:
+                state.chat_timing = timing
                 from backend.services.agent_execution import stream_workflow
                 if state.llm_selection.get("mode") == "team":
                     inputs = {**inputs, "chat_request_started_at": state.request_started_at}

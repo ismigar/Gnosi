@@ -31,6 +31,37 @@ def test_supplied_field_with_passive_reader_calls_only_the_eligible_specialist(o
     assert artifacts.list_artifacts(fixture[0], "routing")[0]["reason"] == "unique_eligible_specialist"
 
 
+def test_planning_reads_candidates_once_and_dispatch_observes_a_new_budget_block(optional_runtime, monkeypatch):
+    from backend.agent import model_router
+    from backend.services import agent_team_planning, agent_team_runtime
+
+    fixture, _ = optional_runtime
+    prepare(fixture, monkeypatch, ['{"value":true}'])
+    read_inputs = agent_team_runtime.candidate_inputs
+    record = agent_team_planning.record
+    planned = False
+    reads = []
+
+    def observe_inputs(config):
+        reads.append("dispatch" if planned else "planning")
+        return read_inputs(config)
+
+    def record_route(kind, value):
+        nonlocal planned
+        record(kind, value)
+        if kind == "team.route":
+            assert value["reason"] == "unique_eligible_specialist"
+            planned = True
+
+    monkeypatch.setattr(agent_team_runtime, "candidate_inputs", observe_inputs)
+    monkeypatch.setattr(agent_team_planning, "record", record_route)
+    monkeypatch.setattr(model_router, "budget_status", lambda: {"over_cap": planned, "budget": {"enforce_block": True}})
+    with pytest.raises(RuntimeError, match="agent_team_no_eligible_executor"):
+        run_chat(fixture, WORD_FIELD_REQUEST, supplied_operation="tables")
+    assert reads == ["planning", "dispatch"]
+    assert fixture[2] == []
+
+
 @pytest.mark.parametrize("request_text", [
     WORD_FIELD_REQUEST,
     'Sample row: stock=4. Calculate whether stock > 0. Return just a JSON object with the boolean field "value".',
