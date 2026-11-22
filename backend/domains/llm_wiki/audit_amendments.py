@@ -46,7 +46,10 @@ def open_findings(proposal: dict[str, Any]) -> dict[str, str]:
         if value.get("status") == "unresolved":
             for reason in issue_texts(value.get("reason")):
                 if reason not in issues.values():
-                    issues[f"prior_{key}"] = reason
+                    slot = f"prior_{key}"
+                    if slot in issues:
+                        slot = f"issue_{len(issues) + 1}"
+                    issues[slot] = reason
     return issues
 
 

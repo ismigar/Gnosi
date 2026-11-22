@@ -294,7 +294,7 @@ def test_a_paid_individual_assessment_with_an_unlocatable_pdf_quote_reopens_only
     assert receipt["answer"]["evidence_quote"] == valid
 
 
-@pytest.mark.parametrize("stop", ["budget", "budget_with_open_disposition", "invalid_amendment", "revised_audit", "unresolved_patch"])
+@pytest.mark.parametrize("stop", ["budget", "budget_with_open_disposition", "invalid_amendment", "revised_audit", "unresolved_patch", "listed_reasons"])
 def test_every_paid_objection_survives_an_interrupted_amendment(runtime, monkeypatch, tmp_path, stop):
     from backend.services import agent_execution as execution, ai_usage_ledger as ledger
     from backend.services.agent_execution_scope import execution_scope
@@ -330,6 +330,12 @@ def test_every_paid_objection_survives_an_interrupted_amendment(runtime, monkeyp
         findings.append("Does the opponent qualify the claim?")
         reasons.append({"status": "addressed", "reason": "The original attributes an unqualified position to the opponent."})
         amendment["findings"] = {"issue_1": {"status": "unresolved", "reason": findings[-1], "evidence_excerpt": 1}}
+    if stop == "listed_reasons":
+        extra = ["What kind of experience?", "Does the author offer an alternative?"]
+        findings.extend(extra)
+        reasons.extend([{"status": "source_limitation", "reason": "The original does not specify this."}] * len(extra))
+        amendment["findings"] = {"issue_1": {"status": "unresolved", "reason": extra, "evidence_excerpt": 1},
+                                 "issue_2": {"status": "addressed", "reason": "Experience contradicts the claim.", "evidence_excerpt": 1}}
     answers = [grouped, first_audit, amendment, decision(len(findings)), {"summary": "Experience qualifies the opponent's claim."}]
     class Responses:
         def __getitem__(self, index):
