@@ -290,3 +290,16 @@ def test_identical_note_bodies_keep_their_own_citations_in_full_revisions(positi
     replaced["changes"][0]["replacement"]["quotes"][0]["source"] = 1
     with pytest.raises(PassageReviewIssue, match="original source"):
         validate_revision_origins(first, replaced, selection)
+
+
+@pytest.mark.parametrize("position", [2, 0])
+def test_full_revision_can_also_correct_an_independent_note_with_the_same_body(position):
+    request, _, _ = audit_case(True)
+    selection = quote_selection(request)
+    initial = {"position": 1 if position else 0, "replacement": {"title": "Comparison", "body_md": "Shared wording.",
+        "quotes": [{"source": 1, "text": "A"}, {"source": 2, "text": "B"}]}}
+    extra = {"position": position, "replacement": {"title": "Inventory", "body_md": "Shared wording.",
+        "quotes": [{"source": 1, "text": "A"}, {"source": 1, "text": "C"}]}}
+    retained = deepcopy(initial)
+    retained["replacement"]["quotes"][1]["text"] = "Shorter B"
+    validate_revision_origins({"changes": [initial]}, {"changes": [extra, retained]}, selection)

@@ -79,26 +79,28 @@ def _preserves_origins(before: list[Any], after: list[Any], texts: list[str]) ->
 
 @dataclass(frozen=True)
 class _Claim:
-    position: object
     title: object
     citations: list[Any]
 
 
-def _claims(answer: dict[str, Any]) -> dict[str, list[_Claim]]:
-    claims: dict[str, list[_Claim]] = defaultdict(list)
+def _claims(answer: dict[str, Any]) -> dict[tuple[int, str], list[_Claim]]:
+    claims: dict[tuple[int, str], list[_Claim]] = defaultdict(list)
     for change in records(answer.get("changes")):
         note = record(change.get("replacement"))
         citations = note.get("quotes")
+        position = change.get("position")
+        if not (type(position) is int or isinstance(position, float) and position.is_integer()):
+            continue
         if isinstance(citations, list) and (body := _claim_text(note)):
-            claims[body].append(_Claim(change.get("position"), note.get("title"), citations))
+            # Positive positions are distinct, stable drafts even when their
+            # bodies coincide. Zero is the separate group of newly proposed notes.
+            claims[int(position), body].append(_Claim(note.get("title"), citations))
     return claims
 
 
 def _claim_matches(prior: list[_Claim], revised: _Claim, texts: list[str]) -> list[int]:
-    positions = [i for i, c in enumerate(prior) if c.position == revised.position]
-    possible = positions or list(range(len(prior)))
-    titles = [i for i in possible if prior[i].title == revised.title]
-    return [i for i in titles or possible if _preserves_origins(prior[i].citations, revised.citations, texts)]
+    titles = [i for i, c in enumerate(prior) if c.title == revised.title]
+    return [i for i in titles or range(len(prior)) if _preserves_origins(prior[i].citations, revised.citations, texts)]
 
 
 def _distinct_origins(matches: list[list[int]]) -> bool:
@@ -122,14 +124,16 @@ def validate_revision_origins(previous: dict[str, Any], revised: dict[str, Any],
     primary = "".join(selection.audit_evidence) if selection.audit_evidence else request["original"]["text"]
     texts = [primary, *(s["text"] for s in request.get("support", []))]
     prior = _claims(previous)
-    for body, claims in _claims(revised).items():
-        if body not in prior:
+    for identity, claims in _claims(revised).items():
+        if identity not in prior:
             continue
-        matches = [_claim_matches(prior[body], claim, texts) for claim in claims]
-        if len(matches) > len(prior[body]) and all(matches):
-            # Additional notes may share a claim after a full revision. Retain
-            # distinct evidence for the earlier proposals as the group grows.
-            matches = [[i for i, candidates in enumerate(matches) if j in candidates] for j in range(len(prior[body]))]
+        earlier = prior[identity]
+        matches = [_claim_matches(earlier, claim, texts) for claim in claims]
+        titles = [note.title for note in earlier]
+        if len(matches) > len(earlier) and all(m or c.title not in titles for m, c in zip(matches, claims)):
+            # A genuinely additional, differently titled note may introduce
+            # evidence once each earlier proposal still has its own successor.
+            matches = [[i for i, candidates in enumerate(matches) if j in candidates] for j in range(len(earlier))]
         if not _distinct_origins(matches):
             raise PassageReviewIssue("A citation-only correction must keep its original source. Reassess the claim "
                                      "and its attribution if a different document supports a substantive revision.")
