@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 779 | 3575 |
-| pytest | 830 | 6445 |
+| pytest | 830 | 6446 |
 
 ## Fichiers
 
@@ -1354,7 +1354,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_reader_list_indexes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_list_indexes.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_reader_source_registry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_registry.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_reader_source_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reader_source_routes.py) | 6 | Python AST |
-| pytest | [`backend/tests/test_reading_audit_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_audit_evidence.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_reading_audit_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_audit_evidence.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_reading_batch_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_batch_recovery.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_reading_batches.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_batches.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_reading_budget.py) | 12 | Python AST |
