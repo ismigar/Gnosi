@@ -58,6 +58,7 @@ from backend.domains.agent.runtime_tools import (
 )
 from backend.services.agent_cancellation import AgentTurnCancelled
 from backend.domains.agent.team_help import HELP_NAME, HELP_TOOL, TeamHelp, requested_help, can_request_help
+from backend.domains.agent.supplied_tasks import current_supplied_operation
 
 SYNTHESIS_CONTEXT_TOOLS = {
     "inventory_context",
@@ -347,13 +348,15 @@ class AgentWorkflowNodes:
         messages = state["messages"]
         from backend.domains.agent.title_replacements import current_title_instruction
         latest_user = current_title_instruction(messages, state, self._latest_user(messages))
-        request_mode = _request_mode(latest_user)
+        supplied = bool(current_supplied_operation(state, latest_user))
+        request_mode = "conversation" if supplied else _request_mode(latest_user)
         from backend.domains.agent.title_edit_contract import state_title_edit
         title_edit = state_title_edit(state, latest_user)
         if title_edit:
             request_mode = 'action'
         authorized_names = _turn_authorized_tool_names(state)
-        route = self._context_route(messages, latest_user, request_mode, title_edit)
+        route = (ContextRoute(reader_message=latest_user) if supplied
+                 else self._context_route(messages, latest_user, request_mode, title_edit))
         directed = bool(frozen_resources.get())
         required_reads = {route.required_tool} if route.required_tool else set()
         turn_plan = build_agent_turn_plan(
@@ -364,6 +367,7 @@ class AgentWorkflowNodes:
             provider=self.provider_name,
             required_tool_name=route.required_tool,
             route="Brain",
+            supplied_input=supplied,
         )
         tools = _turn_model_tools(
             self.brain_tools,
@@ -378,7 +382,9 @@ class AgentWorkflowNodes:
         # mandatory context read or the deterministic inventory budget.
         if not directed or route.required_tool:
             tools = [tool for tool in tools if _tool_name(tool) in planned_names]
-        if not directed and request_mode == "conversation" and not authorized_names and not route.has_notebook:
+        if supplied:
+            tools = [tool for tool in tools if _tool_name(tool) not in self.context_tool_names]
+        elif not directed and request_mode == "conversation" and not authorized_names and not route.has_notebook:
             tools = []
         elif (
             not directed and route.has_vault

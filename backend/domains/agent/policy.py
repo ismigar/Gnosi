@@ -8,7 +8,7 @@ import operator
 import time
 from contextvars import ContextVar
 from threading import Event
-from typing import Annotated, Any, Sequence, TypedDict
+from typing import Annotated, Any, NotRequired, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -52,6 +52,7 @@ class GovernedToolNode(ToolNode):
 
 class _AgentFields(TypedDict):
     user_request: str
+    supplied_operation: NotRequired[str]
     title_edit: dict[str, Any]
     next: str
     turn_authorized_tool_names: Sequence[str]

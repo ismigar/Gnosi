@@ -125,10 +125,11 @@ def build_agent_turn_plan(
     provider: str = "",
     required_tool_name: str = "",
     route: str = "",
+    supplied_input: bool = False,
 ) -> dict[str, Any]:
     """Build the effective universal plan from current request and runtime."""
     refs = list(context_refs or ())
-    mode = _request_mode(message)
+    mode = "conversation" if supplied_input else _request_mode(message)
     required = str(required_tool_name or "")
     has_reader_context = any(
         ref.get("type") == "internal" and ref.get("ref") == "reader" for ref in refs
@@ -138,7 +139,7 @@ def build_agent_turn_plan(
         ref.get("type") in {"page", "table", "database", "vault"} for ref in refs
     )
     has_other_context = any(ref.get("type") in {"file", "url", "source"} for ref in refs)
-    if not required and has_notebook_context and mode != "action":
+    if not required and has_notebook_context and mode != "action" and not supplied_input:
         required = "search_notebook_context"
     elif not required and mode in {"lookup", "inventory", "analysis"}:
         if has_reader_context and (_reader_context_requested(message) or not has_vault_context):

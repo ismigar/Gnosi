@@ -407,12 +407,18 @@ async def chat_endpoint(
         authorized_tool_names.update(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
         )
+        plain_input = (user_content == original_message and chat_req.active_skill_ids is None
+                       and not (command_selected or notebook_turn or turn_context_refs or chat_req.mentions
+                                or chat_req.attachments or learning_project_id))
+        from backend.domains.agent.supplied_tasks import supplied_chat_operation
+        supplied = supplied_chat_operation(original_message) if plain_input and not authorized_tool_names else ""
         turn_plan = build_agent_turn_plan(
             chat_req.message,
             context_refs=(llm_selection or {}).get("context_refs") or [],
             tool_metadata=(llm_selection or {}).get("tools") or [],
             authorized_tool_names=authorized_tool_names,
             provider=str((llm_selection or {}).get("provider") or ""),
+            supplied_input=bool(supplied),
         )
         interpretation = turn_plan.get("interpretation") or {}
         await asyncio.to_thread(
@@ -457,11 +463,10 @@ async def chat_endpoint(
         inputs["messages"][0].additional_kwargs.update(
             gnosi_visible_content=original_message, gnosi_assistant_profile=assistant_profile,
         )
+        # Each turn replaces this value, including a contextual follow-up on the same checkpoint.
+        inputs["supplied_operation"] = supplied
         from backend.services.agent_team_contracts import is_greeting
-        if (is_greeting(original_message) and user_content == original_message
-                and chat_req.active_skill_ids is None
-                and not (command_selected or notebook_turn or turn_context_refs
-                         or chat_req.mentions or chat_req.attachments or learning_project_id)):
+        if plain_input and is_greeting(original_message):
             inputs["messages"][0].additional_kwargs["gnosi_plain_greeting"] = True
 
         # 3. Configure memory thread (per agent + session)
