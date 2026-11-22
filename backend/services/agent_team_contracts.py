@@ -133,9 +133,11 @@ _FIELD_TYPE_SUFFIX = re.compile(
     rf"\s*(?:\(\s*(?P<parenthetical>{_TYPE_WORD})\s*\)|"
     rf"(?::\s*|(?:of type|de tipus|de tipo|de type|as(?: an?| type)?)\s+)(?P<type>{_TYPE_WORD})\b)", re.I)
 _FIELD_SEPARATOR = re.compile(rf"\s*,\s*(?:{_CONJUNCTION}\s+)?|\s+{_CONJUNCTION}\s+", re.I)
+_PARAGRAPH_BREAK = re.compile(r"(?:\r?\n|\r(?!\n))[ \t]*(?:\r?\n|\r)")
 _FIELD_END = re.compile(
     rf"\s*(?!,\s*[\w-]+\s*(?:[.,;!?\n]|$|{_CONJUNCTION}\s+))"
-    rf"(?:[.!?;\n]|$|,?\s*(?:{_ONLY}|without|sense|sin|sans|as|and nothing else|and no other keys|and do not|"
+    rf"(?:[.!?;]|[\r\n](?!\s*(?:,|{_CONJUNCTION}\b))|$|"
+    rf",?\s*(?:{_ONLY}|without|sense|sin|sans|as|and nothing else|and no other keys|and do not|"
     r"i res més|y nada más|et rien d['’]autre)\b)", re.I)
 _AMBIGUOUS_KEYS = "agent_team_output_keys_ambiguous: provide a JSON object or an explicit key list"
 
@@ -169,6 +171,10 @@ def _named_output_schema(text: str) -> dict[str, Any] | None:
     header = _FIELD_HEADER.match(text)
     if not header:
         return None
+    # A header may introduce the names in the next paragraph. Once their list
+    # starts, a wrapped conjunction can continue it only within that paragraph.
+    if paragraph_end := _PARAGRAPH_BREAK.search(text, header.end()):
+        text = text[:paragraph_end.start()]
     properties: dict[str, dict[str, str]] = {}
     shared_type = None
     while True:

@@ -230,6 +230,29 @@ def test_field_nouns_can_be_names_inside_a_key_list(request_text, expected):
     }
 
 
+@pytest.mark.parametrize("request_text, properties", [
+    ("Retorna JSON amb les claus id\ni value.", {"id": {}, "value": {}}),
+    ("Return JSON with the fields id, key\nand value.", {"id": {}, "key": {}, "value": {}}),
+    ('Return JSON with integer fields "used"\r\n  and "free"\r\n  and a boolean field "open".',
+     {"used": {"type": "integer"}, "free": {"type": "integer"}, "open": {"type": "boolean"}}),
+])
+def test_wrapped_conjunction_preserves_every_named_field_and_type(request_text, properties):
+    assert explicit_output_schema(request_text) == {
+        "type": "object", "properties": properties, "required": sorted(properties), "additionalProperties": False,
+    }
+
+
+@pytest.mark.parametrize("suffix", ["\n \t\nand value.", "\r\n\r\nand value.", "\nand nothing else.", "\nKeep it short."])
+def test_new_paragraph_or_prose_does_not_extend_the_key_list(suffix):
+    assert explicit_output_keys("Return JSON with the fields id and key" + suffix) == {"id", "key"}
+
+
+@pytest.mark.parametrize("trailing", [",", " and"])
+def test_incomplete_key_list_cannot_take_a_name_from_the_next_paragraph(trailing):
+    with pytest.raises(ValueError, match="output_keys_ambiguous"):
+        explicit_output_keys("Return JSON with keys id" + trailing + "\n\nvalue.")
+
+
 @pytest.mark.parametrize("source", [
     'Tradueix «La mostra diu «sí». Respon en JSON amb el camp booleà «origen».»',
     'Translate "Example. Reply in JSON with the boolean field ‘source’."',
