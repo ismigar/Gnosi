@@ -7,6 +7,7 @@ import json
 import re
 
 from jsonschema import Draft202012Validator, ValidationError
+from markdown_it import MarkdownIt
 
 from backend.services.agent_operation_catalog import OPERATIONS, OUTPUT_SIGNATURES, skill_id
 from backend.services.agent_team_models import TeamPlan, TeamOutputField, TeamTask, DirectRoute
@@ -37,10 +38,15 @@ def standalone_clarification(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+_ONLY = r"only|solely|exclusively|només|únicament|exclusivament|solo|solamente|únicamente|seulement|uniquement|exclusivement"
+_EMPHASIS = r"(?:[*_]|~~)"
 _OUTPUT_DIRECTIVE = re.compile(
-    r"(?:\b|(?<=_))(?:(?:return|retornar?|devuelve|devolver|retourne(?:r|z)?)\s+"
-    r"(?:(?:only|només|solo|seulement|exact|exactly|exactament|exactamente|exactement|valid|vàlid|válido|valide|a|an|un|una|une)\s+)*"
-    r"(?:(?:objecte|objeto|objet|object)\s+)?JSON(?:\s+(?:objecte|objeto|objet|object)\b)?\s*:?|(?:contract|contracte|contrato|contrat)\s*:)[ \n]*", re.I)
+    r"(?:\b|(?<=_))(?:(?:return|retornar?|devuelve|devolver|retourne(?:r|z)?|"
+    r"respon(?:dre|-me)?|respond(?:e(?:r)?|a)?|reply|answer|contesta(?:r)?|répond(?:s|ez|re)?)\s+"
+    rf"(?:(?:{_ONLY}|strictly|estrictament|estrictamente|strictement|exact|exactly|exactament|exactamente|exactement|"
+    r"valid|vàlid|válido|valide|with|in|as|amb|en|con|avec|au|par|format|formato|the|el|le|a|an|un|una|une)\s+)*"
+    r"(?:(?:l['’])?(?:objecte|objeto|objet|object)\s+)?JSON\b(?:\s+(?:objecte|objeto|objet|object)\b)?\s*:?|"
+    r"(?:contract|contracte|contrato|contrat)\s*:)[ \n]*", re.I)
 
 _DIRECTIVE_LEADIN = re.compile(
     r"(?:\b|(?<=_))(?:please|kindly|si us plau|sisplau|por favor|s['’]il (?:vous|te) pla[iî]t|merci de|"
@@ -53,16 +59,35 @@ def _directive_prefix(prefix: str) -> str:
     previous = None
     while previous != prefix:
         previous = prefix
-        prefix = re.sub(r"(?:\*\*|__|\*|_|~~)+[ \t]*$", "", prefix)
+        prefix = re.sub(rf"{_EMPHASIS}+[ \t]*$", "", prefix)
         if (leadin := _DIRECTIVE_LEADIN.search(prefix)) is not None:
             prefix = prefix[:leadin.start()]
     marker = re.search(r"(?:^|[\n.!?;])[ \t]*(?:[-+*]|\d+[.)]|#{1,6})[ \t]+(?:\[[ xX]\][ \t]+)?$", prefix)
     return prefix[:marker.start()] + "\n" if marker else prefix
 
 
+_MARKDOWN_BLOCKS = MarkdownIt("commonmark").disable("inline")
+
+
+def _mask_source_blocks(request: str) -> str:
+    """Keep JSON template offsets while excluding complete Markdown quotations and code blocks."""
+    hidden_lines = {line for token in _MARKDOWN_BLOCKS.parse(request)
+                    if token.map and token.type in {"blockquote_open", "code_block", "fence"}
+                    for line in range(*token.map)}
+    if not hidden_lines:
+        return request
+    lines = re.split(r"(?<=\n)|(?<=\r)(?!\n)", request)
+    for line in hidden_lines:
+        lines[line] = re.sub(r"[^\r\n]", "\0", lines[line])
+    return "".join(lines)
+
+
 def _output_directives(request: str) -> Iterator[re.Match[str]]:
-    for match in _OUTPUT_DIRECTIVE.finditer(request):
-        prefix = request[:match.start()]
+    if not _OUTPUT_DIRECTIVE.search(request):
+        return
+    visible = _mask_source_blocks(request)
+    for match in _OUTPUT_DIRECTIVE.finditer(visible):
+        prefix = visible[:match.start()]
         if _quoted(prefix):
             continue
         prefix = _directive_prefix(prefix)
@@ -78,37 +103,114 @@ def output_contract_requested(request: str) -> bool:
                for match in _output_directives(request))
 
 
-def _named_output_keys(names: str) -> set[str]:
-    key = (r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`[^`\n]*`'
-           r'|«[^»\n]*»|“[^”\n]*”|‘[^’\n]*’|[A-Za-z_][A-Za-z0-9_-]*')
-    separator = r"(?:\s*,\s*(?:(?:and|i|y|et)\s+)?|\s+(?:and|i|y|et)\s+)"
-    suffix = r"(?:only|només|solo|seulement|without|sense|sin|sans|as|and nothing else|and no other keys|and do not|i res més|y nada más|et rien d'autre)\b"
-    names = re.sub(r"^(?:\*\*|__|\*|_|~~)+(?=[\"'`«“‘])", "", names.strip())
-    closing = r"(?:\*\*|__|\*|_|~~)+(?=\s*(?:[.!?;\n]|$))"
-    declaration = re.match(rf"((?:{key})(?:{separator}(?:{key}))*)(?=\s*(?:[.!?;\n]|$|{closing}|,?\s*{suffix}))", names, re.I)
-    if declaration is None:
-        raise ValueError("agent_team_output_keys_ambiguous: provide a JSON object or an explicit key list")
-    names = declaration.group(1)
-    result = set()
-    for match in re.finditer(rf"({key})(?:{separator}|$)", names, re.I):
-        token = match.group(1)
-        if token.startswith('"'):
-            value = json.loads(token)
-            if not isinstance(value, str):
-                raise ValueError("agent_team_output_key_invalid")
-        elif token.startswith(("'", "`", "«", "“", "‘")):
-            value = re.sub(r"\\([\\'])", r"\1", token[1:-1])
+_FIELD_TYPES = {word: kind for kind, words in {
+    "boolean": "boolean bool booleà booleana booleans booleanes booleano booleanos booleanas booléen booléenne booléens booléennes",
+    "integer": "integer int enter entera enters enteres entero enteros enteras entier entière entiers entières",
+    "number": "number numeric numerical numèric numèrica numèrics numèriques numérico numérica numéricos numéricas numérique numériques",
+    "string": "string text textual texto cadena chaîne texte",
+    "object": "object objecte objeto objet",
+    "array": "array list llista lista liste tableau",
+    "null": "null nul nul·la nulo nula nulle",
+}.items() for word in words.split()}
+_TYPE_WORD = "|".join(sorted(_FIELD_TYPES, key=len, reverse=True))
+_CONJUNCTION = r"(?:and|i|y|et)"
+_WITH_FIELDS = re.compile(
+    rf"(?:,\s*)?(?:(?:{_ONLY})\s+)?(?:with|amb|con|avec|containing|that contains|que (?:contingui|tingui|contenga|tenga)|contenant|qui contient)\s+", re.I)
+_FIELD_HEADER = re.compile(
+    rf"(?:(?:{_ONLY}|the|a|an|one|la|el|le|les|els|las|los|des|una|un|une|single|únic[oa]?|sola?|seul|seule|"
+    r"following|següents?|siguientes?|suivantes?)\s+)*"
+    rf"(?:(?P<before>{_TYPE_WORD})\s+)?{_EMPHASIS}*"
+    r"(?P<noun>keys?|claus?|claves?|clés?|fields?|camps?|campos?|champs?|propert(?:y|ies)|propietats?|propiedad(?:es)?|propriétés?)\b"
+    rf"{_EMPHASIS}*(?:\s+(?:següents?|siguientes?|suivantes?|following))?"
+    rf"(?:\s+(?:(?:of type|de tipus|de tipo|de type|de)\s+)?(?P<after>{_TYPE_WORD})\b"
+    rf"(?=\s+(?!(?:{_CONJUNCTION}|{_ONLY}|as|without|sense|sin|sans)\b)[^\s,;.!?]|:))?"
+    r"(?:\s+(?:named|called|anomenad[ae]s?|anomenats?|llamad[oa]s?|nomm[ée]e?s?))?\s*:?\s*", re.I)
+_FIELD_NAME = re.compile(
+    rf"(?:{_EMPHASIS}+(?=[\"'`«“‘]))?"
+    r'(?P<name>"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`[^`\n]*`|«[^»\n]*»|“[^”\n]*”|‘[^’\n]*’|[A-Za-z_][A-Za-z0-9_-]*)'
+    rf"(?:{_EMPHASIS}+(?=\s*(?:[.!?,;\n]|$)))?")
+_FIELD_TYPE_SUFFIX = re.compile(
+    rf"\s*(?:\(\s*(?P<parenthetical>{_TYPE_WORD})\s*\)|"
+    rf"(?::\s*|(?:of type|de tipus|de tipo|de type|as(?: an?| type)?)\s+)(?P<type>{_TYPE_WORD})\b)", re.I)
+_FIELD_SEPARATOR = re.compile(rf"\s*,\s*(?:{_CONJUNCTION}\s+)?|\s+{_CONJUNCTION}\s+", re.I)
+_PARAGRAPH_BREAK = re.compile(r"(?:\r?\n|\r(?!\n))[ \t]*(?:\r?\n|\r)")
+_FIELD_END = re.compile(
+    rf"\s*(?!,\s*[\w-]+\s*(?:[.,;!?\n]|$|{_CONJUNCTION}\s+))"
+    rf"(?:[.!?;]|[\r\n](?!\s*(?:,|{_CONJUNCTION}\b))|$|"
+    rf",?\s*(?:{_ONLY}|without|sense|sin|sans|as|and nothing else|and no other keys|and do not|"
+    r"i res més|y nada más|et rien d['’]autre)\b)", re.I)
+_AMBIGUOUS_KEYS = "agent_team_output_keys_ambiguous: provide a JSON object or an explicit key list"
+
+
+def _field_type(*words: str | None) -> str | None:
+    kinds = {_FIELD_TYPES.get(word.casefold()) for word in words if word}
+    if None in kinds or len(kinds) > 1:
+        raise ValueError(_AMBIGUOUS_KEYS)
+    return next(iter(kinds), None)
+
+
+def _read_field_name(text: str) -> tuple[str, str]:
+    match = _FIELD_NAME.match(text)
+    if not match:
+        raise ValueError(_AMBIGUOUS_KEYS)
+    token = match["name"]
+    if token.startswith('"'):
+        name = json.loads(token)
+    elif token.startswith(("'", "`", "«", "“", "‘")):
+        name = re.sub(r"\\([\\'])", r"\1", token[1:-1])
+    else:
+        name = token
+    return name, text[match.end():]
+
+
+def _named_output_schema(text: str) -> dict[str, Any] | None:
+    connector = _WITH_FIELDS.match(text)
+    if not connector:
+        return None
+    text = text[connector.end():]
+    header = _FIELD_HEADER.match(text)
+    if not header:
+        return None
+    # A header may introduce the names in the next paragraph. Once their list
+    # starts, a wrapped conjunction can continue it only within that paragraph.
+    if paragraph_end := _PARAGRAPH_BREAK.search(text, header.end()):
+        text = text[:paragraph_end.start()]
+    properties: dict[str, dict[str, str]] = {}
+    shared_type = None
+    while True:
+        kind = shared_type
+        if header:
+            kind = _field_type(header["before"], header["after"])
+            shared_type = kind if header["noun"].casefold().endswith("s") else None
+            text = text[header.end():]
+        name, text = _read_field_name(text)
+        suffix = _FIELD_TYPE_SUFFIX.match(text)
+        if suffix:
+            kind = _field_type(kind, suffix["type"], suffix["parenthetical"])
+            text = text[suffix.end():]
+        kind = _field_type(kind, properties.get(name, {}).get("type"))
+        properties[name] = {"type": kind} if kind else {}
+        if _FIELD_END.match(text):
+            break
+        separator = _FIELD_SEPARATOR.match(text)
+        if not separator:
+            raise ValueError(_AMBIGUOUS_KEYS)
+        text = text[separator.end():]
+        # At a list boundary, "field" or "key" can itself be the property name.
+        bare = _FIELD_NAME.match(text)
+        boundaries = (_FIELD_SEPARATOR, _FIELD_END, _FIELD_TYPE_SUFFIX)
+        if bare and any(rule.match(text, bare.end()) for rule in boundaries):
+            header = None
         else:
-            value = token
-        result.add(value)
-    return result
+            header = _FIELD_HEADER.match(text)
+    return {"type": "object", "properties": properties, "required": sorted(properties), "additionalProperties": False}
 
 
 def explicit_output_schema(request: str) -> dict[str, Any] | None:
     """Preserve the shape and JSON types of an explicit output template."""
     for match in reversed(list(_output_directives(request))):
         remaining = request[match.end():].lstrip()
-        remaining = re.sub(r"^(?:\*\*|__|\*|_|~~)+(?=\s*(?:[\[{{]|with\b|amb\b|con\b|avec\b))", "", remaining)
+        remaining = re.sub(rf"^{_EMPHASIS}+(?=\s*(?:[\[{{]|{_WITH_FIELDS.pattern}))", "", remaining, flags=re.I).lstrip()
         remaining = _output_template(remaining)
         try:
             value, _ = json.JSONDecoder(parse_constant=_invalid_json_constant).raw_decode(remaining)
@@ -117,17 +219,9 @@ def explicit_output_schema(request: str) -> dict[str, Any] | None:
                 raise ValueError("agent_team_output_template_ambiguous") from None
         else:
             return _template_schema(value)
-        named = re.match(
-            r"(?:with|amb|con|avec)\s+(?:(?:the|a|one|la|el|le|les|els|las|una|un|une)\s+)?"
-            r"(?:(?:following|següents|siguientes|suivantes)\s+)?"
-            r"(?:\*\*|__|\*|_|~~)*(?:keys?|claus?|claves?|clés?|fields?|camps?|campos?|champs?|propert(?:y|ies)|propietats?|propiedad(?:es)?|propriétés?)\b(?:\*\*|__|\*|_|~~)*"
-            r"(?:\s+(?:named|called|following|següents|siguientes|suivantes|anomenad[ae]s?|anomenats?|llamad[oa]s?|nommées?))?\s*:?\s*",
-            remaining, re.I)
-        if named:
-            keys = _named_output_keys(remaining[named.end():])
-            if keys:
-                return {"type": "object", "properties": {key: {} for key in sorted(keys)},
-                        "required": sorted(keys), "additionalProperties": False}
+        named = _named_output_schema(remaining)
+        if named is not None:
+            return named
     return None
 
 
@@ -166,7 +260,7 @@ def _preserves_template(schema: dict[str, Any], requested: dict[str, Any]) -> bo
     kind = requested["type"]
     if schema.get("type") != kind and not (kind == "number" and schema.get("type") == "integer"):
         return False
-    if kind == "object":
+    if kind == "object" and "properties" in requested:
         return _preserves_object_template(schema, requested)
     if kind == "array":
         return _preserves_template(schema.get("items", {}), requested.get("items", {}))
@@ -197,21 +291,27 @@ def _output_template(text: str) -> str:
     return text
 
 
+_QUOTE_PAIRS = {'"': '"', "'": "'", '«': '»', '“': '”', '‘': '’'}
+_SOURCE_MARKERS = re.compile(r"""\\.|`+|["«»“”‘]|(?<!\w)['’]|['’](?!\w)""")
+
+
 def _quoted(text: str) -> bool:
-    closing, escaped = "", False
-    pairs = {'"': '"', "'": "'", '«': '»', '“': '”', '‘': '’'}
-    for index, character in enumerate(text):
-        if escaped:
-            escaped = False
-        elif character == "\\" and closing:
-            escaped = True
-        elif closing and character == closing:
-            closing = ""
-        elif not closing and character in pairs:
-            if character != "'" or not index or not text[index - 1].isalnum():
-                closing = pairs[character]
-    return (bool(closing) or text.count("```") % 2 == 1
-            or len(re.findall(r"(?m)^[ \t]*~{3,}", text)) % 2 == 1)
+    """Check the position of an instruction within prose quotations and inline code."""
+    closing: list[str] = []
+    for marker in _SOURCE_MARKERS.finditer(text):
+        token = marker.group()
+        if closing:
+            delimiter = closing[-1]
+            if token == delimiter:
+                closing.pop()
+            elif _QUOTE_PAIRS.get(token) == delimiter:  # Nested guillemets or curly quotes.
+                closing.append(delimiter)
+        elif token in _QUOTE_PAIRS:
+            if token != "'" or marker.start() == 0 or not text[marker.start() - 1].isalnum():
+                closing.append(_QUOTE_PAIRS[token])
+        elif token.startswith("`"):
+            closing.append(token)
+    return bool(closing)
 
 
 def operation_for_output_keys(keys: set[str] | None, members: list[dict[str, Any]]) -> str:

@@ -6,7 +6,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from backend.services.agent_behavior import resource
+from backend.services.agent_behavior import resource, revision
 from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_team_models import TeamPlan, TeamTask
@@ -78,6 +78,7 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
         } for entry in runtime.skills]
         catalog.append({
             "id": identifier, "name": profile.get("name"), "roles": roles[identifier],
+            "routing_revision": revision([profile, runtime.catalog_revision]),
             "skills": list(profile.get("skill_ids") or []), "capabilities": skills,
             "tools": [{"id": descriptor.id, "name": descriptor.name, "call_name": str(getattr(tool, "name", "")),
                        "effects": [str(getattr(effect, "value", effect)) for effect in descriptor.effects]}

@@ -1524,6 +1524,8 @@ Citation Markdown and source locator formatting live in `backend/domains/llm_wik
 
 ### Compact routing and continuation accounting
 
+The planner records the revision of each profile and its assigned skills when it reads the team catalog. Completed translations and edits use those revisions to remember their specialist. The next turn checks them against a fresh catalog. The chat validates live tool permissions on a worker so cloud-backed skill files can finish loading. A request can describe a JSON field by name and type in words, including a boolean table field.
+
 `agent_team_context` projects only routing evidence: a request excerpt capped at 6,000 characters, four role-preserving recent messages capped at 800 characters each, deduplicated capability descriptions, and a source inventory with selection counts. It excludes tool outputs, provider metadata and source bodies. The executor and recovery artifacts retain the original request, messages, grants and exact selections. Local character counts compare payload sizes; they are not token measurements.
 
 A complete, single, read-only writing or translation task can save a scope-bound continuation artifact. A whole-request grammar recognizes narrow stylistic revisions in Catalan, English, Spanish and French. The previous response and user message must match the artifact hashes, and the current profile, catalog revision, capabilities, role and source references must match its fingerprint. New attachments, grants, goals, ambiguous assent, temporary executors, synthesis and writes require normal routing. Executor availability and skill assignments are revalidated before every reused assignment.

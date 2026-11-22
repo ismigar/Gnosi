@@ -38,11 +38,9 @@ def clear_text_revision(text: str) -> bool:
 
 def routing_fingerprint(owner: dict[str, Any], catalog: list[dict[str, Any]], refs: list[dict[str, Any]],
                         scope: ExecutionScope) -> str:
-    from backend.services.agent_team_runtime import _profile, _runtime
-    profiles = [_profile(member["id"]) for member in catalog]
-    return revision({"owner": owner, "members": catalog, "profiles": profiles, "refs": refs,
-                     "scope": scope.model_dump(),
-                     "procedures": {p["id"]: _runtime(p, scope).catalog_revision for p in profiles}})
+    # The catalog already identifies the profiles and procedures used for this decision.
+    # The next turn builds its own catalog before it can reuse this assignment.
+    return revision({"owner": owner, "members": catalog, "refs": refs, "scope": scope.model_dump()})
 
 
 def _completed_specialist(scope: ExecutionScope, root_id: str) -> str | None:

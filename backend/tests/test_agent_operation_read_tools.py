@@ -72,6 +72,16 @@ def run(reading):
 def test_operation_reads_actual_tool_result_then_returns_valid_json(reading, monkeypatch):
     from backend.domains.agent import policy
     from backend.agent.action_confirmations import current_confirmation_scope
+    from backend.services import agent_skill_catalog
+    from backend.utils.metadata_io import _on_event_loop
+
+    resolve = agent_skill_catalog.resolve_agent_runtime
+
+    def cloud_runtime(*args, **kwargs):
+        assert not _on_event_loop(), "Cloud-backed skills must be resolved on a worker"
+        return resolve(*args, **kwargs)
+
+    monkeypatch.setattr(agent_skill_catalog, "resolve_agent_runtime", cloud_runtime)
     audits = []
     monkeypatch.setattr(policy, "record_capability_event", lambda scope, **event: audits.append((scope, event)))
     result = run(reading)

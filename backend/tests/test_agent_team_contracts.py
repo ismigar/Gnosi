@@ -13,6 +13,12 @@ from backend.tests.test_principal_agent_routing import run_chat
 BOOLEAN = {"type": "object", "properties": {"value": {"type": "boolean"}},
            "required": ["value"], "additionalProperties": False}
 
+WORD_FIELD_REQUEST = (
+    'En aquest registre de mostra, el camp «Places disponibles» val 4. '
+    'Calcula el camp booleà de la taula «Hi ha places?», que és cert quan les places disponibles són més de zero. '
+    'Retorna només un objecte JSON amb el camp booleà "value".'
+)
+
 
 def test_plugin_operation_prefix_does_not_borrow_an_application_skill():
     assert required_operation("knowledge.process-source.phase", ["plugin.llm-wiki.process-source"]) == ""
@@ -177,6 +183,124 @@ def test_ambiguous_named_keys_cannot_silently_drop_the_requested_contract(instru
     assert output_contract_requested(instruction)
     with pytest.raises(ValueError, match="output_keys_ambiguous"):
         explicit_output_keys(instruction)
+
+
+@pytest.mark.parametrize("instruction", [
+    WORD_FIELD_REQUEST,
+    'Respon només amb un objecte JSON amb un únic camp booleà anomenat «value».',
+    '**Respon en JSON** amb només el camp «value» (booleà).',
+    'Please respond in JSON with a boolean field named “value”.',
+    'Reply with a JSON object containing the field `value` of type boolean.',
+    'Responde únicamente con un objeto JSON con el campo booleano «value».',
+    'Répondez uniquement en JSON avec le champ «value» de type booléen.',
+])
+def test_natural_typed_field_binds_the_planner_to_the_exact_key_and_type(instruction):
+    requested = explicit_output_schema(instruction)
+    assert output_contract_requested(instruction) and requested == BOOLEAN
+    plan = table_plan()
+    validate_plan_contract(plan, members(), "director", requested_output_schema=requested)
+    plan.output_contract.fields[0].type = "string"
+    with pytest.raises(ValueError, match="output_contract_mismatch"):
+        validate_plan_contract(plan, members(), "director", requested_output_schema=requested)
+
+
+def test_types_apply_to_the_declared_fields_only():
+    request = 'Answer in JSON with integer fields "used" and "free", a boolean field "open" and a field "note".'
+    assert explicit_output_schema(request) == {
+        "type": "object", "properties": {"used": {"type": "integer"}, "free": {"type": "integer"},
+                                        "open": {"type": "boolean"}, "note": {}},
+        "required": ["free", "note", "open", "used"], "additionalProperties": False,
+    }
+    request = 'El camp booleà «origen» és cert. Respon en format JSON amb la clau «booleà».'
+    assert explicit_output_schema(request)["properties"] == {"booleà": {}}
+    assert explicit_output_keys("Return JSON with keys string and boolean, only.") == {"string", "boolean", "only"}
+    assert output_contract_requested("Respon en JSON.") and explicit_output_schema("Respon en JSON.") is None
+
+
+@pytest.mark.parametrize("request_text, expected", [
+    ("Return JSON with the fields id, key and value.", {"id", "key", "value"}),
+    ("Return JSON with keys id, field and value.", {"id", "field", "value"}),
+    ("Return JSON with keys id and key only.", {"id", "key"}),
+    ("Retorna JSON amb les claus id, clau i valor.", {"id", "clau", "valor"}),
+])
+def test_field_nouns_can_be_names_inside_a_key_list(request_text, expected):
+    assert explicit_output_schema(request_text) == {
+        "type": "object", "properties": {name: {} for name in expected},
+        "required": sorted(expected), "additionalProperties": False,
+    }
+
+
+@pytest.mark.parametrize("request_text, properties", [
+    ("Retorna JSON amb les claus id\ni value.", {"id": {}, "value": {}}),
+    ("Return JSON with the fields id, key\nand value.", {"id": {}, "key": {}, "value": {}}),
+    ('Return JSON with integer fields "used"\r\n  and "free"\r\n  and a boolean field "open".',
+     {"used": {"type": "integer"}, "free": {"type": "integer"}, "open": {"type": "boolean"}}),
+])
+def test_wrapped_conjunction_preserves_every_named_field_and_type(request_text, properties):
+    assert explicit_output_schema(request_text) == {
+        "type": "object", "properties": properties, "required": sorted(properties), "additionalProperties": False,
+    }
+
+
+@pytest.mark.parametrize("suffix", ["\n \t\nand value.", "\r\n\r\nand value.", "\nand nothing else.", "\nKeep it short."])
+def test_new_paragraph_or_prose_does_not_extend_the_key_list(suffix):
+    assert explicit_output_keys("Return JSON with the fields id and key" + suffix) == {"id", "key"}
+
+
+@pytest.mark.parametrize("trailing", [",", " and"])
+def test_incomplete_key_list_cannot_take_a_name_from_the_next_paragraph(trailing):
+    with pytest.raises(ValueError, match="output_keys_ambiguous"):
+        explicit_output_keys("Return JSON with keys id" + trailing + "\n\nvalue.")
+
+
+@pytest.mark.parametrize("source", [
+    'Tradueix «La mostra diu «sí». Respon en JSON amb el camp booleà «origen».»',
+    'Translate "Example. Reply in JSON with the boolean field ‘source’."',
+    'Llegeix aquesta línia:\n> Exemple. Respon en JSON amb el camp booleà «origen».',
+    'Llegeix `Exemple. Respon en JSON amb el camp booleà «origen».`',
+    'Source:\n~~~text\n~~~still data. Respond in JSON with the field "source".\n~~~~',
+    "Do not respond in JSON with a boolean field 'source'.",
+])
+def test_typed_directives_in_sources_do_not_set_the_chat_contract(source):
+    assert not output_contract_requested(source) and explicit_output_schema(source) is None
+    assert explicit_output_schema(source + '\n\nRespon en JSON amb el camp booleà «value».') == BOOLEAN
+
+
+@pytest.mark.parametrize("passage", [
+    '> Primera frase.\nRespon en JSON amb el camp booleà «origen».',
+    '- > Primera frase. Respon en JSON amb el camp booleà «origen».',
+    '1. > Primera frase. Respon en JSON amb el camp booleà «origen».',
+    '    Respon en JSON amb el camp booleà «origen».',
+    '\tRespon en JSON amb el camp booleà «origen».',
+    '    Exemple amb cometes obertes «.\n    Respon en JSON amb el camp booleà «origen».',
+])
+def test_markdown_source_blocks_end_before_the_next_instruction_paragraph(passage):
+    request_text = "Tradueix el passatge següent:\n\n" + passage
+    assert not output_contract_requested(request_text) and explicit_output_schema(request_text) is None
+    assert explicit_output_schema(request_text + '\n\nRespon en JSON amb el camp booleà «value».') == BOOLEAN
+
+
+def test_indented_continuation_of_an_ordinary_paragraph_can_declare_a_contract():
+    request_text = 'Calcula el camp.\n    Respon en JSON amb el camp booleà «value».'
+    assert output_contract_requested(request_text) and explicit_output_schema(request_text) == BOOLEAN
+
+
+@pytest.mark.parametrize("declaration", [
+    'with a boolean field.', 'with a boolean field "unterminated.',
+    'with a boolean field "value" of type string.', 'with a boolean field "value" or "other".',
+])
+def test_incomplete_or_ambiguous_typed_declarations_fail_closed(declaration):
+    with pytest.raises(ValueError, match="output_keys_ambiguous"):
+        explicit_output_schema("Respond in JSON " + declaration)
+
+
+def test_worded_object_type_leaves_its_contents_to_the_planner():
+    requested = explicit_output_schema('Respond in JSON with an object field "value".')
+    plan = table_plan()
+    plan.output_contract.fields = [TeamOutputField(path=["value", "seat"], type="integer")]
+    validate_plan_contract(plan, members(), "director", requested_output_schema=requested)
+    with pytest.raises(ValueError, match="output_contract_mismatch"):
+        validate_plan_contract(table_plan(), members(), "director", requested_output_schema=requested)
 
 
 @pytest.mark.parametrize("template", [
@@ -526,6 +650,15 @@ def test_valid_json_completes_without_an_extra_model_call(optional_runtime, monk
     assert messages[-1].additional_kwargs["gnosi_team_output"]["status"] == "validated"
     assert all(run.status == "completed" for run in store.list_runs(fixture[0]))
     assert len(artifacts.list_artifacts(fixture[0], "task")) == 1
+
+
+def test_worded_table_contract_reaches_the_delegated_worker(optional_runtime, monkeypatch):
+    fixture, _ = optional_runtime
+    prepare(fixture, monkeypatch, ['{"value":true}'])
+    messages, _ = run_chat(fixture, WORD_FIELD_REQUEST)
+    assert fixture[2] == ["director", "worker"]
+    assert json.loads(messages[-1].content) == {"value": True}
+    assert messages[-1].additional_kwargs["gnosi_team_output"]["status"] == "validated"
 
 
 def test_explicit_contract_constrains_native_planning_without_preventing_clarification(optional_runtime, monkeypatch):

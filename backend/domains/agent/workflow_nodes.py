@@ -40,6 +40,7 @@ from backend.domains.agent.intent import _obvious_route, _request_mode, request_
 from backend.domains.agent.messages import _bounded_model_messages
 from backend.domains.agent.policy import (
     AgentState,
+    GovernedToolNode,
     _invoke_agent_model,
     _tool_policy_wrapper,
     _turn_authorized_tool_names,
@@ -762,10 +763,7 @@ class AgentWorkflowNodes:
         workflow.add_node("coder_tools", ToolNode(self.coder_tools))
         workflow.add_node(
             "brain_tools",
-            ToolNode(
-                self.brain_tools,
-                wrap_tool_call=_tool_policy_wrapper(self.tool_policies),
-            ),
+            GovernedToolNode(self.brain_tools, wrap_tool_call=_tool_policy_wrapper(self.tool_policies)),
         )
         workflow.add_edge(START, "supervisor")
         workflow.add_conditional_edges(
