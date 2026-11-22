@@ -151,33 +151,37 @@ class ReadingRuntime:
         ), snapshot=self.snapshot)
         return result.result, result.model
 
+    def _structured_input(self, prompt: str, envelope: Any) -> tuple[QuoteSelection | None, str, dict[str, Any]]:
+        from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+        canonical = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        if not isinstance(canonical, dict):
+            canonical = {"type": "object"}
+        # A narrow review window may fit the original literal field but not the numbered catalog.
+        for numbered in (True, False):
+            selection = quote_selection(envelope, number_audit_evidence=numbered) if isinstance(envelope, dict) else None
+            operation_input = compact_structured_input(selection.input) if selection else prompt
+            schema = selection.schema if selection else canonical
+            if self.count_tokens(operation_input, output_schema=schema) <= self.input_budget:
+                return selection, operation_input, schema
+            if not selection or not selection.audit_evidence:
+                break
+        raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
+
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         import jsonschema
         from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
         from backend.services.agent_execution import run_sync
-        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
         from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
         try:
             envelope = json.loads(prompt)
         except ValueError:
             envelope = None
-        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
-        if not isinstance(schema, dict):
-            schema = {"type": "object"}
-        selection = quote_selection(envelope) if isinstance(envelope, dict) else None
+        selection, operation_prompt, schema = self._structured_input(prompt, envelope)
         paired_reader = (selection is not None and self.skill_id == SKILL_ID and envelope["phase"] == "interpret"
-                         and "needs_specialist" in schema["properties"]["passages"]["items"]["properties"])
+                         and "needs_specialist" in envelope["output_schema"]["properties"]["passages"]["items"]["properties"])
         draft_schema = selection.draft_schema() if selection and paired_reader else None
-        operation_prompt = selection.input if selection else prompt
-        schema = selection.schema if selection else schema
-        if selection:
-            # The operation envelope and provider binding already carry the
-            # full contract. Keep canonical checkpoints/repair input unchanged.
-            operation_prompt = compact_structured_input(operation_prompt)
-        if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
-            from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
-            raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
                          and envelope.get("phase") in {"source-repair", "source-audit", "verify"})
         def checked(text: str) -> str:
