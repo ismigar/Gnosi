@@ -10,7 +10,8 @@ from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage, audit_payload, original_audit
 from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
-from backend.domains.llm_wiki.review_draft_batches import audit_in_batches, review_coverage
+from backend.domains.llm_wiki.review_draft_batches import AuditRanges, audit_in_batches, review_coverage
+from backend.domains.llm_wiki.semantic_contracts import bind_note
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services import agent_execution as execution
 from backend.services.agent_cancellation import AgentTurnCancelled
@@ -186,3 +187,27 @@ def test_coverage_operation_survives_interruption_before_any_phase_checkpoint(ru
         _, restored = audit_passage(book, reviewer, primary, [], [primary],
                                     {"coverage": [{"segment_id": primary["id"], "reason": reason}]}, {}, None)
     assert restored == answer and len(calls) == 1
+
+
+def test_recovered_note_range_keeps_its_original_size_when_more_notes_now_fit():
+    book, _, _ = setup(count=1)
+    primary = segment("primary", 1, 1, "The trial lasted two days. The author recorded its limits.")
+    book.chunks = [chunk("trial", primary)]
+    notes = [bind_note({"title": title, "body_md": sentence, "quotes": [sentence], "properties": {}},
+                       primary, [primary], []) for title, sentence in
+             [("Duration", "The trial lasted two days."), ("Limits", "The author recorded its limits.")]]
+    recovered, fresh = [], []
+    def reply(prompt, validate, destination):
+        request = json.loads(prompt)
+        destination.append([n["title"] for n in request["drafts"]])
+        answer = {"assessment": "The trial has a stated duration and limits.", "changes": [],
+                  "unresolved_issues": [], "evidence_quote": "The trial lasted two days."}
+        validate(answer)
+        return encoded(answer), "reviewer"
+    reviewer = SimpleNamespace(identity="reviewer", input_budget=100_000, count_tokens=len,
+                               generate_structured=lambda prompt, validate, timeout: reply(prompt, validate, fresh),
+                               recover_audit=lambda prompt, validate, timeout: reply(prompt, validate, recovered))
+    ranges = AuditRanges(book, reviewer, primary, "parent-key")
+    ranges.save(f"audit-notes-{ranges.passage_id}-0", 0, 1)
+    audit_in_batches(book, reviewer, primary, notes, [], [], "parent-key", lambda *_: None)
+    assert recovered == [["Duration"]] and fresh == [["Limits"], []]
