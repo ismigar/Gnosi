@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from backend.domains.llm_wiki.chunking import record, records
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, previous_passage
+from backend.domains.llm_wiki.audit_citation_repairs import SourceAuditValidator
 from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_payload, bound_changes, fits_review, original_audit, restore_audit
 from backend.domains.llm_wiki.pdf_page_context import page_context, page_edges
@@ -207,7 +208,8 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
         if not checkpoint_only:
             # A crash after the paid checkpoint is written must leave its range discoverable.
             ranges.save(slot, start, end)
-        answer = worker.ask(slot, "source-audit", payload, lambda item: validate_note_batch(validate, item, subset, sources),
+        check = SourceAuditValidator(lambda item: validate_note_batch(validate, item, subset, sources), worker, sources)
+        answer = worker.ask(slot, "source-audit", payload, check,
                             record(payload["output_schema"]),
                             executor=reviewer, page_context=context, checkpoint_scope=batch_scope, checkpoint_only=checkpoint_only,
                             recover_governed=checkpoint_only,
@@ -252,8 +254,9 @@ def review_coverage(worker: ContextualReader, reviewer: ReviewRuntime, primary: 
         request = context.prompt({**payload, "reviewed_claims": items}, audit=True)
         return fits_review(reviewer, "source-audit", worker.title, worker.language, request)
     def audit_coverage(items: list[dict[str, object]], *, checkpoint_only: bool = False) -> dict[str, object]:
+        check = SourceAuditValidator(lambda result: validate(result, [], coverage_sources), worker, coverage_sources)
         return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
-                          lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
+                          check, record(payload["output_schema"]),
                           executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,
                           recover_governed=checkpoint_only,
                           restore_legacy=lambda item: restore_audit(item, primary, [primary], worker.dimensions, 0))

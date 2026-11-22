@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, passage_sources, verified_legacy_answer
+from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, SourceAuditValidator, citation_slots
 from backend.domains.llm_wiki.chunking import encoded, record, records
 from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable, fingerprint
 from backend.domains.llm_wiki.pdf_page_context import page_context
@@ -192,12 +193,14 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
         checked = apply_changes(answer, subset, primary, sources, worker.dimensions)
         validate_reviewed_prose(checked, sources, worker.language)
         if citation_issues and any(citation_issues(checked, worker.origins)):
-            raise ValueError("Review corrections must use valid source citations")
+            raise AuditCitationIssue(lambda: citation_slots(worker, answer, primary, sources, citation_issues))
 
     def validate_transport(answer: dict[str, object], subset: list[dict[str, object]], sources: list[dict[str, object]]) -> None:
         try:
             validate_schema(answer, audit_schema(len(subset), worker.dimensions, bound_sources=True))
             validate(answer, subset, sources)
+        except AuditCitationIssue:
+            raise
         except ValueError as error:
             raise PassageReviewIssue(str(error)) from error
 
@@ -223,7 +226,8 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
                 return state_key, covered
     try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
-                            lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer,
+                            SourceAuditValidator(lambda item: validate_transport(item, drafts, evidence), worker, evidence),
+                            schema, executor=reviewer,
                             page_context=context, checkpoint_scope=scope, checkpoint_only=not fits, restore_legacy=lambda item:
                             restore_audit(item, primary, original_sources, worker.dimensions, len(drafts)))
         answer = {**answer, "changes": bound_changes(answer, primary, evidence, worker.dimensions)}
