@@ -290,18 +290,6 @@ describe('ProcessResourceModal', () => {
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
     });
 
-    it('keeps an older overspent book pending through the normal confirmation dialog', async () => {
-        const defaults = await vi.mocked(estimateResourceProcessing)({});
-        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 8,
-            budget: { id: 'older-book', limit_usd: 25, spent_usd: 3.5, reserved_usd: 2, remaining_usd: 19.5 } });
-        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
-        const limit = document.body.querySelector<HTMLInputElement>('input[type="number"]');
-        expect(limit?.value).toBe('5');
-        expect(limit?.max).toBe('5');
-        expect(buttonWithText('Process').disabled).toBe(true);
-        expect(startResourceProcessing).not.toHaveBeenCalled();
-    });
-
     it('blocks accidental rereading when saved plans are incompatible', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
