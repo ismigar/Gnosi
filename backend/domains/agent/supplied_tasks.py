@@ -59,6 +59,21 @@ _RAW_LITERAL = re.compile(
     r"(?:the|el|la|le|les|els|los|las) [^\W\d_]+ "
     r"(?:is|are|was|were|has|have|will|es|son|esta[n]?|est|sont|sera[n]?) \S)"
 )
+_WORD = r"[^\W\d_]+"
+_VERB_START = (
+    r"(?!(?:of|from|about|for|in|on|with|you|we|i|that|which|who|de|del|des|du|que|qui|"
+    r"con|avec|amb|sur|sobre|per|para|pour|dans|entre)\b)"
+)
+_SUBJECT_AND_PREDICATE = re.compile(
+    rf"^(?:(?:the|a|an) (?:{_WORD} {_VERB_START}{_WORD}(?:s|ed)|{_WORD}s {_VERB_START}{_WORD})|"
+    rf"(?:(?:el|els|la|les|los|las|le|un|une|una) |l'){_WORD} {_VERB_START}[^\W\d_]{{3,}}) "
+    r"(?!(?:of|from|that|which|whose|de|del|du|des|que|qui)\b|d')\w"
+)
+_SUBJECT_SELECTOR = re.compile(
+    r"^((?:the|el|els|la|les|los|las|le) )(?:first|second|third|last|next|"
+    r"primer\w*|segon\w*|segund\w*|premier\w*|deuxieme|suivant\w*|"
+    r"(?:mev|tev|sev|nostr|vostr)[ae]s?|(?:meu|teu|seu)s?) "
+)
 
 
 @cache
@@ -103,9 +118,14 @@ def _translation(body: str, literals: dict[str, str]) -> bool:
     if len(parts) != 2 or not _translation_header(parts[0].strip()):
         return False
     source = parts[1].strip()
-    # An unquoted noun phrase may identify a source. Require a greeting or a
-    # simple declarative clause before treating bare prose as the actual passage.
-    return bool(_RAW_LITERAL.match(source) and not _RAW_AMBIGUOUS.search(source))
+    if _RAW_AMBIGUOUS.search(source):
+        return False
+    # A sentence label and an active predicate also identify supplied prose.
+    # A noun phrase naming a passage still needs its source.
+    return bool(_RAW_LITERAL.match(source) or (
+        re.search(r"\b(?:sentence|phrase|frase)\b", parts[0])
+        and _SUBJECT_AND_PREDICATE.match(_SUBJECT_SELECTOR.sub(r"\1", source))
+    ))
 
 
 _SAMPLE = re.compile(

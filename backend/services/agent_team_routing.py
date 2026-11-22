@@ -91,6 +91,19 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
     return catalog
 
 
+def executor_input(task: TeamTask, original: str, state: dict[str, Any], results: dict[str, Any],
+                   *, operation_mode: bool, output_schema: dict[str, Any] | None) -> str:
+    """Use the full assignment and its evidence for eligibility and execution."""
+    original_data = json.loads(original) if operation_mode else {"input": original}
+    return json.dumps({"original_request": original, "assignment": task.objective,
+        **({"original_input": original_data.get("input", original), "original_data": original_data.get("data", {})} if operation_mode else {}),
+        "expected_result": task.expected_result, "acceptance": task.acceptance,
+        **({"output_schema": output_schema} if output_schema is not None else {}),
+        "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
+        "completed_evidence": state.get("team_completed_evidence", []),
+        "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
+
+
 def assignment_messages(state: dict[str, Any], task: TeamTask, original: str,
                         results: dict[str, Any]) -> list[BaseMessage]:
     """Keep the actual latest user message, attachments and roles intact.

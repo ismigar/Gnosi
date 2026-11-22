@@ -70,7 +70,7 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
         await asyncio.to_thread(
             _candidate, owner, scope, route.agent_ids, required, original, tools=not operation_mode,
         )
-        if route and not semantic_plan else (None, "director_required", None)
+        if route and not semantic_plan and not supplied else (None, "director_required", None)
     )
     include_owner = not operation_mode and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id")
     catalog = await asyncio.to_thread(planning_catalog, owner, scope, original, include_owner=include_owner)
@@ -78,7 +78,7 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
     from backend.services.agent_team_supplied import supplied_task_plan
-    routine = (await asyncio.to_thread(supplied_task_plan, owner, scope, team, catalog, supplied, original, route)
+    routine = (await asyncio.to_thread(supplied_task_plan, owner, scope, team, catalog, supplied, original, route, state)
                if supplied else None)
     if routine is not None:
         executor = routine.tasks[0].agent_id

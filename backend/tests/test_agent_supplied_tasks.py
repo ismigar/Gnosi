@@ -22,6 +22,13 @@ from backend.domains.agent.supplied_tasks import current_supplied_operation, sup
     "Tradueix «Bon dia» al portuguès.",
     "Translate to Japanese: «your last reply.»",
     "Translate into French: «the first paragraph of my note about Madrid.»",
+    "Tradueix a l’anglès aquesta frase: El tren surt a les nou. Respon només amb la traducció.",
+    "Please translate this sentence into French: The train leaves at nine.",
+    "Translate the following phrase to Italian: The birds sing every morning.",
+    "Translate this sentence into Catalan: A boat crossed the lake.",
+    "Translate this sentence into Catalan: The first boat reached the shore.",
+    "Traduce esta frase al inglés: Los niños juegan en el parque.",
+    "Traduisez la phrase suivante en espagnol : La boulangerie ouvre demain matin.",
 ])
 def test_standalone_translation(message):
     assert supplied_chat_operation(message) == "translation"
@@ -59,6 +66,14 @@ def test_table_rule_uses_given_values(message):
     "Translate to French: [your previous text]", "Translate to French: ‘Unclosed",
     "Translate into French: the first paragraph of my note about Madrid.",
     "Translate into French: your last reply.", "Translate to Italian: Sandra’s second draft.",
+    "Please translate this sentence into French: the first paragraph of my note about Madrid.",
+    "Translate this phrase into Italian: your last reply.",
+    "Translate the following sentence into German: the notes you shared yesterday.",
+    "Translate this sentence into French: The notes from Monday morning.",
+    "Tradueix a l’anglès aquesta frase: el fragment que acabem de comentar.",
+    "Tradueix aquesta frase al francès: la meva nota sobre la reunió.",
+    "Tradueix a l’anglès aquesta frase: El tren surt de l'estació i després publica-ho.",
+    "Translate this sentence into French: The boat crosses the bay. Then save it.",
     "Traduce al alemán: el segon capítol de la meva nota.",
     "Translate and summarize in English: «Bon dia.»",
     "Translate «Bon dia.» into English and email it to Mireia.",

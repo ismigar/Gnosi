@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.services.agent_team_routing import executor_input
 from backend.domains.agent.supplied_tasks import supplied_table_output_directive
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_operation_catalog import skill_id
@@ -33,7 +34,7 @@ def _operation_assignments(member: dict[str, Any], operation: str) -> list[str]:
 
 
 def supplied_task_plan(owner: dict[str, Any], scope: ExecutionScope, team: AgentTeam, catalog: list[dict[str, Any]],
-                       operation: str, original: str, route: DirectRoute | None) -> TeamPlan | None:
+                       operation: str, original: str, route: DirectRoute | None, state: dict[str, Any]) -> TeamPlan | None:
     from backend.services.agent_team_runtime import _candidate, _config, candidate_inputs
 
     # A request with a richer output contract still needs the director to describe it.
@@ -42,6 +43,12 @@ def supplied_task_plan(owner: dict[str, Any], scope: ExecutionScope, team: Agent
     contract = _flat_contract(schema) if schema is not None else None
     if contract is None and (directive or output_contract_requested(original)):
         return None
+    # The worker receives the complete original HumanMessage. Repeating the payload
+    # in its assignment would also count it twice against the model's context.
+    objective = ("Translate the supplied passage as requested." if operation == "translation"
+                 else "Calculate the requested field using the supplied values and rule.")
+    task = TeamTask(id="direct", skill_ids=[skill_id(operation)], objective=objective, read_only=True)
+    text = executor_input(task, original, state, {}, operation_mode=False, output_schema=schema)
     allowed = set(route.agent_ids if route else (m.agent_id for m in team.members))
     allowed.difference_update((owner["id"], team.director_id))
     inputs = candidate_inputs(_config())
@@ -51,18 +58,14 @@ def supplied_task_plan(owner: dict[str, Any], scope: ExecutionScope, team: Agent
             continue
         for identifier in _operation_assignments(member, operation):
             skills = [identifier]
-            selected, _, _ = _candidate(owner, scope, [member["id"]], skills, original, tools=True, inputs=inputs)
+            selected, _, _ = _candidate(owner, scope, [member["id"]], skills, text, tools=True, inputs=inputs)
             if selected:
                 matches.append((member["id"], skills))
                 break
     if len(matches) != 1:
         return None
     identifier, skills = matches[0]
-    # The worker receives the complete original HumanMessage. Repeating the payload
-    # in its assignment would also count it twice against the model's context.
-    objective = ("Translate the supplied passage as requested." if operation == "translation"
-                 else "Calculate the requested field using the supplied values and rule.")
-    task = TeamTask(id="direct", agent_id=identifier, skill_ids=skills, objective=objective, read_only=True)
+    task = task.model_copy(update={"agent_id": identifier, "skill_ids": skills})
     plan = TeamPlan(operation=operation, tasks=[task], result_task=task.id, output_contract=contract)
     # The normal worker validator must receive the exact schema, including its key set and types.
     return plan if schema == output_schema(plan) else None

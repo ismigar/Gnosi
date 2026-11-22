@@ -93,3 +93,47 @@ def test_two_specialists_need_a_plan_unless_the_configured_route_picks_one(optio
     messages, _ = run_chat(fixture, WORD_FIELD_REQUEST, supplied_operation="tables")
     assert fixture[2] == (["worker"] if allowlist else ["director", "worker"])
     assert json.loads(messages[-1].content) == {"value": True}
+
+
+def test_routine_uses_the_only_translator_whose_model_fits_the_assignment(optional_runtime, monkeypatch):
+    from backend.agent import model_router
+
+    fixture, _ = optional_runtime
+    config = fixture[3]
+    owner, small = config["agents"]
+    small["skill_ids"] = [skill_id("translation")]
+    large = {**small, "id": "large-translator", "model": "roomy"}
+    config["agents"].append(large)
+    owner["team"]["members"].append({"agent_id": large["id"], "roles": ["worker"]})
+    fixture[1].profile["team"] = owner["team"]
+    smaller = model_router.load_registry()[0]
+    monkeypatch.setattr(model_router, "load_registry", lambda: [
+        {**smaller, "context_window": 4800}, {**smaller, "model_id": "roomy", "context_window": 32000},
+    ])
+    config["_responses"] = {large["id"]: [AIMessage(content="Les nuages couvrent le ciel.")]}
+    request = "Translate to French: «" + "Clouds cover the sky. " * 115 + "»"
+    messages, _ = run_chat(fixture, request, supplied_operation=supplied_chat_operation(request))
+    assert fixture[2] == [large["id"]]
+    assert messages[-1].content == "Les nuages couvrent le ciel."
+
+
+@pytest.mark.parametrize("configured", [True, False])
+def test_full_history_falls_back_to_the_director_if_no_worker_can_accept_it(optional_runtime, monkeypatch, configured):
+    from backend.agent import model_router
+    from backend.services.agent_team_models import TeamPlan
+
+    fixture, _ = optional_runtime
+    config = fixture[3]
+    owner, worker = config["agents"]
+    worker["skill_ids"] = [skill_id("translation")]
+    owner["team"]["direct_routes"] = [{"operation": "translation", "agent_ids": [worker["id"]]}] if configured else []
+    fixture[1].profile["team"] = owner["team"]
+    registry = model_router.load_registry()
+    monkeypatch.setattr(model_router, "load_registry", lambda: [{**r, "context_window": 7800} for r in registry])
+    clarification = "Can you start a shorter conversation for the translation?"
+    config["_responses"] = {"director": [AIMessage(content=TeamPlan(
+        response_kind="clarification", response=clarification).model_dump_json())]}
+    history = [HumanMessage(content="Earlier synthetic topic. " * 400)]
+    messages, _ = run_chat(fixture, TRANSLATE, history=history, supplied_operation=supplied_chat_operation(TRANSLATE))
+    assert fixture[2] == ["director"]
+    assert messages[-1].content == clarification

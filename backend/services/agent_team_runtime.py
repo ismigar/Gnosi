@@ -392,14 +392,8 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id"))
     if own_task:
         ids = [*ids, owner["id"]]
-    original_data = json.loads(original) if operation_mode else {"input": original}
-    text = json.dumps({"original_request": original, "assignment": task.objective,
-        **({"original_input": original_data.get("input", original), "original_data": original_data.get("data", {})} if operation_mode else {}),
-        "expected_result": task.expected_result, "acceptance": task.acceptance,
-        **({"output_schema": output_schema} if output_schema is not None else {}),
-        "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
-        "completed_evidence": state.get("team_completed_evidence", []),
-        "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
+    from backend.services.agent_team_routing import executor_input
+    text = executor_input(task, original, state, results, operation_mode=operation_mode, output_schema=output_schema)
     selected, reason, cost = await asyncio.to_thread(
         _candidate, owner, scope, ids, task.skill_ids, text, preferred=task.agent_id if allowed_ids is None else "",
         tools=not operation_mode, allow_owner=own_task,
