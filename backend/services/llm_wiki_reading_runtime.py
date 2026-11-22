@@ -35,6 +35,28 @@ def compact_structured_input(prompt: str) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
+def _validated_structured_output(text: str, selection: QuoteSelection | None, draft_schema: dict[str, Any] | None,
+                                 source_review: bool, validate: Callable[[dict[str, object]], None]) -> str:
+    import jsonschema
+    from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+    try:
+        answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
+        if not isinstance(answer, dict):
+            raise ValueError("Return a JSON object")
+    except (ValueError, jsonschema.ValidationError) as error:
+        if source_review:
+            raise PassageReviewIssue(str(error)) from error
+        raise
+    try:
+        validate(answer)
+    except (TypeError, KeyError) as error:
+        raise ValueError(str(error)) from error
+    # Legacy validation can restore an omitted segment digest. Selection
+    # operations keep their numeric contract in the operation cache;
+    # the reader receives literal citations after the operation returns.
+    return text if selection else json.dumps(answer, ensure_ascii=False)
+
+
 @dataclass
 class ReadingRuntime:
     agent_id: str
@@ -216,23 +238,17 @@ class ReadingRuntime:
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
                          and envelope.get("phase") in {"source-repair", "source-audit", "verify"})
         def checked(text: str) -> str:
-            try:
-                answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
-                if not isinstance(answer, dict):
-                    raise ValueError("Return a JSON object")
-            except (ValueError, jsonschema.ValidationError) as error:
-                if source_review:
-                    raise PassageReviewIssue(str(error)) from error
-                raise
-            try:
-                validate(answer)
-            except (TypeError, KeyError) as error:
-                raise ValueError(str(error)) from error
-            # Legacy validation can restore an omitted segment digest. Selection
-            # operations keep their numeric contract in the operation cache;
-            # the reader receives literal citations after the operation returns.
-            return text if selection else json.dumps(answer, ensure_ascii=False)
+            return _validated_structured_output(text, selection, draft_schema, source_review, validate)
+        audit_findings: dict[str, str] = {}
         def repair(text: str, error: Exception) -> OutputRepair | None:
+            if source_review and envelope["phase"] == "source-audit":
+                from backend.domains.llm_wiki.audit_amendments import open_findings
+                try:
+                    proposal = json.loads(text)
+                except ValueError:
+                    proposal = None
+                if isinstance(proposal, dict):
+                    audit_findings.update(open_findings(proposal))
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
             review_options: dict[str, object] = ({"reading_review_notes": len(envelope.get("notes", []))}
@@ -246,7 +262,11 @@ class ReadingRuntime:
                     pass
             result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair,
                 **({"draft_schema": draft_schema} if draft_schema is not None else {}))
-        except (ModelOutputError, jsonschema.ValidationError) as error:
+        except (ValueError, jsonschema.ValidationError) as error:
+            if audit_findings:
+                raise PassageReviewIssue(" ".join(audit_findings.values()) + " " + repair_diagnostic(error)) from error
+            if not isinstance(error, (ModelOutputError, jsonschema.ValidationError)):
+                raise
             if source_review:
                 raise PassageReviewIssue(repair_diagnostic(error)) from error
             if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
@@ -259,15 +279,17 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.services.agent_output_repair import OutputRepair
-        if selection and selection.phase == "source-audit":
+        if (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" and
+                envelope.get("phase") == "source-audit" and "evidence_quote" in
+                envelope.get("output_schema", {}).get("properties", {})):
             from backend.domains.llm_wiki.audit_amendments import build_audit_amendment
-            amendment = build_audit_amendment(selection, text, validate, error)
+            from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
+            audit = selection or QuoteSelection(prompt, envelope["output_schema"], {}, "source-audit", [])
+            amendment = build_audit_amendment(audit, text, validate, error, fits=lambda repair:
+                self.count_tokens(compact_structured_input(repair.input), output_schema=repair.output_schema) <= self.input_budget)
             if amendment is None:
                 return None
-            wire = compact_structured_input(amendment.input)
-            if self.count_tokens(wire, output_schema=amendment.output_schema) > self.input_budget:
-                return None
-            return OutputRepair(wire, amendment.output_schema, amendment.restore)
+            return OutputRepair(compact_structured_input(amendment.input), amendment.output_schema, amendment.restore)
         if selection and isinstance(error, json.JSONDecodeError):
             # Some providers report stop even when a long structured answer
             # ends inside a value, including short review prefixes. Retrying

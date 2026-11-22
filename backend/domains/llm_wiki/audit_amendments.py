@@ -8,8 +8,10 @@ from typing import Any
 
 from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationSlot, SourceAuditValidator
 from backend.domains.llm_wiki.chunking import encoded
+from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.semantic_contracts import TEXT, obj, validate_schema
 from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
+from backend.domains.llm_wiki.semantic_repairs import original_spans
 from backend.services.agent_output_repair import OutputRepair
 
 
@@ -29,77 +31,132 @@ def _record_findings(result: dict[str, Any], issues: dict[str, str], decisions: 
         else:
             quote_id = int(finding["evidence_excerpt"])
             result["assessment"] += "\n" + reason
-            if quote_id != result["evidence_quote_id"]:
+            if (quote_id != result.get("evidence_quote_id") and
+                    excerpts[quote_id - 1] != result.get("evidence_quote")):
                 result["assessment"] += f" «{excerpts[quote_id - 1]}»"
 
 
-def build_audit_amendment(selection: QuoteSelection, text: str, validate: Callable[[dict[str, object]], None],
-                          error: Exception) -> OutputRepair | None:
-    if not selection.audit_evidence:
-        return None
-    slots: list[CitationSlot] = []
+def open_findings(proposal: dict[str, Any]) -> dict[str, str]:
+    raw = proposal.get("unresolved_issues")
+    if not isinstance(raw, list):
+        return {}
+    return {f"issue_{i}": item for i, item in enumerate(raw, 1) if isinstance(item, str) and item.strip()}
+
+
+def _repairable_slots(selection: QuoteSelection, text: str, proposed: dict[str, Any],
+                      validate: Callable[[dict[str, object]], None], error: Exception) -> list[CitationSlot] | None:
     try:
-        proposed = json.loads(text)
         validate_schema(proposed, selection.schema)
     except ValueError:
         return None
-    issues = {f"issue_{i}": issue for i, issue in enumerate(proposed["unresolved_issues"], 1)}
     try:
         canonical = json.loads(selection.restore(text))
-        if issues:
-            # Discover other failures in the proposal. This probe is never a
-            # candidate answer: every original finding needs the reviewer's decision.
+        if canonical["unresolved_issues"]:
+            # Probe other validators. Only the reviewer may dispose of the original findings.
             validate({**canonical, "unresolved_issues": []})
         elif isinstance(error, AuditCitationIssue):
             raise error
         else:
             return None
     except AuditCitationIssue as citation_error:
-        slots = citation_error.alternatives()
-        if not slots:
-            return None
+        return citation_error.alternatives() or None
     except ValueError:
-        # A paired literal can be misspelled before it ever reaches source
-        # validation. Only its explicitly supplied document can offer an alternative.
-        if not isinstance(validate, SourceAuditValidator) or not (slots := validate.unbound_slots(selection, proposed)):
-            return None
+        if isinstance(validate, SourceAuditValidator):
+            return validate.unbound_slots(selection, proposed) or None
+        return None
+    return []
 
+
+def _restore_changes(proposed: dict[str, Any], correction: dict[str, Any], slots: list[CitationSlot]) -> dict[str, Any]:
+    result = deepcopy(proposed)
+    result["unresolved_issues"] = []
+    for slot in slots:
+        index = int(correction["keep_changes"][slot.name]) - 1
+        literal = slot.choices[index]
+        citations = result["changes"][slot.change]["replacement"]["quotes"]
+        if isinstance(citations[slot.quote], dict):
+            citations[slot.quote]["text"] = literal
+        else:
+            citations[slot.quote] = literal
+    return result
+
+
+def _amendment(selection: QuoteSelection, proposed: dict[str, Any], issues: dict[str, str],
+               slots: list[CitationSlot] | None, diagnostic: str) -> OutputRepair:
     request = json.loads(selection.input)
-    request.update(previous_audit=proposed, findings=issues, citation_choices={
-        slot.name: dict(enumerate(slot.choices, 1)) for slot in slots})
-    request["instruction"] += (
-        " Review the previous audit and its proposed corrections against the complete supplied evidence."
-        " For every named finding say whether the corrected notes already address it, it is a limitation"
-        " of the source accurately reflected in the notes, or it remains unresolved. Give a brief specific"
-        " reason in the reading language and the primary evidence excerpt number supporting your judgment."
-        " A missing supported claim, mistaken attribution or unsupported conclusion must be corrected or kept open."
-        " For each failed PDF citation select a listed excerpt supporting the same claim in its original."
-        " Use keep_changes to retain all other fields. Use revised_audit when any substantive edit is needed,"
-        " or none of the offered excerpts supports the claim. Report outstanding defects honestly.")
+    original = request["original"]
+    excerpts = selection.audit_evidence or tuple(original_spans(original["text"]))
+    if not selection.audit_evidence:
+        original["evidence_excerpts"] = dict(enumerate(excerpts, 1))
+        original.pop("text")
     decision = obj({"status": {"type": "string", "enum": ["addressed", "source_limitation", "unresolved"]},
-                    "reason": TEXT, "evidence_excerpt": _index(len(selection.audit_evidence))})
-    patch = obj({slot.name: _index(len(slot.choices)) for slot in slots})
-    schema = obj({"findings": obj({name: decision for name in issues}), "correction": {"anyOf": [
-        obj({"keep_changes": patch}), obj({"revised_audit": selection.schema})]}})
-
+                    "reason": TEXT, "evidence_excerpt": _index(len(excerpts))})
+    # A full reassessment still accounts for each proposal it can change or withdraw.
+    changes = proposed.get("changes")
+    prior = {f"change_{i}": change for i, change in enumerate(changes, 1)} if isinstance(changes, list) else {}
+    full = obj({"revised_audit": selection.schema, "prior_changes": obj({k: obj({
+        "reason": TEXT, "evidence_excerpt": _index(len(excerpts))}) for k in prior})})
+    if slots is None:
+        # The complete originals, original drafts and provider findings remain.
+        # The new assessment supplies its own literal citations and classification fields.
+        request.update(prior_proposals={k: _proposed_claim(c) for k, c in prior.items()}, review_error=diagnostic)
+        correction_schema = full
+    else:
+        request.update(previous_audit=proposed, citation_choices={s.name: dict(enumerate(s.choices, 1)) for s in slots})
+        patch = obj({s.name: _index(len(s.choices)) for s in slots})
+        correction_schema = {"anyOf": [obj({"keep_changes": patch}), full]}
+    request["findings"] = issues
+    request["instruction"] += (
+        " For every named finding decide whether the corrected notes already address it, it is a source"
+        " limitation accurately reflected in the notes, or it remains unresolved. Give a specific reason"
+        " in the reading language and a supporting primary evidence excerpt number. Correct missing claims,"
+        " mistaken attribution and unsupported conclusions or keep them open."
+        " When keep_changes is offered, use it to retain the proposed notes and select a listed excerpt for"
+        " each failed citation, supporting the same claim in its original. For substantive edits or unsuitable"
+        " excerpts use revised_audit. In prior_changes explain what you retained, corrected or withdrew from"
+        " each previous proposal and why the cited original supports that decision.")
+    schema = obj({"findings": obj({k: decision for k in issues}), "correction": correction_schema})
     def restore(response: str) -> str:
         reply = json.loads(response)
         validate_schema(reply, schema)
         correction = reply["correction"]
         if "revised_audit" in correction:
             result = correction["revised_audit"]
+            dispositions = {k: {**v, "status": "addressed"} for k, v in correction["prior_changes"].items()}
+            _record_findings(result, {k: "" for k in prior}, dispositions, excerpts)
         else:
-            result = deepcopy(proposed)
-            result["unresolved_issues"] = []
-            for slot in slots:
-                index = int(correction["keep_changes"][slot.name]) - 1
-                literal = slot.choices[index]
-                citations = result["changes"][slot.change]["replacement"]["quotes"]
-                if isinstance(citations[slot.quote], dict):
-                    citations[slot.quote]["text"] = literal  # Keep its original source number.
-                else:
-                    citations[slot.quote] = literal
-        _record_findings(result, issues, reply["findings"], selection.audit_evidence)
+            result = _restore_changes(proposed, correction, slots or [])
+        _record_findings(result, issues, reply["findings"], excerpts)
         return encoded(result)
-
     return OutputRepair(encoded(request), schema, restore)
+
+
+def _proposed_claim(change: object) -> object:
+    if not isinstance(change, dict) or not isinstance(change.get("replacement"), dict):
+        return change
+    replacement = change["replacement"]
+    return {**change, "replacement": {k: v for k, v in replacement.items() if k != "quotes"}}
+
+
+def build_audit_amendment(selection: QuoteSelection, text: str, validate: Callable[[dict[str, object]], None],
+                          error: Exception, fits: Callable[[OutputRepair], bool] = lambda _: True) -> OutputRepair | None:
+    try:
+        proposed = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(proposed, dict):
+        return None
+    issues = open_findings(proposed)
+    slots = _repairable_slots(selection, text, proposed, validate, error)
+    if slots is None and not issues and not proposed.get("changes") and not isinstance(error, AuditCitationIssue):
+        return None
+    if slots is not None:
+        patch = _amendment(selection, proposed, issues, slots, "")
+        if fits(patch):
+            return patch
+    reason = str(error) if isinstance(error, PassageReviewIssue) else "Recheck the proposal and its original evidence."
+    revision = _amendment(selection, proposed, issues, None, reason)
+    if fits(revision):
+        return revision
+    raise PassageReviewIssue("The reviewer's context cannot fit the source and its required amendment. " +
+                             " ".join(issues.values())) from error
