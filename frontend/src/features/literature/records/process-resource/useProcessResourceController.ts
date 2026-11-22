@@ -3,7 +3,7 @@ import { estimateResourceProcessing, type ResourceProcessingEstimate } from '../
 import { useTranslation } from 'react-i18next';
 import type { ProcessResourceModalProps } from './processResourceModel';
 import { discoverResourceProcessingTask, dismissResourceProcessingTask, getResourceProcessingTasks, processingTaskId, setResourceProcessingBackground, startResourceProcessingTask, subscribeResourceProcessingTasks, useResourceProcessingTasks } from './resourceProcessingTasks';
-import { POLL_INTERVAL_MS } from './processResourceModel';
+import { BOOK_LIMIT_USD, POLL_INTERVAL_MS } from './processResourceModel';
 
 export function useProcessResourceController({ force = false, isOpen, noteId, onClose, onContinueInBackground, onJobUpdate, onProcessed, sourceTableId, title, keepBackground = false }: ProcessResourceModalProps & { readonly keepBackground?: boolean }) {
     const { t } = useTranslation();
@@ -13,9 +13,9 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
     const processingForce = force || reprocess;
     const tasks = useResourceProcessingTasks();
     const task = tasks.find(item => item.id === id);
-    const [budgetLimit, setBudgetState] = useState(0.50);
-    const budgetEdited = useRef(false);
-    const setBudgetLimit = (value: number): void => { budgetEdited.current = true; setBudgetState(value); };
+    const [budgetLimit, setBudgetState] = useState<number>(BOOK_LIMIT_USD);
+    const budgetEditedFor = useRef<string | null>(null);
+    const setBudgetLimit = (value: number): void => { budgetEditedFor.current = id; setBudgetState(value); };
     const [batchSize, setBatchSize] = useState(4);
     const hasTask = Boolean(task);
     const taskState = task?.state;
@@ -54,14 +54,15 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
             force: reprocess || (force && !hasTask), batch_size: batchSize }, request.signal).then(result => {
             if (!request.signal.aborted) {
                 setPreflight({ key: estimateKey, result, error: '' });
-                if (result.budget && !budgetEdited.current) setBudgetState(result.budget.limit_usd);
+                if (budgetEditedFor.current !== id) setBudgetState(Math.min(result.budget?.limit_usd ?? BOOK_LIMIT_USD, BOOK_LIMIT_USD));
             }
         }).catch(() => {
             if (!request.signal.aborted) setPreflight({ key: estimateKey, result: null, error: t('llm_wiki.estimate_failed') });
         });
         return () => { request.abort(); };
     }, [needsEstimate, noteId, sourceTableId, force, reprocess, batchSize, hasTask, estimateKey, t]);
-    const canStart = !checkingStatus && taskState !== 'running' && Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
+    const committed = (estimate?.budget?.spent_usd ?? 0) + (estimate?.budget?.reserved_usd ?? 0);
+    const canStart = !checkingStatus && taskState !== 'running' && Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > committed && budgetLimit <= BOOK_LIMIT_USD;
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
     const reportDone = useEffectEvent(() => { onProcessed?.(); });
     useEffect(() => {

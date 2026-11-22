@@ -57,6 +57,18 @@ def _validated_structured_output(text: str, selection: QuoteSelection | None, dr
     return text if selection else json.dumps(answer, ensure_ascii=False)
 
 
+def _open_audit_findings(text: str) -> tuple[str, dict[str, str]]:
+    import jsonschema
+    from backend.domains.llm_wiki.audit_amendments import open_findings
+    from backend.services.agent_execution import _validate_output
+    try:
+        normalized = _validate_output(text, {"type": "object"})
+        proposal = json.loads(normalized)
+    except (ValueError, jsonschema.ValidationError):
+        return text, {}
+    return normalized, open_findings(proposal) if isinstance(proposal, dict) else {}
+
+
 @dataclass
 class ReadingRuntime:
     agent_id: str
@@ -68,6 +80,11 @@ class ReadingRuntime:
     cost_optimization: bool = True
     reuse_results: bool = True
     skill_id: str = SKILL_ID
+
+    @property
+    def audit_batch_size(self) -> int:
+        from backend.domains.llm_wiki.audit_groups import AUDIT_BATCH_SIZE
+        return AUDIT_BATCH_SIZE
 
     @property
     def performance_options(self) -> dict[str, object]:
@@ -101,7 +118,7 @@ class ReadingRuntime:
         """Size the available audit wire or conservatively bound other reading phases."""
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         envelope = json.loads(prompt)
-        if envelope.get("phase") == "source-audit":
+        if envelope.get("phase") in {"source-audit", "source-audit-batch"}:
             return self._structured_input(prompt, envelope)[3]
         canonical = self.count_tokens(prompt)
         selection = quote_selection(envelope)
@@ -185,10 +202,15 @@ class ReadingRuntime:
         for numbered in (True, False):
             selection = quote_selection(envelope, number_audit_evidence=numbered) if isinstance(envelope, dict) else None
             operation_input = compact_structured_input(selection.input) if selection else prompt
+            if isinstance(envelope, dict) and envelope.get("phase") == "source-audit-batch":
+                operation_input = compact_structured_input(prompt)
             schema = selection.schema if selection else canonical
             size = self.count_tokens(operation_input, output_schema=schema)
             if size <= self.input_budget or not selection or not selection.audit_evidence:
                 break
+        if size > self.input_budget and isinstance(envelope, dict) and "initial_passage_context" in envelope:
+            prior = {k: v for k, v in envelope.items() if k != "initial_passage_context"}
+            return self._structured_input(json.dumps(prior, ensure_ascii=False), prior)
         return selection, operation_input, schema, size
 
     def _structured_operation(self, prompt: str, schema: dict[str, Any], timeout: int, max_calls: int,
@@ -196,6 +218,23 @@ class ReadingRuntime:
         return AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
             options={**self.performance_options, **options}, output_schema=schema, max_model_calls=max_calls)
+
+    def _recover_reader_draft(self, envelope: dict[str, Any], validate: Callable[[dict[str, object]], None],
+                              timeout: int, current_wire: str) -> tuple[str, str] | None:
+        from backend.services.agent_execution import recover_reading_operation
+        if "initial_passage_context" not in envelope:
+            return None
+        prior = {k: v for k, v in envelope.items() if k != "initial_passage_context"}
+        selection, wire, schema, _ = self._structured_input(json.dumps(prior, ensure_ascii=False), prior)
+        if selection is None or wire == current_wire:
+            return None
+        draft_schema = selection.draft_schema()
+        def restore(text: str) -> str:
+            answer = selection.restore(text, draft_schema=draft_schema)
+            validate(json.loads(answer))
+            return answer
+        return recover_reading_operation(self._structured_operation(wire, schema, timeout, 2, {}),
+            self.snapshot, self.provider, self.model, restore, draft_schema=draft_schema)
 
     def recover_audit(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int,
                       *, literal_only: bool = False) -> tuple[str, str]:
@@ -218,6 +257,17 @@ class ReadingRuntime:
                 return recovered
         raise ReadingCheckpointUnavailable("No validated source audit for this request")
 
+    def _reading_operation(self, prompt: str, schema: dict[str, Any], timeout: int, envelope: Any) -> AgentOperation:
+        data = envelope if isinstance(envelope, dict) else {}
+        options: dict[str, object] = {}
+        calls = 2 if data.get("reading_engine") == "semantic" else 3
+        if data.get("phase") == "source-audit-batch":
+            options["reading_review_notes"] = len(data["passages"])
+            calls = 1
+        elif data.get("phase") == "verify" and data.get("reading_engine") == "semantic":
+            options["reading_review_notes"] = len(data.get("notes", []))
+        return self._structured_operation(prompt, schema, timeout, calls, options)
+
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         import jsonschema
         from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
@@ -236,29 +286,21 @@ class ReadingRuntime:
                          and "needs_specialist" in envelope["output_schema"]["properties"]["passages"]["items"]["properties"])
         draft_schema = selection.draft_schema() if selection and paired_reader else None
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
-                         and envelope.get("phase") in {"source-repair", "source-audit", "verify"})
+                         and envelope.get("phase") in {"source-repair", "source-audit", "source-audit-batch", "verify"})
         def checked(text: str) -> str:
             return _validated_structured_output(text, selection, draft_schema, source_review, validate)
         audit_findings: dict[str, str] = {}
         def repair(text: str, error: Exception) -> OutputRepair | None:
             if source_review and envelope["phase"] == "source-audit":
-                from backend.domains.llm_wiki.audit_amendments import open_findings
-                from backend.services.agent_execution import _validate_output
-                try:
-                    # A schema failure can leave the original fenced response here.
-                    # Use precisely the same accepted JSON envelopes as the first check.
-                    text = _validate_output(text, {"type": "object"})
-                    proposal = json.loads(text)
-                except (ValueError, jsonschema.ValidationError):
-                    proposal = None
-                if isinstance(proposal, dict):
-                    audit_findings.update(open_findings(proposal))
+                text, findings = _open_audit_findings(text)
+                audit_findings.update(findings)
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
-            review_options: dict[str, object] = ({"reading_review_notes": len(envelope.get("notes", []))}
-                if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
-            max_calls = 2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3
-            operation = self._structured_operation(operation_prompt, schema, timeout, max_calls, review_options)
+            operation = self._reading_operation(operation_prompt, schema, timeout, envelope)
+            if paired_reader:
+                old_draft = self._recover_reader_draft(envelope, validate, timeout, operation_prompt)
+                if old_draft is not None:
+                    return old_draft
             if selection and selection.audit_evidence:
                 try:
                     return self.recover_audit(prompt, validate, timeout, literal_only=True)

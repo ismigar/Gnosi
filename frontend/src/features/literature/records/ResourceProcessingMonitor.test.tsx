@@ -247,7 +247,7 @@ describe('resource processing corner monitor', () => {
         await flushProcessing();
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
-        expect(startResourceProcessing).toHaveBeenLastCalledWith({ force: false, resource_id: 'note-1', source_table_id: 'resources', max_cost_usd: 0.5, batch_size: 4, estimate_id: 'estimate-1' });
+        expect(startResourceProcessing).toHaveBeenLastCalledWith({ force: false, resource_id: 'note-1', source_table_id: 'resources', max_cost_usd: 5, batch_size: 4, estimate_id: 'estimate-1' });
         expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Resource processed');
     });
 

@@ -1,3 +1,4 @@
+import { BOOK_LIMIT_USD } from './processResourceModel';
 import { useTranslation } from 'react-i18next';
 import type { ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
 import { useLocaleSettings } from '../../../../shared/i18n/useLocaleSettings';
@@ -32,11 +33,12 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
     return <div className="space-y-3 rounded-lg border border-[var(--border-primary)] p-3 text-xs text-[var(--text-secondary)]">
         <label className="flex items-center justify-between gap-3">
             <span>{label}</span>
-            <input aria-label={label} type="number" min="0" max={1000 * rate} step="any" disabled={!estimate}
+            <input aria-label={label} type="number" min="0" max={BOOK_LIMIT_USD * rate} step="any" disabled={!estimate}
                 value={Number.isFinite(budgetLimit) ? Number((budgetLimit * rate).toFixed(6)) : ''}
                 onChange={event => { onBudgetLimit(event.target.valueAsNumber / rate); }}
                 className="w-28 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 text-[var(--text-primary)]" />
         </label>
+        <p>{translate('book_budget_cap', 'Both agents, retries and synthesis share a limit of {{limit}} USD per book.', { limit: BOOK_LIMIT_USD })}</p>
         <label className="flex items-center justify-between gap-3">
             <span>{translate('batch_size', 'Fragments per batch')}</span>
             <select aria-label={translate('batch_size', 'Fragments per batch')} value={batchSize} onChange={event => { onBatchSize(Number(event.target.value)); }}

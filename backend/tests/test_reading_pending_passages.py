@@ -230,8 +230,8 @@ def test_equal_segment_ids_in_different_chunks_keep_independent_pending_findings
     chunks[1]["segments"][0]["id"] = source_id
     reader.chunks = chunks
     rows = [(c, {"notes": [], "coverage": [{"segment_id": source_id, "reason": "Verified"}]}) for c in chunks]
-    monkeypatch.setattr(review, "selected_passages", lambda *args: {source_id})
-    def audit(worker, reviewer, primary, *args):
+    monkeypatch.setattr("backend.domains.llm_wiki.audit_groups.selected_passages", lambda *args: {source_id})
+    def audit(worker, reviewer, primary, *args, **kwargs):
         if primary["text"].startswith("Argument 0:"):
             raise PassageReviewIssue("The first occurrence is ambiguous.")
         return "verified", {"assessment": "Supported.", "changes": [], "evidence_quote": primary["text"]}

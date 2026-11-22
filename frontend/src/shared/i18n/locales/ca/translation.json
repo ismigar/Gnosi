@@ -7099,6 +7099,7 @@
       "duplicate_keys": "{{count}} claus de processament duplicades",
       "stale_managed": "{{count}} notes generades pendents d’actualització"
     },
+    "book_budget_cap": "Els dos agents, els reintents i la síntesi comparteixen un límit de {{limit}} USD per llibre.",
     "budget_available": "Disponible dins del límit: {{amount}}. El procés es pausa abans d’una crida que no hi càpiga i desa el progrés.",
     "estimate_over_budget": "El càlcul supera el pressupost disponible. Si comences, pot quedar feina pendent; el límit no s’augmenta automàticament.",
     "estimate_calculation": "Com es calcula",

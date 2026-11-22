@@ -38,7 +38,7 @@ def _reading_answer(raw: str) -> dict[str, object]:
 def _invalid_answer(phase: str, reason: Exception) -> Exception:
     if isinstance(reason, PassageReviewIssue):
         return reason
-    if phase in {"source-repair", "source-audit"}:
+    if phase in {"source-repair", "source-audit", "source-audit-batch"}:
         return PassageReviewIssue(str(reason))
     return RuntimeError(f"The reading skill returned an invalid {phase} result: {reason}")
 
@@ -181,6 +181,13 @@ class ContextualReader:
                 " Prefix a finding limited to a specific note with its one-based label, such as note_2:. "
                 "For a finding affecting the whole batch, state the shared issue without a note label.")
         finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
+        if phase == "interpret" and quote_evidence and getattr(self.dependencies, "reviewer", None):
+            # This goes on the fresh provider request, after looking up the
+            # original paid phase. Remove one field to recover its former wire.
+            ranges = finder(quote_evidence, self.origins, []) if finder else {}
+            enriched = {**request, "initial_passage_context": {
+                "verified_pdf_excerpts": ranges, "bindings": bindings if ranges else []}}
+            return enriched if self.dependencies.count_tokens(encoded(enriched)) <= self.budget else request
         if offer_excerpts and quote_evidence and finder:
             excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
             if excerpts:
@@ -250,7 +257,7 @@ class ContextualReader:
                                        offer_excerpts, pdf_citations)
         display_phase = (
             "reviewing"
-            if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
+            if phase in {"review", "verify", "source-audit", "source-audit-batch", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
             else "overview"
             if phase in {"overview", "synthesis"}
             else "planning"

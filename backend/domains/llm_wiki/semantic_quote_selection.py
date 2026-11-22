@@ -218,6 +218,20 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
     return result
 
 
+def _initial_evidence(payload: dict[str, Any]) -> tuple[Any, Any]:
+    excerpts = payload.pop("verified_pdf_excerpts", None)
+    bindings = payload.pop("pdf_quote_sources", None)
+    if initial := payload.pop("initial_passage_context", None):
+        if initial["verified_pdf_excerpts"]:
+            excerpts, bindings = initial["verified_pdf_excerpts"], initial["bindings"]
+        payload["instruction"] = str(payload.get("instruction", "")) + (
+            " Read adjoining primary passages and neighbours to complete an interrupted sentence or list."
+            " Extract every complete, attributable claim that the primary passage supports and preserve"
+            " its qualifications. A cut-off ending or the author's own open question can be described"
+            " without referring the whole passage for repair. Refer uncertain substantive claims to the specialist.")
+    return excerpts, bindings
+
+
 def quote_selection(request: dict[str, Any], *, number_audit_evidence: bool = True) -> QuoteSelection | None:
     """Keep reader checkpoints literal; only the model-facing transport changes."""
     # A reviewer replacing one rejected interpretation uses the same immutable
@@ -236,8 +250,7 @@ def quote_selection(request: dict[str, Any], *, number_audit_evidence: bool = Tr
         for entry in payload["notes"]:
             sources.extend([entry["primary"], *entry["support"]])
     sources.extend(payload.get("retrieved_originals", []))
-    excerpts = payload.pop("verified_pdf_excerpts", None)
-    bindings = payload.pop("pdf_quote_sources", None)
+    excerpts, bindings = _initial_evidence(payload)
     catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
     if pairs := payload.get("pdf_page_pairs"):
         # A repeated original shares a catalog entry. Translate the prompt's

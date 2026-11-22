@@ -7099,6 +7099,7 @@
       "duplicate_keys": "{{count}} clés de traitement en double",
       "stale_managed": "{{count}} notes générées en attente de mise à jour"
     },
+    "book_budget_cap": "Les deux agents, les nouvelles tentatives et la synthèse partagent un plafond de {{limit}} USD par livre.",
     "budget_available": "Disponible dans la limite : {{amount}}. Le traitement se met en pause avant un appel qui dépasserait le solde et conserve la progression.",
     "estimate_over_budget": "Le calcul dépasse le budget disponible. Le traitement peut rester incomplet ; la limite n’est pas augmentée automatiquement.",
     "estimate_calculation": "Méthode de calcul",

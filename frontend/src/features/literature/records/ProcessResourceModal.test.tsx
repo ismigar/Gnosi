@@ -146,7 +146,7 @@ describe('ProcessResourceModal', () => {
         act(() => { buttonWithText('Retry').click(); });
         await flushProcessing();
         expect(startResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({
-            force: false, resource_id: 'note-1', source_table_id: undefined, max_cost_usd: 0.5, batch_size: 4, estimate_id: 'estimate-1',
+            force: false, resource_id: 'note-1', source_table_id: undefined, max_cost_usd: 5, batch_size: 4, estimate_id: 'estimate-1',
         }));
     });
 
@@ -262,7 +262,7 @@ describe('ProcessResourceModal', () => {
         vi.mocked(estimateResourceProcessing).mockReturnValueOnce(new Promise(() => {}));
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         expect(buttonWithText('Process').disabled).toBe(true);
-        expect(document.body.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
+        expect(document.body.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('5');
         act(() => { buttonWithText('Process').click(); });
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(vi.mocked(useModalKeyboard).mock.calls.at(-1)?.[0].confirmDisabled).toBe(true);
@@ -290,6 +290,18 @@ describe('ProcessResourceModal', () => {
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
     });
 
+    it('keeps an older overspent book pending through the normal confirmation dialog', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 8,
+            budget: { id: 'older-book', limit_usd: 25, spent_usd: 3.5, reserved_usd: 2, remaining_usd: 19.5 } });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        const limit = document.body.querySelector<HTMLInputElement>('input[type="number"]');
+        expect(limit?.value).toBe('5');
+        expect(limit?.max).toBe('5');
+        expect(buttonWithText('Process').disabled).toBe(true);
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
     it('blocks accidental rereading when saved plans are incompatible', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
@@ -310,7 +322,7 @@ describe('ProcessResourceModal', () => {
         expect(estimateResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }), expect.any(AbortSignal));
         expect(document.body.textContent).toContain('All configured sources will be processed again');
         await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
-        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ force: true, estimate_id: 'fresh-estimate', max_cost_usd: 0.5, batch_size: 4 }));
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ force: true, estimate_id: 'fresh-estimate', max_cost_usd: 5, batch_size: 4 }));
     });
 
     it('renders the accessible force-confirmation contract', async () => {

@@ -382,7 +382,7 @@ def _phase_key(snapshot: AgentExecutionSnapshot, request: AgentOperation) -> str
 
 
 def recover_reading_operation(request: AgentOperation, snapshot: AgentExecutionSnapshot, provider: str, model: str,
-                              restore: Callable[[str], str]) -> tuple[str, str] | None:
+                              restore: Callable[[str], str], *, draft_schema: dict[str, Any] | None = None) -> tuple[str, str] | None:
     """Recover a paid reading operation in its former wire format without dispatching it."""
     from backend.services.reading_result_cache import lookup, result_key
     if request.operation != "knowledge.process-source.phase" or request.tool_mode != "none" or not request.options.get("reading_pinned"):
@@ -395,7 +395,7 @@ def recover_reading_operation(request: AgentOperation, snapshot: AgentExecutionS
     if cached is None or (cached.provider, cached.model) != (provider, model):
         return None
     try:
-        value = restore(_validate_output(cached.result, request.output_schema))
+        value = restore(_validate_output(cached.result, request.output_schema if draft_schema is None else draft_schema))
     except (ValueError, jsonschema.ValidationError):
         return None
     finally:

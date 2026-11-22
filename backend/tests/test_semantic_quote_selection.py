@@ -377,3 +377,53 @@ def test_compact_transport_preserves_every_evidence_character_and_response_value
     assert selection.restore(json.dumps(answer, ensure_ascii=False, indent=2)) == selection.restore(
         json.dumps(answer, ensure_ascii=False, separators=(',', ':')))
     assert request['output_schema']
+
+
+@pytest.mark.parametrize('provisional', [False, True])
+def test_enriched_first_reader_recovers_paid_legacy_slots_before_requesting_new_evidence(runtime, monkeypatch, provisional):
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.domains.llm_wiki.semantic_contracts import interpretation_schema
+    from backend.services import agent_execution as execution, agent_skill_catalog
+    from backend.services.agent_execution_scope import execution_scope
+    scope, snapshot = runtime
+    snapshot.skill_ids[:] = [SKILL_ID]
+    allowed = agent_skill_catalog.resolve_agent_runtime({})
+    monkeypatch.setattr(agent_skill_catalog, 'resolve_agent_runtime', lambda *args, **kw:
+                        replace(allowed, active_skill_ids=(SKILL_ID,)))
+    _, _, request, response, _ = selection_case()
+    size = len(request['primary_passages'])
+    request['output_schema'] = interpretation_schema(size, [], flag_review=True)
+    legacy = quote_selection(request)
+    for row in response['passages'].values():
+        row['needs_specialist'] = False
+        for note in row['notes']:
+            note['properties'] = {}
+    if provisional:
+        response['passages']['passage_1']['notes'][0]['primary_quote_ids'] = [999999]
+    draft = legacy.draft_schema()
+    expected = json.loads(legacy.restore(encoded(response), draft_schema=draft))
+    calls = install_workflow(monkeypatch, [encoded(response)])
+    with execution_scope(scope):
+        first = execution.create_job_run(snapshot, 'reader-first-job', 'knowledge.process-source')
+        reader = ReadingRuntime('personal', 'test', 'fake', '', 100000, first, skill_id=SKILL_ID)
+        wire = compact_structured_input(legacy.input)
+        paid = reader._structured_operation(wire, legacy.schema, 240, 2, {})
+        execution.run_sync(paid, snapshot=first, draft_schema=draft)
+        reader.snapshot = execution.create_job_run(snapshot, 'reader-second-job', 'knowledge.process-source')
+        enriched = {**request, 'initial_passage_context': {'verified_pdf_excerpts': {}, 'bindings': []}}
+        checked = []
+        literal, _ = reader.generate_structured(encoded(enriched), checked.append, 240)
+        assert json.loads(literal) == expected and checked == [expected]
+    assert len(calls) == 1 and ('reader_validation_error' in expected['passages'][0]) == provisional
+
+
+def test_initial_reader_fits_the_previous_wire_when_extra_pdf_material_exceeds_the_model_window():
+    from backend.domains.llm_wiki.semantic_contracts import interpretation_schema
+    _, _, request, _, _ = selection_case()
+    request["output_schema"] = interpretation_schema(len(request["primary_passages"]), [], flag_review=True)
+    model = ReadingRuntime("reader", "test", "test", "", 10**7, SimpleNamespace(behavior_resources=False))
+    model.count_tokens = lambda text, *, output_schema=None: len(text.encode()) + len(encoded(output_schema))
+    _, plain, _, size = model._structured_input(encoded(request), request)
+    model.input_budget = size
+    enriched = {**request, 'initial_passage_context': {'verified_pdf_excerpts': {}, 'bindings': []}}
+    assert model._structured_input(encoded(enriched), enriched)[1::2] == (plain, size)
