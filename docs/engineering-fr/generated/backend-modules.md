@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 287 | 56407 |
+| `services` | 288 | 56417 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1149 modules** and **218365 source lines**.
+Total: **1150 modules** and **218375 source lines**.
 
 ## agent
 
@@ -1044,7 +1044,7 @@ Total: **1149 modules** and **218365 source lines**.
 | [`backend/services/ai_usage_openrouter.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_openrouter.py) | 113 | 0 | 5 | 0 | 1 | Reconcile billed costs through metadata-only GETs, outside model execution. |
 | [`backend/services/ai_usage_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_transport.py) | 318 | 3 | 9 | 0 | 2 | Observe raw provider responses before LangChain/tool output conversion. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
-| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 806 | 1 | 35 | 0 | 28 | Artificial Analysis model-comparison feed. |
+| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 756 | 1 | 32 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 780 | 3 | 30 | 0 | 21 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 230 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
@@ -1140,6 +1140,7 @@ Total: **1149 modules** and **218365 source lines**.
 | [`backend/services/model_parameter_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_review.py) | 86 | 2 | 1 | 0 | 0 | Per-model parameter source review. Supplied URLs are never fetched by the server. |
 | [`backend/services/model_parameter_seed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_seed.py) | 201 | 2 | 0 | 0 | 0 | Reviewed manufacturer parameter disclosures; billions (10^9). |
 | [`backend/services/model_parameters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameters.py) | 232 | 0 | 16 | 0 | 1 | Bounded official-source parameter refresh; no guesses from model names. |
+| [`backend/services/model_profile_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_profile_index.py) | 60 | 0 | 3 | 0 | 1 | A compact, versioned lookup of model profiles from the local comparison report. |
 | [`backend/services/model_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_reasoning.py) | 139 | 0 | 7 | 0 | 2 | Provider-declared reasoning choices and profile-scoped request settings. |
 | [`backend/services/model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_role_suitability.py) | 112 | 2 | 3 | 0 | 0 | Independent role assessments with explicit provenance and untested abilities. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |

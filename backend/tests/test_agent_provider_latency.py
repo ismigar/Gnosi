@@ -154,31 +154,31 @@ def test_usage_commits_with_the_original_profile_before_restart(tmp_path, monkey
 
 def test_current_profile_index_survives_restart_and_rebuilds_for_replaced_reports(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
-    from backend.services import artificial_analysis as analysis
+    from backend.services import artificial_analysis as analysis, model_profile_index
     report = tmp_path / "comparison.json"
     monkeypatch.setattr(analysis, "_cache_path", lambda: report)
     data = {"models": [{"profile": "first", "routes": [{"provider": "p", "model_id": "m"}]}]}
     report.write_text(json.dumps(data))
-    make_index = analysis._index_model_profiles
+    make_index = model_profile_index._index_model_profiles
     reads = []
     def counted(payload):
         reads.append(1)
         return make_index(payload)
-    monkeypatch.setattr(analysis, "_index_model_profiles", counted)
+    monkeypatch.setattr(model_profile_index, "_index_model_profiles", counted)
     with ThreadPoolExecutor(4) as pool:
         assert list(pool.map(lambda _: analysis.published_route_profile("p", "m"), range(8))) == ["first"] * 8
     assert reads == [1]
-    monkeypatch.setattr(analysis, "_profiles_source", None)
+    monkeypatch.setattr(model_profile_index, "_profiles_source", None)
     assert analysis.published_route_profile("p", "m") == "first"
     assert reads == [1]
     data["models"][0]["profile"] = "second"
     analysis._write_cache(data)
-    monkeypatch.setattr(analysis, "_profiles_source", None)
+    monkeypatch.setattr(model_profile_index, "_profiles_source", None)
     assert analysis.published_route_profile("p", "m") == "second"
     assert reads == [1, 1]
     sidecar = report.with_name(report.name + ".profiles-v1.json")
     sidecar.write_text("{")
-    monkeypatch.setattr(analysis, "_profiles_source", None)
+    monkeypatch.setattr(model_profile_index, "_profiles_source", None)
     assert analysis.published_route_profile("p", "m") == "second"
     assert reads == [1, 1, 1]
 
