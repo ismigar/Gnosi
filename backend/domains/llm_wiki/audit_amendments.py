@@ -6,7 +6,7 @@ from copy import deepcopy
 import json
 from typing import Any
 
-from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationSlot, SourceAuditValidator
+from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationSlot, SourceAuditValidator, validate_revision_origins
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.semantic_contracts import TEXT, obj, validate_schema
@@ -114,7 +114,8 @@ def _amendment(selection: QuoteSelection, proposed: dict[str, Any], issues: dict
         " When keep_changes is offered, use it to retain the proposed notes and select a listed excerpt for"
         " each failed citation, supporting the same claim in its original. For substantive edits or unsuitable"
         " excerpts use revised_audit. In prior_changes explain what you retained, corrected or withdrew from"
-        " each previous proposal and why the cited original supports that decision.")
+        " each previous proposal and why the cited original supports that decision. A citation-only correction"
+        " must retain the original it refers to. If the attribution changes, reassess the claim itself.")
     schema = obj({"findings": obj({k: decision for k in issues}), "correction": correction_schema})
     def restore(response: str) -> str:
         reply = json.loads(response)
@@ -122,6 +123,7 @@ def _amendment(selection: QuoteSelection, proposed: dict[str, Any], issues: dict
         correction = reply["correction"]
         if "revised_audit" in correction:
             result = correction["revised_audit"]
+            validate_revision_origins(proposed, result, selection)
             dispositions = {k: {**v, "status": "addressed"} for k, v in correction["prior_changes"].items()}
             _record_findings(result, {k: "" for k in prior}, dispositions, excerpts)
         else:

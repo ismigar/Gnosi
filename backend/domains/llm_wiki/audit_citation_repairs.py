@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import json
+import unicodedata
 from typing import TYPE_CHECKING, Any
 
 from backend.domains.llm_wiki.chunking import record, records
@@ -30,6 +32,61 @@ class CitationSlot:
     @property
     def name(self) -> str:
         return f"change_{self.change + 1}_quote_{self.quote + 1}"
+
+
+def _claim_text(note: dict[str, object]) -> str:
+    return " ".join(unicodedata.normalize("NFKC", str(note.get("body_md") or "")).casefold().split()).strip(" .")
+
+
+def _quote_owner(quote: object, texts: list[str]) -> int | None:
+    if isinstance(quote, dict):
+        owner = quote.get("source")
+        if isinstance(owner, (int, float)) and not isinstance(owner, bool) and 1 <= owner <= len(texts) and int(owner) == owner:
+            return int(owner)
+    elif isinstance(quote, str) and quote.strip():
+        if quote in texts[0]:
+            return 1
+        matches = [i for i, text in enumerate(texts, 1) if quote in text]
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
+
+def _preserves_origins(before: list[Any], after: list[Any], texts: list[str]) -> bool:
+    # Remove exact matches first so reordering valid citations is harmless.
+    unused = list(after)
+    displaced = []
+    for citation in before:
+        if citation in unused:
+            unused.remove(citation)
+        else:
+            displaced.append(citation)
+    old = [_quote_owner(c, texts) for c in displaced]
+    new = [_quote_owner(c, texts) for c in unused]
+    if len(old) == len(new):
+        return all(a is None or a == b for a, b in zip(old, new))
+    # A redundant citation may disappear only if the note still cites its owner.
+    return {n for n in old if n is not None}.issubset({_quote_owner(c, texts) for c in after})
+
+
+def validate_revision_origins(previous: dict[str, Any], revised: dict[str, Any], selection: QuoteSelection) -> None:
+    """A full revision of a claim must not disguise a citation-only change of source."""
+    request = json.loads(selection.input)
+    primary = "".join(selection.audit_evidence) if selection.audit_evidence else request["original"]["text"]
+    texts = [primary, *(s["text"] for s in request.get("support", []))]
+    prior: dict[str, list[list[Any]]] = {}
+    for change in records(previous.get("changes")):
+        note = record(change.get("replacement"))
+        citations = note.get("quotes")
+        if isinstance(citations, list) and (claim := _claim_text(note)):
+            prior.setdefault(claim, []).append(citations)
+    for change in records(revised.get("changes")):
+        note = record(change.get("replacement"))
+        owners = prior.get(_claim_text(note), [])
+        citations = note.get("quotes")
+        if owners and isinstance(citations, list) and not any(_preserves_origins(q, citations, texts) for q in owners):
+            raise PassageReviewIssue("A citation-only correction must keep its original source. Reassess the claim "
+                                     "and its attribution if a different document supports a substantive revision.")
 
 
 class AuditCitationIssue(PassageReviewIssue):

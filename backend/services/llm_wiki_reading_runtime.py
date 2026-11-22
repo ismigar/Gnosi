@@ -243,9 +243,13 @@ class ReadingRuntime:
         def repair(text: str, error: Exception) -> OutputRepair | None:
             if source_review and envelope["phase"] == "source-audit":
                 from backend.domains.llm_wiki.audit_amendments import open_findings
+                from backend.services.agent_execution import _validate_output
                 try:
+                    # A schema failure can leave the original fenced response here.
+                    # Use precisely the same accepted JSON envelopes as the first check.
+                    text = _validate_output(text, {"type": "object"})
                     proposal = json.loads(text)
-                except ValueError:
+                except (ValueError, jsonschema.ValidationError):
                     proposal = None
                 if isinstance(proposal, dict):
                     audit_findings.update(open_findings(proposal))
