@@ -69,7 +69,7 @@ def quote_choices(sources: list[dict[str, Any]], *,
                     number = len(quotes) + 1
                     quotes[number] = text[start:end]
                     choices.append({"quote_id": number, "text": quotes[number]})
-                if choices:
+                if str(i) in ranges:
                     spans.append({"text": text, "verified_excerpts": choices})
                 else:
                     number = len(quotes) + 1

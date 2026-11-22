@@ -56,7 +56,7 @@ def audited_draft_notes(reader: ContextualReader, reviewer: ReviewRuntime, prima
 
 def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
                    draft: dict[str, object], evidence: list[dict[str, object]], diagnostic: str,
-                   context: PageContext, checkpoint_jobs: tuple[str, ...] = ()) -> dict[str, object]:
+                   context: PageContext, checkpoint_jobs: tuple[str, ...] = (), prior_issue: str = "") -> dict[str, object]:
     retained = []
     supported_notes = []
     contract = note_schema(reader.dimensions)
@@ -121,7 +121,8 @@ def repair_passage(reader: ContextualReader, reviewer: ReviewRuntime, primary: d
 
     key = "passage-repair-" + fingerprint([reviewer.identity, draft, payload])[:24]
     answer = reader.ask(key, "source-repair", payload, validate, schema, executor=reviewer, quote_evidence=evidence, offer_excerpts=True,
-                        pdf_citations=partial_citations(supported_notes, evidence), page_context=context, checkpoint_jobs=checkpoint_jobs)
+                        pdf_citations=partial_citations(supported_notes, evidence), page_context=context,
+                        checkpoint_jobs=checkpoint_jobs, prior_review_issue=prior_issue)
     return {**amended_passage(answer, retained, primary), "needs_specialist": True}
 
 
@@ -163,6 +164,7 @@ def bind_reviewed_interpretation(
     *, completed: Collection[str] = (), before_repair: Callable[[], None] | None = None,
     defer: Callable[[int, str, dict[str, object], str], None] | None = None,
     checkpoint_jobs: tuple[str, ...] = (),
+    prior_issues: dict[tuple[str, str], str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, object]]:
     items = answer["passages"]
     if not isinstance(items, list):
@@ -186,8 +188,10 @@ def bind_reviewed_interpretation(
             sources = repair_sources(source, draft, neighbours[passage_key(source)], evidence)
             cited = repair_sources(source, draft, [], sources)
             context = page_context(reader.pdf_edges, sources, cited)
+            prior_issue = (prior_issues or {}).get((owner, passage_key(source)), "")
             try:
-                passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position], context, checkpoint_jobs)
+                passages[position] = repair_passage(reader, reviewer, source, draft, sources, rejected[position],
+                                                    context, checkpoint_jobs, prior_issue)
             except PassageReviewIssue as issue:
                 if defer is None:
                     raise
