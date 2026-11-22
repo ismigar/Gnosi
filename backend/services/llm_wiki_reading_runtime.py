@@ -169,23 +169,36 @@ class ReadingRuntime:
                 break
         return selection, operation_input, schema, size
 
-    def _recover_literal_audit(self, prompt: str, envelope: dict[str, Any], operation: AgentOperation,
-                               validate: Callable[[dict[str, object]], None]) -> tuple[str, str] | None:
+    def _structured_operation(self, prompt: str, schema: dict[str, Any], timeout: int, max_calls: int,
+                              options: dict[str, object]) -> AgentOperation:
+        return AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
+            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+            options={**self.performance_options, **options}, output_schema=schema, max_model_calls=max_calls)
+
+    def recover_audit(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int,
+                      *, literal_only: bool = False) -> tuple[str, str]:
+        """Look up validated audit operations, including a coverage pass whose phase write was interrupted."""
+        from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
         from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_execution import recover_reading_operation
-        previous = quote_selection(envelope, number_audit_evidence=False)
-        legacy = operation.model_copy(update={
-            "input": compact_structured_input(previous.input) if previous else prompt,
-            "output_schema": previous.schema if previous else envelope["output_schema"],
-        })
-        def restored(text: str) -> str:
-            item = json.loads(previous.restore(text) if previous else text)
-            validate(item)
-            return json.dumps(item, ensure_ascii=False)
-        return recover_reading_operation(legacy, self.snapshot, self.provider, self.model, restored)
+        envelope = json.loads(prompt)
+        for numbered in ((False,) if literal_only else (False, True)):
+            selection = quote_selection(envelope, number_audit_evidence=numbered)
+            wire = compact_structured_input(selection.input) if selection else prompt
+            schema = selection.schema if selection else envelope["output_schema"]
+            operation = self._structured_operation(wire, schema, timeout, 2, {})
+            def restored(text: str) -> str:
+                item = json.loads(selection.restore(text) if selection else text)
+                validate(item)
+                return json.dumps(item, ensure_ascii=False)
+            recovered = recover_reading_operation(operation, self.snapshot, self.provider, self.model, restored)
+            if recovered is not None:
+                return recovered
+        raise ReadingCheckpointUnavailable("No validated source audit for this request")
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         import jsonschema
+        from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
         from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue, ReadingInputTooLarge
         from backend.services.agent_execution import run_sync
         from backend.services.agent_output_repair import OutputRepair
@@ -222,18 +235,15 @@ class ReadingRuntime:
         def repair(text: str, error: Exception) -> OutputRepair | None:
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
-            review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
+            review_options: dict[str, object] = ({"reading_review_notes": len(envelope.get("notes", []))}
                 if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
-            operation = AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
-                input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-                options={**self.performance_options, **review_options},
-                # Literal choices apply even when the second call repairs syntax.
-                # Keep corrections inside the same call allowance and deadline.
-                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3)
+            max_calls = 2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3
+            operation = self._structured_operation(operation_prompt, schema, timeout, max_calls, review_options)
             if selection and selection.audit_evidence:
-                recovered = self._recover_literal_audit(prompt, envelope, operation, validate)
-                if recovered is not None:
-                    return recovered
+                try:
+                    return self.recover_audit(prompt, validate, timeout, literal_only=True)
+                except ReadingCheckpointUnavailable:
+                    pass
             result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair,
                 **({"draft_schema": draft_schema} if draft_schema is not None else {}))
         except (ModelOutputError, jsonschema.ValidationError) as error:

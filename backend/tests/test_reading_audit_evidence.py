@@ -10,9 +10,10 @@ from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope
 from backend.domains.llm_wiki.independent_review import apply_changes, audit_passage, audit_payload, original_audit
 from backend.domains.llm_wiki.pdf_page_context import page_context
 from backend.domains.llm_wiki.pdf_review_excerpts import quote_bindings
-from backend.domains.llm_wiki.review_draft_batches import audit_in_batches
+from backend.domains.llm_wiki.review_draft_batches import audit_in_batches, review_coverage
 from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
 from backend.services import agent_execution as execution
+from backend.services.agent_cancellation import AgentTurnCancelled
 from backend.services.agent_execution_models import AgentOperation
 from backend.services.agent_execution_scope import execution_scope
 from backend.services.llm_wiki_reading_runtime import ReadingRuntime, compact_structured_input
@@ -119,7 +120,8 @@ def test_complete_audit_uses_the_fitting_wire_or_recovers_its_paid_coverage(prep
 
 
 @pytest.mark.parametrize("paired", [False, True])
-def test_paid_literal_audit_is_revalidated_after_an_interrupted_phase_write(runtime, monkeypatch, paired):
+@pytest.mark.parametrize("cancel_during_restore", [False, True])
+def test_paid_literal_audit_is_revalidated_after_an_interrupted_phase_write(runtime, monkeypatch, paired, cancel_during_restore):
     scope, snapshot = runtime
     request, primary, other = audit_case(paired)
     prompt = encoded(request)
@@ -131,6 +133,8 @@ def test_paid_literal_audit_is_revalidated_after_an_interrupted_phase_write(runt
     def validate(item):
         apply_changes(item, [], primary, [primary, other], [])
         checked.append(item)
+        if cancel_during_restore:
+            execution.cancel_run("resumed-book-job")
     with execution_scope(scope):
         parent = execution.create_job_run(snapshot, "first-book-job", "knowledge.process-source")
         reviewer = ReadingRuntime("personal", "test", "fake", "", 100_000, parent, skill_id=parent.skill_ids[0])
@@ -142,5 +146,43 @@ def test_paid_literal_audit_is_revalidated_after_an_interrupted_phase_write(runt
         execution.run_sync(old, snapshot=parent)
         # Only the governed operation has been saved. The new job still checks its source before reuse.
         reviewer.snapshot = execution.create_job_run(snapshot, "resumed-book-job", "knowledge.process-source")
-        result, _ = reviewer.generate_structured(prompt, validate, 240)
-    assert checked == [answer] and json.loads(result) == answer and len(calls) == 1
+        if cancel_during_restore:
+            with pytest.raises(AgentTurnCancelled):
+                reviewer.generate_structured(prompt, validate, 240)
+        else:
+            result, _ = reviewer.generate_structured(prompt, validate, 240)
+            assert json.loads(result) == answer
+    assert checked == [answer] and len(calls) == 1
+
+
+def test_coverage_operation_survives_interruption_before_any_phase_checkpoint(runtime, monkeypatch):
+    scope, snapshot = runtime
+    book, _, checkpoints = setup(count=1)
+    primary = segment("primary", 1, 8, "A. B. C. " * 15 + "Final observation.")
+    book.chunks = [chunk("essay", primary, segment("support", 2, 1, "A qualification follows."))]
+    reason = "The observation is conditional."
+    answer = {"assessment": reason, "evidence_quote": "Final observation.", "changes": [], "unresolved_issues": []}
+    calls = install_workflow(monkeypatch, [encoded(answer)])
+    with execution_scope(scope):
+        parent = execution.create_job_run(snapshot, "interrupted-coverage", "knowledge.process-source")
+        reviewer = ReadingRuntime("personal", "test", "fake", "", 100_000, parent, skill_id=parent.skill_ids[0])
+        key, _, _ = original_audit(book, reviewer, primary, [], [primary], [reason])
+        def previous_coverage(prompt, validate, timeout):
+            reviewer.input_budget = reviewer.count_tokens(prompt)
+            old = quote_selection(json.loads(prompt), number_audit_evidence=False)
+            op = reviewer._structured_operation(compact_structured_input(old.input), old.schema, timeout, 2, {})
+            paid = execution.run_sync(op, snapshot=parent)
+            value = old.restore(paid.result)
+            validate(json.loads(value))
+            return value, paid.model
+        with monkeypatch.context() as patch:
+            patch.setattr(reviewer, "generate_structured", previous_coverage)
+            def interrupted(*_):
+                raise OSError("interrupted phase write")
+            patch.setattr(book.dependencies, "save_checkpoint", interrupted)
+            with pytest.raises(OSError, match="interrupted phase write"):
+                review_coverage(book, reviewer, primary, [reason], [], key, lambda *_: None, None)
+        assert not checkpoints
+        _, restored = audit_passage(book, reviewer, primary, [], [primary],
+                                    {"coverage": [{"segment_id": primary["id"], "reason": reason}]}, {}, None)
+    assert restored == answer and len(calls) == 1

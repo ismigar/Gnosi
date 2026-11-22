@@ -210,8 +210,17 @@ def audit_passage(worker: ContextualReader, reviewer: ReviewRuntime, primary: di
     request = context.prompt(payload, audit=True)
     fits = fits_review(reviewer, "source-audit", worker.title, worker.language, request)
     if fits and not fits_review(reviewer, "source-audit", worker.title, worker.language, request, canonical=True):
-        from backend.domains.llm_wiki.review_draft_batches import AuditRanges
+        from backend.domains.llm_wiki.review_draft_batches import AuditRanges, review_coverage
         fits = not AuditRanges(worker, reviewer, primary, key).started(scope)
+        if fits and not drafts:
+            # Empty groups have no saved range. A coverage operation may have committed before the phase write.
+            try:
+                covered = review_coverage(worker, reviewer, primary, coverage, [], key, validate_transport, scope, recover_only=True)
+            except ReadingCheckpointUnavailable:
+                pass
+            else:
+                validate(covered, drafts, evidence)
+                return state_key, covered
     try:
         answer = worker.ask("independent-" + key[:24], "source-audit", payload,
                             lambda item: validate_transport(item, drafts, evidence), schema, executor=reviewer,
