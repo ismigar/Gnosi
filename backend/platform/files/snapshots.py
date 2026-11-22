@@ -98,7 +98,7 @@ class CoordinatedReads:
             return ((path, version) not in self._jobs and not (
                 failure and failure[0] > time.monotonic() and failure[1] == version))
 
-    def verify_skill_sources(self, paths: tuple[Path, ...]) -> dict[Path, os.stat_result]:
+    def verify_skill_sources(self, expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
         # This optimization uses the same worker pool as foreground reads. Skip it
         # under contention and let the normal per-file requests observe their grants.
         if not self._verification_slot.acquire(blocking=False):
@@ -107,7 +107,7 @@ class CoordinatedReads:
             with self._guard:
                 if self._jobs:
                     return {}
-                pending = self._pool.submit(lambda: asyncio.run(verify_skill_sources(paths)))
+                pending = self._pool.submit(lambda: asyncio.run(verify_skill_sources(expected)))
             return pending.result()
         finally:
             self._verification_slot.release()

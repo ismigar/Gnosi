@@ -77,18 +77,18 @@ class ChatSkillSources:
             return {}
         allowed = {identifier.strip().lower() for identifier in assigned if isinstance(identifier, str)}
         with self._lock:
-            paths = tuple(
-                source.path
+            expected = {
+                source.path: source.revision
                 for (owner, package), (sources, _) in self._entries.items()
                 if owner == scope and package.name in allowed
                 for source in sources if source.native
-            )
-        if not paths:
+            }
+        if not expected:
             return {}
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            proofs = snapshots.reads.verify_skill_sources(paths)
+            proofs = snapshots.reads.verify_skill_sources(expected)
             return {(scope, path): (*revision(info), getattr(info, "st_flags", 0)) for path, info in proofs.items()}
         return {}
 

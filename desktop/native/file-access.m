@@ -56,11 +56,14 @@ static int writeAll(int target, const void *data, size_t length) {
     return 0;
 }
 
-static int copyContents(int source, int target, const struct stat *before, struct stat *after) {
+static int copyContents(int source, int target, const struct stat *before, struct stat *after, BOOL bounded) {
     char buffer[65536];
     off_t total = 0;
     for (;;) {
-        ssize_t count = read(source, buffer, sizeof(buffer));
+        size_t capacity = sizeof(buffer);
+        if (bounded && before->st_size - total < (off_t)capacity) capacity = (size_t)(before->st_size - total);
+        if (!capacity) break;
+        ssize_t count = read(source, buffer, capacity);
         if (count == -1 && errno == EINTR) continue;
         if (count == -1) return posixStatus(errno);
         if (!count) break;
@@ -107,13 +110,46 @@ static int openReadDirectory(NSString *path, int *directory, struct stat *entry)
 
 static BOOL sameRevision(const struct stat *a, const struct stat *b) {
     return a->st_dev == b->st_dev && a->st_ino == b->st_ino && a->st_size == b->st_size &&
+        a->st_mode == b->st_mode &&
         a->st_mtimespec.tv_sec == b->st_mtimespec.tv_sec && a->st_mtimespec.tv_nsec == b->st_mtimespec.tv_nsec &&
         a->st_ctimespec.tv_sec == b->st_ctimespec.tv_sec && a->st_ctimespec.tv_nsec == b->st_ctimespec.tv_nsec &&
         a->st_flags == b->st_flags;
 }
 
+// The byte limits are shared with UserSkillStore and ChatSkillSources. The
+// seven expected fields are backend.platform.files.snapshots.revision + st_flags.
+enum { MaxDescriptorBytes = 256000, MaxInstructionsBytes = 500000, MaxSkillBytes = 4 * 1024 * 1024 };
+
+static NSInteger skillSourceLimit(NSString *name) {
+    return [name isEqualToString:@"skill.yaml"] ? MaxDescriptorBytes : MaxInstructionsBytes;
+}
+
+static BOOL matchesNanoseconds(NSNumber *number, struct timespec time) {
+    __int128 ns = (__int128)time.tv_sec * 1000000000 + time.tv_nsec;
+    if (ns < INT64_MIN || ns > UINT64_MAX) return NO;
+    return [number isEqualToNumber:ns < 0 ? @((int64_t)ns) : @((uint64_t)ns)];
+}
+
+static BOOL admittedSource(NSArray<NSNumber *> *revision, NSString *name, const struct stat *info) {
+    return info->st_size >= 0 && info->st_size <= skillSourceLimit(name) && !(info->st_flags & SF_DATALESS) &&
+        [revision[0] isEqualToNumber:@(info->st_dev)] && [revision[1] isEqualToNumber:@(info->st_ino)] &&
+        [revision[2] isEqualToNumber:@(info->st_size)] && matchesNanoseconds(revision[3], info->st_mtimespec) &&
+        matchesNanoseconds(revision[4], info->st_ctimespec) && [revision[5] isEqualToNumber:@(info->st_mode)] &&
+        [revision[6] isEqualToNumber:@(info->st_flags)];
+}
+
+static BOOL validSkillRevision(id item) {
+    if (![item isKindOfClass:[NSArray class]] || [item count] != 7) return NO;
+    for (id number in item) {
+        if (![number isKindOfClass:[NSNumber class]] ||
+            CFGetTypeID((__bridge CFTypeRef)number) == CFBooleanGetTypeID() ||
+            !strchr("cCsSiIlLqQ", [number objCType][0])) return NO;
+    }
+    return YES;
+}
+
 static int readGranted(NSURL *granted, NSString *name, int directory, const struct stat *entry,
-                       int target, BOOL cached, struct stat *completed) {
+                       int target, NSArray<NSNumber *> *revision, struct stat *completed) {
     if (!granted.isFileURL) return Unavailable;
     int fd = open(granted.fileSystemRepresentation, O_RDONLY | O_NOFOLLOW_ANY | O_NONBLOCK);
     if (fd < 0) return posixStatus(errno);
@@ -123,11 +159,11 @@ static int readGranted(NSURL *granted, NSString *name, int directory, const stru
         fstat(fd, &opened) != 0) status = posixStatus(errno);
     else if (!S_ISREG(opened.st_mode) || opened.st_dev != expected.st_dev || opened.st_ino != expected.st_ino)
         status = Pending;
-    else if (cached && ((opened.st_flags & SF_DATALESS) || !sameRevision(entry, &opened))) status = Pending;
+    else if (revision && (!admittedSource(revision, name, &opened) || !sameRevision(entry, &opened))) status = Pending;
     else if (opened.st_size == 0 && (entry->st_size > 0 || (opened.st_flags & SF_DATALESS))) status = Pending;
     else {
-        status = copyContents(fd, target, &opened, completed);
-        if (!status && cached && !sameRevision(&opened, completed)) status = Pending;
+        status = copyContents(fd, target, &opened, completed, revision != nil);
+        if (!status && revision && !admittedSource(revision, name, completed)) status = Pending;
     }
     if (close(fd) != 0 && !status) status = posixStatus(errno);
     return status;
@@ -146,13 +182,13 @@ static int coordinateRead(const char *file, int target, struct stat *completed) 
     __block int result = Unavailable;
     [coordinator coordinateReadingItemAtURL:[NSURL fileURLWithPath:path] options:0 error:&error byAccessor:^(NSURL *granted) {
         // File Provider may replace a placeholder while satisfying an ordinary read.
-        result = readGranted(granted, path.lastPathComponent, directory, &entry, target, NO, completed);
+        result = readGranted(granted, path.lastPathComponent, directory, &entry, target, nil, completed);
     }];
     if (close(directory) != 0 && !result) result = posixStatus(errno);
     return error ? coordinationStatus(error) : result;
 }
 
-enum { MaxSkillSources = 256, MaxRequestBytes = MaxSkillSources * (6 * PATH_MAX + 8) };
+enum { MaxSkillSources = 256, MaxRequestBytes = MaxSkillSources * (6 * PATH_MAX + 192) };
 
 static NSString *skillSourceRoot(id item) {
     if (![item isKindOfClass:[NSString class]]) return nil;
@@ -186,14 +222,27 @@ static int verifySkillSources(void) {
         if (data.length + (NSUInteger)count > MaxRequestBytes) return 64;
         [data appendBytes:chunk length:(NSUInteger)count];
     }
-    NSArray<NSString *> *paths = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
-    if (![paths isKindOfClass:[NSArray class]] || !paths.count || paths.count > MaxSkillSources) return 64;
-    NSMutableArray<NSFileAccessIntent *> *intents = [NSMutableArray arrayWithCapacity:paths.count];
+    NSArray *request = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+    if (![request isKindOfClass:[NSArray class]] || !request.count || request.count > MaxSkillSources) return 64;
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:request.count];
+    NSMutableArray<NSArray<NSNumber *> *> *revisions = [NSMutableArray arrayWithCapacity:request.count];
+    NSMutableArray<NSFileAccessIntent *> *intents = [NSMutableArray arrayWithCapacity:request.count];
     NSString *root = nil;
-    for (id path in paths) {
+    NSUInteger total = 0;
+    for (id pair in request) {
+        if (![pair isKindOfClass:[NSArray class]] || [pair count] != 2 || !validSkillRevision(pair[1])) return 64;
+        NSString *path = pair[0];
+        NSArray<NSNumber *> *revision = pair[1];
         NSString *candidate = skillSourceRoot(path);
         if (!candidate || (root && ![candidate isEqualToString:root])) return 64;
+        NSNumber *size = revision[2];
+        if ([size compare:@0] == NSOrderedAscending ||
+            [size compare:@(skillSourceLimit(path.lastPathComponent))] == NSOrderedDescending) return Pending;
+        total += size.unsignedIntegerValue;
+        if (total > MaxSkillBytes) return Pending;
         root = candidate;
+        [paths addObject:path];
+        [revisions addObject:revision];
         [intents addObject:[NSFileAccessIntent readingIntentWithURL:[NSURL fileURLWithPath:path] options:0]];
     }
     SkillSource *sources = calloc(paths.count, sizeof(*sources));
@@ -205,7 +254,7 @@ static int verifySkillSources(void) {
         status = openReadDirectory(path, &source->directory, &source->before);
         if (status) break;
         ++opened;
-        if (source->before.st_flags & SF_DATALESS) { status = Pending; break; }
+        if (!admittedSource(revisions[opened-1], path.lastPathComponent, &source->before)) { status = Pending; break; }
     }
     if (!status) {
         NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
@@ -215,7 +264,7 @@ static int verifySkillSources(void) {
             for (NSUInteger i = 0; !status && i < paths.count; ++i) {
                 SkillSource *source = &sources[i];
                 status = readGranted(intents[i].URL, paths[i].lastPathComponent, source->directory,
-                                     &source->before, -1, YES, &source->completed);
+                                     &source->before, -1, revisions[i], &source->completed);
             }
             // Reopen every authorized parent while the grouped grant is held. A rename,
             // permission change, or uncoordinated write to an earlier source invalidates the set.
@@ -227,7 +276,7 @@ static int verifySkillSources(void) {
                 if (fstat(sources[i].directory, &priorDirectory) || fstat(directory, &currentDirectory))
                     status = posixStatus(errno);
                 else if (priorDirectory.st_dev != currentDirectory.st_dev || priorDirectory.st_ino != currentDirectory.st_ino ||
-                         !sameRevision(&sources[i].completed, &entry)) status = Pending;
+                         !admittedSource(revisions[i], paths[i].lastPathComponent, &entry)) status = Pending;
                 if (close(directory) != 0 && !status) status = posixStatus(errno);
             }
             dispatch_semaphore_signal(finished);

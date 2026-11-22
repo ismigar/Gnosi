@@ -201,9 +201,9 @@ async def copy_coordinated(path: Path, target: BinaryIO, timeout: float) -> os.s
         raise MetadataUnavailable("Incomplete coordinated file", path=path) from exc
 
 
-async def verify_skill_sources(paths: tuple[Path, ...]) -> dict[Path, os.stat_result]:
+async def verify_skill_sources(expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
     """Ask the bundled coordinator for fresh grants. Missing proof requires individual reads."""
-    if sys.platform != "darwin" or not 1 <= len(paths) <= 256 or _shutdown_requested.is_set():
+    if sys.platform != "darwin" or not 1 <= len(expected) <= 256 or _shutdown_requested.is_set():
         return {}
     process = None
     try:
@@ -217,14 +217,14 @@ async def verify_skill_sources(paths: tuple[Path, ...]) -> dict[Path, os.stat_re
         _active_materializations.add(process)
         if _shutdown_requested.is_set():
             return {}
-        data = json.dumps([str(path) for path in paths], ensure_ascii=False).encode()
+        data = json.dumps([(str(path), stamp) for path, stamp in expected.items()], ensure_ascii=False).encode()
         output, _ = await asyncio.wait_for(process.communicate(data), timeout=3)
         if process.returncode:
             return {}
         rows = json.loads(output)
-        if not isinstance(rows, list) or len(rows) != len(paths):
+        if not isinstance(rows, list) or len(rows) != len(expected):
             return {}
-        return {path: _source_stat(row) for path, row in zip(paths, rows, strict=True)}
+        return {path: _source_stat(row) for path, row in zip(expected, rows, strict=True)}
     except (OSError, TimeoutError, ValueError, TypeError, OverflowError):
         return {}
     finally:
