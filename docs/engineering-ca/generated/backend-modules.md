@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 647 | 126488 |
+| `domains` | 647 | 126498 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 283 | 55629 |
+| `services` | 283 | 55644 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1146 modules** and **216946 source lines**.
+Total: **1146 modules** and **216971 source lines**.
 
 ## agent
 
@@ -377,7 +377,7 @@ Total: **1146 modules** and **216946 source lines**.
 | [`backend/domains/literature/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/storage.py) | 70 | 0 | 8 | 0 | 0 | Vault-native files and local SQLite storage for literature workflows. |
 | [`backend/domains/literature/sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/sync.py) | 509 | 0 | 11 | 0 | 4 | Durable academic repository and saved-review synchronization. |
 | [`backend/domains/llm_wiki/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed LLM Wiki extraction and provenance domains. |
-| [`backend/domains/llm_wiki/audit_amendments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_amendments.py) | 171 | 0 | 8 | 0 | 0 | Adjudicate a source audit's open findings without regenerating accepted prose. |
+| [`backend/domains/llm_wiki/audit_amendments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_amendments.py) | 181 | 0 | 9 | 0 | 1 | Adjudicate a source audit's open findings without regenerating accepted prose. |
 | [`backend/domains/llm_wiki/audit_checkpoint_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_checkpoint_provenance.py) | 135 | 1 | 6 | 0 | 2 | Bind an audit to the documents actually cited by the reviewed drafts. |
 | [`backend/domains/llm_wiki/audit_citation_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_citation_repairs.py) | 235 | 4 | 9 | 0 | 3 | Offer a reviewer highlightable excerpts for individual rejected citations. |
 | [`backend/domains/llm_wiki/audit_findings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/audit_findings.py) | 67 | 1 | 7 | 0 | 1 | Keep each outstanding observation attached to its original until Sol accounts for it. |
@@ -976,7 +976,7 @@ Total: **1146 modules** and **216946 source lines**.
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
 | [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 189 | 0 | 7 | 0 | 3 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 777 | 0 | 31 | 8 | 10 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 784 | 0 | 31 | 8 | 10 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 77 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
 | [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 384 | 0 | 22 | 0 | 10 | Private, scope-bound execution records shared by every application entrypoint. |
@@ -1118,7 +1118,7 @@ Total: **1146 modules** and **216946 source lines**.
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 780 | 0 | 47 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 320 | 0 | 13 | 0 | 9 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 583 | 7 | 19 | 0 | 11 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
-| [`backend/services/llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_reading_runtime.py) | 447 | 1 | 9 | 0 | 2 | Freeze one governed profile, model and skill for an entire source job. |
+| [`backend/services/llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_reading_runtime.py) | 455 | 2 | 9 | 0 | 2 | Freeze one governed profile, model and skill for an entire source job. |
 | [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 532 | 0 | 32 | 0 | 14 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
 | [`backend/services/llm_wiki_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_suggestions.py) | 330 | 0 | 14 | 0 | 11 | Read-only connection proposals for the Brain. |
 | [`backend/services/lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/lookup_normalizers.py) | 49 | 0 | 0 | 0 | 0 | Compatibility facade for pure citation lookup normalizers. |
