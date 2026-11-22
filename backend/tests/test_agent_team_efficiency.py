@@ -126,8 +126,8 @@ def test_new_or_ambiguous_goals_are_not_continuations(followup):
     assert not clear_text_revision(followup)
 
 
-@pytest.mark.parametrize("change", ["scope", "profile", "answer", "prior_user", "marker", "legacy_quality", "attachment", "grants", "new_goal"])
-def test_changed_context_and_unverified_markers_replan(optional_runtime, change):
+@pytest.mark.parametrize("change", ["scope", "profile", "procedure", "answer", "prior_user", "marker", "legacy_quality", "attachment", "grants", "new_goal"])
+def test_changed_context_and_unverified_markers_replan(optional_runtime, change, monkeypatch):
     fixture, _ = optional_runtime
     history = seed(fixture)
     request, kwargs = "Ara fes-ho més formal.", {}
@@ -135,6 +135,12 @@ def test_changed_context_and_unverified_markers_replan(optional_runtime, change)
         kwargs["refs"] = [{"id": "another-document", "type": "note"}]
     elif change == "profile":
         fixture[3]["agents"][1]["persona"] = "A changed procedure"
+    elif change == "procedure":
+        from dataclasses import replace
+        from backend.services import agent_team_runtime
+        resolve = agent_team_runtime._runtime
+        monkeypatch.setattr(agent_team_runtime, "_runtime", lambda *args, **kwargs:
+                            replace(resolve(*args, **kwargs), catalog_revision="updated-skill-catalog"))
     elif change == "answer":
         history[-1] = history[-1].model_copy(update={"content": "An unrelated answer"})
     elif change == "prior_user":
@@ -171,6 +177,33 @@ def test_write_assignments_do_not_install_a_continuation(optional_runtime):
     fixture[3]["_responses"] = {"director": [AIMessage(content=plan_for(read_only=False).model_dump_json())]}
     messages, _ = run_chat(fixture, "Actualitza el document.")
     assert "gnosi_team_route" not in messages[-1].additional_kwargs
+
+
+def test_completed_specialist_answer_does_not_reopen_cloud_skills(optional_runtime, monkeypatch):
+    from backend.platform.files.availability import MetadataUnavailable
+    from backend.services import agent_team_runtime, agent_team_store
+
+    fixture, _ = optional_runtime
+    stored = agent_team_store.put
+    runtime = agent_team_runtime._runtime
+    completed = False
+
+    def store_result(scope, run_id, identifier, kind, value, **kwargs):
+        nonlocal completed
+        stored(scope, run_id, identifier, kind, value, **kwargs)
+        if kind == "task" and value["status"] == "completed":
+            completed = True
+
+    def read_skills(*args, **kwargs):
+        if completed:
+            raise MetadataUnavailable(reason="pending")
+        return runtime(*args, **kwargs)
+
+    monkeypatch.setattr(agent_team_store, "put", store_result)
+    monkeypatch.setattr(agent_team_runtime, "_runtime", read_skills)
+    reply = seed(fixture)[-1]
+    assert completed and reply.content == "La gent que treballa plegada fa les coses millor."
+    assert reply.additional_kwargs["gnosi_team_route"]["run_id"]
 
 
 def test_registered_translation_specialist_is_reused_for_a_style_revision(optional_runtime):

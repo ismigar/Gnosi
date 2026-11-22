@@ -8,7 +8,6 @@ from typing import Any
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
 
 from backend.domains.agent.policy import AgentState, _invoke_agent_model
 from backend.domains.agent.team_help import HELP_TOOL, TeamHelp, requested_help, can_request_help
@@ -25,7 +24,7 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
                        default_reasoning_effort: str | None = None,
                        reading_performance: bool = False) -> StateGraph[Any, None, Any, Any]:
     from backend.services.agent_tool_identity import runtime_tool_name
-    from backend.domains.agent.policy import _tool_policy_wrapper
+    from backend.domains.agent.policy import GovernedToolNode, _tool_policy_wrapper
     pairs = [(descriptor, tool) for descriptor, tool in zip(runtime.tool_descriptors, runtime.tools, strict=True)
              if is_read_tool(descriptor)] if runtime is not None else []
     tools = [tool for _, tool in pairs]
@@ -75,7 +74,7 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
     graph.add_node("agent_operation", execute)
     graph.add_edge(START, "agent_operation")
     if tools:
-        tool_node = ToolNode(tools, wrap_tool_call=_tool_policy_wrapper(policies), handle_tool_errors=False)
+        tool_node = GovernedToolNode(tools, wrap_tool_call=_tool_policy_wrapper(policies), handle_tool_errors=False)
         async def execute_tools(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             result = await tool_node.ainvoke(state, config)
             if any(getattr(message, "status", "") == "error" for message in result["messages"]):
