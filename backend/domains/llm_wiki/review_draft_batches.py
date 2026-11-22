@@ -210,6 +210,7 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
         answer = worker.ask(slot, "source-audit", payload, lambda item: validate_note_batch(validate, item, subset, sources),
                             record(payload["output_schema"]),
                             executor=reviewer, page_context=context, checkpoint_scope=batch_scope, checkpoint_only=checkpoint_only,
+                            recover_governed=checkpoint_only,
                             restore_legacy=lambda item: restore_audit(item, primary, original_sources, worker.dimensions, len(subset)))
         accepted = apply_changes(answer, subset, primary, sources, worker.dimensions)
         claims.append({"assessment": answer["assessment"], "retained": [n["title"] for n in accepted]})
@@ -254,7 +255,7 @@ def review_coverage(worker: ContextualReader, reviewer: ReviewRuntime, primary: 
         return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
                           lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
                           executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,
-                          recover_governed=recover_only,
+                          recover_governed=checkpoint_only,
                           restore_legacy=lambda item: restore_audit(item, primary, [primary], worker.dimensions, 0))
     if recover_only and not fits_review(reviewer, "source-audit", worker.title, worker.language,
                                        context.prompt({**payload, "reviewed_claims": claims}, audit=True), canonical=True):
