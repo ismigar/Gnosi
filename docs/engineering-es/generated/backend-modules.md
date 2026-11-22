@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 646 | 127400 |
+| `domains` | 646 | 127404 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 290 | 56874 |
+| `services` | 290 | 56880 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1291 |
 
-Total: **1156 modules** and **220126 source lines**.
+Total: **1156 modules** and **220136 source lines**.
 
 ## agent
 
@@ -255,7 +255,7 @@ Total: **1156 modules** and **220126 source lines**.
 | [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 142 | 0 | 4 | 0 | 4 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
 | [`backend/domains/agent/supplied_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/supplied_tasks.py) | 325 | 0 | 12 | 0 | 4 | Recognize complete chat requests that can be answered from their literal input. |
 | [`backend/domains/agent/table_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/table_schema.py) | 44 | 0 | 2 | 0 | 1 | Exact schema requests and responses, independent of record search. |
-| [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 141 | 3 | 4 | 0 | 1 | Optional, bounded handoff from an assistant to its configured team. |
+| [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 145 | 3 | 4 | 0 | 1 | Optional, bounded handoff from an assistant to its configured team. |
 | [`backend/domains/agent/title_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/title_context.py) | 58 | 0 | 4 | 0 | 2 | Resolve human title targets and the selected embedded view before planning. |
 | [`backend/domains/agent/title_edit_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/title_edit_contract.py) | 119 | 4 | 1 | 0 | 1 | Bounded title transformations: model proposals are data, never executable code. |
 | [`backend/domains/agent/title_followups.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/title_followups.py) | 48 | 0 | 3 | 0 | 1 | Parse literal follow-up operands and verify illustrative examples as data. |
@@ -973,7 +973,7 @@ Total: **1156 modules** and **220126 source lines**.
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
 | [`backend/services/agent_catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_models.py) | 30 | 2 | 0 | 0 | 2 | Immutable catalog registration and resolved runtime capability values. |
 | [`backend/services/agent_catalog_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_snapshot.py) | 156 | 2 | 7 | 0 | 3 | Catalog data shared for a single synchronous team metadata read. |
-| [`backend/services/agent_chat_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_timing.py) | 96 | 1 | 2 | 0 | 0 | Monotonic phase timings shared by the workers of a single chat request. |
+| [`backend/services/agent_chat_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_timing.py) | 102 | 1 | 3 | 0 | 1 | Monotonic phase timings shared by the workers of a single chat request. |
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
 | [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 139 | 2 | 5 | 0 | 3 | Offline token accounting with an explicit conservative fallback. |
 | [`backend/services/agent_correction_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_correction_contracts.py) | 116 | 1 | 4 | 0 | 1 | Conservative local reference checks for fully quoted proofreading requests. |

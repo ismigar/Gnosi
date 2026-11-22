@@ -130,12 +130,12 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
         asyncio.run(exercise())
 
 
-def chat_details(fixture, db_path, request, *, profile=None, supplied_operation=""):
+def chat_details(fixture, db_path, request, *, profile=None, supplied_operation="", active_agent_id=None):
     from backend.agent.factory import create_agent_workflow
     from backend.domains.agent.routes.checkpoints import _public_checkpoint_messages
 
     scope, snapshot, _, settings = fixture
-    settings["active_agent_id"] = snapshot.agent_id
+    settings["active_agent_id"] = active_agent_id or snapshot.agent_id
     profile = profile or snapshot.profile
 
     async def exercise():
@@ -209,6 +209,23 @@ def test_ordinary_model_without_token_counts_still_reports_its_wait(optional_run
     assert len(model_waits) == 1 and "team_usage" not in metrics
     start, end = model_waits[0]
     assert_model_wall_time(metrics, message, (end - start) * 1000)
+
+
+def test_optional_team_help_persists_model_time_for_an_ordinary_profile(optional_runtime, tmp_path, model_waits):
+    from backend.tests.test_agent_team import help_message
+
+    fixture, _ = optional_runtime
+    settings = fixture[3]
+    settings["agents"].append({"id": "other", "provider": "local", "model": "cheap", "skill_ids": []})
+    answer = "Would you like a translation or a summary?"
+    clarification = TeamPlan(response=answer, response_kind="clarification")
+    settings["_responses"] = {"director": [help_message()]}
+    settings["_phase_responses"] = {"team.plan": [AIMessage(content=clarification.model_dump_json())]}
+    metrics, message = chat_details(fixture, tmp_path / "chat.sqlite", "Help adapt this text. Ask what I need.",
+                                    active_agent_id="other")
+    assert message["content"] == answer and fixture[2] == ["director", "director"]
+    assert len(model_waits) == 2
+    assert_model_wall_time(metrics, message, sum(end - start for start, end in model_waits) * 1000)
 
 
 def test_parallel_specialists_contribute_one_wall_time_interval(optional_runtime, tmp_path, monkeypatch):

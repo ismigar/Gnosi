@@ -56,7 +56,7 @@ from backend.domains.agent.runtime_tools import (
     _turn_model_tools,
 )
 from backend.services.agent_cancellation import AgentTurnCancelled
-from backend.services.agent_chat_timing import current_chat_timing
+from backend.services.agent_chat_timing import root_reply_timings
 from backend.domains.agent.team_help import HELP_NAME, HELP_TOOL, TeamHelp, requested_help, can_request_help
 from backend.domains.agent.supplied_tasks import current_supplied_operation
 
@@ -153,8 +153,8 @@ class AgentWorkflowNodes:
                 **getattr(response, "additional_kwargs", {}),
                 "memory_provenance": [dict(row) for row in self.memory_provenance or []],
             }
-            if (timing := current_chat_timing.get()) is not None and timing.trace_id == state.get("trace_id"):
-                response.additional_kwargs["gnosi_timings"] = timing.checkpoint_reply()
+            if (timings := root_reply_timings(state.get("trace_id"))) is not None:
+                response.additional_kwargs["gnosi_timings"] = timings
         return response
 
     @staticmethod

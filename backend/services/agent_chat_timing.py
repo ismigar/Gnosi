@@ -81,6 +81,12 @@ class ChatTiming:
 current_chat_timing: ContextVar[ChatTiming | None] = ContextVar("chat_timing", default=None)
 
 
+def root_reply_timings(trace_id: str | None) -> dict[str, int] | None:
+    """Stamp an approved root chat reply before the graph checkpoints its messages."""
+    timing = current_chat_timing.get()
+    return timing.checkpoint_reply() if timing is not None and timing.trace_id == trace_id else None
+
+
 @contextmanager
 def track_chat(trace_id: str, request_started_at: float, workflow_ready_at: float, workflow_started_at: float) -> Iterator[ChatTiming]:
     timing = ChatTiming(trace_id, request_started_at, workflow_ready_at, workflow_started_at)
