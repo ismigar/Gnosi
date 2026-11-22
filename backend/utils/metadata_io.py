@@ -20,7 +20,7 @@ from backend.utils.bounded_file_io import cloud_path
 
 __all__ = [
     "MetadataUnavailable", "VaultFileSnapshot", "ensure_metadata_local", "guard_missing_file",
-    "is_native_vault_file", "metadata_path", "read_metadata_bytes", "read_metadata_text",
+    "allocated_vault_file_stamp", "is_native_vault_file", "metadata_path", "read_metadata_bytes", "read_metadata_text",
     "read_vault_bytes", "read_vault_bytes_async", "read_vault_text", "read_vault_text_async",
     "read_vault_text_with_stat", "vault_file_snapshot", "vault_file_snapshot_async",
 ]
@@ -131,6 +131,15 @@ def _inspect(path: Path, root: Path | None) -> tuple[Path, os.stat_result, bool]
         if not stat.S_ISREG(info.st_mode):
             raise MetadataUnavailable("Cloud item is not a regular file", path=path)
     return path, info, native
+
+
+def allocated_vault_file_stamp(path: Path, *, root: Path) -> tuple[Path, tuple[int, ...]] | None:
+    """Identify allocated source bytes visible under this vault for turn-local discovery."""
+    checked, info, _ = _inspect(path, root)
+    if (not stat.S_ISREG(info.st_mode) or is_cloud_placeholder(checked, info)
+            or _legacy_provider(checked, info) is not None or not os.access(checked, os.R_OK)):
+        return None
+    return checked, (*snapshots.revision(info), getattr(info, "st_flags", 0))
 
 
 def _on_event_loop() -> bool:

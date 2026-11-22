@@ -125,7 +125,7 @@ class CandidateInputs:
 
 def candidate_inputs(ai: dict[str, Any]) -> CandidateInputs:
     """Read common selection inputs once per decision; execution rechecks its own limits."""
-    from backend.agent.model_router import UsageStore, budget_status, load_registry
+    from backend.agent.model_router import budget_status, load_registry
     from backend.domains.agent.llm import _provider_is_available
     status = budget_status()
     blocked = bool(status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"))
@@ -134,7 +134,8 @@ def candidate_inputs(ai: dict[str, Any]) -> CandidateInputs:
     def available(provider: str) -> bool:
         return _provider_is_available(provider, ai.get("providers", {}).get(provider, {}))
 
-    usage = UsageStore().usage_for(status["period"]) if not blocked and status.get("period") else {}
+    rows = [] if blocked else status.get("per_model", [])
+    usage = {f"{row['provider']}:{row['model_id']}": row["in"] + row["out"] for row in rows}
     return CandidateInputs(ai.get("agents", []), [] if blocked else load_registry(), usage, blocked, available)
 
 

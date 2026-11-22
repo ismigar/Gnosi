@@ -13,7 +13,9 @@ from typing import TYPE_CHECKING, Any
 from backend.models.agent_skills import CatalogStatus, OriginType, SkillCatalogEntry, SkillDescriptor
 from backend.services.agent_capability_contract import validate_versioned_capability
 from backend.services.agent_catalog_models import ToolRegistration
+from backend.services.agent_team_skill_sources import DiscoveryPhase, ReadPackage, ReadText, chat_sources
 from backend.services.user_skill_store import UserSkillStore
+from backend.utils.metadata_io import read_metadata_text
 
 if TYPE_CHECKING:
     from backend.services.agent_skill_catalog import SkillCatalog
@@ -78,6 +80,12 @@ class _SnapshotUserSkills(UserSkillStore):
     def __init__(self, vault_path: Path) -> None:
         super().__init__(vault_path)
         self._loaded: dict[str, SkillDescriptor] = {}
+        self.package_reader: ReadPackage | None = None
+
+    def _load_package(self, package: Path, read_text: ReadText = read_metadata_text) -> SkillDescriptor:
+        if self.package_reader is None:
+            return super()._load_package(package, read_text)
+        return self.package_reader(package, super()._load_package)
 
     def load(self, skill_id: str) -> SkillDescriptor:
         if skill_id not in self._loaded:
@@ -97,6 +105,10 @@ class RuntimeCatalogSnapshot:
         self._user_store = _SnapshotUserSkills(vault_path) if vault_path is not None else None
         self._personal: dict[str, SkillCatalogEntry] = {}
         self._views: dict[tuple[str, ...], tuple[dict[str, SkillCatalogEntry], str]] = {}
+
+    def use_personal_sources(self, reader: ReadPackage | None) -> None:
+        if self._user_store is not None:
+            self._user_store.package_reader = reader
 
     def entries_for(self, assigned: tuple[str, ...]) -> tuple[dict[str, SkillCatalogEntry], str]:
         personal = (
@@ -132,17 +144,21 @@ def read_runtime_catalog(catalog: SkillCatalog, vault_path: Path | None) -> Runt
 
 
 @contextmanager
-def team_metadata_catalog() -> Iterator[None]:
+def team_metadata_catalog(*, personal_phase: DiscoveryPhase | None = None) -> Iterator[None]:
     """Share underlying providers only while reading member metadata in this call."""
     if _reader.get() is not None:
         yield
         return
 
     active = True
+    sources = chat_sources.get() if personal_phase else None
 
     @cache
     def cached(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
-        return catalog.runtime_snapshot(vault_path)
+        result = catalog.runtime_snapshot(vault_path)
+        if sources is not None and personal_phase is not None and vault_path is not None:
+            result.use_personal_sources(sources.reader(vault_path, personal_phase))
+        return result
 
     def snapshot(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
         return cached(catalog, vault_path) if active else catalog.runtime_snapshot(vault_path)
@@ -154,3 +170,5 @@ def team_metadata_catalog() -> Iterator[None]:
         active = False
         cached.cache_clear()
         _reader.reset(token)
+        if sources is not None and personal_phase == "planning":
+            sources.close()

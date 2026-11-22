@@ -302,3 +302,20 @@ def test_unknown_team_cost_stays_unknown_in_chat_metrics():
     state = AgentStreamState(time.monotonic(), time.monotonic(), {}, {}, "trace")
     state.team_usage = {"estimated_cost_usd": None, "cost_source": "unknown"}
     assert state.metrics_payload()["estimated_cost_usd"] is None
+
+
+def test_selection_uses_the_token_totals_of_its_current_budget_read(monkeypatch):
+    from backend.agent import model_router
+    from backend.services.agent_team_runtime import candidate_inputs
+
+    reports = iter([
+        {"period": "2026-11", "per_model": [{"provider": "local", "model_id": "chat:v2", "in": 8, "out": 3}]},
+        {"period": "2026-11", "over_cap": True, "budget": {"enforce_block": True}},
+    ])
+    monkeypatch.setattr(model_router, "budget_status", lambda: next(reports))
+    monkeypatch.setattr(model_router, "UsageStore", lambda: pytest.fail("Budget already read the usage ledger"))
+    monkeypatch.setattr(model_router, "load_registry", lambda: [{"model_id": "chat:v2"}])
+    selection = candidate_inputs({})
+    assert selection.usage == {"local:chat:v2": 11} and not selection.blocked
+    dispatch = candidate_inputs({})
+    assert dispatch.blocked and not dispatch.registry
