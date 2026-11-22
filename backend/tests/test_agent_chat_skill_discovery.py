@@ -1,17 +1,19 @@
 """A chat may share a procedure for discovery. Each execution reads its own grant."""
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 
+from backend.platform.files import snapshots
 from backend.services import agent_skill_catalog as catalog
 from backend.services.agent_catalog_snapshot import team_metadata_catalog
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import execution_scope
-from backend.services.agent_team_skill_sources import bind_chat_skill_sources
-from backend.services.user_skill_store import UserSkillStore
+from backend.services.agent_team_skill_sources import bind_chat_skill_sources, planning_skill_grants
+from backend.services.user_skill_store import UserSkillStore, UserSkillStoreError
 from backend.utils import metadata_io
 
 
@@ -158,3 +160,61 @@ async def test_two_vaults_with_the_same_skill_id_keep_their_own_procedure(chat, 
             with execution_scope(scope.model_copy(update={"vault_path": str(other_vault)})):
                 assert resolve("planning", at=other_vault).instructions == "Other vault content"
             assert reads == ["skill.yaml", "SKILL.md"] * 2
+
+
+@pytest.mark.parametrize("permission", ["both", "partial", "unassigned", "revoked"])
+async def test_native_planning_needs_a_fresh_complete_grant_for_this_decision(chat, monkeypatch, permission):
+    scope, package, reads, resolve = chat
+    stamp = metadata_io.allocated_vault_file_stamp
+    monkeypatch.setattr(metadata_io, "allocated_vault_file_stamp",
+                        lambda path, **kw: stamp(path, **kw)._replace(native=True))
+    attempts = []
+    leaves = {package / "skill.yaml", package / "SKILL.md"}
+    granted = leaves if permission == "both" else {package / "skill.yaml"}
+
+    def verify(paths):
+        attempts.append(set(paths))
+        return {path: path.stat() for path in paths if path in granted}
+
+    def plan():
+        assigned = ["user.someone-else"] if permission == "unassigned" else ["user.draft"]
+        with planning_skill_grants(scope, assigned):
+            return resolve("planning")
+
+    monkeypatch.setattr(snapshots.reads, "verify_skill_sources", verify)
+    with execution_scope(scope):
+        async with asynccontextmanager(bind_chat_skill_sources)():
+            resolve("capture")
+            reads.clear()
+            if permission == "revoked":
+                def denied(path, **kwargs):
+                    raise metadata_io.MetadataUnavailable(path=path, reason="permission")
+
+                monkeypatch.setattr(metadata_io, "read_vault_text", denied)
+                with pytest.raises(metadata_io.MetadataUnavailable) as caught:
+                    await asyncio.to_thread(plan)
+                assert caught.value.reason == "permission"
+            else:
+                assert (await asyncio.to_thread(plan)).instructions == "First text"
+                assert reads == ([] if permission == "both" else ["skill.yaml", "SKILL.md"])
+                # Planning has ended. A later decision must get its own source.
+                reads.clear()
+                assert (await asyncio.to_thread(plan)).instructions == "First text"
+                assert reads == ["skill.yaml", "SKILL.md"]
+            assert attempts == ([] if permission == "unassigned" else [leaves])
+
+
+async def test_existing_yaml_tab_rules_apply_to_personal_skill_descriptors(chat):
+    scope, package, _, resolve = chat
+    descriptor = package / "skill.yaml"
+    store = UserSkillStore(Path(scope.vault_path))
+    prefix = "id: user.draft\nactivation: always\n"
+    descriptor.write_text(prefix + "name: Table\ndescription: |\n  \tResult\tValue\n  \tYes\t1\n")
+    with execution_scope(scope):
+        async with asynccontextmanager(bind_chat_skill_sources)():
+            assert "Result\tValue" in resolve("capture").description
+            assert "Result\tValue" in resolve("planning").description
+            descriptor.write_text(prefix + "name: Result\ttable\n")
+            with pytest.raises(UserSkillStoreError, match="invalid skill.yaml"):
+                store.load("user.draft")
+            assert store.load_referenced(["user.draft"], {}) == []

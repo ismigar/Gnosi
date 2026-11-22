@@ -30,8 +30,6 @@ from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local
 from backend.utils.safe_io import safe_write_text
 
 
-_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
-
 MAX_DESCRIPTOR_BYTES = 256_000
 MAX_INSTRUCTIONS_BYTES = 500_000
 USER_SKILL_ID_RE = re.compile(
@@ -125,7 +123,7 @@ class UserSkillStore:
             raise UserSkillStoreError("SKILL.md is required and cannot be a symlink")
         raw_text = self._read_limited(descriptor_path, MAX_DESCRIPTOR_BYTES, read_text)
         try:
-            raw = yaml.load(raw_text, Loader=_SAFE_LOADER) or {}
+            raw = yaml.safe_load(raw_text) or {}
         except yaml.YAMLError as exc:
             raise UserSkillStoreError(f"invalid skill.yaml: {exc}") from exc
         if not isinstance(raw, dict):

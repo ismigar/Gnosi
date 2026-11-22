@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3588 |
-| pytest | 845 | 6601 |
+| pytest | 845 | 6603 |
 
 ## Fichiers
 
@@ -859,7 +859,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_agent_chat_reply_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_reply_timing.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_safety.py) | 55 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_schema_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_schema_transport.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_agent_chat_skill_discovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_skill_discovery.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_agent_chat_skill_discovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_skill_discovery.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_stream_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_chat_stream_cancellation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_commands.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_agent_confirmation_presentation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_confirmation_presentation.py) | 5 | Python AST |

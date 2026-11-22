@@ -8,6 +8,7 @@ import stat
 import sys
 from functools import lru_cache
 from pathlib import Path
+from typing import NamedTuple
 
 from backend.platform.files import FilesProvider, get_files_provider
 from backend.platform.files import snapshots
@@ -20,7 +21,7 @@ from backend.utils.bounded_file_io import cloud_path
 
 __all__ = [
     "MetadataUnavailable", "VaultFileSnapshot", "ensure_metadata_local", "guard_missing_file",
-    "allocated_vault_file_stamp", "is_native_vault_file", "metadata_path", "read_metadata_bytes", "read_metadata_text",
+    "AllocatedFileStamp", "allocated_vault_file_stamp", "is_native_vault_file", "metadata_path", "read_metadata_bytes", "read_metadata_text",
     "read_vault_bytes", "read_vault_bytes_async", "read_vault_text", "read_vault_text_async",
     "read_vault_text_with_stat", "vault_file_snapshot", "vault_file_snapshot_async",
 ]
@@ -133,13 +134,29 @@ def _inspect(path: Path, root: Path | None) -> tuple[Path, os.stat_result, bool]
     return path, info, native
 
 
-def allocated_vault_file_stamp(path: Path, *, root: Path) -> tuple[Path, tuple[int, ...]] | None:
-    """Identify allocated source bytes visible under this vault for turn-local discovery."""
-    checked, info, _ = _inspect(path, root)
+class AllocatedFileStamp(NamedTuple):
+    path: Path
+    revision: tuple[int, ...]
+    native: bool
+
+
+def allocated_vault_file_stamp(path: Path, *, root: Path) -> AllocatedFileStamp | None:
+    """Inspect an allocated source. Native sources also need an independent provider grant."""
+    checked, info, native = _inspect(path, root)
     if (not stat.S_ISREG(info.st_mode) or is_cloud_placeholder(checked, info)
-            or _legacy_provider(checked, info) is not None or not os.access(checked, os.R_OK)):
+            or _legacy_provider(checked, info) is not None):
         return None
-    return checked, (*snapshots.revision(info), getattr(info, "st_flags", 0))
+    if native:
+        if not snapshots.reads.can_verify_source(checked, info):
+            return None
+    else:
+        fd = os.open(checked, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        try:
+            if snapshots.revision(os.fstat(fd)) != snapshots.revision(info):
+                return None
+        finally:
+            os.close(fd)
+    return AllocatedFileStamp(checked, (*snapshots.revision(info), getattr(info, "st_flags", 0)), native)
 
 
 def _on_event_loop() -> bool:

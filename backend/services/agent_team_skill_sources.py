@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Literal
 
 from backend.models.agent_skills import SkillDescriptor
+from backend.platform.files import snapshots
 from backend.platform.files.snapshots import revision
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import current_scope
@@ -18,7 +21,9 @@ DiscoveryPhase = Literal["capture", "planning"]
 ReadText = Callable[[Path], str]
 LoadPackage = Callable[[Path, ReadText], SkillDescriptor]
 ReadPackage = Callable[[Path, LoadPackage], SkillDescriptor]
-SourceStamp = tuple[Path, tuple[int, ...]]
+SourceStamp = metadata_io.AllocatedFileStamp
+Grants = dict[tuple[ExecutionScope, Path], tuple[int, ...]]
+_planning_grants: ContextVar[Grants | None] = ContextVar("planning_skill_grants", default=None)
 
 
 def _sources(package: Path, vault: Path) -> tuple[SourceStamp, ...]:
@@ -57,19 +62,45 @@ class ChatSkillSources:
 
         descriptor = load(package, read)
         sources = _sources(package, vault)
-        if sources and all(opened.get(path.name) == stamp for path, stamp in sources):
-            size = sum(stamp[2] for _, stamp in sources)  # Byte sizes of the two granted files.
+        if sources and all(opened.get(source.path.name) == source.revision for source in sources):
+            size = sum(source.revision[2] for source in sources)  # Byte sizes of the two granted files.
             with self._lock:
                 if not self._closed and len(self._entries) < 128 and self._bytes + size <= 4 * 1024 * 1024:
                     self._entries[scope, package] = sources, descriptor.model_copy(deep=True)
                     self._bytes += size
         return descriptor
 
+    def native_grants(self, scope: ExecutionScope, assigned: Iterable[str]) -> Grants:
+        # Include only assigned packages already seen during admission. Newly
+        # discovered ancestors still go through the individual source reader.
+        if scope != current_scope():
+            return {}
+        allowed = {identifier.strip().lower() for identifier in assigned if isinstance(identifier, str)}
+        with self._lock:
+            paths = tuple(
+                source.path
+                for (owner, package), (sources, _) in self._entries.items()
+                if owner == scope and package.name in allowed
+                for source in sources if source.native
+            )
+        if not paths:
+            return {}
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            proofs = snapshots.reads.verify_skill_sources(paths)
+            return {(scope, path): (*revision(info), getattr(info, "st_flags", 0)) for path, info in proofs.items()}
+        return {}
+
     def planning(self, scope: ExecutionScope, package: Path, load: LoadPackage) -> SkillDescriptor:
         vault = Path(scope.vault_path)
         with self._lock:
             entry = self._entries.get((scope, package))
-        if entry and entry[0] == _sources(package, vault):
+        grants = _planning_grants.get() or {}
+        authorized = entry and all(
+            not source.native or grants.get((scope, source.path)) == source.revision for source in entry[0]
+        )
+        if entry and authorized and entry[0] == _sources(package, vault):
             return entry[1].model_copy(deep=True)
         return load(package, lambda path: metadata_io.read_vault_text(path, root=vault))
 
@@ -90,6 +121,17 @@ class ChatSkillSources:
 
 
 chat_sources: ContextVar[ChatSkillSources | None] = ContextVar("chat_skill_sources", default=None)
+
+
+@contextmanager
+def planning_skill_grants(scope: ExecutionScope, assigned: Iterable[str]) -> Iterator[None]:
+    sources = chat_sources.get()
+    grants = sources.native_grants(scope, assigned) if sources is not None else {}
+    token = _planning_grants.set(grants)
+    try:
+        yield
+    finally:
+        _planning_grants.reset(token)
 
 
 async def bind_chat_skill_sources() -> AsyncIterator[None]:
