@@ -235,22 +235,36 @@ def audit_in_batches(worker: ContextualReader, reviewer: ReviewRuntime, primary:
             accept_batch(f"audit-notes-{ranges.passage_id}-{start}", start, end)
         start = end
 
+    covered = review_coverage(worker, reviewer, primary, coverage, claims, key, validate, scope)
+    return {**covered, "changes": [*changes, *records(covered["changes"])]}
+
+
+def review_coverage(worker: ContextualReader, reviewer: ReviewRuntime, primary: dict[str, object],
+                    coverage: list[object], claims: list[dict[str, object]], key: str, validate: Validate,
+                    scope: CheckpointScope | None, *, recover_only: bool = False) -> dict[str, object]:
     payload = audit_payload(primary, [], [], coverage, worker.dimensions)
     payload["instruction"] = ("Check the whole original for omissions against the claims already accepted in the review. "
         "Add only missing substantive claims at position 0 with exact primary quotations. Record remaining issues.")
     context = page_context(worker.pdf_edges, [primary], [primary])
     coverage_sources = [primary, *context.additions]
     def coverage_fits(items: list[dict[str, object]]) -> bool:
-        return fits(context.prompt({**payload, "reviewed_claims": items}, audit=True))
+        request = context.prompt({**payload, "reviewed_claims": items}, audit=True)
+        return fits_review(reviewer, "source-audit", worker.title, worker.language, request)
     def audit_coverage(items: list[dict[str, object]], *, checkpoint_only: bool = False) -> dict[str, object]:
         return worker.ask(f"audit-coverage-{key[:24]}", "source-audit", {**payload, "reviewed_claims": items},
                           lambda result: validate(result, [], coverage_sources), record(payload["output_schema"]),
                           executor=reviewer, page_context=context, checkpoint_scope=scope, checkpoint_only=checkpoint_only,
+                          recover_governed=recover_only,
                           restore_legacy=lambda item: restore_audit(item, primary, [primary], worker.dimensions, 0))
+    if recover_only and not fits_review(reviewer, "source-audit", worker.title, worker.language,
+                                       context.prompt({**payload, "reviewed_claims": claims}, audit=True), canonical=True):
+        raise ReadingCheckpointUnavailable(key)
     try:
-        coverage_answer = audit_coverage(claims, checkpoint_only=not coverage_fits(claims))
+        coverage_answer = audit_coverage(claims, checkpoint_only=recover_only or not coverage_fits(claims))
     except ReadingCheckpointUnavailable:
+        if recover_only:
+            raise
         from backend.domains.llm_wiki.review_synthesis import reduce_for_context
         claims = reduce_for_context(worker, reviewer, claims, coverage_fits)
         coverage_answer = audit_coverage(claims)
-    return {**coverage_answer, "changes": [*changes, *bound_changes(coverage_answer, primary, coverage_sources, worker.dimensions)]}
+    return {**coverage_answer, "changes": bound_changes(coverage_answer, primary, coverage_sources, worker.dimensions)}

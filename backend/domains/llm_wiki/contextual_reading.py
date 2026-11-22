@@ -199,6 +199,7 @@ class ContextualReader:
         page_context: PageContext | None = None,
         restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
         checkpoint_only: bool = False,
+        recover_governed: bool = False,
         checkpoint_scope: CheckpointScope | None = None,
         checkpoint_jobs: tuple[str, ...] = (),
         prior_review_issue: str = "",
@@ -242,7 +243,8 @@ class ContextualReader:
                                              validate, checkpoint_scope, restore_legacy, checkpoint_jobs)
         if recovered is not None:
             return recovered
-        if checkpoint_only:
+        recover_paid = getattr(executor, "recover_audit", None) if checkpoint_only and recover_governed else None
+        if checkpoint_only and recover_paid is None:
             raise ReadingCheckpointUnavailable(key)
         request = self._review_request(request, phase, page_context, quote_evidence or [], bindings,
                                        offer_excerpts, pdf_citations)
@@ -253,7 +255,7 @@ class ContextualReader:
             if phase in {"overview", "synthesis"}
             else "planning"
         )
-        structured_generate = executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None)
+        structured_generate = recover_paid or (executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None))
         count = executor.count_tokens if executor else self.dependencies.count_tokens
         capacity = executor.input_budget if executor else self.budget
         count_review = getattr(executor, "count_structured_tokens", count)
@@ -268,7 +270,7 @@ class ContextualReader:
                 request["rejected_draft"] = {"omitted": "Reconstruct the passage from the supplied originals and return concise notes."}
                 prompt = encoded(request)
                 size = count(prompt)
-            if size > capacity:
+            if size > capacity and recover_paid is None:
                 raise ReadingInputTooLarge("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
                 lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(

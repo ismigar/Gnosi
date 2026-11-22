@@ -368,6 +368,10 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
 
 def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
     revalidate_scope(scope)
+    _check_cancelled(scope, run_id, parent_id)
+
+
+def _check_cancelled(scope: ExecutionScope, run_id: str, parent_id: str) -> None:
     if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
@@ -395,7 +399,8 @@ def recover_reading_operation(request: AgentOperation, snapshot: AgentExecutionS
     except (ValueError, jsonschema.ValidationError):
         return None
     finally:
-        _require_active(snapshot.scope, cached.run_id, parent)
+        revalidate_scope(snapshot.scope)
+        _check_cancelled(snapshot.scope, cached.run_id, parent)
     report_run(cached.run_id)
     return value, cached.model
 
