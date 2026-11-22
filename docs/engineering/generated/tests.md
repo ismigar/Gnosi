@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 39 | 129 |
 | Vitest | 778 | 3588 |
-| pytest | 842 | 6564 |
+| pytest | 842 | 6567 |
 
 ## Files
 
@@ -905,8 +905,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_skills_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_skills_api.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_stream_error_outcomes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_stream_error_outcomes.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_structured_output.py) | 28 | Python AST |
-| pytest | [`backend/tests/test_agent_supplied_delegation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_supplied_delegation.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_agent_supplied_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_supplied_tasks.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_agent_supplied_delegation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_supplied_delegation.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_agent_supplied_tasks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_supplied_tasks.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_agent_task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_task_evaluations.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_agent_team.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team.py) | 48 | Python AST |
 | pytest | [`backend/tests/test_agent_team_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team_contracts.py) | 53 | Python AST |

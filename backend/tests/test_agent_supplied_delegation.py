@@ -31,24 +31,52 @@ def test_supplied_field_with_passive_reader_calls_only_the_eligible_specialist(o
     assert artifacts.list_artifacts(fixture[0], "routing")[0]["reason"] == "unique_eligible_specialist"
 
 
-def test_supplied_field_worker_repairs_a_string_boolean_without_replanning(optional_runtime, monkeypatch):
+@pytest.mark.parametrize("request_text", [
+    WORD_FIELD_REQUEST,
+    'Sample row: stock=4. Calculate whether stock > 0. Return just a JSON object with the boolean field "value".',
+    'Sample row: stock=4. Calculate whether stock > 0 return only a JSON object with the boolean field "value".',
+])
+def test_supplied_field_worker_repairs_a_string_boolean_without_replanning(optional_runtime, monkeypatch, request_text):
     fixture, _ = optional_runtime
     prepare(fixture, monkeypatch, ['{"value":"true"}', '{"value":true}'])
-    messages, _ = run_chat(fixture, WORD_FIELD_REQUEST, supplied_operation="tables")
+    messages, _ = run_chat(fixture, request_text, supplied_operation=supplied_chat_operation(request_text))
     assert fixture[2] == ["worker", "worker"]
     assert messages[-1].additional_kwargs["gnosi_team_output"]["status"] == "repaired"
     assert json.loads(messages[-1].content) == {"value": True}
 
 
-def test_plain_translation_preserves_the_literal_and_reaches_the_translator(optional_runtime):
+@pytest.mark.parametrize("text", [TRANSLATE, "Translate into French: «" + "Clouds cover the sky. " * 375 + "»"],
+                         ids=["short-passage", "long-passage"])
+def test_plain_translation_preserves_the_literal_and_reaches_the_translator(optional_runtime, monkeypatch, text):
+    from dataclasses import replace
+    from backend.domains.agent import workflow
+
+    fixture_prompts = workflow.build_prompts
+    # Allocate room for the long passage alongside the fixture's tool schemas.
+    monkeypatch.setattr(workflow, "build_prompts", lambda *a, **kw: replace(fixture_prompts(*a, **kw), model_input_chars=80000))
     fixture, _ = optional_runtime
     fixture[3]["agents"][1]["skill_ids"] = [skill_id("translation")]
     fixture[3]["_responses"] = {"worker": [AIMessage(content="The train leaves at nine.")]}
-    messages, _ = run_chat(fixture, TRANSLATE, refs=[READER], supplied_operation=supplied_chat_operation(TRANSLATE))
+    messages, _ = run_chat(fixture, text, refs=[READER], supplied_operation=supplied_chat_operation(text))
     assert fixture[2] == ["worker"]
     assert messages[-1].content == "The train leaves at nine."
     worker_input = fixture[3]["_model_messages"][-1][1]
-    assert [m.content for m in worker_input if isinstance(m, HumanMessage)] == [TRANSLATE]
+    assert [m.content for m in worker_input if isinstance(m, HumanMessage)] == [text]
+    assignment = next(m for m in worker_input if m.name == "team_assignment" and isinstance(m, AIMessage))
+    assert text not in assignment.content
+
+
+def test_translation_fits_the_workers_window_with_a_single_copy_of_the_source(optional_runtime, monkeypatch):
+    from backend.agent import model_router
+    fixture, _ = optional_runtime
+    fixture[3]["agents"][1]["skill_ids"] = [skill_id("translation")]
+    fixture[3]["_responses"] = {"worker": [AIMessage(content="Les nuages couvrent le ciel.")]}
+    registry = model_router.load_registry()
+    monkeypatch.setattr(model_router, "load_registry", lambda: [{**r, "context_window": 7800} for r in registry])
+    text = "Translate into French: «" + "Clouds cover the sky. " * 115 + "»"
+    messages, _ = run_chat(fixture, text, supplied_operation=supplied_chat_operation(text))
+    assert fixture[2] == ["worker"]
+    assert messages[-1].content == "Les nuages couvrent le ciel."
 
 
 @pytest.mark.parametrize("allowlist", [False, True])

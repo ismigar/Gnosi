@@ -38,7 +38,7 @@ def standalone_clarification(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-_ONLY = r"only|solely|exclusively|només|únicament|exclusivament|solo|solamente|únicamente|seulement|uniquement|exclusivement"
+_ONLY = r"only|just|solely|exclusively|només|únicament|exclusivament|solo|solamente|únicamente|seulement|uniquement|exclusivement"
 _EMPHASIS = r"(?:[*_]|~~)"
 _OUTPUT_DIRECTIVE = re.compile(
     r"(?:\b|(?<=_))(?:(?:return|retornar?|devuelve|devolver|retourne(?:r|z)?|"

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Mapping
+from functools import cache
 from typing import Any
 
 
@@ -23,15 +24,18 @@ _NAME = rf"(?:{_LITERAL}|[^\W\d][\w-]*)"
 _PLEASE = (r"(?:(?:please|could you(?: please)?|can you|si us plau|sisplau|(?:em )?(?:pots|podries)|"
            r"por favor|(?:me )?(?:puedes|podrias)|peux-tu|pouvez-vous|merci de)\s*,?\s+)?")
 _ARTICLE = r"(?:(?:the|a|an|un|une|el|la|le|les|els|los|las)\s+|l')?"
-_LANGUAGE = r"(?:catala[n]?|angles|english|ingles|anglais|castella[n]?|castellano|spanish|espanol|espagnol|frances|french|francais)"
-_TARGET = rf"(?:into |to |in |en |al |au |a (?:l'|la )?|vers (?:le |l')?){_LANGUAGE}"
-_FROM = rf"(?:(?:from |del |de (?:l'|la )?|du ){_LANGUAGE} )?"
+_COMMON_LANGUAGES = frozenset("catala catalan angles english ingles anglais castella castellano spanish espanol espanyol espagnol frances french francais".split())
+_LANGUAGE = r"[^\W\d_]+(?:[ -][^\W\d_]+)*?"
+_TARGET = rf"(?:into |to |in |en |al |au |a (?:l'|la )?|vers (?:le |l')?)(?P<target>{_LANGUAGE})"
+_FROM = rf"(?:(?:from |del |de (?:l'|la )?|du )(?P<source>{_LANGUAGE}) )?"
 _TEXT = (r"(?:this|this (?:sentence|phrase|text|passage)|the following(?: sentence| phrase| text| passage)?|"
          r"(?:aquest[a]?|este|esta|ce|cette|el|la|le) (?:frase|text[oe]?|fragment|phrase|passage)"
          r"(?: (?:seguent|siguiente|suivant[e]?))?|(?:el|la) siguiente (?:texto|frase))")
 _TRANSLATE = re.compile(rf"{_PLEASE}(?:translate|tradueix|traduir|traduce|traducir|traduis|traduisez|traduire)\s+")
-_TRANSLATION_HEADER = rf"(?:{_FROM}{_TARGET}(?: {_TEXT})?|{_TEXT} {_FROM}{_TARGET})"
-_OUTPUT_VERB = r"(?:return|reply|respond|answer|respon|retorna|devuelve|responde|contesta|reponds|repondez|retourne[z]?)"
+_TRANSLATION_HEADERS = tuple(re.compile(pattern) for pattern in (
+    rf"{_FROM}{_TARGET}(?: {_TEXT})?", rf"{_TEXT} {_FROM}{_TARGET}",
+))
+_OUTPUT_VERB = r"(?:return|reply|respond|answer|respon|retorna|devuelve|responde|contesta|r(?:é|e\u0301?)pond(?:s|ez)|retourne[z]?)"
 _ONLY = r"(?:only|just|nomes|unicament|solo|solamente|unicamente|seulement|uniquement)"
 _TRANSLATION_NOUN = r"(?:the |la )?(?:translation|traduccio[n]?|traduction)"
 _TRANSLATION_END = re.compile(
@@ -48,19 +52,60 @@ _RAW_AMBIGUOUS = re.compile(
     r"^(?:it|this|that|aixo|aquesta?|esto|eso|cela|ca)(?: (?:sentence|text[oe]?|paragraph|"
     r"passage|frase|phrase|paragraf|parrafo|paragraphe))?[.!?]*$"
 )
+_RAW_LITERAL = re.compile(
+    r"^(?:(?:hi|hello|hola|salut|bonjour|bonsoir|bon (?:dia|vespre)|bona (?:tarda|nit)|"
+    r"buenos dias|buenas (?:tardes|noches)|good (?:morning|afternoon|evening|night))[.!?]*$|"
+    r"(?:i|we|they|je|nous|jo|nosaltres|yo|nosotros) [^\W\d_]+\b|(?:cal|il faut|hay que) \w+|"
+    r"(?:the|el|la|le|les|els|los|las) [^\W\d_]+ "
+    r"(?:is|are|was|were|has|have|will|es|son|esta[n]?|est|sont|sera[n]?) \S)"
+)
+
+
+@cache
+def _localized_languages() -> frozenset[str]:
+    from babel import Locale
+
+    # The bundled CLDR names distinguish a named target from an unresolved description.
+    return frozenset(_fold(name) for locale in ("ca", "es", "fr", "en")
+                     for code, name in Locale.parse(locale).languages.items()
+                     if code not in {"und", "mul", "zxx", "mis"})
+
+
+def _known_language(name: str) -> bool:
+    if name in _COMMON_LANGUAGES:
+        return True
+    from backend.services.translation_helpers import normalize_lang_code
+
+    return (len(name) > 2 and name.isalpha() and bool(normalize_lang_code(name))) or name in _localized_languages()
+
+
+def _translation_header(text: str) -> bool:
+    for pattern in _TRANSLATION_HEADERS:
+        match = pattern.fullmatch(text)
+        if match and _known_language(match["target"]) and (not match["source"] or _known_language(match["source"])):
+            return True
+    return False
 
 
 def _translation(body: str, literals: dict[str, str]) -> bool:
     body = _TRANSLATION_END.sub("", body).strip()
     # A quoted passage has explicit boundaries, including when it precedes the target.
-    quoted = re.fullmatch(
-        rf"(?:{_TRANSLATION_HEADER}\s*[:,-]?\s*({_LITERAL})|"
-        rf"(?:{_TEXT}\s*:\s*)?({_LITERAL})\s+{_FROM}{_TARGET})[.!?]?", body,
-    )
+    quoted = re.fullmatch(rf"([^\x00]*)({_LITERAL})([^\x00]*)", body)
     if quoted:
-        return bool(literals[quoted[1] or quoted[2]].strip())
-    raw = re.fullmatch(rf"{_TRANSLATION_HEADER}[ \t]*(?::\s*|\n+)(.+)", body, re.S)
-    return bool(raw and any(c.isalpha() for c in raw[1]) and not _RAW_AMBIGUOUS.search(raw[1].strip()))
+        before, literal, after = quoted.groups()
+        if not literals[literal].strip():
+            return False
+        if not after.strip(" .!?"):
+            return _translation_header(before.rstrip(" \t\n:,-"))
+        return bool(re.fullmatch(rf"(?:{_TEXT}\s*:\s*)?", before)
+                    and _translation_header(after.strip().rstrip(".!?")))
+    parts = re.split(r":|\n", body, maxsplit=1)
+    if len(parts) != 2 or not _translation_header(parts[0].strip()):
+        return False
+    source = parts[1].strip()
+    # An unquoted noun phrase may identify a source. Require a greeting or a
+    # simple declarative clause before treating bare prose as the actual passage.
+    return bool(_RAW_LITERAL.match(source) and not _RAW_AMBIGUOUS.search(source))
 
 
 _SAMPLE = re.compile(
@@ -107,12 +152,32 @@ _OPERATOR = (
     rf"(?P<comparison>{_COMPARISON})|(?P<division>{_DIVISION})|[+*×-]|"
     r"\b(?:plus|minus|times|multiplied by|mes|menys|mas|menos|per|por|fois|multiplie par)\b"
 )
-_JSON_END = re.compile(
-    rf"(?:[.;]\s*|\s+){_OUTPUT_VERB} (?:(?:{_ONLY}|with|in|as|amb|en|con|avec|un|a|an) )*"
+_OUTPUT_START = re.compile(rf"(?<=[.;\s]){_OUTPUT_VERB}(?=\s+\w)", re.I)
+_JSON_OUTPUT = re.compile(
+    rf"{_OUTPUT_VERB} (?:(?:{_ONLY}|with|in|as|amb|en|con|avec|un|a|an) )*"
     rf"(?:(?:objecte|objeto|objet) )?json(?: object)?"
     rf"(?: (?:with|amb|con|avec) {_ARTICLE}(?:{_TYPE} )?(?:{_FIELD}|key|clau|clave|cle)"
     rf"(?: {_TYPE})?(?: (?:named|called|anomenat|llamado|nomme))? {_NAME})?[.!]?$"
 )
+
+
+def _table_output(message: str) -> tuple[int, str]:
+    """Locate a whole output clause outside quotations, keeping original offsets."""
+    # A whole quoted key acts as one name, even if it contains whitespace or directives.
+    masked = _QUOTES.sub(lambda match: "x" * len(match[0]), message)
+    starts = [match.start() for match in _OUTPUT_START.finditer(masked)]
+    if starts:
+        start = starts[-1]
+        syntax = " ".join(_fold(masked[start:]).split())
+        if _JSON_OUTPUT.fullmatch(syntax):
+            return start, syntax
+    return len(message), ""
+
+
+def supplied_table_output_directive(message: str) -> str:
+    """Return the original format instruction for an already classified table request."""
+    start, _ = _table_output(message)
+    return message[start:]
 
 
 def _sample_values(bindings: str, literals: dict[str, str]) -> dict[str, str]:
@@ -136,11 +201,10 @@ def _sample_values(bindings: str, literals: dict[str, str]) -> dict[str, str]:
     return values
 
 
-def _table(text: str, literals: dict[str, str]) -> bool:
+def _table(text: str, literals: dict[str, str], output: str) -> bool:
     sample = _SAMPLE.match(text)
     calculate = _CALCULATE.match(text)
-    output = _JSON_END.search(text)
-    core = (text[:output.start()] if output else text).rstrip(" .!?")
+    core = text.rstrip(" .!?;")
     if sample:
         calculate = _CALCULATE.search(core, sample.end())
         if not calculate:
@@ -172,7 +236,7 @@ def _table(text: str, literals: dict[str, str]) -> bool:
     rule = re.fullmatch(rf"(?P<left>{operand})\s*{_COPULA}(?:{_OPERATOR})\s*(?P<right>{operand})", formula[1])
     if not rule or not any(re.fullmatch(reference, rule[side]) for side in ("left", "right")):
         return False
-    declared = request[:formula.start(1)] + (output[0] if output else "")
+    declared = request[:formula.start(1)] + " " + output
     if re.search(r"\b(?:bool\w*|if|whether|si|quan|when|quand|cuando)\b", declared) and not rule["comparison"]:
         return False
     if re.search(r"\bnumer\w*\b", declared) and rule["comparison"]:
@@ -184,10 +248,7 @@ def _table(text: str, literals: dict[str, str]) -> bool:
     return True
 
 
-def supplied_chat_operation(message: str) -> str:
-    """Return an operation only when its input, rule and instruction boundaries are known."""
-    if not message or "\0" in message:
-        return ""
+def _request_text(message: str) -> tuple[str, dict[str, str]]:
     literals: dict[str, str] = {}
 
     def mark(match: re.Match[str]) -> str:
@@ -197,10 +258,24 @@ def supplied_chat_operation(message: str) -> str:
         literals[token] = _fold(value[edge:-edge])
         return token
 
-    text = _fold(_QUOTES.sub(mark, message)).strip()
+    return _fold(_QUOTES.sub(mark, message)).strip(), literals
+
+
+def supplied_chat_operation(message: str) -> str:
+    """Return an operation only when its input, rule and instruction boundaries are known."""
+    if not message or "\0" in message:
+        return ""
+    text, literals = _request_text(message)
     if lead := _TRANSLATE.match(text):
         return "translation" if _translation(text[lead.end():], literals) else ""
-    return "tables" if _table(" ".join(text.split()), literals) else ""
+    compact = " ".join(text.split())
+    if not (_SAMPLE.match(compact) or _CALCULATE.match(compact)):
+        return ""
+    start, output = _table_output(message)
+    if output:
+        text, literals = _request_text(message[:start])
+        compact = " ".join(text.split())
+    return "tables" if _table(compact, literals, output) else ""
 
 
 def current_supplied_operation(state: Mapping[str, Any], message: str) -> str:

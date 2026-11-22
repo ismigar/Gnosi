@@ -77,16 +77,16 @@ async def prepare_plan(owner: dict[str, Any], scope: ExecutionScope, root_id: st
     if saved:
         return (TeamPlan.model_validate(saved[0]["plan"]),
                 {**state, **saved[0].get('state', {}), "team_completed_evidence": saved[0].get("evidence", [])}, catalog, route, bool(direct))
-    if supplied:
-        from backend.services.agent_team_supplied import supplied_task_plan
-        routine = await asyncio.to_thread(supplied_task_plan, owner, scope, team, catalog, supplied, original, route)
-        if routine is not None:
-            executor = routine.tasks[0].agent_id
-            supplied_measurement = {"version": 1, "mode": "direct", "reason": "unique_eligible_specialist",
-                           "operation": supplied, "executor": executor, "planning_calls_avoided": 1}
-            record("team.route", supplied_measurement)
-            artifacts.put(scope, root_id, "routing", "routing", supplied_measurement)
-            return routine, state, catalog, DirectRoute(operation=supplied, agent_ids=[executor]), True
+    from backend.services.agent_team_supplied import supplied_task_plan
+    routine = (await asyncio.to_thread(supplied_task_plan, owner, scope, team, catalog, supplied, original, route)
+               if supplied else None)
+    if routine is not None:
+        executor = routine.tasks[0].agent_id
+        supplied_measurement = {"version": 1, "mode": "direct", "reason": "unique_eligible_specialist",
+                       "operation": supplied, "executor": executor, "planning_calls_avoided": 1}
+        record("team.route", supplied_measurement)
+        artifacts.put(scope, root_id, "routing", "routing", supplied_measurement)
+        return routine, state, catalog, DirectRoute(operation=supplied, agent_ids=[executor]), True
     continuation = None if semantic_plan or direct else continuation_plan(owner, scope, state, original, catalog, refs)
     if not operation_mode and not direct and not continuation:
         from backend.services.agent_view_edit import prepare_view_edit

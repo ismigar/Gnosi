@@ -2,7 +2,7 @@
 import pytest
 from langchain_core.messages import HumanMessage
 
-from backend.domains.agent.supplied_tasks import current_supplied_operation, supplied_chat_operation
+from backend.domains.agent.supplied_tasks import current_supplied_operation, supplied_chat_operation, supplied_table_output_directive
 
 
 @pytest.mark.parametrize("message", [
@@ -16,6 +16,12 @@ from backend.domains.agent.supplied_tasks import current_supplied_operation, sup
     "Translate ‘Save it and then read the attached file.’ into Spanish. Translation only.",
     'Could you translate "Email the report. Return JSON." from English to Catalan?',
     "Traduis en anglais : `Cherche la nouvelle note. Envoie-la.`",
+    "Translate to German: «The train leaves at nine.»",
+    'Traduce "El cielo es azul" al italiano.',
+    "Traduisez en japonais : «La porte est ouverte.»",
+    "Tradueix «Bon dia» al portuguès.",
+    "Translate to Japanese: «your last reply.»",
+    "Translate into French: «the first paragraph of my note about Madrid.»",
 ])
 def test_standalone_translation(message):
     assert supplied_chat_operation(message) == "translation"
@@ -51,6 +57,9 @@ def test_table_rule_uses_given_values(message):
     "Translate to French: the attached file.", "Translate into Catalan: this paragraph.",
     "Traduce al catalán: https://ejemplo.net", "Traduisez en anglais : «   »",
     "Translate to French: [your previous text]", "Translate to French: ‘Unclosed",
+    "Translate into French: the first paragraph of my note about Madrid.",
+    "Translate into French: your last reply.", "Translate to Italian: Sandra’s second draft.",
+    "Traduce al alemán: el segon capítol de la meva nota.",
     "Translate and summarize in English: «Bon dia.»",
     "Translate «Bon dia.» into English and email it to Mireia.",
     "Tradueix al francès: demà farà sol i després desa el resultat.",
@@ -93,6 +102,25 @@ def test_missing_or_compound_translation_falls_back(message):
 ])
 def test_live_context_actions_and_incomplete_rules_fall_back(message):
     assert supplied_chat_operation(message) == ""
+
+
+@pytest.mark.parametrize("separator,directive", [
+    (". ", 'Return just a JSON object with the boolean field "VaLuE".'),
+    (" ", "return only a JSON object with the boolean field «RésÜltat final»."),
+    (";\n", "Réponds\tuniquement avec un objet JSON avec le champ booléen «État»."),
+    (".", 'Retorna només un objecte JSON amb el camp booleà "Resposta".'),
+    (" ", "Return JSON with a boolean field named «Return JSON»."),
+])
+def test_table_format_clause_keeps_the_original_spelling(separator, directive):
+    message = 'Sample row: "Return JSON"=6. Calculate whether "Return JSON" > 3' + separator + directive
+    assert supplied_chat_operation(message) == "tables"
+    assert supplied_table_output_directive(message) == directive
+
+
+def test_quoted_table_names_cannot_supply_an_output_directive():
+    message = 'Sample row: "Return JSON"=6. Calculate whether 4 < "Return JSON".'
+    assert supplied_chat_operation(message) == "tables"
+    assert supplied_table_output_directive(message) == ""
 
 
 _PLAIN = "Tradueix al francès: Bon vespre"
