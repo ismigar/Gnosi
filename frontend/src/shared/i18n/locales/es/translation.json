@@ -7114,6 +7114,7 @@
       "duplicate_keys": "{{count}} claves de procesamiento duplicadas",
       "stale_managed": "{{count}} notas generadas pendientes de actualización"
     },
+    "book_budget_cap": "Los dos agentes, los reintentos y la síntesis comparten un límite de {{limit}} USD por libro.",
     "budget_available": "Disponible dentro del límite: {{amount}}. El proceso se pausa antes de una llamada que no quepa y guarda el progreso.",
     "estimate_over_budget": "El cálculo supera el presupuesto disponible. Si empiezas, puede quedar trabajo pendiente; el límite no se aumenta automáticamente.",
     "estimate_calculation": "Cómo se calcula",

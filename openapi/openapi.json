@@ -21310,9 +21310,9 @@
             "type": "string"
           },
           "max_cost_usd": {
-            "default": 0.5,
+            "default": 5.0,
             "exclusiveMinimum": 0.0,
-            "maximum": 1000.0,
+            "maximum": 5.0,
             "title": "Max Cost Usd",
             "type": "number"
           },

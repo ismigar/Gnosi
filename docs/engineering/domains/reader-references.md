@@ -595,3 +595,5 @@ When complete literal clause choices are available, `grounded_anchor_ids_v1` use
 A rejected unchanged replacement may retain its validated unique original anchor in that same remaining word repair. The replacement must actually change and address its assigned findings; stale, ambiguous, overlapping, incomplete or still unchanged edits remain rejected. This exposes the complete word budget alongside that error without expanding the edit footprint or call allowance.
 
 Citation-key indexing checks known cached table ownership before opening keyless files. Unrelated task or note tables do not trigger cloud file hydration while saving a reference. Sparse metadata and reference-table files retain the existing frontmatter fallback, and an unconfigured reference table retains legacy unscoped behavior.
+
+The processing dialog shows the shared 5 USD book limit in the selected display currency. It deducts previous charges and reservations for this resource, including earlier processing attempts. A book with no available budget remains pending with its saved passages.

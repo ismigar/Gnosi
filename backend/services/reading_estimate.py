@@ -79,14 +79,12 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     review_fields = {}
     if reviewer is not None:
         from backend.domains.llm_wiki.independent_review import validate_review_capacity
-        from backend.domains.llm_wiki.review_selection import selected_passages
+        from backend.services.reading_semantic_estimate import independent_estimate, independent_work
         validate_review_capacity(reviewer, chunks, dimensions, source_title, language)
         from backend.domains.llm_wiki.review_draft_batches import additional_review_calls, check_draft_capacity
         check_draft_capacity(reviewer, chunks, saved.get("plans", {}), dimensions, source_title, language)
         review_rates = _rates(reviewer)
-        sampled = selected_passages(chunks, saved)
-        if saved.get("independent_revision") == reviewer.identity:
-            sampled.difference_update(saved.get("independent_reviews", {}))
+        sampled, sample_count, targeted = independent_work(chunks, saved, reviewer.identity)
         # Forecast one extra flagged passage per remaining extraction batch. Allow
         # every remaining passage and additional map reductions in the upper projection.
         remaining_segments = sum(len(records(c.get("segments"))) for c in remaining)
@@ -94,15 +92,14 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         passages = sum(len(records(c.get("segments"))) for c in chunks)
         completed = saved.get("independent_revision") == reviewer.identity and saved.get("independent_synthesis")
         extra_batches = additional_review_calls(reviewer, chunks, saved.get("plans", {}), sampled, dimensions, source_title, language)
-        review_calls = min(passages, len(sampled) + possible_flags) + int(not completed) + extra_batches
+        expected_passages = min(passages, sample_count + possible_flags)
         review_count, _ = reading_price_counter(reviewer.provider, reviewer.model)
         typical_passage = max(1, sum(review_count(encoded(segment)) for chunk in chunks for segment in records(chunk.get("segments")))
                               // max(1, sum(len(records(c.get("segments"))) for c in chunks)))
         input_per_call = review_count(reviewer.instructions) + 6 * typical_passage + 4096
-        review_input = review_calls * input_per_call
-        review_output = 768 * review_calls
-        review_bound = 16384 * review_calls
-        possible_reviews = min(passages, len(sampled) + remaining_segments)
+        review_calls, review_input, review_output, review_bound = independent_estimate(
+            reviewer, review_count, expected_passages, targeted, extra_batches, int(not completed), typical_passage)
+        possible_reviews = min(passages, sample_count + remaining_segments)
         extra_calls = max(0, possible_reviews + extra_batches + int(not completed) - review_calls)
         if possible_reviews > 1:
             extra_calls += possible_reviews  # Includes intermediate evidence syntheses.
@@ -124,8 +121,8 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "review_cost_out_per_million_usd": review_rates["cost_out"] if review_rates else None}
         identity = job_identity(identity, reviewer.identity)
     budget = None
-    if not force and previous.get("budget_id"):
-        budget = reading_budget.status(str(previous["budget_id"]))
+    if previous.get("budget_id"):
+        budget = reading_budget.book_status(str(previous["budget_id"]), vault_root, str(source_table.get("id") or ""), resource_id)
     return {**semantic_cost, **review_fields, "_reading_identity": identity, "estimate_id": fingerprint([identity, source_title, language, rates, batch_size, len(saved.get("plans", {})), previous_plans, token_method, input_bound, output_assumed, high, flex]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
             "processing_tier": "flex" if flex else "default",

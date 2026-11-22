@@ -23,6 +23,7 @@ from functools import partial, wraps
 from pathlib import Path
 from typing import Dict, List, Optional, ParamSpec, Protocol, TypeVar
 
+from backend.services.reading_budget import BOOK_LIMIT_USD
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import dimensions as llm_wiki_dimensions
 from backend.domains.llm_wiki import ingestion as llm_wiki_ingestion
@@ -515,7 +516,7 @@ def start_ingest(
     source_table: Optional[dict[str, object]] = None,
     source_config: Optional[dict[str, object]] = None,
     force: bool = False,
-    max_cost_usd: float = 0.50,
+    max_cost_usd: float = BOOK_LIMIT_USD,
     batch_size: int = 4,
     expected_reading_identity: str = "",
 ) -> dict[str, object]:
@@ -555,7 +556,8 @@ def start_ingest(
     from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
     review_runtime = prepare_review_runtime(vault_root, snapshot) if snapshot.behavior_resources else None
     from backend.services import reading_budget
-    budget_id = reading_budget.configure(max_cost_usd, str(previous.get("budget_id") or "") if resume_job_id else "")
+    account = reading_budget.book_account(vault_root, source_table_id, source_page_id)
+    budget_id = reading_budget.configure(max_cost_usd, str(previous.get("budget_id") or "") if resume_job_id else "", book=account)
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
     job_id = str(job["job_id"])
     # Preserve legacy lineage on a resume; a fresh run creates its own boundary.
@@ -627,7 +629,7 @@ def start_ingest(
             logger.exception("llm_wiki ingest failed for %s: %s", source_page_id, error_message)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             status = llm_wiki_storage.get_job_status(job_id)
-            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") or status.get("pending_passages") else PHASE_ERROR
+            phase = PHASE_PARTIAL if isinstance(exc, reading_budget.ReadingBudgetError) or checkpoint or status.get("chunks_done") or status.get("pending_passages") else PHASE_ERROR
             llm_wiki_storage.finish_job(
                 job_id,
                 phase=phase,

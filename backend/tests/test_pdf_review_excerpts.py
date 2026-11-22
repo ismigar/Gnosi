@@ -303,15 +303,19 @@ def test_reader_and_reviewer_distinguish_homonymous_pdfs_even_without_shorter_ch
         calls.append(req["phase"])
         selection = quote_selection(req)
         catalog = json.loads(selection.input)["source_quotes"]
-        a, b = [row["quotes"][0].get("quote_id") for row in catalog if row["quotes"][0]["text"] == shared]
-        assert a in selection.primary_ids[0] and b not in selection.primary_ids[0]
+        choices = [row["quotes"][0].get("quote_id") for row in catalog if row["quotes"][0]["text"] == shared]
         interpreting = req["phase"] == "interpret"
-        assert (b is not None) == interpreting
+        a = choices[0]
+        assert a in selection.primary_ids[0]
+        if interpreting:
+            assert choices == [a, None]  # The unlocatable twin is readable but cannot be cited.
+        else:
+            assert all(number is None for number in choices[1:])
         note = {"title": "Selective reading", "body_md": "The source describes selective reading.", "properties": {},
-                "primary_quote_ids": [b if interpreting and reject_first_draft else a], "context_quote_ids": []}
+                "primary_quote_ids": [max(selection.quotes) + 1 if interpreting and reject_first_draft else a], "context_quote_ids": []}
         passage = {"notes": [note], "reason": "The original explains the context for reading."}
         if interpreting:
-            passage["needs_specialist"] = False
+            passage["needs_specialist"] = reject_first_draft
             answer = {"themes": [], "questions": [], "contradictions": [], "warnings": []}
         else:
             answer = {"evidence_quote": shared, "unresolved_issues": []}

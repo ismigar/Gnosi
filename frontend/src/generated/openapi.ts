@@ -20156,7 +20156,7 @@ export interface components {
             language: string;
             /**
              * Max Cost Usd
-             * @default 0.5
+             * @default 5
              */
             max_cost_usd: number;
             /**

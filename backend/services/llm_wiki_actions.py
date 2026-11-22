@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Protocol, cast
 
+from backend.services.reading_budget import BOOK_LIMIT_USD
 from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import get_value, iterable_values
 from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
@@ -91,7 +92,7 @@ def start_source_process(
     source_table_id: str = "",
     force: bool = False,
     language: str = "",
-    max_cost_usd: float = 0.50,
+    max_cost_usd: float = BOOK_LIMIT_USD,
     batch_size: int = 4,
     estimate_id: str = "",
     estimate_only: bool = False,
@@ -222,7 +223,9 @@ def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, obje
     job = llm_wiki.get_job_status(normalized, str(source_table_id or "").strip())
     if job.get("budget_id"):
         from backend.services import reading_budget
-        job["budget"] = reading_budget.status(str(job["budget_id"]))
+        from backend.domains.llm_wiki import legacy_ports
+        job["budget"] = reading_budget.book_status(str(job["budget_id"]), legacy_ports.path_for("VAULT"),
+            str(job.get("source_table_id") or source_table_id), str(job.get("resource_id") or item_id))
     return job
 
 
