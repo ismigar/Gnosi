@@ -232,3 +232,43 @@ def test_full_review_fits_without_repeating_first_proposals_citations_or_ignorin
     assert len(seen) == 2 and seen[1]["findings"] == seen[0]["findings"]
     assert seen[1]["prior_proposals"]["change_1"]["replacement"]["body_md"] == first["changes"][0]["replacement"]["body_md"]
     assert "keep_changes" not in encoded(plan.output_schema)
+
+
+@pytest.mark.parametrize("wrap", [lambda s: "```json\n" + s + "\n```", lambda s: s + "}", lambda s: s + "<function"])
+def test_a_schema_invalid_audit_keeps_its_findings_through_governed_json_normalization(runtime, monkeypatch, wrap):
+    scope, snapshot = runtime
+    request, primary, support = audit_case(False)
+    first = previous()
+    calls = install_workflow(monkeypatch, [wrap(encoded({**first, "assessment": None})),
+        encoded({**first, "changes": [], "unresolved_issues": []})])
+    with execution_scope(scope):
+        parent = execution.create_job_run(snapshot, "normalization", "knowledge.process-source")
+        reviewer = ReadingRuntime("personal", "test", "fake", "", 100_000, parent, skill_id=parent.skill_ids[0])
+        with pytest.raises(PassageReviewIssue, match="first edition"):
+            reviewer.generate_structured(encoded(request), lambda a: apply_changes(a, [], primary, [primary, support], []), 120)
+    assert len(calls) == 2
+    assert json.loads(json.loads(calls[1]["messages"][0].content)["input"])["findings"]["issue_2"] == first["unresolved_issues"][1]
+
+
+@pytest.mark.parametrize("different_claim", [True, False])
+def test_full_revision_cannot_silently_reassign_a_citation_only_edit(different_claim):
+    request, primary, support = audit_case(True)
+    selection = quote_selection(request)
+    first = previous()
+    first["changes"][0]["replacement"]["quotes"] = [{"source": 1, "text": "és incerta."}, {"source": 2, "text": support["text"]}]
+    plan = build_audit_amendment(selection, encoded(first),
+        lambda a: apply_changes(a, [], primary, [primary, support], []), ValueError())
+    next_audit = {**deepcopy(first), "unresolved_issues": []}
+    note = next_audit["changes"][0]["replacement"]
+    note["quotes"][1] = {"source": 1, "text": "Observació prèvia."}
+    note["title"] = "Corrected title"
+    if different_claim:
+        note["body_md"] = "The preliminary observation in the primary passage is explicitly uncertain."
+    changed = encoded({"findings": findings(), "correction": {"revised_audit": next_audit, "prior_changes": {
+        "change_1": {"reason": "Both quotations now address the primary observation.", "evidence_excerpt": 1}}}})
+    if different_claim:
+        accepted = json.loads(selection.restore(plan.restore(changed)))
+        apply_changes(accepted, [], primary, [primary, support], [])
+    else:
+        with pytest.raises(PassageReviewIssue, match="original source"):
+            plan.restore(changed)
