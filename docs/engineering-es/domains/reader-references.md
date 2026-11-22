@@ -574,4 +574,4 @@ El índice de claves de cita comprueba la tabla conocida de la caché antes de a
 
 El diálogo de procesamiento muestra el equivalente del límite compartido de 5 USD por libro en la moneda seleccionada. Descuenta los cargos y las reservas del recurso, incluidos los intentos anteriores. Al agotarse el presupuesto, el libro queda pendiente con los pasajes guardados.
 
-Cada decisión del revisor corresponde a un pasaje. Si una respuesta tiene un error de formato, se conservan las decisiones válidas de los demás pasajes. Al reanudar la lectura, el revisor debe responder a cada observación pendiente y Gnosi comprueba la cita de la valoración en el PDF antes de elaborar la síntesis.
+Cada decisión del revisor corresponde a un pasaje. Gnosi guarda cada observación nueva antes de reservar el importe de la corrección. Si una respuesta tiene un error de formato, se conservan las decisiones válidas de los demás pasajes. Al reanudar la lectura, el revisor debe responder a cada observación pendiente y Gnosi comprueba la cita de la valoración en el PDF antes de elaborar la síntesis.

@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import Any, Never, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
@@ -65,7 +65,7 @@ def _draft_schema(envelope: Any, selection: QuoteSelection | None, paired_reader
     return selection.draft_schema() if selection and paired_reader else None
 
 
-def _open_audit_findings(text: str) -> tuple[str, dict[str, str]]:
+def _observe_audit_findings(text: str, validate: Callable[[dict[str, object]], None], seen: dict[str, None]) -> str:
     import jsonschema
     from backend.domains.llm_wiki.audit_amendments import open_findings
     from backend.services.agent_execution import _validate_output
@@ -73,8 +73,27 @@ def _open_audit_findings(text: str) -> tuple[str, dict[str, str]]:
         normalized = _validate_output(text, {"type": "object"})
         proposal = json.loads(normalized)
     except (ValueError, jsonschema.ValidationError):
-        return text, {}
-    return normalized, open_findings(proposal) if isinstance(proposal, dict) else {}
+        return text
+    issues = list(open_findings(proposal).values())
+    seen.update(dict.fromkeys(issues))
+    record = getattr(validate, "record_findings", None)
+    if issues and record:
+        record(issues)
+    return normalized
+
+
+def _structured_error(error: Exception, issues: dict[str, None], source_review: bool, selection: QuoteSelection | None) -> Never:
+    import jsonschema
+    from backend.domains.llm_wiki.audit_findings import ReportedAuditIssues
+    from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+    from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
+    if issues:
+        raise ReportedAuditIssues(list(issues), repair_diagnostic(error)) from error
+    if isinstance(error, (ModelOutputError, jsonschema.ValidationError)) and source_review:
+        raise PassageReviewIssue(repair_diagnostic(error)) from error
+    if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
+        raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
+    raise error
 
 
 @dataclass
@@ -279,10 +298,9 @@ class ReadingRuntime:
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         import jsonschema
         from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
-        from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue, ReadingInputTooLarge
+        from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
         from backend.services.agent_execution import run_sync
         from backend.services.agent_output_repair import OutputRepair
-        from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
         try:
             envelope = json.loads(prompt)
         except ValueError:
@@ -295,13 +313,18 @@ class ReadingRuntime:
         draft_schema = _draft_schema(envelope, selection, paired_reader)
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
                          and envelope.get("phase") in {"source-repair", "source-audit", "source-audit-batch", "verify"})
+        individual = source_review and envelope["phase"] == "source-audit"
+        # The provider receives the strict contract. Observe parseable findings before
+        # any domain rejection, follow-up reservation, cancellation or parent restart.
+        admitted_schema = {"type": "object"} if individual and hasattr(validate, "record_findings") else draft_schema
+        audit_findings: dict[str, None] = {}
         def checked(text: str) -> str:
+            if individual:
+                text = _observe_audit_findings(text, validate, audit_findings)
             return _validated_structured_output(text, selection, draft_schema, source_review, validate)
-        audit_findings: dict[str, str] = {}
         def repair(text: str, error: Exception) -> OutputRepair | None:
-            if source_review and envelope["phase"] == "source-audit":
-                text, findings = _open_audit_findings(text)
-                audit_findings.update(findings)
+            if individual:
+                text = _observe_audit_findings(text, validate, audit_findings)
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
             operation = self._reading_operation(operation_prompt, schema, timeout, envelope)
@@ -315,17 +338,9 @@ class ReadingRuntime:
                 except ReadingCheckpointUnavailable:
                     pass
             result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair,
-                **({"draft_schema": draft_schema} if draft_schema is not None else {}))
+                **({"draft_schema": admitted_schema} if admitted_schema is not None else {}))
         except (ValueError, jsonschema.ValidationError) as error:
-            if audit_findings:
-                raise PassageReviewIssue(" ".join(audit_findings.values()) + " " + repair_diagnostic(error)) from error
-            if not isinstance(error, (ModelOutputError, jsonschema.ValidationError)):
-                raise
-            if source_review:
-                raise PassageReviewIssue(repair_diagnostic(error)) from error
-            if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
-                raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
-            raise
+            _structured_error(error, audit_findings, source_review, selection)
         return selection.restore(result.result, draft_schema=draft_schema) if selection else result.result, result.model
 
     def _repair_structured(self, prompt: str, envelope: Any, selection: QuoteSelection | None,

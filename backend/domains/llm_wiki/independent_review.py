@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any, TYPE_CHECKING, cast
 
 from backend.domains.llm_wiki.audit_findings import (
-    check_resolutions, finding_coverage, named_findings, resolution_schema, saved_findings, without_resolutions,
+    ReportedAuditIssues, check_resolutions, finding_coverage, named_findings, resolution_schema, saved_findings, without_resolutions,
 )
 from backend.domains.llm_wiki.audit_checkpoint_provenance import audit_scope, verified_legacy_answer
 from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationCheck, SourceAuditValidator, citation_slots
@@ -315,6 +315,17 @@ def _finding(worker: ContextualReader, case: ReviewPassage, answer: dict[str, ob
             "corrections": synthesis_changes(answer, evidence, document_numbers)}
 
 
+def _stage_findings(engine: SemanticReader, worker: ContextualReader, case: ReviewPassage,
+                    initial: list[str], reported: list[str]) -> None:
+    pending = engine.state["pending_audits"]
+    existing = saved_findings(pending.get(case.occurrence, {})) or initial
+    combined = list(dict.fromkeys([*existing, *reported]))
+    if combined != existing:
+        pending[case.occurrence] = {**pending_review(worker, case, " ".join(reported)), "audit_findings": combined}
+        engine.state["completed"] = False
+        engine.save()
+
+
 def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object], dict[str, object]]],
                    global_map: str, notes_map: str) -> str:
     reviewer = engine.deps.reviewer
@@ -336,6 +347,7 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
         saved = results.get(case.receipt, results.get(passage_key(case.primary), {}))
         prior = pending.get(case.occurrence, {})
         outstanding = saved_findings(prior or saved)
+        worker.on_audit_findings = partial(_stage_findings, engine, worker, case, outstanding)
         worker.checkpoint_owners = tuple(prior.get("review_jobs", []))
         if prior and reader.job_id and reader.job_id not in worker.checkpoint_owners:
             prior["review_jobs"] = worker.checkpoint_jobs
@@ -344,8 +356,10 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
             key, answer = audit_passage(worker, reviewer, case.primary, case.drafts, case.evidence, case.plan,
                                        saved, engine.deps.citation_issues, findings=outstanding)
         except PassageReviewIssue as issue:
+            reported = issue.issues if isinstance(issue, ReportedAuditIssues) else [str(issue)]
+            existing = saved_findings(pending.get(case.occurrence, {})) or outstanding
             pending[case.occurrence] = {**pending_review(worker, case, str(issue)),
-                                        "audit_findings": list(dict.fromkeys([*outstanding, str(issue)]))}
+                                        "audit_findings": list(dict.fromkeys([*existing, *reported]))}
             engine.state["completed"] = False
             engine.save()
             continue

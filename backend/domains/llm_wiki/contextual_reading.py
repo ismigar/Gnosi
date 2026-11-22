@@ -86,6 +86,7 @@ class ContextualReader:
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
     checkpoint_owners: tuple[str, ...] = ()
+    on_audit_findings: Callable[[list[str]], None] | None = None
     historical_audits: dict[str, dict[str, HistoricalAudit]] = field(default_factory=dict, init=False, repr=False)
 
     @property

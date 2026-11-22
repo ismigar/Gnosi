@@ -155,6 +155,10 @@ class SourceAuditValidator:
     def __call__(self, answer: dict[str, object]) -> None:
         self.validate(answer)
 
+    def record_findings(self, issues: list[str]) -> None:
+        if self.worker.on_audit_findings:
+            self.worker.on_audit_findings(issues)
+
     def unbound_slots(self, selection: QuoteSelection, proposed: dict[str, Any]) -> list[CitationSlot]:
         check = getattr(self.worker.dependencies, "citation_issues", None)
         if not check or not selection.quote_sources:

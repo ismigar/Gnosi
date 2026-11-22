@@ -625,4 +625,4 @@ L’índex de claus de citació comprova la taula coneguda de la memòria cau ab
 
 El diàleg de processament mostra l’equivalent del límit compartit de 5 USD per llibre en la moneda seleccionada. Descompta els càrrecs i les reserves del recurs, inclosos els intents anteriors. Si s’esgota el pressupost, el llibre queda pendent amb els passatges desats.
 
-Cada decisió del revisor correspon a un passatge. Si una resposta té un error de format, es conserven les decisions vàlides dels altres passatges. En reprendre la lectura, el revisor ha de respondre a cada observació pendent i Gnosi comprova la cita de la valoració al PDF abans de fer la síntesi.
+Cada decisió del revisor correspon a un passatge. Gnosi desa cada observació nova abans de reservar l’import de la correcció. Si una resposta té un error de format, es conserven les decisions vàlides dels altres passatges. En reprendre la lectura, el revisor ha de respondre a cada observació pendent i Gnosi comprova la cita de la valoració al PDF abans de fer la síntesi.

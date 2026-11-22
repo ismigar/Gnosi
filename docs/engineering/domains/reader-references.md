@@ -598,4 +598,4 @@ Citation-key indexing checks known cached table ownership before opening keyless
 
 The processing dialog shows the shared 5 USD book limit in the selected display currency. It deducts previous charges and reservations for this resource, including earlier processing attempts. A book with no available budget remains pending with its saved passages.
 
-Each reviewer decision belongs to one passage. A malformed decision leaves its valid siblings available. On resume, the reviewer must address every saved finding for the passage, and Gnosi verifies the assessment quotation against the PDF before synthesis.
+Each reviewer decision belongs to one passage. Gnosi saves each new finding before reserving the cost of a correction. A malformed decision leaves its valid siblings available. On resume, the reviewer must address every saved finding for the passage, and Gnosi verifies the assessment quotation against the PDF before synthesis.

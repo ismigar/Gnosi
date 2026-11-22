@@ -7,7 +7,8 @@ import json
 from typing import Any
 
 from backend.domains.llm_wiki.audit_citation_repairs import AuditCitationIssue, CitationSlot, SourceAuditValidator, validate_revision_origins
-from backend.domains.llm_wiki.chunking import encoded
+from backend.domains.llm_wiki.audit_findings import issue_texts
+from backend.domains.llm_wiki.chunking import encoded, record
 from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
 from backend.domains.llm_wiki.semantic_contracts import TEXT, obj, validate_schema
 from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
@@ -30,17 +31,23 @@ def _record_findings(result: dict[str, Any], issues: dict[str, str], decisions: 
             result["unresolved_issues"].append(f"{issue} — {reason}")
         else:
             quote_id = int(finding["evidence_excerpt"])
-            result["assessment"] += "\n" + reason
+            result["assessment"] += "\n" + (f"{issue} — {reason}" if issue else reason)
             if (quote_id != result.get("evidence_quote_id") and
                     excerpts[quote_id - 1] != result.get("evidence_quote")):
                 result["assessment"] += f" «{excerpts[quote_id - 1]}»"
 
 
 def open_findings(proposal: dict[str, Any]) -> dict[str, str]:
-    raw = proposal.get("unresolved_issues")
-    if not isinstance(raw, list):
-        return {}
-    return {f"issue_{i}": item for i, item in enumerate(raw, 1) if isinstance(item, str) and item.strip()}
+    issues = {f"issue_{i}": text for i, text in enumerate(issue_texts(proposal.get("unresolved_issues")), 1)}
+    # A renewed review may explain a fresh objection in a prior finding's
+    # disposition even if its general list of outstanding issues is empty.
+    for key, decision in record(proposal.get("finding_resolutions")).items():
+        value = record(decision)
+        if value.get("status") == "unresolved":
+            for reason in issue_texts(value.get("reason")):
+                if reason not in issues.values():
+                    issues[f"prior_{key}"] = reason
+    return issues
 
 
 def _repairable_slots(selection: QuoteSelection, text: str, proposed: dict[str, Any],
