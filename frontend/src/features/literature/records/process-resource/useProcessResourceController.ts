@@ -60,7 +60,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
             if (!request.signal.aborted) setPreflight({ key: estimateKey, result: null, error: t('llm_wiki.estimate_failed') });
         });
         return () => { request.abort(); };
-    }, [needsEstimate, noteId, sourceTableId, force, reprocess, batchSize, hasTask, estimateKey, t]);
+    }, [needsEstimate, noteId, sourceTableId, id, force, reprocess, batchSize, hasTask, estimateKey, t]);
     const committed = (estimate?.budget?.spent_usd ?? 0) + (estimate?.budget?.reserved_usd ?? 0);
     const canStart = !checkingStatus && taskState !== 'running' && Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > committed && budgetLimit <= BOOK_LIMIT_USD;
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
