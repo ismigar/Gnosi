@@ -157,7 +157,7 @@ describe('Book budget currency', () => {
         const input = dialog.querySelector<HTMLInputElement>('input[type="number"]');
         expect(input?.value).toBe('21.5');
         expect(input?.max).toBe('21.5');
-        expect(dialog.textContent).toContain(`available: $${remaining}.00`);
+        expect(dialog.textContent).toContain(`available: $${String(remaining)}.00`);
         const process = buttonWithText(dialog, 'Process');
         expect(process.disabled).toBe(remaining === 0);
         act(() => { process.click(); });
