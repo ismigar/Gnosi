@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hydrateChatMessages, readLiveChatMessages } from './liveConversationModel';
+import { hydrateChatMessages, hydrateRewoundChatMessages, readLiveChatMessages } from './liveConversationModel';
 import { boundedChatSessions, createChatSession } from './sessionModel';
 
 const checkpointPair = (turn_id: string) => [
@@ -75,6 +75,25 @@ describe('live conversation hydration boundary', () => {
         expect(refreshed.some(row => row.errorCode || row.timings)).toBe(false);
       }
     }
+  });
+  it('keeps local failures that preceded a removed checkpoint at the start of a branch', () => {
+    const earlier = admissionFailure('earlier'), target = admissionFailure('target'), later = admissionFailure('later');
+    const prompt = { role: 'user', content: 'Question', turn_id: 'target' };
+    const cache = readLiveChatMessages([...earlier, ...target, ...later]);
+    for (const notebook of [false, true]) {
+      const observed = hydrateChatMessages([prompt], cache, notebook);
+      for (const replacement of [[], checkpointPair('replacement')]) {
+        const reopened = hydrateChatMessages(replacement, observed, notebook);
+        expect(reopened.map(row => row.turnId)).toEqual(['earlier', 'earlier', ...replacement.map(row => row.turn_id)]);
+        expect(reopened[1]?.errorCode).toBe('metadata_unavailable');
+      }
+    }
+  });
+  it('preserves an explicitly kept local failure when undoing the first checkpoint in the same client', () => {
+    const kept = readLiveChatMessages(admissionFailure('earlier'));
+    const rewound = hydrateRewoundChatMessages([], kept);
+    expect(rewound.map(row => row.turnId)).toEqual(['earlier', 'earlier']);
+    expect(rewound[1]?.timings?.setup_breakdown_ms).toEqual({ configuration: 127 });
   });
   it('uses a checkpointed retry and never revives failures from a rewound branch', () => {
     const first = checkpointPair('first'), retry = checkpointPair('retried');

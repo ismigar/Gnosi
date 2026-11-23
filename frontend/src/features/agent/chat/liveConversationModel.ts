@@ -30,19 +30,29 @@ export function isCheckpointedPreparationError(row: StoredChatMessage): boolean 
 }
 
 export function hydrateChatMessages(canonical: unknown, cached: readonly StoredChatMessage[], notebook = false): StoredChatMessage[] {
-  const merge = notebook ? mergeNotebookConversation : mergeCanonicalMessageMetadata;
+  return reconcileHistory(canonical, cached, notebook ? 'notebook' : 'session');
+}
+
+export function hydrateRewoundChatMessages(canonical: unknown, kept: readonly StoredChatMessage[]): StoredChatMessage[] {
+  return reconcileHistory(canonical, kept, 'rewind');
+}
+
+function reconcileHistory(canonical: unknown, cached: readonly StoredChatMessage[], mode: 'session' | 'notebook' | 'rewind'): StoredChatMessage[] {
+  const merge = mode === 'notebook' ? mergeNotebookConversation : mergeCanonicalMessageMetadata;
   const failedTurns = new Map<string, StoredChatMessage>();
   for (const row of cached) {
     const id = explicitTurnId(row);
     if (id && isPreparationError(row)) failedTurns.set(id, row);
   }
-  if (Array.isArray(canonical) && !canonical.length && cached.some(isCheckpointedPreparationError)) return [];
-  if (!failedTurns.size || !Array.isArray(canonical) || !canonical.length) return readLiveChatMessages(merge(canonical, cached));
+  if (!failedTurns.size || !Array.isArray(canonical)) return readLiveChatMessages(merge(canonical, cached));
+  if (!canonical.length && mode !== 'rewind' && !cached.some(isCheckpointedPreparationError)) {
+    return readLiveChatMessages(merge(canonical, cached));
+  }
 
   // The checkpoint can omit the whole failed turn or contain only its prompt.
   // Keep cached diagnostics out of the metadata merge for subsequent answers.
   const checkpointCache = cached.filter(row => !isPreparationError(row) && (row.role !== 'user' || !failedTurns.has(explicitTurnId(row) ?? '')));
-  const history = readLiveChatMessages(merge(canonical, checkpointCache));
+  const history = canonical.length ? readLiveChatMessages(merge(canonical, checkpointCache)) : [];
   const checkpointRows = canonical.filter(isRecord);
   const checkpointIds = new Set(checkpointRows.map(explicitTurnId).filter(id => id !== undefined));
   const positions = new Map<string, number[]>();
@@ -77,8 +87,9 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
     const failure = id ? failedTurns.get(id) : undefined;
     if (id && failure && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
       if (failure.promptWasCheckpointed === true) {
-        // Another client rewound a prompt previously observed on the server.
-        placePending(cursor > 0 && !followsRemovedTurn ? cursor : undefined);
+        // A previously observed prompt marks the cut even if it was the first
+        // checkpoint. Local-only failures before that cut stay before its replacement.
+        placePending(followsRemovedTurn ? undefined : cursor);
         followsRemovedTurn = true;
       } else if (!followsRemovedTurn) {
         pending.push(row);

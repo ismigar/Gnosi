@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../../../shared/notifications/toast';
 import { ConversationBusyError, rewindChatSession } from '../../../shared/api/chat-message-actions';
 import { conversationRewindPlan } from '../model/agentChatConversationMerge';
-import { hydrateChatMessages } from './liveConversationModel';
+import { hydrateRewoundChatMessages } from './liveConversationModel';
 import type { StoredChatMessage } from './sessionModel';
 import { logChatError } from './chatDiagnostics';
 
@@ -35,7 +35,7 @@ export function useChatRewind({ messages, selectedAgentId, sessionId, notebookId
         throw new Error('Conversation rewind requires a string turn identifier');
       }
       const canonical = await rewindChatSession({ agentId: selectedAgentId, id: sessionId }, { before_turn_id: plan.beforeTurnId, keep_messages: plan.keepMessages }, notebookId);
-      const rewoundMessages = hydrateChatMessages(canonical, messages.slice(0, plan.localKeepCount));
+      const rewoundMessages = hydrateRewoundChatMessages(canonical, messages.slice(0, plan.localKeepCount));
       historyHydrationRef.current += 1;
       setMessages(rewoundMessages); setPendingConfirmation(null); setDetailsMessageIndex(null); setPendingRewindIndex(null);
       if (plan.prompt) focusComposerWith(plan.prompt);
