@@ -6,6 +6,7 @@ import remarkMath from 'remark-math';
 import { useTranslation } from 'react-i18next';
 import { AppAudio } from '../speech/AppAudio';
 import 'katex/dist/katex.min.css';
+import './styles/markdown-containers.css';
 
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { openCitation } from '../resources/fileResource';
@@ -45,6 +46,7 @@ interface VaultMarkdownProps {
     readonly idToTitle?: Readonly<Record<string, string>>;
     readonly imageTitle?: string;
     readonly md: string;
+    readonly renderFence?: (language: string, content: string) => ReactNode;
     readonly onActivate?: () => void;
     readonly onOpenInCurrentTab?: (pageId: string) => void;
     readonly onOpenInNewTab?: (pageId: string) => void;
@@ -80,6 +82,10 @@ function renderVaultBlocks(
     return blocks.map((block, index) => {
         const key = `${path}-${String(index)}`;
         if (block.type === 'markdown') return renderMarkdown(block.content, key);
+        const children = renderVaultBlocks(block.children, `${key}-children`, renderMarkdown, toggleFallback);
+        if (block.type === 'callout') return <aside key={key} className="vault-preview-callout" data-tone={block.tone}>{children}</aside>;
+        if (block.type === 'column-list') return <div key={key} className="vault-preview-columns">{children}</div>;
+        if (block.type === 'column') return <div key={key} className="vault-preview-column" style={{ flexGrow: block.width }}>{children}</div>;
         const headingClass = HEADING_CLASSES[block.level] ?? 'text-base font-semibold';
         return (
             <details className="vault-markdown-toggle" key={key} open>
@@ -93,12 +99,7 @@ function renderVaultBlocks(
                     </span>
                 </summary>
                 <div className="vault-markdown-toggle__content">
-                    {renderVaultBlocks(
-                        block.children,
-                        `${key}-children`,
-                        renderMarkdown,
-                        toggleFallback,
-                    )}
+                    {children}
                 </div>
             </details>
         );
@@ -109,6 +110,7 @@ function renderVaultBlocks(
 export function VaultMarkdown({
     allowVaultQueries,
     md,
+    renderFence,
     idToTitle,
     imageTitle = '',
     onActivate,
@@ -257,12 +259,21 @@ export function VaultMarkdown({
             );
         },
         pre: ({ children, node, ...props }) => {
+            const code = node?.children.find(child => child.type === 'element' && child.tagName === 'code');
+            if (renderFence && code?.type === 'element' && Array.isArray(code.properties.className)) {
+                const language = code.properties.className.find(value => typeof value === 'string' && value.startsWith('language-'));
+                const body = code.children[0];
+                if (typeof language === 'string' && body?.type === 'text') {
+                    const rendered = renderFence(language.slice('language-'.length), body.value.trim());
+                    if (rendered != null) return <>{rendered}</>;
+                }
+            }
             const isQuery = canQueryVault && node?.children.some(child => child.type === 'element'
                 && child.tagName === 'code' && Array.isArray(child.properties.className)
                 && child.properties.className.some(value => value === 'language-query' || value === 'language-search'));
             return isQuery ? <div className="my-2">{children}</div> : <pre {...props}>{children}</pre>;
         },
-    }), [handleCitation, idToTitle, imageTitle, onActivate, onOpenInCurrentTab,
+    }), [renderFence, handleCitation, idToTitle, imageTitle, onActivate, onOpenInCurrentTab,
         onOpenInNewTab, onOpenParallel, vaultId, canQueryVault, openPage, sourcePageId, transclusionPath]);
 
     const renderMarkdown = useCallback((content: string, key: string, inline = false): ReactNode => (

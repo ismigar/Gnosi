@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useId, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { readOnlyDashboardView } from '../../vault';
@@ -19,9 +19,9 @@ function LiveView({ part, registered, boardId, scope, catalogComplete }: {
   readonly part: BoardView; readonly registered?: Readonly<Record<string, unknown>>;
   readonly boardId: string; readonly scope: RequestContext; readonly catalogComplete: boolean;
 }) {
-  const { t } = useTranslation();
-  const projection = useKnowledgeQuery(scope, ['view', catalogComplete, boardId, part.key, part.view, registered], signal =>
-    readOnlyDashboardView(boardId, part.view, registered, tableId => fetchVaultPagesByTable(tableId, {}, signal, scope)));
+  const { t, i18n } = useTranslation();
+  const projection = useKnowledgeQuery(scope, ['view', i18n.resolvedLanguage, catalogComplete, boardId, part.key, part.view, registered], signal =>
+    readOnlyDashboardView(boardId, part.view, registered, tableId => fetchVaultPagesByTable(tableId, {}, signal, scope), i18n.resolvedLanguage));
   const result = projection.data;
   const registeredTitle = typeof registered?.displayTitle === 'string' ? registered.displayTitle.trim() : '';
   const registeredName = typeof registered?.name === 'string' ? registered.name.trim() : '';
@@ -61,6 +61,9 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogC
   const content = useKnowledgeQuery(scope, ['board', boardId], signal => readDashboard(boardId, scope, signal), Boolean(board));
   const dashboard = content.data;
   const parts = dashboard?.layout.partsFor(section);
+  const slot = useId();
+  const markdown = parts?.map((part, index) => part.kind === 'text' ? part.markdown
+    : ['```gnosi-home-view', slot + String(index), '```'].join('\n')).join('\n\n') ?? '';
   const titles = useMemo(() => Object.fromEntries(pages.map(page => [page.id, page.title])), [pages]);
   return <div className="home-knowledge-block">
     {editing && <KnowledgePicker catalogComplete={catalogComplete} label={t('home_canvas.knowledge.board')} placeholder={t('home_canvas.knowledge.firstBoard')}
@@ -79,11 +82,14 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogC
       : !dashboard ? <p className="home-knowledge-status">{t('home_canvas.knowledge.missingBoard')}</p>
       : !parts ? <p className="home-knowledge-status">{t('home_canvas.knowledge.missingSection')}</p>
       : !parts.length ? <p className="home-knowledge-status">{t('home_canvas.knowledge.emptyBoard')}</p>
-      : <div className="home-knowledge-sections">{parts.map(part => part.kind === 'view'
-        ? <LiveView key={part.key} part={part} registered={dashboard.registered.find(view => view.id === part.view.view_id)}
-            boardId={boardId} scope={scope} catalogComplete={catalogComplete} />
-        : <Suspense key={part.key} fallback={<KnowledgeStatus state="loading" />}><VaultMarkdown md={part.markdown} idToTitle={titles}
-          vaultId={scope.vaultId} sourcePageId={boardId} allowVaultQueries
-          onOpenInCurrentTab={id => { void navigate(knowledgeDocumentPath(id)); }} /></Suspense>)}</div>}
+      : <div className="home-knowledge-sections"><Suspense fallback={<KnowledgeStatus state="loading" />}>
+        <VaultMarkdown md={markdown} idToTitle={titles} vaultId={scope.vaultId} sourcePageId={boardId} allowVaultQueries
+          onOpenInCurrentTab={id => { void navigate(knowledgeDocumentPath(id)); }}
+          renderFence={(language, token) => {
+            if (language !== 'gnosi-home-view' || !token.startsWith(slot)) return null;
+            const part = parts[Number(token.slice(slot.length))];
+            return part?.kind === 'view' ? <LiveView part={part} registered={dashboard.registered.find(view => view.id === part.view.view_id)}
+              boardId={boardId} scope={scope} catalogComplete={catalogComplete} /> : null;
+          }} /></Suspense></div>}
   </div>;
 }

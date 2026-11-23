@@ -1,0 +1,11 @@
+.vault-preview-callout {
+  padding: .65rem .85rem;
+  border-inline-start: 3px solid var(--gnosi-primary);
+  border-radius: .35rem;
+  background: var(--bg-secondary);
+}
+.vault-preview-callout[data-tone="warning"] { border-color: var(--status-warning); }
+.vault-preview-callout[data-tone="error"] { border-color: var(--status-error); }
+.vault-preview-callout[data-tone="success"] { border-color: var(--status-success); }
+.vault-preview-columns { display: flex; flex-wrap: wrap; gap: .8rem; align-items: flex-start; }
+.vault-preview-column { flex: 1 1 12rem; min-width: 0; max-width: 100%; }
