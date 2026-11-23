@@ -1,10 +1,21 @@
 import type {
+    ResourceProcessingEstimate,
     ResourceProcessingJob,
     ResourceProcessingStart,
 } from '../../../../shared/api/resource-processing';
 
 
 export const BOOK_LIMIT_USD = 5;
+
+export function bookSpendingCeiling(estimate: ResourceProcessingEstimate | null): number {
+    return estimate?.budget?.authorized_limit_usd ?? BOOK_LIMIT_USD;
+}
+
+export function remainingBookBudget(estimate: ResourceProcessingEstimate | null, limit: number): number {
+    const budget = estimate?.budget;
+    const room = limit - (budget?.spent_usd ?? 0) - (budget?.reserved_usd ?? 0);
+    return Math.max(0, Math.min(room, budget?.additional_remaining_usd ?? room));
+}
 export const POLL_INTERVAL_MS = 1500;
 export const NO_BRAIN_TABLE_ERROR = 'No Brain table is configured';
 

@@ -353,3 +353,54 @@ def test_book_status_recovers_history_when_latest_job_lost_its_budget_link(monke
     status = budget.book_status("", tmp_path, "table", "old-book")
     assert status == {"id": old, "limit_usd": 5.0, "spent_usd": 0.0, "reserved_usd": 5.5, "remaining_usd": 0.0}
     assert budget.book_status("", tmp_path, "table", "new-book") is None
+
+
+def test_operator_grant_limits_old_and_new_book_budgets_across_retries_and_settlement():
+    from backend.services.reading_budget_grant import authorize
+
+    historic, latest = budget.configure(25), budget.configure(25)
+    book = budget.BookAccount("vault/table/book", (historic, latest))
+    with ledger.connect() as db:
+        db.executemany("INSERT INTO reading_reservations VALUES (?,?,?,?)", [
+            ("old-response", historic, "7", "6"), ("old-hold", latest, "10.8", None)])
+    grant = {"total_usd": Decimal("21.50"), "additional_usd": Decimal("5")}
+    authorize(book, latest, **grant)
+    assert budget.status(latest)["remaining_usd"] == 4.7
+    with pytest.raises(budget.ReadingBudgetError, match="exceeds_book_limit"):
+        budget.configure(21.51, latest, book=book)
+    other_book = budget.BookAccount("vault/table/other", ())
+    with pytest.raises(budget.ReadingBudgetError, match="exceeds_book_limit"):
+        budget.configure(21.5, book=other_book)
+    with pytest.raises(budget.ReadingBudgetError, match="mismatch"):
+        authorize(other_book, latest, **grant)
+    restarted = budget.configure(21.5, book=book)
+
+    def reserve(identifier, name, million_tokens):
+        with budget.session(identifier):
+            budget.reserve(name, [], {"max_tokens": million_tokens * 1_000_000},
+                           {"cost_in": 0, "cost_out": 1}, "test")
+
+    with pytest.raises(budget.ReadingBudgetError, match="pending_cost"):
+        reserve(latest, "over-lifetime", 5)
+    reserve(latest, "review", 2)
+    with ledger.connect() as db:
+        budget.settle(db, "old-hold", 0)
+        budget.settle(db, "review", 2)
+    authorize(book, latest, **grant)
+    with pytest.raises(budget.ReadingBudgetError, match="already_exists"):
+        authorize(book, latest, total_usd=Decimal(30), additional_usd=Decimal(15))
+    assert budget.status(restarted)["remaining_usd"] == 3
+
+    def compete(args):
+        try:
+            reserve(*args, 2)
+            return True
+        except budget.ReadingBudgetError:
+            return False
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sum(pool.map(compete, [(historic, "repair"), (restarted, "synthesis")])) == 1
+    assert budget.status(latest)["remaining_usd"] == .8
+    with ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM reading_book_grant_baseline").fetchone()[0] == 2
+    with pytest.raises(budget.ReadingBudgetError):
+        reserve(restarted, "cannot-refill-from-old-settlement", 1)

@@ -132,6 +132,24 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('Book budget currency', () => {
+    it.each([0, 2])('uses the book-specific approval with %s dollars left on its supplement', async (remaining) => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
+            budget: { id: 'approved-book', limit_usd: 21.5, authorized_limit_usd: 21.5, spent_usd: 8,
+                reserved_usd: 3, remaining_usd: remaining, additional_remaining_usd: remaining } });
+        const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="approved-book" onClose={vi.fn()} />);
+        const input = dialog.querySelector<HTMLInputElement>('input[type="number"]');
+        expect(input?.value).toBe('21.5');
+        expect(input?.max).toBe('21.5');
+        expect(dialog.textContent).toContain(`available: $${remaining}.00`);
+        const process = buttonWithText(dialog, 'Process');
+        expect(process.disabled).toBe(remaining === 0);
+        act(() => { process.click(); });
+        await flushProcessing();
+        if (remaining) expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 21.5 }));
+        else expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
     it('keeps an older overspent book pending through the normal confirmation dialog', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 8,
