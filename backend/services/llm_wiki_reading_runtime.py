@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import Any, Never, TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
@@ -35,6 +35,74 @@ def compact_structured_input(prompt: str) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
+def _validated_structured_output(text: str, selection: QuoteSelection | None, draft_schema: dict[str, Any] | None,
+                                 source_review: bool, validate: Callable[[dict[str, object]], None]) -> str:
+    import jsonschema
+    from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+    try:
+        answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
+        if not isinstance(answer, dict):
+            raise ValueError("Return a JSON object")
+    except (ValueError, jsonschema.ValidationError) as error:
+        if source_review:
+            raise PassageReviewIssue(str(error)) from error
+        raise
+    try:
+        validate(answer)
+    except (TypeError, KeyError) as error:
+        raise ValueError(str(error)) from error
+    # Legacy validation can restore an omitted segment digest. Selection
+    # operations keep their numeric contract in the operation cache;
+    # the reader receives literal citations after the operation returns.
+    return text if selection else json.dumps(answer, ensure_ascii=False)
+
+
+class _OutputOptions(TypedDict, total=False):
+    draft_schema: dict[str, Any]
+    observe_model_output: Callable[[str, bool], None]
+
+
+def _draft_schema(envelope: Any, selection: QuoteSelection | None, paired_reader: bool) -> dict[str, Any] | None:
+    # Keep strict contracts on the provider request. Store provisional siblings
+    # locally so a rejected passage cannot erase a paid decision on another.
+    if isinstance(envelope, dict) and envelope.get("phase") == "source-audit-batch":
+        return {"type": "object"}
+    return selection.draft_schema() if selection and paired_reader else None
+
+
+def _observe_audit_findings(text: str, amendment: bool, validate: Callable[[dict[str, object]], None], seen: dict[str, None]) -> str:
+    import jsonschema
+    from backend.domains.llm_wiki.audit_amendments import open_findings, amendment_findings
+    from backend.services.agent_execution import _validate_output
+    try:
+        normalized = _validate_output(text, {"type": "object"})
+        proposal = json.loads(normalized)
+    except (ValueError, jsonschema.ValidationError):
+        return text
+    issues = list(open_findings(proposal).values())
+    if amendment:
+        issues.extend(amendment_findings(proposal))
+    seen.update(dict.fromkeys(issues))
+    record = getattr(validate, "record_findings", None)
+    if issues and record:
+        record(issues)
+    return normalized
+
+
+def _structured_error(error: Exception, issues: dict[str, None], source_review: bool, selection: QuoteSelection | None) -> Never:
+    import jsonschema
+    from backend.domains.llm_wiki.audit_findings import ReportedAuditIssues
+    from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+    from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
+    if issues:
+        raise ReportedAuditIssues(list(issues), repair_diagnostic(error)) from error
+    if isinstance(error, (ModelOutputError, jsonschema.ValidationError)) and source_review:
+        raise PassageReviewIssue(repair_diagnostic(error)) from error
+    if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
+        raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
+    raise error
+
+
 @dataclass
 class ReadingRuntime:
     agent_id: str
@@ -46,6 +114,11 @@ class ReadingRuntime:
     cost_optimization: bool = True
     reuse_results: bool = True
     skill_id: str = SKILL_ID
+
+    @property
+    def audit_batch_size(self) -> int:
+        from backend.domains.llm_wiki.audit_groups import AUDIT_BATCH_SIZE
+        return AUDIT_BATCH_SIZE
 
     @property
     def performance_options(self) -> dict[str, object]:
@@ -74,6 +147,19 @@ class ReadingRuntime:
         message = HumanMessage(content=operation_input(request))
         serialized = json.dumps([message.model_dump(mode="json")], ensure_ascii=False)
         return count_tokens(serialized, self.model if self.snapshot.behavior_resources else "").tokens
+
+    def count_structured_tokens(self, prompt: str) -> int:
+        """Size the available audit wire or conservatively bound other reading phases."""
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+        envelope = json.loads(prompt)
+        if envelope.get("phase") in {"source-audit", "source-audit-batch"}:
+            return self._structured_input(prompt, envelope)[3]
+        canonical = self.count_tokens(prompt)
+        selection = quote_selection(envelope)
+        if selection is None:
+            return canonical
+        operation = compact_structured_input(selection.input)
+        return max(canonical, self.count_tokens(operation, output_schema=selection.schema))
 
     @property
     def identity(self) -> str:
@@ -141,71 +227,128 @@ class ReadingRuntime:
         ), snapshot=self.snapshot)
         return result.result, result.model
 
+    def _structured_input(self, prompt: str, envelope: Any) -> tuple[QuoteSelection | None, str, dict[str, Any], int]:
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+        canonical = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        if not isinstance(canonical, dict):
+            canonical = {"type": "object"}
+        # A narrow review window may fit the original literal field but not the numbered catalog.
+        for numbered in (True, False):
+            selection = quote_selection(envelope, number_audit_evidence=numbered) if isinstance(envelope, dict) else None
+            operation_input = compact_structured_input(selection.input) if selection else prompt
+            if isinstance(envelope, dict) and envelope.get("phase") == "source-audit-batch":
+                operation_input = compact_structured_input(prompt)
+            schema = selection.schema if selection else canonical
+            size = self.count_tokens(operation_input, output_schema=schema)
+            if size <= self.input_budget or not selection or not selection.audit_evidence:
+                break
+        if size > self.input_budget and isinstance(envelope, dict) and "initial_passage_context" in envelope:
+            prior = {k: v for k, v in envelope.items() if k != "initial_passage_context"}
+            return self._structured_input(json.dumps(prior, ensure_ascii=False), prior)
+        return selection, operation_input, schema, size
+
+    def _structured_operation(self, prompt: str, schema: dict[str, Any], timeout: int, max_calls: int,
+                              options: dict[str, object]) -> AgentOperation:
+        return AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
+            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+            options={**self.performance_options, **options}, output_schema=schema, max_model_calls=max_calls)
+
+    def _recover_reader_draft(self, envelope: dict[str, Any], validate: Callable[[dict[str, object]], None],
+                              timeout: int, current_wire: str) -> tuple[str, str] | None:
+        from backend.services.agent_execution import recover_reading_operation
+        if "initial_passage_context" not in envelope:
+            return None
+        prior = {k: v for k, v in envelope.items() if k != "initial_passage_context"}
+        selection, wire, schema, _ = self._structured_input(json.dumps(prior, ensure_ascii=False), prior)
+        if selection is None or wire == current_wire:
+            return None
+        draft_schema = selection.draft_schema()
+        def restore(text: str) -> str:
+            answer = selection.restore(text, draft_schema=draft_schema)
+            validate(json.loads(answer))
+            return answer
+        return recover_reading_operation(self._structured_operation(wire, schema, timeout, 2, {}),
+            self.snapshot, self.provider, self.model, restore, draft_schema=draft_schema)
+
+    def recover_audit(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int,
+                      *, literal_only: bool = False) -> tuple[str, str]:
+        """Look up validated audit operations, including a coverage pass whose phase write was interrupted."""
+        from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
+        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
+        from backend.services.agent_execution import recover_reading_operation
+        envelope = json.loads(prompt)
+        for numbered in ((False,) if literal_only else (False, True)):
+            selection = quote_selection(envelope, number_audit_evidence=numbered)
+            wire = compact_structured_input(selection.input) if selection else prompt
+            schema = selection.schema if selection else envelope["output_schema"]
+            operation = self._structured_operation(wire, schema, timeout, 2, {})
+            def restored(text: str) -> str:
+                item = json.loads(selection.restore(text) if selection else text)
+                validate(item)
+                return json.dumps(item, ensure_ascii=False)
+            recovered = recover_reading_operation(operation, self.snapshot, self.provider, self.model, restored)
+            if recovered is not None:
+                return recovered
+        raise ReadingCheckpointUnavailable("No validated source audit for this request")
+
+    def _reading_operation(self, prompt: str, schema: dict[str, Any], timeout: int, envelope: Any) -> AgentOperation:
+        data = envelope if isinstance(envelope, dict) else {}
+        options: dict[str, object] = {}
+        calls = 2 if data.get("reading_engine") == "semantic" else 3
+        if data.get("phase") == "source-audit-batch":
+            options["reading_review_notes"] = len(data["passages"])
+            calls = 1
+        elif data.get("phase") == "verify" and data.get("reading_engine") == "semantic":
+            options["reading_review_notes"] = len(data.get("notes", []))
+        return self._structured_operation(prompt, schema, timeout, calls, options)
+
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         import jsonschema
-        from backend.domains.llm_wiki.reading_batch_recovery import PassageReviewIssue
+        from backend.domains.llm_wiki.contextual_reading import ReadingCheckpointUnavailable
+        from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
         from backend.services.agent_execution import run_sync
-        from backend.domains.llm_wiki.semantic_quote_selection import quote_selection
         from backend.services.agent_output_repair import OutputRepair
-        from backend.services.structured_output_diagnostics import ModelOutputError, repair_diagnostic
         try:
             envelope = json.loads(prompt)
         except ValueError:
             envelope = None
-        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
-        if not isinstance(schema, dict):
-            schema = {"type": "object"}
-        selection = quote_selection(envelope) if isinstance(envelope, dict) else None
-        paired_reader = (selection is not None and self.skill_id == SKILL_ID and envelope["phase"] == "interpret"
-                         and "needs_specialist" in schema["properties"]["passages"]["items"]["properties"])
-        draft_schema = selection.draft_schema() if selection and paired_reader else None
-        operation_prompt = selection.input if selection else prompt
-        schema = selection.schema if selection else schema
-        if selection:
-            # The operation envelope and provider binding already carry the
-            # full contract. Keep canonical checkpoints/repair input unchanged.
-            operation_prompt = compact_structured_input(operation_prompt)
-        if self.count_tokens(operation_prompt, output_schema=schema) > self.input_budget:
-            from backend.domains.llm_wiki.reading_batch_recovery import ReadingInputTooLarge
+        selection, operation_prompt, schema, size = self._structured_input(prompt, envelope)
+        if size > self.input_budget:
             raise ReadingInputTooLarge("The reading input exceeds the selected model's context budget")
+        paired_reader = (selection is not None and self.skill_id == SKILL_ID and envelope["phase"] == "interpret"
+                         and "needs_specialist" in envelope["output_schema"]["properties"]["passages"]["items"]["properties"])
+        draft_schema = _draft_schema(envelope, selection, paired_reader)
         source_review = (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic"
-                         and envelope.get("phase") in {"source-repair", "source-audit", "verify"})
+                         and envelope.get("phase") in {"source-repair", "source-audit", "source-audit-batch", "verify"})
+        individual = source_review and envelope["phase"] == "source-audit"
+        audit_findings: dict[str, None] = {}
+        def observe(text: str, amendment: bool) -> None:
+            _observe_audit_findings(text, amendment, validate, audit_findings)
         def checked(text: str) -> str:
-            try:
-                answer = json.loads(selection.restore(text, draft_schema=draft_schema) if selection else text)
-                if not isinstance(answer, dict):
-                    raise ValueError("Return a JSON object")
-            except (ValueError, jsonschema.ValidationError) as error:
-                if source_review:
-                    raise PassageReviewIssue(str(error)) from error
-                raise
-            try:
-                validate(answer)
-            except (TypeError, KeyError) as error:
-                raise ValueError(str(error)) from error
-            # Legacy validation can restore an omitted segment digest. Selection
-            # operations keep their numeric contract in the operation cache;
-            # the reader receives literal citations after the operation returns.
-            return text if selection else json.dumps(answer, ensure_ascii=False)
+            return _validated_structured_output(text, selection, draft_schema, source_review, validate)
         def repair(text: str, error: Exception) -> OutputRepair | None:
+            if individual:
+                text = _observe_audit_findings(text, False, validate, audit_findings)
             return self._repair_structured(prompt, envelope, selection, validate, text, error)
         try:
-            review_options = ({"reading_review_notes": len(envelope.get("notes", []))}
-                if selection and selection.phase == "verify" and isinstance(envelope, dict) else {})
-            result = run_sync(AgentOperation(skill_id=self.skill_id, operation="knowledge.process-source.phase",
-                input=operation_prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-                options={**self.performance_options, **review_options},
-                # Literal choices apply even when the second call repairs syntax.
-                # Keep corrections inside the same call allowance and deadline.
-                output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3),
-                snapshot=self.snapshot, output_validator=checked, output_repair=repair,
-                **({"draft_schema": draft_schema} if draft_schema is not None else {}))
-        except (ModelOutputError, jsonschema.ValidationError) as error:
-            if source_review:
-                raise PassageReviewIssue(repair_diagnostic(error)) from error
-            if isinstance(error, jsonschema.ValidationError) and selection and {"primary_quote_ids", "context_quote_ids"}.intersection(error.absolute_path):
-                raise ValueError("Invalid reading plan: " + repair_diagnostic(error)) from error
-            raise
+            operation = self._reading_operation(operation_prompt, schema, timeout, envelope)
+            if paired_reader:
+                old_draft = self._recover_reader_draft(envelope, validate, timeout, operation_prompt)
+                if old_draft is not None:
+                    return old_draft
+            if selection and selection.audit_evidence:
+                try:
+                    return self.recover_audit(prompt, validate, timeout, literal_only=True)
+                except ReadingCheckpointUnavailable:
+                    pass
+            options: _OutputOptions = {}
+            if draft_schema is not None:
+                options["draft_schema"] = draft_schema
+            if individual:
+                options["observe_model_output"] = observe
+            result = run_sync(operation, snapshot=self.snapshot, output_validator=checked, output_repair=repair, **options)
+        except (ValueError, jsonschema.ValidationError) as error:
+            _structured_error(error, audit_findings, source_review, selection)
         return selection.restore(result.result, draft_schema=draft_schema) if selection else result.result, result.model
 
     def _repair_structured(self, prompt: str, envelope: Any, selection: QuoteSelection | None,
@@ -213,9 +356,17 @@ class ReadingRuntime:
         from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
         from backend.domains.llm_wiki.reading_repairs import build_reading_repair
         from backend.services.agent_output_repair import OutputRepair
-        if selection and selection.phase == "source-audit":
-            # Retry the same audit contract with its original source numbers.
-            return None
+        if (isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" and
+                envelope.get("phase") == "source-audit" and "evidence_quote" in
+                envelope.get("output_schema", {}).get("properties", {})):
+            from backend.domains.llm_wiki.audit_amendments import build_audit_amendment
+            from backend.domains.llm_wiki.semantic_quote_selection import QuoteSelection
+            audit = selection or QuoteSelection(prompt, envelope["output_schema"], {}, "source-audit", [])
+            amendment = build_audit_amendment(audit, text, validate, error, fits=lambda repair:
+                self.count_tokens(compact_structured_input(repair.input), output_schema=repair.output_schema) <= self.input_budget)
+            if amendment is None:
+                return None
+            return OutputRepair(compact_structured_input(amendment.input), amendment.output_schema, amendment.restore)
         if selection and isinstance(error, json.JSONDecodeError):
             # Some providers report stop even when a long structured answer
             # ends inside a value, including short review prefixes. Retrying

@@ -103,7 +103,9 @@ def verified_excerpts(
                     confirmed.setdefault((key, number), []).append(excerpt)
     results = _verified_retained(segments, retained or [], locate)
     for key, _, number, span in failed:
+        # An empty list keeps the rejected span readable without offering it as evidence.
+        bounds = results.setdefault(key, {}).setdefault(number, [])
         for excerpt in confirmed.get((key, number), [])[:8]:
             start = span.index(excerpt)
-            results.setdefault(key, {}).setdefault(number, []).append((start, start + len(excerpt)))
+            bounds.append((start, start + len(excerpt)))
     return results
