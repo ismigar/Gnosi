@@ -61,6 +61,21 @@ describe('live conversation hydration boundary', () => {
       }
     }
   });
+  it('drops a previously checkpointed failed turn after another client rewinds, including an empty checkpoint', () => {
+    const failure = admissionFailure('failed');
+    const prompt = { role: 'user', content: 'Question', turn_id: 'failed' };
+    const session = createChatSession('History', 'director');
+    for (const prior of [checkpointPair('first'), []]) {
+      for (const notebook of [false, true]) {
+        const visible = hydrateChatMessages([...prior, prompt], readLiveChatMessages([...prior, ...failure]), notebook);
+        const cache = boundedChatSessions([{ ...session, messages: visible }])[0]?.messages ?? [];
+        expect(cache.some(row => row.errorCode === 'metadata_unavailable')).toBe(true);
+        const refreshed = hydrateChatMessages(prior, cache, notebook);
+        expect(refreshed.map(row => row.content)).toEqual(prior.map(row => row.content));
+        expect(refreshed.some(row => row.errorCode || row.timings)).toBe(false);
+      }
+    }
+  });
   it('uses a checkpointed retry and never revives failures from a rewound branch', () => {
     const first = checkpointPair('first'), retry = checkpointPair('retried');
     const cached = readLiveChatMessages([...first, ...admissionFailure('retried'), ...retry.map(row => ({ ...row, saved: true })),

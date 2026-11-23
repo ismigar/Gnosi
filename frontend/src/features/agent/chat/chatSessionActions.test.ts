@@ -27,6 +27,20 @@ function setup(sessions = [createChatSession('One', 'agent', { randomId: () => '
 }
 
 describe('session selection and deletion', () => {
+  it('removes a checkpointed failed first turn when the server returns an empty history', async () => {
+    const failure = [{ role: 'user', content: 'Question', turnId: 'partial' },
+      { role: 'assistant', content: 'Try again', turnId: 'partial', errorCode: 'metadata_unavailable',
+        timings: { model_calls: 0, setup_breakdown_ms: { configuration: 1 } } }];
+    const session = { ...createChatSession('One', 'agent', { randomId: () => 'one' }), messages: failure };
+    const state = setup([session]);
+    api.history.mockResolvedValue([{ role: 'user', content: 'Question', turn_id: 'partial' }]);
+    await selectChatSession(state.context, 'one');
+    expect(state.messages()).toHaveLength(2);
+    api.history.mockResolvedValue([]);
+    await selectChatSession({ ...state.context, chatSessions: state.sessions() }, 'one');
+    expect(state.messages()).toEqual([]);
+    expect(state.sessions()[0]?.messages).toEqual([]);
+  });
   it('hydrates canonical history only for the latest selection', async () => {
     const state = setup();
     api.history.mockImplementation(() => {

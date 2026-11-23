@@ -25,6 +25,10 @@ function isPreparationError(row: StoredChatMessage): boolean {
     && row.timings?.model_calls === 0 && !!row.timings.setup_breakdown_ms;
 }
 
+export function isCheckpointedPreparationError(row: StoredChatMessage): boolean {
+  return row.promptWasCheckpointed === true && isPreparationError(row);
+}
+
 export function hydrateChatMessages(canonical: unknown, cached: readonly StoredChatMessage[], notebook = false): StoredChatMessage[] {
   const merge = notebook ? mergeNotebookConversation : mergeCanonicalMessageMetadata;
   const failedTurns = new Map<string, StoredChatMessage>();
@@ -32,6 +36,7 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
     const id = explicitTurnId(row);
     if (id && isPreparationError(row)) failedTurns.set(id, row);
   }
+  if (Array.isArray(canonical) && !canonical.length && cached.some(isCheckpointedPreparationError)) return [];
   if (!failedTurns.size || !Array.isArray(canonical) || !canonical.length) return readLiveChatMessages(merge(canonical, cached));
 
   // The checkpoint can omit the whole failed turn or contain only its prompt.
@@ -55,7 +60,7 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
   for (const [id, error] of failedTurns) {
     const prompt = positions.get(JSON.stringify(['turn', 'user', id]))?.at(-1);
     if (prompt !== undefined && !positions.has(JSON.stringify(['turn', 'assistant', id]))) {
-      inserts.set(prompt + 1, [error]);
+      inserts.set(prompt + 1, [{ ...error, promptWasCheckpointed: true }]);
     }
   }
   let pending: StoredChatMessage[] = [];
@@ -69,8 +74,15 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
     if (row.role !== 'user' && row.role !== 'assistant') continue;
     const id = explicitTurnId(row);
     if (id && checkpointIds.has(id) && isPreparationError(row)) continue;
-    if (id && failedTurns.has(id) && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
-      if (!followsRemovedTurn) pending.push(row);
+    const failure = id ? failedTurns.get(id) : undefined;
+    if (id && failure && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
+      if (failure.promptWasCheckpointed === true) {
+        // Another client rewound a prompt previously observed on the server.
+        placePending(cursor > 0 && !followsRemovedTurn ? cursor : undefined);
+        followsRemovedTurn = true;
+      } else if (!followsRemovedTurn) {
+        pending.push(row);
+      }
       continue;
     }
     const strict = id ? positions.get(JSON.stringify(['turn', row.role, id])) : undefined;
