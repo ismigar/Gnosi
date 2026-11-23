@@ -54,7 +54,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `app` | 22 | 2476 | 0 |
 | `features` | 1338 | 140051 | 57 |
 | `generated` | 3 | 58348 | 603 |
-| `shared` | 360 | 37892 | 517 |
+| `shared` | 360 | 37917 | 517 |
 
 ## app
 
@@ -1619,7 +1619,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx) | 157 | `VaultTransclusion` | — |
 | [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 256 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `listSectionReferences`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey`, `transclusionSourceRange` | — |
 | [`frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts) | 52 | `citationEvidence`, `latexFencesToMath`, `reactNodeText` | — |
-| [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 137 | `parseVaultMarkdownBlocks` | — |
+| [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 162 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/shared/editor/vaultMarkdownUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownUtils.ts) | 237 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
 | [`frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.ts) | 46 | `adjustedContextMenuPosition`, `nextEnabledMenuIndex` | — |
 | [`frontend/src/shared/editor/wikilinkInlineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/wikilinkInlineModel.ts) | 87 | `clearWikilinkResolutionCache`, `isUuidTarget`, `resolveWikilinkTarget`, `resolveWikilinkTargetLocal` | — |

@@ -20,8 +20,8 @@ function boardParts(markdown: string, sections: readonly View[], includeLegacySe
   const occurrences = new Map<string, number>();
   let offset = 0;
   const addText = (end: number) => {
-    const body = markdown.slice(offset, end).trim();
-    if (body) result.push({ kind: 'text', key: `text-${String(offset)}`, markdown: body });
+    const body = markdown.slice(offset, end).replace(/^(?:[ \t]*\r?\n)+|(?:\r?\n[ \t]*)+$/gu, '');
+    if (body.trim()) result.push({ kind: 'text', key: `text-${String(offset)}`, markdown: body });
   };
   const addView = (view: View) => {
     const label = text(view.displayTitle) || text(view.heading) || text(view.name);
