@@ -315,7 +315,8 @@ async def iter_workflow_events(
         ):
             agent_app = workflow.compile(checkpointer=saver)
             previous_update_at = time.monotonic()
-            with track_chat(state.trace_id, state.request_started_at, state.workflow_ready_at, previous_update_at) as timing:
+            with track_chat(state.trace_id, state.request_started_at, state.workflow_ready_at, previous_update_at,
+                            state.setup_breakdown_ms) as timing:
                 state.chat_timing = timing
                 from backend.services.agent_execution import stream_workflow
                 if state.llm_selection.get("mode") == "team":

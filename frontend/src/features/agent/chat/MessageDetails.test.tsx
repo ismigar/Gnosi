@@ -64,6 +64,27 @@ describe('typed response details', () => {
     await render(boundedTransparencyMetadata({ gauntlet: { status: 'unknown', rounds: 0, finding_count: 0, stop_reason: 'budget' } }), i18n);
     expect(container.textContent).toBe('');
   });
+  it.each(Object.entries({ ca, en, es, fr }))('expands measured preparation stages and restores old replies in %s', async (language, translation) => {
+    const i18n = createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources: { [language]: { translation } } });
+    const timings = boundedTurnMetrics({ setup_ms: 300, model_ms: 1100,
+      setup_breakdown_ms: { capabilities: 50, worker_queue: 250, workflow: 0, unknown_stage: 42 } });
+    await render({ timings: boundedTurnMetrics(timings) }, i18n);
+    const details = container.querySelector('details');
+    expect(details?.open).toBe(false);
+    const summary = details?.querySelector('summary');
+    expect(summary?.textContent).toBe(translation.chat.timing_setup.replace('{{count}}', '300'));
+    await act(async () => { summary?.click(); });
+    expect(details?.open).toBe(true);
+    expect(Array.from(details?.querySelectorAll('li') ?? [], row => row.textContent)).toEqual([
+      translation.chat.setup_stages.worker_queue.replace('{{count}}', '250'),
+      translation.chat.setup_stages.capabilities.replace('{{count}}', '50'),
+    ]);
+    expect(container.textContent).toContain(translation.chat.timing_model.replace('{{count}}', '1100'));
+    await render({ timings: boundedTurnMetrics({ setup_ms: 300 }) }, i18n);
+    expect(container.querySelector('details')).toBeNull();
+    expect(container.textContent).toContain(translation.chat.timing_setup.replace('{{count}}', '300'));
+  });
   it('keeps phase accounting after restoration and does not turn unknown costs into zero', async () => {
     const timings = boundedTurnMetrics({ total_ms: 100, estimated_cost_usd: null, team_usage: {
       usage_complete: false, cost_source: 'unknown', routing: { mode: 'continuation' },

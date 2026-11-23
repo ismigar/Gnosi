@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from backend.services.agent_chat_preparation import preparation_stage, preparation_worker
+
 from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 from backend.services.agent_behavior import resource as behavior_resource
 
-import asyncio
 import logging
 import json
 from dataclasses import dataclass, replace
@@ -122,8 +123,8 @@ async def prepare_profile(
 ) -> ProfileSetup | None:
     """Resolve one current profile without retaining import-time configuration."""
     if prepared_ai_cfg is None:
-        ai_cfg, selected_agent, resolved_runtime = await asyncio.to_thread(
-            dependencies.prepare_agent_runtime, agent_id,
+        ai_cfg, selected_agent, resolved_runtime = await preparation_worker(
+            "capabilities", dependencies.prepare_agent_runtime, agent_id,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )
@@ -137,7 +138,8 @@ async def prepare_profile(
     connector_health: list[Any] = []
     if callable(getattr(mcp_client, "health_snapshot", None)):
         try:
-            connector_health = list(await mcp_client.health_snapshot())
+            with preparation_stage("connectors"):
+                connector_health = list(await mcp_client.health_snapshot())
         except MetadataUnavailable:
             raise
         except Exception as error:  # noqa: BLE001
@@ -151,8 +153,8 @@ async def prepare_profile(
     agent_data["model_strategy"] = {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}
     target_id = str(agent_data.get("id") or "")
     if resolved_runtime is None:
-        resolved_runtime = await asyncio.to_thread(
-            dependencies.resolve_runtime_capabilities, agent_data,
+        resolved_runtime = await preparation_worker(
+            "capabilities", dependencies.resolve_runtime_capabilities, agent_data,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )

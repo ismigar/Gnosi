@@ -172,6 +172,11 @@ def test_chat_cancel_and_reconnect_at_the_http_boundary(tmp_path, monkeypatch, t
                 replay = [json.loads(line) for line in (await client.get(path, params=params)).text.splitlines()]
                 assert replay[-1]["type"] == "done" and replay[-1]["has_response"]
                 assert any(event.get("content") == "Synthetic answer" for event in replay)
+                metrics = next(event for event in replay if event["type"] == "turn_metrics")
+                stages = metrics["setup_breakdown_ms"]
+                assert {"configuration", "vault_context", "session", "workflow", "worker_queue"} <= stages.keys()
+                assert all(isinstance(value, int) and value >= 0 for value in stages.values())
+                assert sum(stages.values()) == metrics["setup_ms"]
                 assert (await client.get(path, params=params, headers={"X-Vault-Id": "other"})).text == ""
             else:
                 assert not calls

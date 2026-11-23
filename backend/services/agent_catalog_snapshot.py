@@ -4,7 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Iterable, Iterator
-from contextlib import contextmanager
+from concurrent.futures import Future
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from functools import cache
 from pathlib import Path
@@ -13,8 +14,10 @@ from typing import TYPE_CHECKING, Any
 from backend.models.agent_skills import CatalogStatus, OriginType, SkillCatalogEntry, SkillDescriptor
 from backend.services.agent_capability_contract import validate_versioned_capability
 from backend.services.agent_catalog_models import ToolRegistration
-from backend.services.agent_team_skill_sources import DiscoveryPhase, ReadPackage, ReadText, chat_sources
-from backend.services.user_skill_store import UserSkillStore
+from backend.services.agent_execution_models import ExecutionScope
+from backend.services.agent_execution_scope import current_scope
+from backend.services.agent_team_skill_sources import ChatSkillSources, DiscoveryPhase, ReadPackage, ReadText, chat_sources
+from backend.services.user_skill_store import USER_SKILL_ID_RE, UserSkillStore
 from backend.utils.metadata_io import read_metadata_text
 
 if TYPE_CHECKING:
@@ -81,6 +84,21 @@ class _SnapshotUserSkills(UserSkillStore):
         super().__init__(vault_path)
         self._loaded: dict[str, SkillDescriptor] = {}
         self.package_reader: ReadPackage | None = None
+        self.capture_sources: ChatSkillSources | None = None
+        self._capture_attempts: set[str] = set()
+
+    def capture_assigned(self, assigned: Iterable[str]) -> None:
+        if self.capture_sources is None:
+            return
+        eligible = dict.fromkeys(key for key in assigned if USER_SKILL_ID_RE.fullmatch(key)
+                                 and key not in self._capture_attempts and key not in self._loaded)
+        if eligible and not self.root.is_symlink() and self._can_group_cloud_reads():
+            self._capture_attempts.update(eligible)
+            self._loaded.update(self.capture_sources.capture_assigned(self, eligible, super()._load_package))
+
+    def _assigned_cloud_reads(self, pending: list[str], cleanup: ExitStack) -> dict[str, Future[SkillDescriptor]]:
+        self.capture_assigned(reversed(pending))
+        return super()._assigned_cloud_reads([key for key in pending if key not in self._loaded], cleanup)
 
     def _load_package(self, package: Path, read_text: ReadText = read_metadata_text) -> SkillDescriptor:
         if self.package_reader is None:
@@ -106,9 +124,14 @@ class RuntimeCatalogSnapshot:
         self._personal: dict[str, SkillCatalogEntry] = {}
         self._views: dict[tuple[str, ...], tuple[dict[str, SkillCatalogEntry], str]] = {}
 
-    def use_personal_sources(self, reader: ReadPackage | None) -> None:
+    def use_personal_sources(self, reader: ReadPackage | None, capture: ChatSkillSources | None = None) -> None:
         if self._user_store is not None:
             self._user_store.package_reader = reader
+            self._user_store.capture_sources = capture if reader is not None else None
+
+    def capture_assigned(self, assigned: Iterable[str]) -> None:
+        if self._user_store is not None:
+            self._user_store.capture_assigned(assigned)
 
     def entries_for(self, assigned: tuple[str, ...]) -> tuple[dict[str, SkillCatalogEntry], str]:
         personal = (
@@ -143,6 +166,15 @@ def read_runtime_catalog(catalog: SkillCatalog, vault_path: Path | None) -> Runt
     return reader(catalog, vault_path) if reader is not None else catalog.runtime_snapshot(vault_path)
 
 
+def capture_roster_sources(vault: Path, profiles: Iterable[dict[str, Any]]) -> None:
+    """Request only the personal assignments of the eligible members supplied by the roster."""
+    reader = _reader.get()
+    if reader is not None and chat_sources.get() is not None:
+        from backend.services.agent_skill_catalog import get_skill_catalog
+        assigned = (str(value or "").strip().lower() for profile in profiles for value in profile.get("skill_ids") or [])
+        reader(get_skill_catalog(), vault).capture_assigned(assigned)
+
+
 @contextmanager
 def team_metadata_catalog(*, personal_phase: DiscoveryPhase | None = None) -> Iterator[None]:
     """Share underlying providers only while reading member metadata in this call."""
@@ -154,14 +186,18 @@ def team_metadata_catalog(*, personal_phase: DiscoveryPhase | None = None) -> It
     sources = chat_sources.get() if personal_phase else None
 
     @cache
-    def cached(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
+    def cached(catalog: SkillCatalog, vault_path: Path | None, _scope: ExecutionScope | None) -> RuntimeCatalogSnapshot:
         result = catalog.runtime_snapshot(vault_path)
         if sources is not None and personal_phase is not None and vault_path is not None:
-            result.use_personal_sources(sources.reader(vault_path, personal_phase))
+            result.use_personal_sources(sources.reader(vault_path, personal_phase),
+                                        sources if personal_phase == "capture" else None)
         return result
 
     def snapshot(catalog: SkillCatalog, vault_path: Path | None) -> RuntimeCatalogSnapshot:
-        return cached(catalog, vault_path) if active else catalog.runtime_snapshot(vault_path)
+        if not active:
+            return catalog.runtime_snapshot(vault_path)
+        scope = current_scope() if sources is not None and vault_path is not None else None
+        return cached(catalog, vault_path, scope)
 
     token = _reader.set(snapshot)
     try:

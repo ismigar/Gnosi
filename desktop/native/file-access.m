@@ -56,7 +56,8 @@ static int writeAll(int target, const void *data, size_t length) {
     return 0;
 }
 
-static int copyContents(int source, int target, const struct stat *before, struct stat *after, BOOL bounded) {
+static int copyContents(int source, int target, NSMutableData *capture,
+                        const struct stat *before, struct stat *after, BOOL bounded) {
     char buffer[65536];
     off_t total = 0;
     for (;;) {
@@ -68,6 +69,7 @@ static int copyContents(int source, int target, const struct stat *before, struc
         if (count == -1) return posixStatus(errno);
         if (!count) break;
         if (count > before->st_size - total) return Pending;
+        if (capture) [capture appendBytes:buffer length:(NSUInteger)count];
         if (target >= 0) {
             int result = writeAll(target, buffer, (size_t)count);
             if (result) return result;
@@ -149,7 +151,7 @@ static BOOL validSkillRevision(id item) {
 }
 
 static int readGranted(NSURL *granted, NSString *name, int directory, const struct stat *entry,
-                       int target, NSArray<NSNumber *> *revision, struct stat *completed) {
+                       int target, NSMutableData *capture, NSArray<NSNumber *> *revision, struct stat *completed) {
     if (!granted.isFileURL) return Unavailable;
     int fd = open(granted.fileSystemRepresentation, O_RDONLY | O_NOFOLLOW_ANY | O_NONBLOCK);
     if (fd < 0) return posixStatus(errno);
@@ -162,7 +164,7 @@ static int readGranted(NSURL *granted, NSString *name, int directory, const stru
     else if (revision && (!admittedSource(revision, name, &opened) || !sameRevision(entry, &opened))) status = Pending;
     else if (opened.st_size == 0 && (entry->st_size > 0 || (opened.st_flags & SF_DATALESS))) status = Pending;
     else {
-        status = copyContents(fd, target, &opened, completed, revision != nil);
+        status = copyContents(fd, target, capture, &opened, completed, revision != nil);
         if (!status && revision && !admittedSource(revision, name, completed)) status = Pending;
     }
     if (close(fd) != 0 && !status) status = posixStatus(errno);
@@ -182,13 +184,13 @@ static int coordinateRead(const char *file, int target, struct stat *completed) 
     __block int result = Unavailable;
     [coordinator coordinateReadingItemAtURL:[NSURL fileURLWithPath:path] options:0 error:&error byAccessor:^(NSURL *granted) {
         // File Provider may replace a placeholder while satisfying an ordinary read.
-        result = readGranted(granted, path.lastPathComponent, directory, &entry, target, nil, completed);
+        result = readGranted(granted, path.lastPathComponent, directory, &entry, target, nil, nil, completed);
     }];
     if (close(directory) != 0 && !result) result = posixStatus(errno);
     return error ? coordinationStatus(error) : result;
 }
 
-enum { MaxSkillSources = 256, MaxRequestBytes = MaxSkillSources * (6 * PATH_MAX + 192) };
+enum { MaxSkillSources = 256, MaxCaptureSources = 16, MaxSourceRequest = 6 * PATH_MAX + 192 };
 
 static NSString *skillSourceRoot(id item) {
     if (![item isKindOfClass:[NSString class]]) return nil;
@@ -210,20 +212,14 @@ static NSString *skillSourceRoot(id item) {
 }
 
 typedef struct { int directory; struct stat before, completed; } SkillSource;
+static BOOL isSnapshotTarget(int target);
 
-static int verifySkillSources(void) {
-    NSMutableData *data = [NSMutableData data];
-    char chunk[8192];
-    for (;;) {
-        ssize_t count = read(STDIN_FILENO, chunk, sizeof(chunk));
-        if (count < 0 && errno == EINTR) continue;
-        if (count < 0) return posixStatus(errno);
-        if (!count) break;
-        if (data.length + (NSUInteger)count > MaxRequestBytes) return 64;
-        [data appendBytes:chunk length:(NSUInteger)count];
-    }
+static int coordinateSkillSources(NSData *data, int target, NSArray **verified) {
+    BOOL capture = target >= 0;
+    if (capture && !isSnapshotTarget(target)) return 64;
     NSArray *request = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
-    if (![request isKindOfClass:[NSArray class]] || !request.count || request.count > MaxSkillSources) return 64;
+    NSUInteger limit = capture ? MaxCaptureSources : MaxSkillSources;
+    if (![request isKindOfClass:[NSArray class]] || !request.count || request.count > limit) return 64;
     NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:request.count];
     NSMutableArray<NSArray<NSNumber *> *> *revisions = [NSMutableArray arrayWithCapacity:request.count];
     NSMutableArray<NSFileAccessIntent *> *intents = [NSMutableArray arrayWithCapacity:request.count];
@@ -247,6 +243,8 @@ static int verifySkillSources(void) {
     }
     SkillSource *sources = calloc(paths.count, sizeof(*sources));
     if (!sources) return Unavailable;
+    // Keep bytes private until every source and directory passes the final check under the grant.
+    NSMutableData *contents = capture ? [NSMutableData dataWithCapacity:total] : nil;
     NSUInteger opened = 0;
     __block int status = 0;
     for (NSString *path in paths) {
@@ -264,7 +262,7 @@ static int verifySkillSources(void) {
             for (NSUInteger i = 0; !status && i < paths.count; ++i) {
                 SkillSource *source = &sources[i];
                 status = readGranted(intents[i].URL, paths[i].lastPathComponent, source->directory,
-                                     &source->before, -1, revisions[i], &source->completed);
+                                     &source->before, -1, contents, revisions[i], &source->completed);
             }
             // Reopen every authorized parent while the grouped grant is held. A rename,
             // permission change, or uncoordinated write to an earlier source invalidates the set.
@@ -290,8 +288,33 @@ static int verifySkillSources(void) {
         for (NSUInteger i = 0; i < paths.count; ++i) [records addObject:statFields(&sources[i].completed)];
     free(sources);
     if (status) return status;
+    if (capture) {
+        if (contents.length != total) return Pending;
+        status = writeAll(target, contents.bytes, contents.length);
+        if (status) return status;
+    }
+    *verified = records;
+    return 0;
+}
+
+static int skillSourcesCommand(BOOL capture) {
+    NSMutableData *data = [NSMutableData data];
+    char chunk[8192];
+    NSUInteger limit = (capture ? MaxCaptureSources : MaxSkillSources) * MaxSourceRequest;
+    for (;;) {
+        ssize_t count = read(STDIN_FILENO, chunk, sizeof(chunk));
+        if (count < 0 && errno == EINTR) continue;
+        if (count < 0) return posixStatus(errno);
+        if (!count) break;
+        if (data.length + (NSUInteger)count > limit) return 64;
+        [data appendBytes:chunk length:(NSUInteger)count];
+    }
+    NSArray *records = nil;
+    int status = coordinateSkillSources(data, capture ? STDOUT_FILENO : -1, &records);
+    if (status) return status;
     NSData *reply = [NSJSONSerialization dataWithJSONObject:records options:0 error:NULL];
-    return reply ? writeAll(STDOUT_FILENO, reply.bytes, reply.length) : Unavailable;
+    if (!reply) return Unavailable;
+    return writeAll(capture ? STDERR_FILENO : STDOUT_FILENO, reply.bytes, reply.length);
 }
 
 // The protocol uses ancillary data only on the one-byte request marker. Also
@@ -352,22 +375,41 @@ static BOOL isSnapshotTarget(int target) {
         info.st_size == 0 && lseek(target, 0, SEEK_CUR) == 0;
 }
 
+static NSData *receiveSkillRequest(int channel) {
+    uint32_t encoded;
+    if (!receiveAll(channel, (char *)&encoded, sizeof(encoded))) return nil;
+    uint32_t size = ntohl(encoded);
+    if (!size || size > MaxCaptureSources * MaxSourceRequest) return nil;
+    NSMutableData *data = [NSMutableData dataWithLength:size];
+    return receiveAll(channel, data.mutableBytes, size) ? data : nil;
+}
+
 static int serveRequests(int channel) {
     if (writeAll(channel, "GNS1", 4)) return Unavailable;
     for (;;) {
         @autoreleasepool {
-            char marker, path[PATH_MAX + 1];
+            char marker;
             int target = -1;
             ssize_t count = receiveChunk(channel, &marker, 1, &target);
             if (count <= 0) return count == 0 ? 0 : 64;
-            if (marker != 'R' || !isSnapshotTarget(target) || !receivePath(channel, path)) {
-                close(target);
-                return 64;
+            NSArray *fields = nil;
+            int status = 64;
+            if (isSnapshotTarget(target)) {
+                if (marker == 'R') {
+                    char path[PATH_MAX + 1];
+                    if (receivePath(channel, path)) {
+                        struct stat completed;
+                        status = coordinateRead(path, target, &completed);
+                        if (!status) fields = statFields(&completed);
+                    }
+                } else if (marker == 'B') {
+                    NSData *request = receiveSkillRequest(channel);
+                    if (request) status = coordinateSkillSources(request, target, &fields);
+                }
             }
-            struct stat completed;
-            int status = coordinateRead(path, target, &completed);
             close(target);
-            NSArray *record = @[@(status), status ? [NSNull null] : statFields(&completed)];
+            if (status == 64) return 64;
+            NSArray *record = @[@(status), fields ?: [NSNull null]];
             NSMutableData *reply = [[NSJSONSerialization dataWithJSONObject:record options:0 error:NULL] mutableCopy];
             if (!reply) return Unavailable;
             [reply appendBytes:"\n" length:1];
@@ -405,7 +447,8 @@ static int runWorker(int channel) {
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
         if (argc == 2 && strcmp(argv[1], "--worker") == 0) return runWorker(STDIN_FILENO);
-        if (argc == 2 && strcmp(argv[1], "--verify-skill-sources") == 0) return verifySkillSources();
+        if (argc == 2 && strcmp(argv[1], "--verify-skill-sources") == 0) return skillSourcesCommand(NO);
+        if (argc == 2 && strcmp(argv[1], "--read-skill-sources") == 0) return skillSourcesCommand(YES);
         BOOL snapshot = argc == 3 && strcmp(argv[2], "--snapshot") == 0;
         if ((argc != 2 && !snapshot) || argv[1][0] != '/') return 64;
         struct stat completed;

@@ -6556,6 +6556,18 @@
     },
     "timing_total": "Total del servidor: {{count}} ms",
     "timing_setup": "Preparación: {{count}} ms",
+    "setup_stages": {
+      "worker_queue": "Espera en la cola de trabajo · {{count}} ms",
+      "event_loop": "Espera para reanudar el chat · {{count}} ms",
+      "configuration": "Lectura de la configuración · {{count}} ms",
+      "session": "Apertura del turno · {{count}} ms",
+      "vault_context": "Vault y contexto · {{count}} ms",
+      "connectors": "Conectores · {{count}} ms",
+      "capabilities": "Perfil y procedimientos · {{count}} ms",
+      "team": "Preparación del equipo · {{count}} ms",
+      "workflow": "Creación del flujo de trabajo · {{count}} ms",
+      "other": "Resto de la preparación · {{count}} ms"
+    },
     "timing_routing": "Enrutamiento: {{count}} ms",
     "timing_tools": "Herramientas: {{count}} ms",
     "timing_model": "Modelo: {{count}} ms",

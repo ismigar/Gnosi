@@ -19,7 +19,7 @@ from langgraph.graph import END, START, StateGraph
 
 from backend.services.agent_behavior import resource, revision
 from backend.services.agent_behavior_bindings import canonical_id, runtime_skill_ids
-from backend.services.agent_catalog_snapshot import team_metadata_catalog
+from backend.services.agent_catalog_snapshot import capture_roster_sources, team_metadata_catalog
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, ExecutionScope
 from backend.services.agent_team_models import TEAM_SKILL, AgentTeam, TeamPlan, TeamTask, TemporaryAgentSpec
 from backend.services.agent_team_policy import select_executor, team_for
@@ -658,11 +658,15 @@ def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) ->
         config = getattr(profile, "ai_cfg", None)
         if members and (config is None or "agents" not in config):
             config = _config()
+        eligible = []
         for member in members:
             try:
-                member_profile = _profile(member.agent_id, config=config)
+                eligible.append(_profile(member.agent_id, config=config))
             except PermissionError:
                 continue
+        if eligible:
+            capture_roster_sources(Path(scope.vault_path), eligible)
+        for member_profile in eligible:
             runtime = _runtime(member_profile, scope)
             entries, _ = _runtime_tool_metadata(runtime)
             for item in entries:

@@ -155,20 +155,23 @@ class UserSkillStore:
                 raise UserSkillNotFoundError(f"skill not found: {skill_id}")
             return self._load_package(package)
 
+    def _can_group_cloud_reads(self) -> bool:
+        if not metadata_io.is_native_vault_file(self.root):
+            return False
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return True
+        # Synchronous event-loop callers keep their nonblocking metadata handoff.
+        return False
+
     def _assigned_cloud_reads(
         self, pending: list[str], cleanup: ExitStack,
     ) -> dict[str, Future[SkillDescriptor]]:
         assigned = dict.fromkeys(
             identifier for identifier in reversed(pending) if USER_SKILL_ID_RE.fullmatch(identifier)
         )
-        if len(assigned) < 2 or not metadata_io.is_native_vault_file(self.root):
-            return {}
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            pass
-        else:
-            # Synchronous event-loop callers keep their nonblocking metadata handoff.
+        if len(assigned) < 2 or not self._can_group_cloud_reads():
             return {}
         # The native coordinator has two foreground workers. Read independent
         # assignments together, keeping each package's validation and lock.

@@ -43,6 +43,7 @@ from backend.domains.agent.routes.shared import (
 )
 from backend.domains.agent.routes.state import cfg
 from backend.domains.agent.routes.workflow import get_agent_workflow
+from backend.services.agent_chat_preparation import ChatPreparation, current_preparation, preparation_worker
 from backend.services.agent_team_skill_sources import bind_chat_skill_sources
 from backend.services.agent_cancellation import (
     bind_stream as bind_agent_stream,
@@ -87,8 +88,8 @@ async def _resolve_notebook_turn(
     from backend.services import notebook_service
 
     primary_notebook_id = str(chat_req.notebook_id or notebook_refs[0].ref).strip()
-    notebook_turn = await asyncio.to_thread(
-        notebook_service.resolve_chat_contexts,
+    notebook_turn = await preparation_worker(
+        "vault_context", notebook_service.resolve_chat_contexts,
         primary_notebook_id,
         [item.model_dump(mode="python") for item in notebook_refs],
         workspace_context,
@@ -234,6 +235,7 @@ def _setup_error_response(
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
+    setup_breakdown_ms: dict[str, int],
     assistant_profile: dict[str, str] | None = None,
 ) -> StreamingResponse:
     if isinstance(error, asyncio.CancelledError):
@@ -257,6 +259,7 @@ def _setup_error_response(
             "type": "error", "code": error_code,
             "content": message, "content_language": language,
             "retryable": recovery["retryable"], "recovery": recovery,
+            "setup_ms": sum(setup_breakdown_ms.values()), "setup_breakdown_ms": setup_breakdown_ms,
         }) + "\n"
         yield json.dumps({"type": "done", "has_response": False, "message_count": 0}) + "\n"
 
@@ -288,6 +291,8 @@ async def chat_endpoint(
     command_selected = False
     assistant_profile = None
     request_started_at = time.monotonic()
+    preparation = ChatPreparation(request_started_at)
+    preparation_token = current_preparation.set(preparation)
     cancel_token = ""
     trace_id = uuid.uuid4().hex
     turn_claimed = False
@@ -307,7 +312,7 @@ async def chat_endpoint(
         # Checkpoint identity stays stable when the conversation changes profile.
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
-        conversation_ai = await asyncio.to_thread(ensure_migrated)
+        conversation_ai = await preparation_worker("configuration", ensure_migrated)
         profiles = conversation_ai.get("agents", [])
         from backend.services.agent_commands import resolve_command
         try:
@@ -325,22 +330,24 @@ async def chat_endpoint(
         if not assistant_profile:
             raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
-        vault, vault_scope = _vault_scope()
+        with preparation.stage("vault_context"):
+            vault, vault_scope = _vault_scope()
         notebook_turn, chat_principal, session_id = await _resolve_notebook_turn(
             chat_req,
             workspace_context,
             session_id,
         )
         if chat_req.turn_id:
-            turn_claimed = claim_turn(
-                vault_scope=vault_scope,
-                workspace_id=workspace_context.workspace_id,
-                user_id=chat_principal,
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=chat_req.turn_id,
-                trace_id=trace_id,
-            )
+            with preparation.stage("session"):
+                turn_claimed = claim_turn(
+                    vault_scope=vault_scope,
+                    workspace_id=workspace_context.workspace_id,
+                    user_id=chat_principal,
+                    agent_id=agent_id,
+                    session_id=session_id,
+                    turn_id=chat_req.turn_id,
+                    trace_id=trace_id,
+                )
             if not turn_claimed:
                 raise HTTPException(
                     status_code=409,
@@ -348,8 +355,8 @@ async def chat_endpoint(
                 )
 
         # Attachments can require a coordinated file download before model selection.
-        user_content, untrusted_context_flags = await asyncio.to_thread(
-            _chat_user_content, chat_req,
+        user_content, untrusted_context_flags = await preparation_worker(
+            "vault_context", _chat_user_content, chat_req,
             vault=vault,
             vault_scope=vault_scope,
             workspace_context=workspace_context,
@@ -363,8 +370,8 @@ async def chat_endpoint(
         if not notebook_turn:
             from backend.domains.agent.routes.learning_context import prepare_learning_context
 
-            project_text, project_refs, learning_project_id, learning_memory = await asyncio.to_thread(
-                prepare_learning_context, workspace_context, agent_id, session_id,
+            project_text, project_refs, learning_project_id, learning_memory = await preparation_worker(
+                "vault_context", prepare_learning_context, workspace_context, agent_id, session_id,
                 chat_req.turn_id or "", chat_req.message, target_profile_id=profile_id,
             )
             user_content += project_text
@@ -389,7 +396,7 @@ async def chat_endpoint(
         # Share discovery between the principal and its roster only while preparing this request.
         team = (addressed_profile or {}).get("team") or {}
         principal_team = team.get("enabled") and profile_id == conversation_ai.get("active_agent_id") and not command_selected
-        with team_metadata_catalog(personal_phase="capture" if principal_team else None):
+        with preparation.stage("workflow"), team_metadata_catalog(personal_phase="capture" if principal_team else None):
             workflow, llm_selection = await get_agent_workflow(
                 request,
                 profile_id,
@@ -403,6 +410,7 @@ async def chat_endpoint(
                 **workflow_options,
             )
         workflow_ready_at = time.monotonic()
+        setup_breakdown_ms = preparation.finish(workflow_ready_at)
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -505,6 +513,7 @@ async def chat_endpoint(
                 assistant_profile=assistant_profile,
                 request_started_at=request_started_at,
                 workflow_ready_at=workflow_ready_at,
+                setup_breakdown_ms=setup_breakdown_ms,
                 llm_selection=llm_selection,
                 turn_plan=turn_plan,
                 trace_id=trace_id,
@@ -540,6 +549,7 @@ async def chat_endpoint(
         )
 
     except (Exception, asyncio.CancelledError) as error:
+        setup_breakdown_ms = preparation.finish(time.monotonic())
         if isinstance(error, asyncio.CancelledError):
             cancel_agent_turn(cancel_token)
         await _finish_failed_turn(
@@ -560,5 +570,8 @@ async def chat_endpoint(
             workspace_context=workspace_context,
             agent_id=agent_id,
             session_id=chat_req.session_id.strip(),
+            setup_breakdown_ms=setup_breakdown_ms,
             assistant_profile=assistant_profile,
         )
+    finally:
+        current_preparation.reset(preparation_token)

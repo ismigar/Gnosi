@@ -3,13 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { build } = require('./scripts/file-access-build.cjs');
 
 test('verify coordinated personal skill sources on macOS', { skip: process.platform !== 'darwin' }, async (t) => {
   const temp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'gnosi-skill-access-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const helper = build(path.join(temp, 'helper'));
+  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', helper]);
+  execFileSync('/usr/bin/codesign', ['--verify', '--all-architectures', '--strict', helper]);
   const root = path.join(temp, 'vault', '.gnosi', 'agent', 'skills');
   const makeFile = (parent, name, text) => {
     fs.mkdirSync(parent, { recursive: true });
@@ -24,17 +26,56 @@ test('verify coordinated personal skill sources on macOS', { skip: process.platf
     return [info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs, info.mode, 0n];
   };
   const proof = (file) => [file, revision(file)];
+  const encode = (inputs) => JSON.stringify(inputs, (_, v) => typeof v === 'bigint' ? JSON.rawJSON(v.toString()) : v);
   const invoke = (inputs) => spawnSync(helper, ['--verify-skill-sources'], {
-    input: JSON.stringify(inputs, (_, v) => typeof v === 'bigint' ? JSON.rawJSON(v.toString()) : v),
-    encoding: 'utf8', timeout: 15_000,
+    input: encode(inputs), encoding: 'utf8', timeout: 15_000,
   });
+  const capture = (inputs) => {
+    const file = path.join(temp, 'private-snapshot');
+    const target = fs.openSync(file, 'wx+', 0o600);
+    try {
+      const result = spawnSync(helper, ['--read-skill-sources'], {
+        input: encode(inputs), stdio: ['pipe', target, 'pipe'], timeout: 15_000,
+      });
+      assert.ifError(result.error);
+      return { status: result.status, fields: result.stderr.toString('utf8'), bytes: fs.readFileSync(file) };
+    } finally {
+      fs.closeSync(target);
+      fs.unlinkSync(file);
+    }
+  };
   const assertRejected = (paths) => {
     const result = invoke(paths);
     assert.ifError(result.error);
     assert.notEqual(result.status, 0);
     assert.equal(result.stdout, '');
+    const rejected = capture(paths);
+    assert.notEqual(rejected.status, 0);
+    assert.equal(rejected.bytes.length, 0);
+    assert.equal(rejected.fields, '');
     return result.status;
   };
+
+  await t.test('copies exact bytes in request order to one private descriptor, with fresh stats', () => {
+    const binary = makeFile(path.join(root, 'user.binary'), 'SKILL.md', Buffer.from([0, 0xff, 13, 10]));
+    const empty = makeFile(path.dirname(binary), 'skill.yaml', '');
+    const files = [b, empty, binary, a];
+    const result = capture(files.map(proof));
+    assert.equal(result.status, 0);
+    assert.deepEqual(result.bytes, Buffer.concat(files.map((file) => fs.readFileSync(file))));
+    const records = JSON.parse(result.fields);
+    assert.deepEqual(records.map((row) => [row[1], row[6]]), files.map((file) => {
+      const stat = fs.statSync(file);
+      return [stat.ino, stat.size];
+    }));
+    assert.equal(capture(Array(16).fill(proof(a))).status, 0);
+    const oversized = capture(Array(17).fill(proof(a)));
+    assert.equal(oversized.status, 64);
+    assert.equal(oversized.bytes.length, 0);
+    const pipe = spawnSync(helper, ['--read-skill-sources'], { input: encode(files.map(proof)), timeout: 15_000 });
+    assert.equal(pipe.status, 64);
+    assert.equal(pipe.stdout.length, 0);
+  });
 
   await t.test('returns complete descriptor stamps in request order, through the supported maximum', () => {
     const paths = Array.from({ length: 256 }, (_, i) => i % 2 ? a : b);

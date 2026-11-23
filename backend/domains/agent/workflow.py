@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from backend.services.agent_behavior import resource as behavior_resource
+from backend.services.agent_chat_preparation import preparation_worker
 
-import asyncio
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
@@ -212,14 +212,14 @@ async def create_agent_workflow(
                 profile = replace(profile, agent_data={**profile.agent_data, "context_refs": refs})
     if not operation_mode and profile.target_id == profile.ai_cfg.get("active_agent_id"):
         from backend.services.agent_team_runtime import build_team_workflow
-        coordinated = await asyncio.to_thread(build_team_workflow, profile, operation_mode=False, original=user_message)
+        coordinated = await preparation_worker("team", build_team_workflow, profile, operation_mode=False, original=user_message)
         if coordinated is not None:
             return coordinated
     from backend.domains.agent.team_help import optional_team_help
     team_help = (optional_team_help(profile.agent_data, operation_mode=operation_mode)
                  if not operation_mode or operation_team_help else None)
-    model, failure_metadata = await asyncio.to_thread(
-        resolve_model,
+    model, failure_metadata = await preparation_worker(
+        "workflow", resolve_model,
         profile,
         llm_mode=llm_mode,
         llm_provider=llm_provider,

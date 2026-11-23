@@ -193,11 +193,13 @@ async def stream_agent_events(
     turn_claimed: bool,
     chat_principal: str,
     preferred_language: str = "",
+    setup_breakdown_ms: dict[str, int] | None = None,
     assistant_profile: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     state = AgentStreamState(
         request_started_at=request_started_at,
         workflow_ready_at=workflow_ready_at,
+        setup_breakdown_ms=setup_breakdown_ms,
         llm_selection=llm_selection,
         turn_plan=turn_plan,
         trace_id=trace_id,
