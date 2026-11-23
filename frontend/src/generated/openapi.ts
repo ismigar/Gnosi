@@ -19820,6 +19820,10 @@ export interface components {
         };
         /** LlmWikiBudgetResponse */
         LlmWikiBudgetResponse: {
+            /** Additional Remaining Usd */
+            additional_remaining_usd?: number | null;
+            /** Authorized Limit Usd */
+            authorized_limit_usd?: number | null;
             /** Id */
             id: string;
             /** Limit Usd */

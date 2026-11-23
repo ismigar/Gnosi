@@ -596,6 +596,6 @@ A rejected unchanged replacement may retain its validated unique original anchor
 
 Citation-key indexing checks known cached table ownership before opening keyless files. Unrelated task or note tables do not trigger cloud file hydration while saving a reference. Sparse metadata and reference-table files retain the existing frontmatter fallback, and an unconfigured reference table retains legacy unscoped behavior.
 
-The processing dialog shows the shared 5 USD book limit in the selected display currency. It deducts previous charges and reservations for this resource, including earlier processing attempts. A book with no available budget remains pending with its saved passages.
+The processing dialog shows the book's spending limit in the selected display currency. The default is 5 USD. When the owner authorizes a local exception for one existing book, the dialog uses its approved cumulative ceiling and remaining additional allowance. It deducts previous charges and reservations for this resource, including earlier processing attempts. A book with no available budget remains pending with its saved passages.
 
 Each reviewer decision belongs to one passage. Gnosi saves each new finding before reserving the cost of a correction. A malformed decision leaves its valid siblings available. On resume, the reviewer must address every saved finding for the passage, and Gnosi verifies the assessment quotation against the PDF before synthesis.
