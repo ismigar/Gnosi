@@ -102,6 +102,7 @@ def test_semantic_preflight_does_not_prepare_the_unused_legacy_workflow(monkeypa
 
 
 def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):
+    monkeypatch.setattr(estimate.llm_wiki_storage, "local_root", lambda: tmp_path)
     from backend.agent import model_catalog
     origin = finalize_origin({'kind':'text','label':'Book','input_order':0,
             'segments':[{'text':f'Qualified argument {i}.', 'locator':{'section':str(i)}} for i in range(20)]})

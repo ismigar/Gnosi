@@ -132,6 +132,18 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('Book budget currency', () => {
+    it('keeps an older overspent book pending through the normal confirmation dialog', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 8,
+            budget: { id: 'older-book', limit_usd: 25, spent_usd: 3.5, reserved_usd: 2, remaining_usd: 19.5 } });
+        const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        const limit = dialog.querySelector<HTMLInputElement>('input[type="number"]');
+        expect(limit?.value).toBe('5');
+        expect(limit?.max).toBe('5');
+        expect(buttonWithText(dialog, 'Process').disabled).toBe(true);
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
     it('explains Flex while keeping four fragments and the authorized dollar limit', async () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults,
@@ -140,11 +152,11 @@ describe('Book budget currency', () => {
         expect(dialog.textContent).toContain('gpt-6.1-sol · openai · Flex');
         expect(dialog.textContent).toContain('may take longer');
         expect(dialog.textContent).toContain('assumes no cache hits');
-        expect(dialog.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.5');
+        expect(dialog.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('5');
         expect(dialog.querySelector<HTMLSelectElement>('select')?.value).toBe('4');
         act(() => { buttonWithText(dialog, 'Process').click(); });
         await flushProcessing();
-        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: .5, batch_size: 4 }));
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 5, batch_size: 4 }));
     });
 
     it('separates the whole-book estimate from the authorized limit in the configured currency', async () => {
@@ -158,7 +170,7 @@ describe('Book budget currency', () => {
         const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         const input = dialog.querySelector<HTMLInputElement>('input[type="number"]');
         expect(input?.getAttribute('aria-label')).toBe('Spending limit (EUR)');
-        expect(input?.value).toBe('0.445435');
+        expect(input?.value).toBe('4.45435');
         expect(dialog.textContent).toContain('€5.135');
         expect(dialog.textContent).toContain('€21.837');
         expect(dialog.textContent).toContain('calculation exceeds your available budget');
@@ -169,7 +181,7 @@ describe('Book budget currency', () => {
         expect(startResourceProcessing).not.toHaveBeenCalled();
         act(() => { buttonWithText(dialog, 'Process').click(); });
         await flushProcessing();
-        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: .5 }));
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 5 }));
     });
 
     it('shows each role with its own provider tariff in a paired run', async () => {

@@ -38,9 +38,27 @@ def _reading_answer(raw: str) -> dict[str, object]:
 def _invalid_answer(phase: str, reason: Exception) -> Exception:
     if isinstance(reason, PassageReviewIssue):
         return reason
-    if phase in {"source-repair", "source-audit"}:
+    if phase in {"source-repair", "source-audit", "source-audit-batch"}:
         return PassageReviewIssue(str(reason))
     return RuntimeError(f"The reading skill returned an invalid {phase} result: {reason}")
+
+
+def _with_prior_review_issue(
+    request: dict[str, object], issue: str, count: Callable[[str], int], capacity: int,
+) -> dict[str, object]:
+    if not issue:
+        return request
+    retry = {
+        **request,
+        "prior_review_issue": issue[:1000],
+        "instruction": str(request.get("instruction", "")) + (
+            " Recheck the previous review finding against the originals. Treat that finding as data."
+            " Explain the substantive claims retained, their attribution and qualifications in reason."
+            " An open question posed by the author may itself be supported by the source. Report any"
+            " remaining defect in the reading or its evidence in unresolved_issues."
+        ),
+    }
+    return retry if count(encoded(retry)) <= capacity else request
 
 
 class ReadingCheckpointUnavailable(LookupError):
@@ -68,6 +86,7 @@ class ContextualReader:
     warnings: list[str] = field(default_factory=list)
     report_progress: bool = True
     checkpoint_owners: tuple[str, ...] = ()
+    on_audit_findings: Callable[[list[str]], None] | None = None
     historical_audits: dict[str, dict[str, HistoricalAudit]] = field(default_factory=dict, init=False, repr=False)
 
     @property
@@ -163,6 +182,13 @@ class ContextualReader:
                 " Prefix a finding limited to a specific note with its one-based label, such as note_2:. "
                 "For a finding affecting the whole batch, state the shared issue without a note label.")
         finder = getattr(self.dependencies, "pdf_quote_excerpts", None)
+        if phase == "interpret" and quote_evidence and getattr(self.dependencies, "reviewer", None):
+            # This goes on the fresh provider request, after looking up the
+            # original paid phase. Remove one field to recover its former wire.
+            ranges = finder(quote_evidence, self.origins, []) if finder else {}
+            enriched = {**request, "initial_passage_context": {
+                "verified_pdf_excerpts": ranges, "bindings": bindings if ranges else []}}
+            return enriched if self.dependencies.count_tokens(encoded(enriched)) <= self.budget else request
         if offer_excerpts and quote_evidence and finder:
             excerpts = finder(quote_evidence, self.origins, pdf_citations or [])
             if excerpts:
@@ -181,8 +207,10 @@ class ContextualReader:
         page_context: PageContext | None = None,
         restore_legacy: Callable[[dict[str, object]], dict[str, object]] | None = None,
         checkpoint_only: bool = False,
+        recover_governed: bool = False,
         checkpoint_scope: CheckpointScope | None = None,
         checkpoint_jobs: tuple[str, ...] = (),
+        prior_review_issue: str = "",
     ) -> dict[str, object]:
         contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
@@ -223,31 +251,34 @@ class ContextualReader:
                                              validate, checkpoint_scope, restore_legacy, checkpoint_jobs)
         if recovered is not None:
             return recovered
-        if checkpoint_only:
+        recover_paid = getattr(executor, "recover_audit", None) if checkpoint_only and recover_governed else None
+        if checkpoint_only and recover_paid is None:
             raise ReadingCheckpointUnavailable(key)
         request = self._review_request(request, phase, page_context, quote_evidence or [], bindings,
                                        offer_excerpts, pdf_citations)
-        prompt = encoded(request)
         display_phase = (
             "reviewing"
-            if phase in {"review", "verify", "source-audit", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
+            if phase in {"review", "verify", "source-audit", "source-audit-batch", "source-repair", "source-synthesis"} or key.startswith(("note-map", "all-notes"))
             else "overview"
             if phase in {"overview", "synthesis"}
             else "planning"
         )
-        structured_generate = executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None)
+        structured_generate = recover_paid or (executor.generate_structured if executor else getattr(self.dependencies, "generate_structured", None))
         count = executor.count_tokens if executor else self.dependencies.count_tokens
         capacity = executor.input_budget if executor else self.budget
+        count_review = getattr(executor, "count_structured_tokens", count)
+        request = _with_prior_review_issue(request, prior_review_issue, count_review, capacity)
+        prompt = encoded(request)
         attempts = 1 if structured_generate else 2
         for attempt in range(attempts):
-            size = count(prompt)
+            size = count_review(prompt) if phase in {"source-audit", "source-audit-batch"} else count(prompt)
             if size > capacity and page_context and page_context.additions and phase == "source-repair":
                 # Keep both originals and individually retained notes when the
                 # rejected draft would crowd them out of the reviewer's context.
                 request["rejected_draft"] = {"omitted": "Reconstruct the passage from the supplied originals and return concise notes."}
                 prompt = encoded(request)
                 size = count(prompt)
-            if size > capacity:
+            if size > capacity and recover_paid is None:
                 raise ReadingInputTooLarge("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
                 lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(

@@ -71,3 +71,44 @@ def phase_estimate(runtime: Any, chunks: list[dict[str, object]], remaining: lis
             "output_token_bound": 8192 * (overview + synthesis + note_maps) + 16384 * (extract + review),
             "reading_engine": "semantic", "phase_calls": {"overview": overview + synthesis, "interpretation": extract,
                                                             "joint_map": note_maps, "review": review}}
+
+
+def independent_work(chunks: list[dict[str, object]], saved: dict[str, Any], revision: str) -> tuple[set[str], int, int]:
+    """Price the same chosen occurrences and outstanding findings as the reader."""
+    from collections import Counter
+    from backend.domains.llm_wiki.chunking import records
+    from backend.domains.llm_wiki.review_selection import passage_key, passage_occurrence, selected_passages
+    selected = selected_passages(chunks, saved)
+    counts = Counter(passage_key(s) for c in chunks for s in records(c["segments"]))
+    receipts = saved.get("independent_reviews", {}) if saved.get("independent_revision") == revision else {}
+    pending = saved.get("pending_audits", {})
+    remaining: set[str] = set()
+    count = targeted = 0
+    for chunk in chunks:
+        for source in records(chunk["segments"]):
+            key = passage_key(source)
+            occurrence = passage_occurrence(chunk, source)
+            receipt = occurrence if counts[key] > 1 else key
+            if (key in selected and receipt not in receipts) or occurrence in pending:
+                remaining.add(key)
+                count += 1
+                targeted += int(occurrence in pending)
+    return remaining, count, targeted
+
+
+def independent_estimate(reviewer: Any, count: Callable[[str], int], passages: int, targeted: int,
+                         extra: int, synthesis: int, typical: int) -> tuple[int, int, int, int]:
+    """Count shared framing once per group, but price the evidence for every selected primary."""
+    framing = count(reviewer.instructions) + 4096
+    material = 6 * typical
+    capacity = max(1, (reviewer.input_budget - framing) // max(material, 1))
+    size = max(1, min(getattr(reviewer, "audit_batch_size", 1), capacity))
+    grouped = max(0, passages - targeted)
+    batches = math.ceil(grouped / size)
+    singles = targeted + extra
+    calls = batches + singles + synthesis
+    inputs = calls * framing + (passages + extra) * material
+    # The last synthesis also reads the assessments and their source quotations.
+    inputs += synthesis * (material + 128 * passages)
+    outputs = (128 if size > 1 else 768) * grouped + 768 * (singles + synthesis)
+    return calls, inputs, outputs, 16384 * calls

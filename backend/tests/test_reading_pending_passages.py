@@ -97,6 +97,40 @@ def test_a_budget_stop_remains_global_after_a_passage_has_been_deferred():
     assert len([c for c in calls if c["phase"] == "interpret"]) == 1
 
 
+def test_resuming_two_pending_passages_uses_each_previous_finding_and_retains_the_first_correction():
+    checkpoints = None
+    previous = ""
+    visits = []
+    for index, job in enumerate(("initial", "retry", "finish")):
+        reader, _, checkpoints = _reader(checkpoints, previous)
+        reader.job_id = job
+        def decide(text):
+            label = text.split(":")[0]
+            if index == 0 or (index == 1 and label == "Argument 1"):
+                return [f"Finding {index} for {label}"]
+            return []
+        handler = _review_handler([], decide)
+        def observe(prompt, validate, timeout):
+            request = json.loads(prompt)
+            if request["phase"] == "source-repair":
+                text = request["primary_passages"][0]["text"].split(":")[0]
+                visits.append((job, text, request.get("prior_review_issue", "")))
+            return handler(prompt, validate, timeout)
+        attach_reviewer(reader, observe)
+        if index < 2:
+            with pytest.raises(PendingPassagesRemaining):
+                reader.run()
+        else:
+            result, _ = reader.run()
+            assert result["reviewed"] and len(result["coverage"]) == 9
+        previous = job
+    assert [(job, text) for job, text, _ in visits] == [
+        ("initial", "Argument 0"), ("initial", "Argument 1"), ("retry", "Argument 0"),
+        ("retry", "Argument 1"), ("finish", "Argument 1")]
+    assert [issue.partition(": ")[2] for _, _, issue in visits] == [
+        "", "", "Finding 0 for Argument 0", "Finding 0 for Argument 1", "Finding 1 for Argument 1"]
+
+
 def test_skipping_a_pending_batch_on_an_interrupted_resume_preserves_its_paid_sibling():
     visited = []
 
@@ -164,6 +198,10 @@ def test_independent_audits_continue_and_synthesis_waits_for_the_last_passage():
             problems = ["Uncertain attribution."] if unresolved and original.startswith("Argument 0:") else []
             answer = {"assessment": "The source supports the claim.", "evidence_quote": original,
                       "unresolved_issues": problems, "changes": []}
+            if any(isinstance(item, dict) for item in request["coverage"]):
+                assert "Uncertain attribution." in json.dumps(request["coverage"])
+                answer["finding_resolutions"] = {"issue_1": {"status": "addressed",
+                    "reason": "The text expressly attributes the initial claim to the opponent."}}
         validate(answer)
         return encoded(answer), "reviewer-model"
 
@@ -196,8 +234,8 @@ def test_equal_segment_ids_in_different_chunks_keep_independent_pending_findings
     chunks[1]["segments"][0]["id"] = source_id
     reader.chunks = chunks
     rows = [(c, {"notes": [], "coverage": [{"segment_id": source_id, "reason": "Verified"}]}) for c in chunks]
-    monkeypatch.setattr(review, "selected_passages", lambda *args: {source_id})
-    def audit(worker, reviewer, primary, *args):
+    monkeypatch.setattr("backend.domains.llm_wiki.audit_groups.selected_passages", lambda *args: {source_id})
+    def audit(worker, reviewer, primary, *args, **kwargs):
         if primary["text"].startswith("Argument 0:"):
             raise PassageReviewIssue("The first occurrence is ambiguous.")
         return "verified", {"assessment": "Supported.", "changes": [], "evidence_quote": primary["text"]}

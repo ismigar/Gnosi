@@ -71,7 +71,7 @@ def test_process_resource_routes_preserve_start_and_status_shapes(
         assert source_table_id == "resources"
         assert force is True
         assert language == "Catalan"
-        assert max_cost_usd == 0.50
+        assert max_cost_usd == 5.0
         assert batch_size == 4
         assert estimate_id == ""
         return started

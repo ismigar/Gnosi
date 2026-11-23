@@ -295,3 +295,61 @@ def test_successful_sdk_request_stores_real_cost_and_releases_hold():
     with ledger.connect() as db:
         row = db.execute('SELECT cost_source,cost_usd FROM usage_calls').fetchone()
         assert row['cost_source'] == 'reported' and Decimal(row['cost_usd']) == Decimal('.001')
+
+
+def test_every_agent_and_restart_share_the_total_for_one_book_but_other_books_are_independent():
+    old = budget.configure(25)
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("reader", old, "2.00", "1.70"))
+    book = budget.BookAccount("vault/table/book", (old,))
+    first = budget.configure(5, book=book)
+    again = budget.configure(5, book=book)
+    assert first != again
+    def reserve(item):
+        identifier, call_id = item
+        with budget.session(identifier):
+            try:
+                budget.reserve(call_id, "evidence", {"max_tokens": 2_000_000},
+                               {"cost_in": 0, "cost_out": 1}, "example")
+            except budget.ReadingBudgetError:
+                return False
+            return True
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sum(pool.map(reserve, [(first, "review"), (again, "retry")])) == 1
+    for identifier in (first, again, old):
+        current = budget.status(identifier)
+        assert current["spent_usd"] == 1.70 and current["reserved_usd"] == 2.20
+        assert current["remaining_usd"] == 1.10
+    assert not reserve((again, "synthesis"))
+    separate = budget.configure(5, book=budget.BookAccount("vault/table/other-book", ()))
+    assert reserve((separate, "other-synthesis"))
+    with pytest.raises(budget.ReadingBudgetError, match="exceeds_book_limit"):
+        budget.configure(5.01, book=book)
+
+
+def test_legacy_book_over_cap_stays_paused_without_rewriting_old_charges_or_creating_a_new_limit():
+    first, second = budget.configure(10), budget.configure(25)
+    with ledger.connect() as db:
+        db.executemany("INSERT INTO reading_reservations VALUES (?,?,?,?)", [
+            ("old-charge", first, "3.00", "2.50"), ("old-hold", second, "3.50", None)])
+    book = budget.BookAccount("a/resource", (first, second))
+    quote = budget.status(second, book)
+    assert (quote["limit_usd"], quote["spent_usd"], quote["reserved_usd"], quote["remaining_usd"]) == (5, 2.5, 3.5, 0)
+    for resume in (second, ""):
+        with pytest.raises(budget.ReadingBudgetError, match="below_committed"):
+            budget.configure(5, resume, book=book)
+    assert budget.status(first)["limit_usd"] == 10 and budget.status(second)["limit_usd"] == 25
+    with ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM reading_budgets").fetchone()[0] == 2
+        assert db.execute("SELECT count(*) FROM reading_budget_books").fetchone()[0] == 0
+
+
+def test_book_status_recovers_history_when_latest_job_lost_its_budget_link(monkeypatch, tmp_path):
+    from backend.services import llm_wiki_storage as jobs
+    old = budget.configure(25)
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("historic", old, "5.50", None))
+    monkeypatch.setattr(jobs, "resource_budget_ids", lambda table, book: (old,) if book == "old-book" else ())
+    status = budget.book_status("", tmp_path, "table", "old-book")
+    assert status == {"id": old, "limit_usd": 5.0, "spent_usd": 0.0, "reserved_usd": 5.5, "remaining_usd": 0.0}
+    assert budget.book_status("", tmp_path, "table", "new-book") is None

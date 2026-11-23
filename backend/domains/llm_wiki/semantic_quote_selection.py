@@ -10,7 +10,7 @@ import jsonschema
 
 from backend.domains.llm_wiki.chunking import encoded
 from backend.domains.llm_wiki.semantic_contracts import obj, validate_schema
-from backend.domains.llm_wiki.semantic_repairs import quote_choices
+from backend.domains.llm_wiki.semantic_repairs import original_spans, quote_choices
 from backend.domains.llm_wiki.semantic_quote_contracts import primary_note_schema, reference_draft_quotes, restore_note, select_note, shared_note_schema, source_key
 from backend.services.agent_output_repair import OutputRepair
 
@@ -23,6 +23,7 @@ class QuoteSelection:
     phase: str
     primary_ids: list[list[int]]
     quote_sources: dict[int, str] = field(default_factory=dict)
+    audit_evidence: tuple[str, ...] = ()
 
     def restore(self, text: str, *, draft_schema: dict[str, Any] | None = None) -> str:
         """Validate provider-local IDs before copying the original characters."""
@@ -93,7 +94,10 @@ class QuoteSelection:
         schema = deepcopy(self.schema)
         if self.phase == "interpret":
             for passage in schema["properties"]["passages"]["properties"].values():
-                choice = passage["properties"]["notes"]["items"]["properties"]["primary_quote_ids"]
+                notes = passage["properties"]["notes"]
+                if notes.get("maxItems") == 0:
+                    continue
+                choice = notes["items"]["properties"]["primary_quote_ids"]
                 choice["items"] = {"type": "integer", "minimum": 1, "maximum": len(self.quotes)}
         answer = json.loads(text)
         validate_schema(answer, schema)
@@ -101,17 +105,7 @@ class QuoteSelection:
 
     def _canonical(self, answer: dict[str, Any], rejected: dict[str, dict[str, Any]] | None = None) -> str:
         if self.phase == "source-audit":
-            for change in answer["changes"]:
-                note = change["replacement"]
-                if note is None:
-                    continue
-                citations = note["quotes"]
-                if not any(c["source"] == 1 for c in citations):
-                    raise ValueError("Each corrected note must cite the primary original")
-                if any(not c["text"].strip() or c["text"] not in self.quotes[c["source"]] for c in citations):
-                    raise ValueError("The literal citation must occur in its selected original")
-                note["quotes"] = [c["text"] for c in citations]
-                note["quote_source_keys"] = [self.quote_sources[c["source"]] for c in citations]
+            self._restore_audit(answer)
         elif self.phase == "interpret":
             passages = answer["passages"]
             for name, passage in passages.items():
@@ -126,6 +120,24 @@ class QuoteSelection:
                                  for i in range(len(self.primary_ids))
                                  if (note := answer["changes"][f"note_{i + 1}"]) is not None]
         return encoded(answer)
+
+    def _restore_audit(self, answer: dict[str, Any]) -> None:
+        if self.audit_evidence:
+            number = int(answer.pop("evidence_quote_id"))
+            answer["evidence_quote"] = self.audit_evidence[number - 1]
+        if not self.quote_sources:
+            return
+        for change in answer["changes"]:
+            note = change["replacement"]
+            if note is None:
+                continue
+            citations = note["quotes"]
+            if not any(c["source"] == 1 for c in citations):
+                raise ValueError("Each corrected note must cite the primary original")
+            if any(not c["text"].strip() or c["text"] not in self.quotes[c["source"]] for c in citations):
+                raise ValueError("The literal citation must occur in its selected original")
+            note["quotes"] = [c["text"] for c in citations]
+            note["quote_source_keys"] = [self.quote_sources[c["source"]] for c in citations]
 
     def _review_note(self, note: dict[str, Any]) -> dict[str, Any]:
         return restore_note(note, self.quotes, self.quote_sources)
@@ -174,7 +186,11 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
         choices = {}
         for i, identifiers in enumerate(primary_ids):
             value = deepcopy(passage)
-            value["properties"]["notes"]["items"] = primary_note_schema(note, identifiers, quote_count)
+            notes = value["properties"]["notes"]
+            if identifiers:
+                notes["items"] = primary_note_schema(note, identifiers, quote_count)
+            else:
+                notes.update(maxItems=0, items={"type": "null"})
             choices[f"passage_{i + 1}"] = value
         result["properties"]["passages"] = obj(choices)
     else:
@@ -189,25 +205,40 @@ def selection_contract(schema: dict[str, Any], phase: str, primary_ids: list[lis
         changes = {}
         for i, identifiers in enumerate(primary_ids):
             key = tuple(identifiers)
-            if key not in contracts:
+            options = [{"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}})]
+            if identifiers and key not in contracts:
                 name = f"reading_primary_note_{len(contracts) + 1}"
                 contracts[key] = name
                 definitions[name] = primary_note_schema(note, identifiers, quote_count)
-            changes[f"note_{i + 1}"] = {"anyOf": [
-                {"type": "null"}, obj({"omit_reason": {"type": "string", "minLength": 1}}),
-                {"$ref": f"#/$defs/{contracts[key]}"}]}
+            if identifiers:
+                options.append({"$ref": f"#/$defs/{contracts[key]}"})
+            changes[f"note_{i + 1}"] = {"anyOf": options}
         result["properties"]["changes"] = obj(changes)
     result["$defs"] = definitions
     return result
 
 
-def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
+def _initial_evidence(payload: dict[str, Any]) -> tuple[Any, Any]:
+    excerpts = payload.pop("verified_pdf_excerpts", None)
+    bindings = payload.pop("pdf_quote_sources", None)
+    if initial := payload.pop("initial_passage_context", None):
+        if initial["verified_pdf_excerpts"]:
+            excerpts, bindings = initial["verified_pdf_excerpts"], initial["bindings"]
+        payload["instruction"] = str(payload.get("instruction", "")) + (
+            " Read adjoining primary passages and neighbours to complete an interrupted sentence or list."
+            " Extract every complete, attributable claim that the primary passage supports and preserve"
+            " its qualifications. A cut-off ending or the author's own open question can be described"
+            " without referring the whole passage for repair. Refer uncertain substantive claims to the specialist.")
+    return excerpts, bindings
+
+
+def quote_selection(request: dict[str, Any], *, number_audit_evidence: bool = True) -> QuoteSelection | None:
     """Keep reader checkpoints literal; only the model-facing transport changes."""
     # A reviewer replacing one rejected interpretation uses the same immutable
     # primary quote choices as the reader. Keep its own phase in the prompt.
     phase = "interpret" if request.get("phase") == "source-repair" else request.get("phase")
-    if request.get("reading_engine") == "semantic" and phase == "source-audit" and request.get("pdf_page_pairs"):
-        return _audit_selection(request)
+    if request.get("reading_engine") == "semantic" and phase == "source-audit":
+        return _audit_selection(request, number_audit_evidence)
     if request.get("reading_engine") != "semantic" or phase not in {"interpret", "verify"}:
         return None
     payload = deepcopy(request)
@@ -219,8 +250,7 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
         for entry in payload["notes"]:
             sources.extend([entry["primary"], *entry["support"]])
     sources.extend(payload.get("retrieved_originals", []))
-    excerpts = payload.pop("verified_pdf_excerpts", None)
-    bindings = payload.pop("pdf_quote_sources", None)
+    excerpts, bindings = _initial_evidence(payload)
     catalog, quotes, source_ids = quote_choices(sources, pdf_excerpts=excerpts, bindings=bindings)
     if pairs := payload.get("pdf_page_pairs"):
         # A repeated original shares a catalog entry. Translate the prompt's
@@ -274,6 +304,8 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
             " When a whole PDF quotation cannot be highlighted, its complete text remains visible and"
             " verified_excerpts gives the shorter literal choices with confirmed locations. Select the"
             " numbered excerpts that support the claim, including its qualifications; use several if needed."
+            " A span with no numbered choices is available only for reading. If a substantive claim still"
+            " lacks evidence that can be highlighted, report the specific unresolved claim."
             " Retained_quotes lists other previously cited excerpts verified in this source. You may keep"
             " that exact evidence when revising a note."
             " Report unresolved issues if those excerpts cannot support it. When adjacent pages complete"
@@ -293,12 +325,44 @@ def quote_selection(request: dict[str, Any]) -> QuoteSelection | None:
     return QuoteSelection(encoded(payload), schema, quotes, str(phase), primary_ids, quote_sources)
 
 
-def _audit_selection(request: dict[str, Any]) -> QuoteSelection:
-    """A literal from a homonymous PDF or another slice must name its source."""
+def _audit_selection(request: dict[str, Any], number_evidence: bool) -> QuoteSelection | None:
+    if ("finding_resolutions" in request.get("output_schema", {}).get("properties", {})
+            and request.get("original", {}).get("location", {}).get("page")):
+        # A complete sentence from OCR need not be highlightable. A targeted
+        # review may choose a shorter literal and the PDF checker verifies it.
+        number_evidence = False
+    if not request.get("pdf_page_pairs") and (not number_evidence or
+            "evidence_quote" not in request.get("output_schema", {}).get("properties", {})):
+        return None
     payload = deepcopy(request)
+    evidence: tuple[str, ...] = ()
+    schema = payload["output_schema"]
+    original = payload["original"]
+    if number_evidence and original["text"].strip() and "evidence_quote" in schema["properties"]:
+        # Replace the wire copy, keeping every character and its order in the original.
+        evidence = tuple(original_spans(original["text"]))
+        original.pop("text")
+        original["evidence_excerpts"] = {str(index): text for index, text in enumerate(evidence, 1)}
+        props = schema["properties"]
+        props.pop("evidence_quote")
+        props["evidence_quote_id"] = {"type": "integer", "minimum": 1, "maximum": len(evidence)}
+        schema["required"] = ["evidence_quote_id" if name == "evidence_quote" else name for name in schema["required"]]
+        payload["instruction"] += (
+            " Choose the evidence_quote_id from the primary original's numbered evidence_excerpts that supports your assessment. Gnosi supplies its"
+            " exact text. Explain support from other pages and limitations of the source (including damaged text)"
+            " in assessment. Judge the drafts after your corrections. Keep any unsupported or missing substantive"
+            " claim that your changes cannot resolve in unresolved_issues.")
+    if not payload.get("pdf_page_pairs"):
+        return QuoteSelection(encoded(payload), schema, {}, "source-audit", [], audit_evidence=evidence) if evidence else None
+    return _bound_audit_selection(request, payload, evidence)
+
+
+def _bound_audit_selection(request: dict[str, Any], payload: dict[str, Any], evidence: tuple[str, ...]) -> QuoteSelection:
+    """A literal from a homonymous PDF or another slice must name its source."""
     sources = [payload["original"], *payload["support"]]
+    originals = [request["original"], *request["support"]]
     bindings = payload.pop("pdf_quote_sources")
-    if [source_key(s) for s in sources] != [view for view, _ in bindings]:
+    if [source_key(s) for s in originals] != [view for view, _ in bindings]:
         raise ValueError("The audit citation choices belong to different originals")
     for i, source in enumerate(sources, 1):
         source["source"] = i
@@ -310,5 +374,5 @@ def _audit_selection(request: dict[str, Any]) -> QuoteSelection:
         "text": {"type": "string", "minLength": 1}})}
     payload["instruction"] += (" In replacement notes give each literal quotation with its source number."
         " Include a quotation from the primary original (source 1).")
-    return QuoteSelection(encoded(payload), schema, {i: s["text"] for i, s in enumerate(sources, 1)},
-                          "source-audit", [[1]], {i: key for i, (_, key) in enumerate(bindings, 1)})
+    return QuoteSelection(encoded(payload), schema, {i: s["text"] for i, s in enumerate(originals, 1)},
+                          "source-audit", [[1]], {i: key for i, (_, key) in enumerate(bindings, 1)}, evidence)

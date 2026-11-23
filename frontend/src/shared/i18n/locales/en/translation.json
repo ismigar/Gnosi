@@ -6718,6 +6718,7 @@
       "duplicate_keys": "{{count}} duplicate processing keys",
       "stale_managed": "{{count}} generated notes awaiting an update"
     },
+    "book_budget_cap": "Both agents, retries and synthesis share a limit of {{limit}} USD per book.",
     "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
     "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
     "estimate_calculation": "How this is calculated",

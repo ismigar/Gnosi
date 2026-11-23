@@ -13,6 +13,23 @@ from backend.services.llm_wiki_pdf_annotations import reading_citation_issues, r
 from backend.tests.test_llm_wiki_pdf_annotations import _demo_pdf, _origin
 
 
+@pytest.mark.parametrize("file_exists", [False, True], ids=["offline", "unreadable"])
+def test_unavailable_pdf_preserves_literal_choices_until_geometry_can_be_checked(tmp_path, file_exists):
+    pdf = tmp_path / "attachment.pdf"
+    if file_exists:
+        pdf.write_bytes(b"Unreadable PDF for this attempt")
+    segment = {"id": "cached", "text": "The original sentence.", "locator": {"page": 1}}
+    origins = [{**_origin(pdf), "segments": [segment]}]
+    choices = reading_pdf_quote_excerpts([segment], origins)
+    assert choices == {}
+    request = {"phase": "source-repair", "reading_engine": "semantic", "primary_passages": [source_view(segment)],
+               "output_schema": interpretation_schema(1, []), "verified_pdf_excerpts": choices}
+    selection = quote_selection(request)
+    assert selection.quotes == {1: segment["text"]} and selection.primary_ids == [[1]]
+    notes = [{"citations": [{"segment_id": segment["id"], "quote": segment["text"]}]}]
+    assert reading_citation_issues(notes, origins)[0]
+
+
 def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_path):
     pdf = _demo_pdf(tmp_path)
     text = "Persistent citation highlights span multiple lines unread\u00ad able in this portable PDF fixture"
@@ -24,7 +41,7 @@ def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_pat
     origins = [{**_origin(pdf), "segments": [primary, context, good, wrong_page]}]
     sources = [primary, context, good, wrong_page, unknown]
     choices = reading_pdf_quote_excerpts(sources, origins)
-    assert set(choices) == {segment_source_key(s) for s in (primary, context)}
+    assert set(choices) == {segment_source_key(s) for s in (primary, context, wrong_page)}
     schema = obj({"passages": interpretation_schema(1, [])["properties"]["passages"],
                   "evidence_quote": TEXT, "unresolved_issues": TEXTS})
     selection = quote_selection({"phase": "source-repair", "reading_engine": "semantic",
@@ -34,6 +51,8 @@ def test_specialist_selects_whole_verified_excerpts_from_the_correct_pdf(tmp_pat
     first, second = (catalog[i]["quotes"][0] for i in (0, 1))
     assert first["text"] == text and "quote_id" not in first
     assert catalog[2]["quotes"][0]["text"] == good["text"]
+    assert catalog[3]["quotes"] == [{"text": text, "verified_excerpts": []}]
+    assert "quote_id" in catalog[4]["quotes"][0]
     excerpts = first["verified_excerpts"]
     assert {item["text"] for item in excerpts} >= {"Persistent citation highlights span multiple lines", good["text"]}
     options = [item["quote_id"] for item in excerpts]
@@ -59,7 +78,23 @@ def test_non_pdf_and_repeated_ambiguous_passages_never_supply_verified_options(t
     a = {"id": "a", "text": repeated, "locator": {"page": 1}}
     b = {"id": "b", "text": repeated, "locator": {"page": 1}}
     origins = [{**_origin(pdf), "segments": [a]}, {"origin_id": "text", "kind": "text", "segments": [b]}]
-    assert reading_pdf_quote_excerpts([a, b], origins) == {}
+    ranges = reading_pdf_quote_excerpts([a, b], origins)
+    assert ranges == {segment_source_key(a): {"0": []}}
+    schema = obj({"passages": interpretation_schema(1, [])["properties"]["passages"],
+                  "evidence_quote": TEXT, "unresolved_issues": TEXTS})
+    selection = quote_selection({"phase": "source-repair", "reading_engine": "semantic",
+        "primary_passages": [source_view(a)], "neighbours": [source_view(b)],
+        "output_schema": schema, "verified_pdf_excerpts": ranges, "pdf_quote_sources": quote_bindings([a, b])})
+    assert selection.primary_ids == [[]] and list(selection.quotes.values()) == [repeated]
+    issue = "The primary PDF does not disambiguate the cited sentence."
+    answer = {"passages": {"passage_1": {"reason": issue, "notes": []}}, "evidence_quote": repeated,
+              "unresolved_issues": [issue]}
+    assert json.loads(selection.restore(json.dumps(answer)))["unresolved_issues"] == [issue]
+    assert json.loads(selection.draft_for_repair(json.dumps(answer)))["unresolved_issues"] == [issue]
+    answer["passages"]["passage_1"]["notes"].append({"title": "Misattributed", "body_md": repeated,
+        "properties": {}, "primary_quote_ids": [next(iter(selection.quotes))], "context_quote_ids": []})
+    with pytest.raises(ValueError):
+        selection.restore(json.dumps(answer))
 
 
 def test_damaged_middle_word_preserves_both_unique_two_word_excerpts(tmp_path):
@@ -260,7 +295,7 @@ def test_reader_and_reviewer_distinguish_homonymous_pdfs_even_without_shorter_ch
     reader.origins = deduplicate_origins(origins)
     reader.chunks = reading_chunks(reader.origins, budget=400, count=len)
     healthy, broken = (o["segments"][0] for o in reader.origins)
-    assert reading_pdf_quote_excerpts([healthy, broken], reader.origins) == {}
+    assert reading_pdf_quote_excerpts([healthy, broken], reader.origins) == {segment_source_key(broken): {"0": []}}
     calls = []
 
     def generate(prompt, validate, timeout):
@@ -268,14 +303,19 @@ def test_reader_and_reviewer_distinguish_homonymous_pdfs_even_without_shorter_ch
         calls.append(req["phase"])
         selection = quote_selection(req)
         catalog = json.loads(selection.input)["source_quotes"]
-        a, b = [row["quotes"][0]["quote_id"] for row in catalog if row["quotes"][0]["text"] == shared]
-        assert a in selection.primary_ids[0] and b not in selection.primary_ids[0]
+        choices = [row["quotes"][0].get("quote_id") for row in catalog if row["quotes"][0]["text"] == shared]
         interpreting = req["phase"] == "interpret"
+        a = choices[0]
+        assert a in selection.primary_ids[0]
+        if interpreting:
+            assert choices == [a, None]  # The unlocatable twin is readable but cannot be cited.
+        else:
+            assert all(number is None for number in choices[1:])
         note = {"title": "Selective reading", "body_md": "The source describes selective reading.", "properties": {},
-                "primary_quote_ids": [b if interpreting and reject_first_draft else a], "context_quote_ids": []}
+                "primary_quote_ids": [max(selection.quotes) + 1 if interpreting and reject_first_draft else a], "context_quote_ids": []}
         passage = {"notes": [note], "reason": "The original explains the context for reading."}
         if interpreting:
-            passage["needs_specialist"] = False
+            passage["needs_specialist"] = reject_first_draft
             answer = {"themes": [], "questions": [], "contradictions": [], "warnings": []}
         else:
             answer = {"evidence_quote": shared, "unresolved_issues": []}

@@ -343,6 +343,17 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
         return deepcopy(job)
 
 
+def resource_budget_ids(source_table_id: str, resource_id: str) -> tuple[str, ...]:
+    """Include earlier independent processing lineages of this row in its vault."""
+    budgets: set[str] = set()
+    for path in (local_root() / "jobs").glob("*.json"):
+        job = _string_record(_read_json(path))
+        if job and job.get("source_table_id") == source_table_id and job.get("resource_id") == resource_id:
+            if isinstance(identifier := job.get("budget_id"), str) and identifier:
+                budgets.add(identifier)
+    return tuple(sorted(budgets))
+
+
 def resume_checkpoint_jobs(job_id: str) -> list[str]:
     """Find interrupted checkpoints in the same resource and restart lineage.
 

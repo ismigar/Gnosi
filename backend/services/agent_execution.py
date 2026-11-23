@@ -368,9 +368,41 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
 
 def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
     revalidate_scope(scope)
+    _check_cancelled(scope, run_id, parent_id)
+
+
+def _check_cancelled(scope: ExecutionScope, run_id: str, parent_id: str) -> None:
     if store.cancelled(scope, run_id) or (parent_id and store.cancelled(scope, parent_id)):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
+
+
+def _phase_key(snapshot: AgentExecutionSnapshot, request: AgentOperation) -> str:
+    return hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
+
+
+def recover_reading_operation(request: AgentOperation, snapshot: AgentExecutionSnapshot, provider: str, model: str,
+                              restore: Callable[[str], str], *, draft_schema: dict[str, Any] | None = None) -> tuple[str, str] | None:
+    """Recover a paid reading operation in its former wire format without dispatching it."""
+    from backend.services.reading_result_cache import lookup, result_key
+    if request.operation != "knowledge.process-source.phase" or request.tool_mode != "none" or not request.options.get("reading_pinned"):
+        raise ValueError("Recovery requires a pinned reading phase")
+    snapshot, ai, _ = _operation_context(request, snapshot)
+    parent = request.parent_run_id or snapshot.parent_run_id or _run.get()
+    cached = store.phase_checkpoint(snapshot.scope, parent, _phase_key(snapshot, request))
+    if cached is None:
+        cached = lookup(request, snapshot, result_key(request, snapshot, ai.get("providers")), provider, model)
+    if cached is None or (cached.provider, cached.model) != (provider, model):
+        return None
+    try:
+        value = restore(_validate_output(cached.result, request.output_schema if draft_schema is None else draft_schema))
+    except (ValueError, jsonschema.ValidationError):
+        return None
+    finally:
+        revalidate_scope(snapshot.scope)
+        _check_cancelled(snapshot.scope, cached.run_id, parent)
+    report_run(cached.run_id)
+    return value, cached.model
 
 
 async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExecutionSnapshot, parent_id: str, key: str, validate: Callable[[str], Awaitable[str]]) -> AgentRun | None:
@@ -494,7 +526,7 @@ async def _build_output_repair(request: AgentOperation, builder: RepairBuilder |
         require_active()
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None) -> AgentRun:
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None, observe_model_output: Callable[[str, bool], None] | None = None) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
@@ -504,7 +536,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     # A paired reader may stage a known misplaced citation for its reviewer.
     # The provider still generates against the original per-passage schema.
     initial_schema = request.output_schema if draft_schema is None else draft_schema
-    checkpoint_key = hashlib.sha256((snapshot.revision + request.model_dump_json()).encode()).hexdigest()
+    checkpoint_key = _phase_key(snapshot, request)
     cached = None if private_result else await _checked_checkpoint(initial_schema, snapshot, parent_id, checkpoint_key,
         lambda text: _operation_output(text, request, output_validator))
     if cached is not None:
@@ -570,6 +602,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     raise
                 messages = [*messages, *handoff.messages]
                 continue
+            # A reviewer may return a new objection alongside an invalid answer.
+            # Reading persists those observations before a schema, amendment or
+            # retry budget can reject the response. Other operations omit the hook.
+            if observe_model_output is not None:
+                require_active()
+                await asyncio.to_thread(observe_model_output, text, partial_repair is not None)
             try:
                 try:
                     text = _validate_output(text, response_schema)
@@ -633,13 +671,14 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             _run.reset(run_token)
 
 
-def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, draft_schema: dict[str, Any] | None = None) -> AgentRun:
+def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, draft_schema: dict[str, Any] | None = None, observe_model_output: Callable[[str, bool], None] | None = None) -> AgentRun:
     # Sync services run in worker threads. Reject accidental event-loop blocking.
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator,
-                                           output_repair=output_repair, draft_schema=draft_schema))
+                                           output_repair=output_repair, draft_schema=draft_schema,
+                                           observe_model_output=observe_model_output))
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 

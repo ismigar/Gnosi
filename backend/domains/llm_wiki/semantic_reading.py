@@ -249,8 +249,10 @@ class SemanticReader:
             draft["issues"][str(position)] = entry
             self.save()
 
+        prior_issues = {(issue["chunk_id"], issue["source"]): issue["reason"] for issue in draft["issues"].values()}
         plans, answer = bind_reviewed_interpretation(self.reader, reviewer, selected, draft["evidence"], draft["answer"],
-            completed=self.state["plans"], before_repair=stage, defer=defer, checkpoint_jobs=tuple(owners))
+            completed=self.state["plans"], before_repair=stage, defer=defer, checkpoint_jobs=tuple(owners),
+            prior_issues=prior_issues)
         self.state["plans"].update(plans)
         flags = list(draft.get("review_passages", []))
         primary = [s for c in selected for s in records(c.get("segments"))]

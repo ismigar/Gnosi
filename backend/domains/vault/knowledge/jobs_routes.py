@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from backend.services.reading_budget import BOOK_LIMIT_USD
 from backend.domains.configuration.ai.contracts import CurrencyInfoResponse
 from backend.domains.llm_wiki.lint_contracts import LintReport
 from backend.domains.vault.knowledge.native_calls import capture_append
@@ -53,7 +54,7 @@ class LlmWikiProcessRequest(BaseModel):
     source_table_id: str = ""
     force: bool = False
     language: str = ""
-    max_cost_usd: float = Field(default=0.50, gt=0, le=1000)
+    max_cost_usd: float = Field(default=BOOK_LIMIT_USD, gt=0, le=BOOK_LIMIT_USD)
     batch_size: int = Field(default=4, ge=1, le=4)
     estimate_id: str = ""
 

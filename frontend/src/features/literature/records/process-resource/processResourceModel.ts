@@ -4,6 +4,7 @@ import type {
 } from '../../../../shared/api/resource-processing';
 
 
+export const BOOK_LIMIT_USD = 5;
 export const POLL_INTERVAL_MS = 1500;
 export const NO_BRAIN_TABLE_ERROR = 'No Brain table is configured';
 
