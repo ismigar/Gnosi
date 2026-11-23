@@ -23,7 +23,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Surface | Files | Purpose boundary |
 | --- | ---: | --- |
 | `backend/` | 2081 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2602 | React application, UI behavior, state, and browser integrations |
+| `frontend/src/` | 2603 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 108 | Reusable development and application skills, and deterministic processing tools |
 | `desktop/` | 134 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 122 | Office, browser, plugin, marketplace, and external-system adapters |

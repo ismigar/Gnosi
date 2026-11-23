@@ -53,3 +53,13 @@ describe('parseVaultMarkdownBlocks', () => {
     ]);
   });
 });
+
+it('preserves fenced directive examples inside callouts and subsequent sibling text', () => {
+  const blocks = parseVaultMarkdownBlocks([':::callout{type=warning}', '```md', ':::column', ':::', '```',
+    ':::', 'After', ':::column-list', ':::column {width=2}', 'Left', ':::', ':::column', 'Right', ':::', ':::'].join('\n'));
+  expect(blocks).toMatchObject([
+    { type: 'callout', tone: 'warning', children: [{ type: 'markdown', content: '```md\n:::column\n:::\n```' }] },
+    { type: 'markdown', content: 'After' },
+    { type: 'column-list', children: [{ type: 'column', width: 2 }, { type: 'column', width: 1 }] },
+  ]);
+});

@@ -52,9 +52,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2476 | 0 |
-| `features` | 1338 | 140035 | 57 |
+| `features` | 1338 | 140051 | 57 |
 | `generated` | 3 | 58348 | 603 |
-| `shared` | 360 | 37862 | 517 |
+| `shared` | 360 | 37892 | 517 |
 
 ## app
 
@@ -351,7 +351,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/home-canvas/apps/live.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/apps/live.ts) | 47 | `livePreviewItems` | — |
 | [`frontend/src/features/home-canvas/day/DayBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/day/DayBlocks.tsx) | 119 | `DayBlocks`, `function` | — |
 | [`frontend/src/features/home-canvas/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/index.ts) | 1 | — | — |
-| [`frontend/src/features/home-canvas/knowledge/BoardBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/BoardBlock.tsx) | 89 | `BoardBlock` | — |
+| [`frontend/src/features/home-canvas/knowledge/BoardBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/BoardBlock.tsx) | 95 | `BoardBlock` | — |
 | [`frontend/src/features/home-canvas/knowledge/GraphBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/GraphBlock.tsx) | 66 | `GraphBlock` | — |
 | [`frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx) | 36 | `KnowledgeBlocks`, `function` | — |
 | [`frontend/src/features/home-canvas/knowledge/KnowledgeFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/KnowledgeFields.tsx) | 40 | `KnowledgePicker`, `KnowledgeStatus` | — |
@@ -1274,7 +1274,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/groupFieldValue.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/groupFieldValue.ts) | 36 | `readGroupFieldValue` | — |
 | [`frontend/src/features/vault/views/groupOrderUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/groupOrderUtils.ts) | 58 | `orderGroupKeys` | — |
 | [`frontend/src/features/vault/views/groupValueUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/groupValueUtils.ts) | 49 | `groupValueKeys`, `groupValueLabel`, `readGroupValue` | — |
-| [`frontend/src/features/vault/views/readOnlyDashboardView.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/readOnlyDashboardView.ts) | 39 | `readOnlyDashboardView` | — |
+| [`frontend/src/features/vault/views/readOnlyDashboardView.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/readOnlyDashboardView.ts) | 49 | `readOnlyDashboardView` | — |
 | [`frontend/src/features/vault/views/resourceLinkUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/resourceLinkUtils.ts) | 35 | `hasResourceReference` | — |
 | [`frontend/src/features/vault/views/tableRecordFocusUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/tableRecordFocusUtils.ts) | 177 | `getTableFocusTarget`, `getTableRecordFocusPreparation` | — |
 | [`frontend/src/features/vault/views/templateMenuUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/templateMenuUtils.ts) | 58 | `getTemplateMenuIcon` | — |
@@ -1591,7 +1591,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/editor/PageHoverCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.tsx) | 254 | `PageHoverCard` | — |
 | [`frontend/src/shared/editor/SavedFeedback.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/SavedFeedback.tsx) | 14 | `SAVED_FEEDBACK_DURATION_MS`, `SavedFeedback` | — |
 | [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 43 | `VaultEditorContext` | — |
-| [`frontend/src/shared/editor/VaultMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.tsx) | 349 | `VaultMarkdown`, `VaultMarkdownTransclusion` | — |
+| [`frontend/src/shared/editor/VaultMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.tsx) | 360 | `VaultMarkdown`, `VaultMarkdownTransclusion` | — |
 | [`frontend/src/shared/editor/WikilinkContextMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.tsx) | 199 | `WikilinkContextMenu` | — |
 | [`frontend/src/shared/editor/WikilinkHoverPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkHoverPreview.tsx) | 300 | `WikilinkHoverPreview` | — |
 | [`frontend/src/shared/editor/WikilinkInline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkInline.tsx) | 275 | `WikilinkInline` | — |
@@ -1619,7 +1619,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/VaultTransclusion.tsx) | 157 | `VaultTransclusion` | — |
 | [`frontend/src/shared/editor/vault-markdown/transclusionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/transclusionModel.ts) | 256 | `MAX_TRANSCLUSION_DEPTH`, `TRANSCLUSION_HREF_SENTINEL`, `embeddedMediaKind`, `extractSectionMarkdown`, `listSectionReferences`, `parseTransclusionReference`, `resolveTransclusionLocally`, `transclusionGuard`, `transclusionKey`, `transclusionSourceRange` | — |
 | [`frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vault-markdown/vaultMarkdownModel.ts) | 52 | `citationEvidence`, `latexFencesToMath`, `reactNodeText` | — |
-| [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 118 | `parseVaultMarkdownBlocks` | — |
+| [`frontend/src/shared/editor/vaultMarkdownBlocks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownBlocks.ts) | 137 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/shared/editor/vaultMarkdownUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/vaultMarkdownUtils.ts) | 237 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
 | [`frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/wikilink-context-menu/wikilinkContextMenuModel.ts) | 46 | `adjustedContextMenuPosition`, `nextEnabledMenuIndex` | — |
 | [`frontend/src/shared/editor/wikilinkInlineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/wikilinkInlineModel.ts) | 87 | `clearWikilinkResolutionCache`, `isUuidTarget`, `resolveWikilinkTarget`, `resolveWikilinkTargetLocal` | — |
