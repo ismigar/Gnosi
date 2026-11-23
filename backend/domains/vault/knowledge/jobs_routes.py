@@ -54,7 +54,7 @@ class LlmWikiProcessRequest(BaseModel):
     source_table_id: str = ""
     force: bool = False
     language: str = ""
-    max_cost_usd: float = Field(default=BOOK_LIMIT_USD, gt=0, le=BOOK_LIMIT_USD)
+    max_cost_usd: float = Field(default=BOOK_LIMIT_USD, gt=0, allow_inf_nan=False)
     batch_size: int = Field(default=4, ge=1, le=4)
     estimate_id: str = ""
 
@@ -65,6 +65,8 @@ class LlmWikiBudgetResponse(BaseModel):
     spent_usd: float
     reserved_usd: float
     remaining_usd: float
+    authorized_limit_usd: float | None = None
+    additional_remaining_usd: float | None = None
 
 
 class LlmWikiEstimateResponse(BaseModel):
