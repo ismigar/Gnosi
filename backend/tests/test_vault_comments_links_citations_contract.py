@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes as legacy_vault
@@ -346,7 +347,7 @@ def test_editor_link_panel_response_models_preserve_payloads() -> None:
     assert link_schemas.VaultLinkMentionsResponse.model_validate(linked).model_dump() == linked
 
 
-def test_extracted_domains_are_the_single_mutable_state_owners() -> None:
+def test_extracted_domains_are_the_single_mutable_state_owners(monkeypatch: pytest.MonkeyPatch) -> None:
     assert legacy_vault._comments_lock is comment_state.page_comments_io_lock
     assert legacy_vault._comments_mutation_lock is comment_state.page_comments_mutation_lock
     assert (
@@ -367,6 +368,8 @@ def test_extracted_domains_are_the_single_mutable_state_owners() -> None:
     for legacy_name, state_name in link_bindings.items():
         assert getattr(legacy_vault, legacy_name) is getattr(link_index_state, state_name)
     assert legacy_vault._link_index_built is link_index_state.built
+    # A completed index rebuild must also be visible through the legacy facade.
+    monkeypatch.setattr(link_index_state, "build_ts", link_index_state.build_ts + 1)
     assert legacy_vault._link_index_build_ts == link_index_state.build_ts
     assert legacy_vault._link_index_source_count == link_index_state.source_count
 
