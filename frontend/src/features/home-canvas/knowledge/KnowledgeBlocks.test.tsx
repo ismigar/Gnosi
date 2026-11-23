@@ -239,3 +239,20 @@ it('keeps a live view inside its column, formats dates and preserves content aft
   expect(container.textContent).toContain('After the columns');
   expect(container.textContent).not.toContain(':::');
 });
+
+it('renders rich paragraphs and live views within serialized BlockNote columns', async () => {
+  const board = page('board', 'Board', { is_dashboard: true });
+  const rich = { type: 'paragraph', content: [{ type: 'text', text: 'Important', styles: { bold: true } }] };
+  const embed = { type: 'gnosi_view', props: { heading: 'Tasks', section: '{"source_table_id":"tasks"}' } };
+  const content = JSON.stringify([{ type: 'columnList', children: [
+    { type: 'column', children: [rich, embed] }, { type: 'column', children: [rich] },
+  ] }]);
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: [board], complete: true });
+  vi.mocked(fetchVaultPage).mockResolvedValue({ ...board, content, etag: 'test' });
+  vi.mocked(fetchVaultPagesByTable).mockResolvedValue([page('r', 'Record')]);
+  const { container } = mount('board');
+  await settle();
+  expect(container.querySelectorAll('.vault-preview-column strong')).toHaveLength(2);
+  expect(container.querySelector('.vault-preview-column table a')?.textContent).toBe('Record');
+  expect(container.querySelector('pre')).toBeNull();
+});
