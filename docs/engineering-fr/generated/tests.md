@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 789 | 3614 |
-| pytest | 836 | 6501 |
+| pytest | 836 | 6503 |
 
 ## Fichiers
 
@@ -1096,7 +1096,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_handwriting_input_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_handwriting_input_contracts.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_health_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_api_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_health_vault_independence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_vault_independence.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_home_canvas.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_home_canvas.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_home_knowledge_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_home_knowledge_catalog.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_host_helper_url.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_host_helper_url.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_html_meta_attr_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_html_meta_attr_order.py) | 4 | Python AST |
