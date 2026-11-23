@@ -40,6 +40,7 @@ beforeEach(() => {
 afterEach(() => { client.clear(); removeStorage(USER_ID_STORAGE_KEY); vi.useRealTimers(); });
 
 async function settle() {
+  await act(async () => { await vi.advanceTimersByTimeAsync(2); await vi.dynamicImportSettled(); });
   for (let phase = 0; phase < 5; phase += 1) await act(async () => { await vi.advanceTimersByTimeAsync(1); });
 }
 
@@ -216,4 +217,25 @@ it('shows outgoing links while the incoming index is pending and can refresh its
   await settle();
   expect(view.container.textContent).toContain('home_canvas.knowledge.noLinks');
   expect(view.container.textContent).not.toContain('home_canvas.knowledge.incomingPending');
+});
+
+it('keeps a live view inside its column, formats dates and preserves content after a callout', async () => {
+  const board = page('board', 'Board', { is_dashboard: true });
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: [board], complete: true });
+  const content = [':::callout{type=info}', 'A **notice**', ':::', ':::column-list',
+    ':::column', 'Left column', ':::', ':::column {width=2}', '```gnosi-view',
+    '{"source_table_id":"tasks","columns":["Date"]}', '```', ':::', ':::', 'After the columns'].join('\n');
+  vi.mocked(fetchVaultPage).mockResolvedValue({ ...board, content, etag: 'test' });
+  vi.mocked(fetchVaultPagesByTable).mockResolvedValue([page('r', 'Record', {
+    Date: { version: 3, kind: 'point', withTime: false, startMode: 'manual', start: '2026-11-23' },
+  })]);
+  const { container } = mount('board');
+  await settle();
+  expect(container.querySelector('aside strong')?.textContent).toBe('notice');
+  expect(container.querySelectorAll('.vault-preview-column')).toHaveLength(2);
+  const date = container.querySelector('.vault-preview-column:nth-child(2) tbody td:nth-child(2)')?.textContent;
+  expect(date).toContain('2026');
+  expect(date).not.toMatch(/manual|point|false/);
+  expect(container.textContent).toContain('After the columns');
+  expect(container.textContent).not.toContain(':::');
 });

@@ -1,3 +1,5 @@
+import { normalizeCalloutType } from './markdown-mapper/protocol';
+
 const TOGGLE_START_RE = /^:{3,}(toggle-heading|toggle)(?:\s|(?=\{)|$)(.*)$/;
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
@@ -26,7 +28,22 @@ export interface ToggleBlock extends ToggleHeader {
   children: VaultMarkdownBlock[];
 }
 
-export type VaultMarkdownBlock = MarkdownBlock | ToggleBlock;
+type ContainerHeader =
+  | { type: 'callout'; tone: string }
+  | { type: 'column-list' }
+  | { type: 'column'; width: number };
+
+function parseContainer(line: string): ContainerHeader | null {
+  const match = /^:{3,}(callout|column-list|column)(?:\s*\{([^}]*)\})?\s*$/u.exec(line);
+  if (!match) return null;
+  if (match[1] === 'column-list') return { type: 'column-list' };
+  const props = match[2] ?? '';
+  if (match[1] === 'callout') return { type: 'callout', tone: normalizeCalloutType(/\btype=([^\s}]+)/u.exec(props)?.[1]) };
+  const width = Number(/\bwidth=([\d.]+)/u.exec(props)?.[1]);
+  return { type: 'column', width: Number.isFinite(width) && width > 0 ? width : 1 };
+}
+
+export type VaultMarkdownBlock = MarkdownBlock | ToggleBlock | (ContainerHeader & { children: VaultMarkdownBlock[] });
 
 interface ParseRangeResult {
   blocks: VaultMarkdownBlock[];
@@ -94,10 +111,12 @@ export function parseVaultMarkdownBlocks(
 
       if (/^:{3,}$/.test(trimmed)) {
         flushMarkdown();
-        return { blocks, nextIndex: index + 1 };
+        if (startIndex > 0) return { blocks, nextIndex: index + 1 };
+        index += 1;
+        continue;
       }
 
-      const toggle = parseToggleHeader(line);
+      const toggle = parseContainer(trimmed) ?? parseToggleHeader(line);
       if (toggle) {
         flushMarkdown();
         const childResult = parseRange(index + 1);

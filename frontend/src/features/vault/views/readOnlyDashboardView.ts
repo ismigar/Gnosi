@@ -1,3 +1,4 @@
+import { formatUnifiedDate } from '../../../shared/dates/unifiedDate';
 import { sourceFilterTree } from '../../../shared/filtering/exposedFilters';
 import { textValues } from '../../../shared/filtering/filterTextValues';
 import type { VaultPageSummary } from '../../../shared/api/vaults';
@@ -5,12 +6,21 @@ import { decodeRows, decodeView, isRecord } from './db-view-embed/decode';
 import { applyFilterNode, metaValueForField, multiKeySort } from './db-view-embed/filter-model';
 import { applyClientJoins, normalizeVisibleColumns } from './db-view-embed/joins';
 
+function displayValue(value: unknown, locale?: string): string {
+  if (Array.isArray(value)) return value.map((item: unknown) => displayValue(item, locale)).filter(Boolean).join(', ');
+  if (isRecord(value) && (value.kind === 'period' || value.kind === 'point' || 'startMode' in value || 'endMode' in value)) {
+    return formatUnifiedDate(value, { dateFormat: 'locale', locale });
+  }
+  return textValues(value).join(', ');
+}
+
 /** A compact projection of the same saved filters, host-relative rules, joins and ordering as a Knowledge embed. */
 export async function readOnlyDashboardView(
   pageId: string,
   sectionData: Readonly<Record<string, unknown>>,
   registeredData: Readonly<Record<string, unknown>> | undefined,
   loadTable: (id: string) => Promise<readonly VaultPageSummary[]>,
+  locale?: string,
 ) {
   const section = decodeView(sectionData);
   const view = registeredData ? decodeView(registeredData) : section;
@@ -31,8 +41,8 @@ export async function readOnlyDashboardView(
       title: row.title,
       cells: columns.map(column => {
         const joined = column.tableId && column.tableId !== tableId ? row.metadata[`_join:${column.tableId}`] : null;
-        const value = Array.isArray(joined) ? joined.flatMap((item: unknown) => isRecord(item) ? textValues(item[column.fieldKey]) : []) : metaValueForField(row.metadata, column.fieldKey) ?? row[column.fieldKey];
-        return textValues(value).join(', ');
+        const value = Array.isArray(joined) ? joined.flatMap((item: unknown) => isRecord(item) ? [item[column.fieldKey]] : []) : metaValueForField(row.metadata, column.fieldKey) ?? row[column.fieldKey];
+        return displayValue(value, locale);
       }),
     })),
   };

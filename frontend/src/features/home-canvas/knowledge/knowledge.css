@@ -14,7 +14,7 @@
 .home-knowledge-view h4 { margin: .25rem 0; font-size: .87rem; color: var(--text-primary); }
 .home-knowledge-table-wrap { min-width: 0; overflow: auto; }
 .home-knowledge-view table { border-collapse: collapse; width: 100%; font-size: .8rem; }
-.home-knowledge-view :is(th, td) { text-align: start; padding: .32rem .45rem .32rem 0; border-bottom: 1px solid var(--border-primary); overflow-wrap: anywhere; }
+.home-knowledge-view :is(th, td) { text-align: start; padding: .32rem .45rem .32rem 0; border-bottom: 1px solid var(--border-primary); min-inline-size: 7ch; overflow-wrap: break-word; }
 .home-knowledge-view th { font-weight: 500; color: var(--text-secondary); }
 .home-knowledge-map { display: grid; grid-template-columns: minmax(0, .8fr) clamp(.65rem, 8%, 3rem) minmax(0, 1.2fr); align-items: center; padding-block: .25rem; }
 .home-knowledge-map:has(.home-knowledge-center:only-child) { grid-template-columns: minmax(0, 1fr); }
