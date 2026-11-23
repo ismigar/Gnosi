@@ -54,6 +54,12 @@ def test_chat_http_outage_preserves_language_and_failed_outcome(monkeypatch, tmp
     events = [json.loads(line) for line in response.text.splitlines() if line]
     errors = [event for event in events if event["type"] == "error"]
     assert len(errors) == 1
+    assert [event["type"] for event in events] == ["stream_open", "error", "turn_metrics", "done"]
+    metrics = events[-2]
+    assert "vault_context" in metrics["setup_breakdown_ms"]
+    assert metrics["setup_ms"] == sum(metrics["setup_breakdown_ms"].values())
+    assert metrics["total_ms"] == metrics["setup_ms"] + metrics["other_ms"]
+    assert metrics["model_ms"] == metrics["model_calls"] == metrics["tool_calls"] == 0
     code = "service_unavailable" if failure == "private_detail" else failure
     error = errors[0]
     assert error["code"] == code

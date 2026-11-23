@@ -16,19 +16,19 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 653 | 128656 |
+| `domains` | 653 | 128681 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
-| `platform` | 16 | 2005 |
+| `platform` | 16 | 2049 |
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 292 | 57401 |
+| `services` | 293 | 57618 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1165 modules** and **222014 source lines**.
+Total: **1166 modules** and **222300 source lines**.
 
 ## agent
 
@@ -218,11 +218,11 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/domains/agent/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Modular HTTP routes for the agent domain. |
 | [`backend/domains/agent/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/attachments.py) | 223 | 0 | 9 | 2 | 4 | No module docstring |
 | [`backend/domains/agent/routes/chat_error_messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_error_messages.py) | 91 | 0 | 1 | 0 | 0 | User-facing stream failures in the application's four languages. |
-| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 564 | 0 | 9 | 4 | 1 | No module docstring |
-| [`backend/domains/agent/routes/chat_stream.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream.py) | 277 | 0 | 4 | 2 | 0 | Orchestration for the public NDJSON agent event stream. |
+| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 579 | 0 | 9 | 4 | 1 | No module docstring |
+| [`backend/domains/agent/routes/chat_stream.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream.py) | 279 | 0 | 4 | 2 | 0 | Orchestration for the public NDJSON agent event stream. |
 | [`backend/domains/agent/routes/chat_stream_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_errors.py) | 284 | 0 | 4 | 2 | 0 | Failure translation and cleanup for agent event streams. |
-| [`backend/domains/agent/routes/chat_stream_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_state.py) | 121 | 1 | 0 | 0 | 0 | Mutable request-local state for one agent event stream. |
-| [`backend/domains/agent/routes/chat_stream_updates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_updates.py) | 354 | 0 | 7 | 1 | 0 | Workflow update translation for the public agent event stream. |
+| [`backend/domains/agent/routes/chat_stream_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_state.py) | 123 | 1 | 0 | 0 | 0 | Mutable request-local state for one agent event stream. |
+| [`backend/domains/agent/routes/chat_stream_updates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_updates.py) | 355 | 0 | 7 | 1 | 0 | Workflow update translation for the public agent event stream. |
 | [`backend/domains/agent/routes/checkpoints.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/checkpoints.py) | 423 | 1 | 17 | 1 | 10 | No module docstring |
 | [`backend/domains/agent/routes/confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/confirmations.py) | 566 | 0 | 16 | 9 | 10 | No module docstring |
 | [`backend/domains/agent/routes/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/contracts.py) | 256 | 10 | 0 | 0 | 3 | No module docstring |
@@ -236,13 +236,13 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/domains/agent/routes/shared.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/shared.py) | 203 | 1 | 9 | 0 | 5 | No module docstring |
 | [`backend/domains/agent/routes/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/state.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/domains/agent/routes/task_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/task_evaluations.py) | 132 | 0 | 8 | 1 | 0 | Administrator-only previews and explicit checks of active candidate routes. |
-| [`backend/domains/agent/routes/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workflow.py) | 183 | 0 | 1 | 1 | 1 | No module docstring |
+| [`backend/domains/agent/routes/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workflow.py) | 184 | 0 | 1 | 1 | 1 | No module docstring |
 | [`backend/domains/agent/routes/workspace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workspace.py) | 188 | 9 | 19 | 5 | 0 | Authenticated agent workbench: native folder grants, files, pages and analysis. |
 | [`backend/domains/agent/routes/workspace_inputs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workspace_inputs.py) | 54 | 1 | 2 | 0 | 0 | Verified user-selected files imported into the task's isolated analysis inputs. |
 | [`backend/domains/agent/routes/workspace_speech.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workspace_speech.py) | 99 | 2 | 6 | 6 | 0 | Vault-wide speech preferences and playback through the same engine. |
 | [`backend/domains/agent/routes/workspace_voice.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workspace_voice.py) | 67 | 1 | 2 | 1 | 2 | Bounded voice chunks through the existing governed local transcription engine. |
 | [`backend/domains/agent/row_titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/row_titles.py) | 35 | 0 | 2 | 0 | 2 | Use the table's visible title field for confirmed row edits. |
-| [`backend/domains/agent/runtime_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 586 | 0 | 18 | 0 | 17 | Typed agent capability resolution, metadata and tool selection. |
+| [`backend/domains/agent/runtime_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 588 | 0 | 18 | 0 | 17 | Typed agent capability resolution, metadata and tool selection. |
 | [`backend/domains/agent/sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/__init__.py) | 1 | 0 | 0 | 0 | 0 | Scoped read adapters for first-party agent sources. |
 | [`backend/domains/agent/sources/integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/integrations.py) | 158 | 0 | 7 | 0 | 3 | Mail, calendar and contacts read adapters. |
 | [`backend/domains/agent/sources/mail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/mail.py) | 175 | 0 | 7 | 0 | 1 | Mail context reads retain both account and folder identity. |
@@ -267,7 +267,7 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/domains/agent/turn_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 501 | 0 | 8 | 0 | 5 | Provider-independent planning for governed agent turns. |
 | [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 299 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
 | [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 799 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
-| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 796 | 4 | 15 | 1 | 19 | Typed preparation stages for the agent workflow coordinator. |
+| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 798 | 4 | 15 | 1 | 19 | Typed preparation stages for the agent workflow coordinator. |
 | [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 537 | 0 | 8 | 0 | 5 | Fail-closed multilingual authorization intent. |
 | [`backend/domains/analytics/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/__init__.py) | 1 | 0 | 0 | 0 | 0 | Analytics-domain contracts and services. |
 | [`backend/domains/analytics/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/schemas.py) | 93 | 10 | 0 | 0 | 10 | Public request and response contracts for workspace analytics. |
@@ -919,7 +919,7 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/platform/files/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/__init__.py) | 140 | 0 | 3 | 0 | 2 | Abstraction layer for cloud-on-demand storage providers. |
 | [`backend/platform/files/availability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/availability.py) | 35 | 1 | 0 | 0 | 1 | Typed availability failures shared by native readers and their callers. |
 | [`backend/platform/files/base.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/base.py) | 142 | 1 | 0 | 0 | 1 | Base interface for cloud-on-demand storage providers. |
-| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 247 | 0 | 13 | 5 | 6 | Bounded, read-only access to macOS File Provider files. |
+| [`backend/platform/files/coordinated.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/coordinated.py) | 266 | 0 | 13 | 5 | 6 | Bounded, read-only access to macOS File Provider files. |
 | [`backend/platform/files/dropbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/dropbox.py) | 12 | 1 | 0 | 0 | 1 | Dropbox adapter for macOS File Provider based folders. |
 | [`backend/platform/files/gdrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/gdrive.py) | 54 | 1 | 0 | 0 | 1 | GoogleDriveProvider: vault over Google Drive (Drive for Desktop, macOS). |
 | [`backend/platform/files/icloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/icloud.py) | 49 | 1 | 0 | 0 | 1 | iCloudDriveProvider: vault over iCloud Drive with the macOS File Provider. |
@@ -927,8 +927,8 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/platform/files/nextcloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/nextcloud.py) | 107 | 1 | 0 | 0 | 1 | NextCloudProvider: vault over NextCloud Virtual Files (EXPERIMENTAL). |
 | [`backend/platform/files/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 468 | 1 | 3 | 0 | 4 | Provider-neutral support for vaults with files on demand. |
 | [`backend/platform/files/onedrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py) | 90 | 1 | 0 | 0 | 1 | OneDrive adapter for the provider-neutral files-on-demand runtime. |
-| [`backend/platform/files/skill_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/skill_worker.py) | 197 | 4 | 2 | 0 | 2 | Reuse two native processes across event loops. Every request gets a new provider grant. |
-| [`backend/platform/files/snapshots.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/snapshots.py) | 223 | 3 | 3 | 1 | 2 | Bounded, cross-event-loop coordination of demand and speculative file reads. |
+| [`backend/platform/files/skill_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/skill_worker.py) | 201 | 4 | 2 | 0 | 2 | Reuse two native processes across event loops. Every request gets a new provider grant. |
+| [`backend/platform/files/snapshots.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/snapshots.py) | 244 | 3 | 3 | 1 | 2 | Bounded, cross-event-loop coordination of demand and speculative file reads. |
 | [`backend/platform/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/notifications.py) | 179 | 5 | 1 | 0 | 6 | Provider-neutral notification channels for local Gnosi operations. |
 | [`backend/platform/translation_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/translation_server.py) | 33 | 0 | 1 | 0 | 1 | HTTP transport adapter for the optional Zotero translation server. |
 
@@ -979,8 +979,9 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/services/agent_capability_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_contract.py) | 62 | 0 | 2 | 0 | 2 | Versioned extension contract for governed agent capabilities. |
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
 | [`backend/services/agent_catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_models.py) | 30 | 2 | 0 | 0 | 2 | Immutable catalog registration and resolved runtime capability values. |
-| [`backend/services/agent_catalog_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_snapshot.py) | 174 | 2 | 7 | 0 | 3 | Catalog data shared for a single synchronous team metadata read. |
-| [`backend/services/agent_chat_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_timing.py) | 102 | 1 | 3 | 0 | 1 | Monotonic phase timings shared by the workers of a single chat request. |
+| [`backend/services/agent_catalog_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_snapshot.py) | 210 | 2 | 8 | 0 | 4 | Catalog data shared for a single synchronous team metadata read. |
+| [`backend/services/agent_chat_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_preparation.py) | 102 | 2 | 2 | 1 | 0 | Exclusive monotonic timings for the serial admission stages of one chat turn. |
+| [`backend/services/agent_chat_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_timing.py) | 107 | 1 | 3 | 0 | 1 | Monotonic phase timings shared by the workers of a single chat request. |
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
 | [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 139 | 2 | 5 | 0 | 3 | Offline token accounting with an explicit conservative fallback. |
 | [`backend/services/agent_correction_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_correction_contracts.py) | 116 | 1 | 4 | 0 | 1 | Conservative local reference checks for fully quoted proofreading requests. |
@@ -1039,8 +1040,8 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/services/agent_team_resume.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_resume.py) | 45 | 0 | 1 | 1 | 0 | Resume a frozen team plan without regenerating or replaying completed work. |
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
 | [`backend/services/agent_team_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_routing.py) | 128 | 0 | 4 | 0 | 3 | Capability descriptions and intact conversation context for team routing. |
-| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 673 | 1 | 23 | 4 | 3 | Teams execute through the canonical executor, never through provider clients. |
-| [`backend/services/agent_team_skill_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_skill_sources.py) | 144 | 1 | 3 | 1 | 0 | Personal procedure sources shared only between discovery passes of one chat. |
+| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 677 | 1 | 23 | 4 | 3 | Teams execute through the canonical executor, never through provider clients. |
+| [`backend/services/agent_team_skill_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_skill_sources.py) | 211 | 1 | 3 | 1 | 0 | Personal procedure sources shared only between discovery passes of one chat. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 134 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/agent_team_supplied.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_supplied.py) | 74 | 0 | 3 | 0 | 0 | Plan an already classified routine chat turn using the live team catalog. |
 | [`backend/services/agent_team_usage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_usage.py) | 118 | 0 | 5 | 1 | 1 | Report coordinated usage once, without counting job rollups a second time. |
@@ -1248,7 +1249,7 @@ Total: **1165 modules** and **222014 source lines**.
 | [`backend/services/translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_index.py) | 104 | 0 | 6 | 0 | 4 | Local translation index for translate-row idempotency. |
 | [`backend/services/turn_idempotency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/turn_idempotency.py) | 60 | 0 | 3 | 0 | 0 | Durable turn claims preventing duplicate concurrent execution. |
 | [`backend/services/unified_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/unified_dates.py) | 106 | 0 | 5 | 0 | 5 | Lossless normalization and field-reference migration for unified dates. |
-| [`backend/services/user_skill_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 385 | 4 | 3 | 0 | 4 | Portable per-vault storage for user-authored declarative skills. |
+| [`backend/services/user_skill_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 388 | 4 | 3 | 0 | 4 | Portable per-vault storage for user-authored declarative skills. |
 | [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 606 | 4 | 16 | 0 | 20 | vault_file_index.py — Vault file/folder name index. |
 | [`backend/services/vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_mail_sync_service.py) | 223 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/vault_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_routing.py) | 95 | 0 | 6 | 0 | 6 | Canonical vault slug helpers shared by routing and management APIs. |

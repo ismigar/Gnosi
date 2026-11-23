@@ -1,4 +1,5 @@
 import { isRecord, type LooseRecord, type LooseValue } from './agentChatMessageTypes';
+import { explicitTurnId } from './agentChatTurnIdentity';
 
 export type AssistantProfileSnapshot = {
     readonly id: string;
@@ -20,9 +21,7 @@ export function assistantProfileSnapshot(value: unknown, previous?: AssistantPro
 
 /** Legacy session, conversation and trace identifiers can span multiple turns. */
 function explicitAssistantTurn(message: LooseValue): string | undefined {
-    if (!isRecord(message) || message.role !== 'assistant' || message.turn_id_is_legacy === true) return undefined;
-    const id = message.turn_id ?? message.turnId;
-    return typeof id === 'string' && id ? id : undefined;
+    return isRecord(message) && message.role === 'assistant' ? explicitTurnId(message) : undefined;
 }
 
 export function cachedAssistantTurns(messages: readonly LooseValue[]): Map<string, LooseRecord[]> {

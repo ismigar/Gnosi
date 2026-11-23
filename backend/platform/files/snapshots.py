@@ -11,9 +11,10 @@ from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import BinaryIO
 
 from .availability import AvailabilityReason, MetadataUnavailable
-from .coordinated import copy_coordinated, verify_skill_sources
+from .coordinated import MAX_CAPTURE_SOURCES, MAX_SKILL_BYTES, copy_coordinated, verify_skill_sources
 
 
 def revision(info: os.stat_result) -> tuple[int, ...]:
@@ -98,7 +99,9 @@ class CoordinatedReads:
             return ((path, version) not in self._jobs and not (
                 failure and failure[0] > time.monotonic() and failure[1] == version))
 
-    def verify_skill_sources(self, expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
+    def verify_skill_sources(
+        self, expected: dict[Path, tuple[int, ...]], target: BinaryIO | None = None,
+    ) -> dict[Path, os.stat_result]:
         # This optimization uses the same worker pool as foreground reads. Skip it
         # under contention and let the normal per-file requests observe their grants.
         if not self._verification_slot.acquire(blocking=False):
@@ -107,10 +110,28 @@ class CoordinatedReads:
             with self._guard:
                 if self._jobs:
                     return {}
-                pending = self._pool.submit(lambda: asyncio.run(verify_skill_sources(expected)))
+                pending = self._pool.submit(lambda: asyncio.run(verify_skill_sources(expected, target)))
             return pending.result()
         finally:
             self._verification_slot.release()
+
+    def read_skill_sources(self, expected: dict[Path, tuple[int, ...]]) -> dict[Path, bytes]:
+        """Return complete, revision-bound bytes from one small grant. Never retain them in the queue."""
+        size = sum(stamp[2] for stamp in expected.values())
+        if not 1 <= len(expected) <= MAX_CAPTURE_SOURCES or not 0 <= size <= MAX_SKILL_BYTES:
+            return {}
+        try:
+            with tempfile.TemporaryFile() as target:
+                proofs = self.verify_skill_sources(expected, target)
+                if proofs.keys() != expected.keys() or os.fstat(target.fileno()).st_size != size:
+                    return {}
+                if any((*revision(info), getattr(info, "st_flags", 0)) != expected[path]
+                       for path, info in proofs.items()):
+                    return {}
+                target.seek(0)
+                return {path: target.read(stamp[2]) for path, stamp in expected.items()}
+        except OSError:
+            return {}
 
     def request(
         self, path: Path, info: os.stat_result | None, *,

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.platform.files import coordinated, skill_worker
+from backend.platform.files import coordinated, skill_worker, snapshots
 from backend.platform.files.availability import MetadataUnavailable
 
 
@@ -112,6 +112,14 @@ def _events(root, kind):
     return [int(pid) for pid, event in (
         line.split() for line in (root / "events").read_text().splitlines()
     ) if event == kind]
+
+
+def test_single_read_worker_still_reads_after_declining_a_group(provider):
+    path = _source(provider.parent)
+    info = path.stat()
+    expected = {path: (*snapshots.revision(info), getattr(info, "st_flags", 0))}
+    assert snapshots.reads.read_skill_sources(expected) == {}
+    assert _read(path)[0] == b"original"
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS native contract")

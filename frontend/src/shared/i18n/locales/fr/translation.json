@@ -6740,6 +6740,18 @@
     },
     "timing_total": "Total du serveur : {{count}} ms",
     "timing_setup": "Préparation : {{count}} ms",
+    "setup_stages": {
+      "worker_queue": "Attente dans la file de travail · {{count}} ms",
+      "event_loop": "Attente de la reprise du chat · {{count}} ms",
+      "configuration": "Lecture de la configuration · {{count}} ms",
+      "session": "Ouverture du tour · {{count}} ms",
+      "vault_context": "Coffre et contexte · {{count}} ms",
+      "connectors": "Connecteurs · {{count}} ms",
+      "capabilities": "Profil et procédures · {{count}} ms",
+      "team": "Préparation de l’équipe · {{count}} ms",
+      "workflow": "Création du flux de travail · {{count}} ms",
+      "other": "Autre préparation · {{count}} ms"
+    },
     "timing_routing": "Routage : {{count}} ms",
     "timing_tools": "Outils : {{count}} ms",
     "timing_model": "Modèle : {{count}} ms",

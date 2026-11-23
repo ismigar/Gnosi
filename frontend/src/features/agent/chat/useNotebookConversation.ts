@@ -18,7 +18,8 @@ export function useNotebookConversation(context: ChatSessionController): void {
       if (document.visibilityState !== 'visible' || isLoading) return;
       void fetchNotebookConversation(notebookId).then((canonical) => {
         if (cancelled || historyHydrationRef.current !== hydrationId) return;
-        const canonicalMessages = Array.isArray(canonical.messages) ? canonical.messages : [];
+        const canonicalMessages = canonical.messages;
+        if (!Array.isArray(canonicalMessages)) return;
         setMessages((previous) => hydrateChatMessages(canonicalMessages, previous, true));
         setChatSessions((previous) => previous.map((session) => session.id === forcedSessionId ? {
           ...session, agentId: forcedAgentId || session.agentId, messages: hydrateChatMessages(canonicalMessages, session.messages, true),

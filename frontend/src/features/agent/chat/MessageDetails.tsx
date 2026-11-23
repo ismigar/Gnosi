@@ -1,11 +1,29 @@
 import { useTranslation } from 'react-i18next';
 import type { MessageDetailsData, MessageJobAction } from './messageDetailsModel';
+import type { TurnMetrics } from '../model/agentChatTiming';
 import { TeamUsageDetails } from './TeamUsageDetails';
 
 interface Props {
   readonly msg: MessageDetailsData;
   readonly onJobAction: (action?: MessageJobAction) => void;
   readonly onFocusComposer: (value: string) => void;
+}
+
+function PreparationDetails({ timings }: { readonly timings: TurnMetrics }) {
+    const { t } = useTranslation();
+    const label = t('chat.timing_setup', 'Setup: {{count}} ms', { count: timings.setup_ms ?? 0 });
+    const stages = Object.entries(timings.setup_breakdown_ms ?? {})
+        .filter(([, duration]) => duration > 0)
+        .sort((left, right) => right[1] - left[1]);
+    if (!stages.length) return <div>{label}</div>;
+    return (
+        <details>
+            <summary>{label}</summary>
+            <ul>
+                {stages.map(([stage, count]) => <li key={stage}>{t(`chat.setup_stages.${stage}`, { count })}</li>)}
+            </ul>
+        </details>
+    );
 }
 
 export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
@@ -26,7 +44,7 @@ export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
             {msg.timings && (
                 <>
                     <div>{t('chat.timing_total', 'Server total: {{count}} ms', { count: msg.timings.total_ms ?? 0 })}</div>
-                    <div>{t('chat.timing_setup', 'Setup: {{count}} ms', { count: msg.timings.setup_ms ?? 0 })}</div>
+                    <PreparationDetails timings={msg.timings} />
                     <div>{t('chat.timing_routing', 'Routing: {{count}} ms', { count: msg.timings.routing_ms ?? 0 })}</div>
                     <div>{t('chat.timing_tools', 'Tools: {{count}} ms', { count: msg.timings.tools_ms ?? 0 })}</div>
                     <div>{t('chat.timing_model', 'Model: {{count}} ms', { count: msg.timings.model_ms ?? 0 })}</div>

@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import threading
 from collections.abc import AsyncIterator, Callable, Iterable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Literal
 
 from backend.models.agent_skills import SkillDescriptor
 from backend.platform.files import snapshots
+from backend.platform.files.coordinated import MAX_CAPTURE_SOURCES, MAX_SKILL_BYTES
 from backend.platform.files.snapshots import revision
 from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import current_scope
+from backend.services.user_skill_store import (
+    MAX_DESCRIPTOR_BYTES, MAX_INSTRUCTIONS_BYTES, UserSkillStore, UserSkillStoreError,
+)
 from backend.utils import metadata_io
 
 DiscoveryPhase = Literal["capture", "planning"]
@@ -63,12 +68,74 @@ class ChatSkillSources:
         descriptor = load(package, read)
         sources = _sources(package, vault)
         if sources and all(opened.get(source.path.name) == source.revision for source in sources):
-            size = sum(source.revision[2] for source in sources)  # Byte sizes of the two granted files.
-            with self._lock:
-                if not self._closed and len(self._entries) < 128 and self._bytes + size <= 4 * 1024 * 1024:
-                    self._entries[scope, package] = sources, descriptor.model_copy(deep=True)
-                    self._bytes += size
+            self._remember(scope, package, sources, descriptor)
         return descriptor
+
+    def _remember(self, scope: ExecutionScope, package: Path, sources: tuple[SourceStamp, ...],
+                  descriptor: SkillDescriptor) -> None:
+        size = sum(source.revision[2] for source in sources)
+        with self._lock:
+            if not self._closed and len(self._entries) < 128 and self._bytes + size <= MAX_SKILL_BYTES:
+                self._entries[scope, package] = sources, descriptor.model_copy(deep=True)
+                self._bytes += size
+
+    def capture_assigned(
+        self, store: UserSkillStore, assigned: Iterable[str], load: LoadPackage,
+    ) -> dict[str, SkillDescriptor]:
+        scope = current_scope()
+        vault = store.vault_path
+        if vault.resolve() != Path(scope.vault_path):
+            return {}
+        result: dict[str, SkillDescriptor] = {}
+        batch: dict[Path, tuple[SourceStamp, ...]] = {}
+        size = 0
+        for identifier in assigned:
+            package = store._package_path(identifier)
+            sources = _sources(package, vault)
+            if not sources or not all(source.native for source in sources):
+                continue
+            descriptor, instructions = sources
+            if descriptor.revision[2] > MAX_DESCRIPTOR_BYTES or instructions.revision[2] > MAX_INSTRUCTIONS_BYTES:
+                continue
+            pair_size = descriptor.revision[2] + instructions.revision[2]
+            if len(batch) * 2 == MAX_CAPTURE_SOURCES or size + pair_size > MAX_SKILL_BYTES:
+                result.update(self._capture_batch(scope, batch, load))
+                batch = {}
+                size = 0
+            batch[package] = sources
+            size += pair_size
+        if batch:
+            result.update(self._capture_batch(scope, batch, load))
+        return result
+
+    def _capture_batch(self, scope: ExecutionScope, batch: dict[Path, tuple[SourceStamp, ...]],
+                       load: LoadPackage) -> dict[str, SkillDescriptor]:
+        descriptors = {}
+        with ExitStack() as locks:
+            # Writers replace SKILL.md and skill.yaml while holding this same package lock.
+            for package in sorted(batch):
+                locks.enter_context(UserSkillStore._lock_for(package))
+            contents = snapshots.reads.read_skill_sources({
+                source.path: source.revision for sources in batch.values() for source in sources
+            })
+            if not contents:
+                return {}
+
+            def text(path: Path) -> str:
+                # Match ordinary UTF-8 text reads, including universal newlines.
+                with io.TextIOWrapper(io.BytesIO(contents[path]), encoding="utf-8") as file:
+                    return file.read()
+
+            for sources in batch.values():
+                package = sources[0].path.parent
+                try:
+                    descriptor = load(package, text)
+                except (UserSkillStoreError, UnicodeError):
+                    continue
+                if _sources(package, Path(scope.vault_path)) == sources:
+                    self._remember(scope, package, sources, descriptor)
+                    descriptors[package.name] = descriptor
+        return descriptors
 
     def native_grants(self, scope: ExecutionScope, assigned: Iterable[str]) -> Grants:
         # Include only assigned packages already seen during admission. Newly

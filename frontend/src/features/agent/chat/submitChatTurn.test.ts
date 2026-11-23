@@ -62,6 +62,20 @@ describe('typed chat submission', () => {
       expect(api.start.mock.calls.at(-1)?.[0].profile_id).toBe(selected.id);
     }
   });
+  it('retains preparation timings on the failed response when admission is unavailable', async () => {
+    const f = chatTurnFixture(locale.t);
+    const stages = { worker_queue: 50, vault_context: 400 };
+    api.start.mockResolvedValue(streamResponse([
+      { type: 'error', code: 'metadata_unavailable', retryable: true, content: 'Synthetic read unavailable' },
+      { type: 'turn_metrics', setup_ms: 450, setup_breakdown_ms: stages, model_ms: 0, total_ms: 452 },
+      { type: 'done', has_response: false, message_count: 0 },
+    ]));
+    await submitChatTurn(f.context);
+    expect(f.messages()[1]).toMatchObject({
+      errorCode: 'metadata_unavailable', retryable: true,
+      timings: { setup_ms: 450, setup_breakdown_ms: stages, model_ms: 0, total_ms: 452 },
+    });
+  });
   it('pauses the queue on an uncertain or failed delivery', async () => {
     const onOutcome = vi.fn();
     const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', onOutcome });

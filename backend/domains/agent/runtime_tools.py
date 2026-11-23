@@ -338,7 +338,9 @@ def prepare_agent_runtime(
 ) -> tuple[dict[str, Any], dict[str, Any] | None, Any]:
     """Load current AI config, selected profile, and resolved capabilities."""
     from backend.services.principal_agent_migration import ensure_migrated
-    ai_cfg = ensure_migrated()
+    from backend.services.agent_chat_preparation import preparation_stage
+    with preparation_stage("configuration"):
+        ai_cfg = ensure_migrated()
     agent_data = _select_agent_profile(ai_cfg, agent_id)
     runtime = (
         _resolve_runtime_capabilities(

@@ -64,7 +64,7 @@ class _Worker:
         finally:
             self.channel.close()
 
-    def request(self, path: Path, target: int, deadline: float) -> tuple[int, object]:
+    def request(self, source: Path | bytes, target: int, deadline: float) -> tuple[int, object]:
         if not self.ready:
             greeting = _receive(self.channel, deadline, 4)
             if not greeting:
@@ -79,17 +79,21 @@ class _Worker:
             if greeting != b"GNS1":
                 raise ValueError("Invalid file helper greeting")
             self.ready = True
-        name = os.fsencode(path)
-        if len(name) > 65535:
-            raise ValueError("File path exceeds helper frame")
-        frame = struct.pack("!H", len(name)) + name
+        if isinstance(source, bytes):
+            # B carries the bounded list of personal source paths and expected revisions.
+            marker, frame, reply_limit = b"B", struct.pack("!I", len(source)) + source, 16384
+        else:
+            name = os.fsencode(source)
+            if len(name) > 65535:
+                raise ValueError("File path exceeds helper frame")
+            marker, frame, reply_limit = b"R", struct.pack("!H", len(name)) + name, 2048
         self.channel.settimeout(_remaining(deadline))
         rights = [(socket.SOL_SOCKET, socket.SCM_RIGHTS, array.array("i", [target]))]
-        if self.channel.sendmsg([b"R"], rights) != 1:
+        if self.channel.sendmsg([marker], rights) != 1:
             raise OSError("Incomplete file helper request")
         self.channel.settimeout(_remaining(deadline))
         self.channel.sendall(frame)
-        reply = _receive(self.channel, deadline, 2048, line=True)
+        reply = _receive(self.channel, deadline, reply_limit, line=True)
         if not reply.endswith(b"\n") or reply.count(b"\n") != 1:
             raise ValueError("Incomplete file helper response")
         record = json.loads(reply)
@@ -136,7 +140,7 @@ class SkillWorkers:
         return worker
 
     def _read(
-        self, request: _Request, helper: Path, path: Path, target: int, deadline: float,
+        self, request: _Request, helper: Path, source: Path | bytes, target: int, deadline: float,
     ) -> tuple[int, object]:
         _remaining(deadline)
         with self._guard:
@@ -149,7 +153,7 @@ class SkillWorkers:
                 if self._closed or request.cancelled:
                     raise OSError("File helper stopped")
                 request.worker = worker
-            return worker.request(path, target, deadline)
+            return worker.request(source, target, deadline)
         except BaseException:
             self._discard(worker)
             raise
@@ -160,13 +164,13 @@ class SkillWorkers:
             if cancelled:
                 self._discard(worker)
 
-    async def read(self, helper: Path, path: Path, target: int, timeout: float) -> tuple[int, object]:
+    async def read(self, helper: Path, source: Path | bytes, target: int, timeout: float) -> tuple[int, object]:
         deadline = time.monotonic() + timeout
         request = _Request()
         with self._guard:
             if self._closed:
                 raise OSError("File helper stopped")
-            job = self._pool.submit(self._read, request, helper, path, target, deadline)
+            job = self._pool.submit(self._read, request, helper, source, target, deadline)
         done = asyncio.wrap_future(job)
         done.add_done_callback(lambda result: None if result.cancelled() else result.exception())
         try:

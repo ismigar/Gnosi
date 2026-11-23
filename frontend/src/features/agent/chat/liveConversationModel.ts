@@ -2,6 +2,7 @@ import { isRecord, stringifyLooseValue } from '../model/agentChatMessageTypes';
 import { boundedProcessingMs, boundedTransparencyMetadata, boundedTurnMetrics, mergeCanonicalMessageMetadata, mergeNotebookConversation } from '../model/agentChatMessageUtils';
 import type { StoredChatMessage } from './sessionModel';
 import { assistantProfileSnapshot } from '../model/agentChatAuthor';
+import { explicitTurnId } from '../model/agentChatTurnIdentity';
 
 /** Live history is not the storage codec: never truncate content or scrub a pending action here. */
 export function readLiveChatMessages(value: unknown): StoredChatMessage[] {
@@ -19,6 +20,105 @@ export function readLiveChatMessages(value: unknown): StoredChatMessage[] {
   }));
 }
 
+function isPreparationError(row: StoredChatMessage): boolean {
+  return row.role === 'assistant' && typeof row.errorCode === 'string' && !!row.errorCode
+    && row.timings?.model_calls === 0 && !!row.timings.setup_breakdown_ms;
+}
+
+export function hasPreparationHistoryAnchor(row: StoredChatMessage): boolean {
+  return (row.promptWasCheckpointed === true || row.beforeFirstCheckpoint === true) && isPreparationError(row);
+}
+
 export function hydrateChatMessages(canonical: unknown, cached: readonly StoredChatMessage[], notebook = false): StoredChatMessage[] {
-  return readLiveChatMessages(notebook ? mergeNotebookConversation(canonical, cached) : mergeCanonicalMessageMetadata(canonical, cached));
+  return reconcileHistory(canonical, cached, notebook ? 'notebook' : 'session');
+}
+
+export function hydrateRewoundChatMessages(canonical: unknown, kept: readonly StoredChatMessage[]): StoredChatMessage[] {
+  return reconcileHistory(canonical, kept, 'rewind');
+}
+
+function reconcileHistory(canonical: unknown, cached: readonly StoredChatMessage[], mode: 'session' | 'notebook' | 'rewind'): StoredChatMessage[] {
+  const merge = mode === 'notebook' ? mergeNotebookConversation : mergeCanonicalMessageMetadata;
+  const failedTurns = new Map<string, StoredChatMessage>();
+  for (const row of cached) {
+    const id = explicitTurnId(row);
+    if (id && isPreparationError(row)) failedTurns.set(id, row);
+  }
+  if (!failedTurns.size || !Array.isArray(canonical)) return readLiveChatMessages(merge(canonical, cached));
+  if (!canonical.length && mode !== 'rewind' && !cached.some(hasPreparationHistoryAnchor)) {
+    return readLiveChatMessages(merge(canonical, cached));
+  }
+
+  // The checkpoint can omit the whole failed turn or contain only its prompt.
+  // Keep cached diagnostics out of the metadata merge for subsequent answers.
+  const checkpointCache = cached.filter(row => !isPreparationError(row) && (row.role !== 'user' || !failedTurns.has(explicitTurnId(row) ?? '')));
+  const history = canonical.length ? readLiveChatMessages(merge(canonical, checkpointCache)) : [];
+  const checkpointRows = canonical.filter(isRecord);
+  const checkpointIds = new Set(checkpointRows.map(explicitTurnId).filter(id => id !== undefined));
+  const positions = new Map<string, number[]>();
+  function indexRow(key: string, index: number) {
+    const matches = positions.get(key);
+    if (matches) matches.push(index);
+    else positions.set(key, [index]);
+  }
+  checkpointRows.forEach((row, index) => {
+    const id = explicitTurnId(row);
+    if (id) indexRow(JSON.stringify(['turn', row.role, id]), index);
+    indexRow(JSON.stringify(['text', row.role, row.content]), index);
+  });
+  const inserts = new Map<number, StoredChatMessage[]>();
+  for (const [id, error] of failedTurns) {
+    const prompt = positions.get(JSON.stringify(['turn', 'user', id]))?.at(-1);
+    if (prompt !== undefined && !positions.has(JSON.stringify(['turn', 'assistant', id]))) {
+      inserts.set(prompt + 1, [{ ...error, promptWasCheckpointed: true, beforeFirstCheckpoint: false }]);
+    }
+  }
+  let pending: StoredChatMessage[] = [];
+  let cursor = 0;
+  let followsRemovedTurn = false;
+  function placePending(index: number | undefined) {
+    if (pending.length && index !== undefined) {
+      const placed = inserts.get(index) ?? [];
+      for (const row of pending) {
+        placed.push(isPreparationError(row) ? { ...row, beforeFirstCheckpoint: index === 0 } : row);
+      }
+      inserts.set(index, placed);
+    }
+    pending = [];
+  }
+  for (const row of cached) {
+    if (row.role !== 'user' && row.role !== 'assistant') continue;
+    const id = explicitTurnId(row);
+    if (id && checkpointIds.has(id) && isPreparationError(row)) continue;
+    const failure = id ? failedTurns.get(id) : undefined;
+    if (id && failure && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
+      if (failure.promptWasCheckpointed === true) {
+        // A previously observed prompt marks the cut even if it was the first
+        // checkpoint. Local-only failures before that cut stay before its replacement.
+        placePending(followsRemovedTurn ? undefined : cursor);
+        followsRemovedTurn = true;
+      } else if (!followsRemovedTurn) {
+        pending.push(row);
+        // Keep the observed start of the branch when its first new server turn
+        // arrives in a later fetch, after a reload or another client’s undo.
+        if (cursor === 0 && failure.beforeFirstCheckpoint === true) placePending(0);
+      }
+      continue;
+    }
+    const strict = id ? positions.get(JSON.stringify(['turn', row.role, id])) : undefined;
+    const text = positions.get(JSON.stringify(['text', row.role, row.content]));
+    const index = strict?.find(i => i >= cursor)
+      ?? text?.find(i => i >= cursor && (!id || !explicitTurnId(checkpointRows[i])));
+    if (index !== undefined) {
+      // The saved window can begin with a failure. Its next checkpoint row still fixes its position.
+      placePending(index);
+      cursor = index + 1;
+      followsRemovedTurn = false;
+    } else if (!id || !checkpointIds.has(id)) {
+      placePending(cursor > 0 && !followsRemovedTurn ? cursor : undefined);
+      followsRemovedTurn = true;
+    }
+  }
+  placePending(followsRemovedTurn ? undefined : cursor || history.length);
+  return [...(inserts.get(0) ?? []), ...history.flatMap((row, index) => [row, ...(inserts.get(index + 1) ?? [])])];
 }

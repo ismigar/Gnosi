@@ -6740,6 +6740,18 @@
     },
     "timing_total": "Total del servidor: {{count}} ms",
     "timing_setup": "Preparació: {{count}} ms",
+    "setup_stages": {
+      "worker_queue": "Espera a la cua de treball · {{count}} ms",
+      "event_loop": "Espera per reprendre el xat · {{count}} ms",
+      "configuration": "Lectura de la configuració · {{count}} ms",
+      "session": "Obertura del torn · {{count}} ms",
+      "vault_context": "Vault i context · {{count}} ms",
+      "connectors": "Connectors · {{count}} ms",
+      "capabilities": "Perfil i procediments · {{count}} ms",
+      "team": "Preparació de l’equip · {{count}} ms",
+      "workflow": "Creació del flux de treball · {{count}} ms",
+      "other": "Resta de la preparació · {{count}} ms"
+    },
     "timing_routing": "Encaminament: {{count}} ms",
     "timing_tools": "Eines: {{count}} ms",
     "timing_model": "Model: {{count}} ms",

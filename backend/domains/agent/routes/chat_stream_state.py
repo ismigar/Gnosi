@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from backend.agent.model_router import model_cost_rates
-from backend.services.agent_chat_timing import ChatTiming
+from backend.services.agent_chat_timing import ChatTiming, PhaseMetrics
 
 
 @dataclass
@@ -38,6 +38,7 @@ class AgentStreamState:
     )
     active_tool_names: set[str] = field(default_factory=set)
     used_tool_names: set[str] = field(default_factory=set)
+    setup_breakdown_ms: dict[str, int] | None = None
     quality_plan: Dict[str, Any] = field(init=False)
     quality_verification: Dict[str, Any] = field(default_factory=dict)
 
@@ -51,7 +52,7 @@ class AgentStreamState:
         self.last_phase = normalized
         return json.dumps({"type": "phase", "trace_id": self.trace_id, "phase": normalized}) + "\n"
 
-    def phase_timings(self) -> dict[str, int]:
+    def phase_timings(self) -> PhaseMetrics:
         total_ms = max(0, int((time.monotonic() - self.request_started_at) * 1000))
         if self.chat_timing is not None:
             end_ms = self.chat_timing.direct_reply_ms
@@ -66,7 +67,8 @@ class AgentStreamState:
         model_ms = max(0, int(self.phase_ms["model"]))
         tools_ms = max(0, int(self.phase_ms["tools"]))
         other_ms = max(0, total_ms - setup_ms - routing_ms - model_ms - tools_ms)
-        return {"setup_ms": setup_ms, "routing_ms": routing_ms, "model_ms": model_ms,
+        return {"setup_ms": setup_ms, **({"setup_breakdown_ms": self.setup_breakdown_ms} if self.setup_breakdown_ms is not None else {}),
+                "routing_ms": routing_ms, "model_ms": model_ms,
                 "tools_ms": tools_ms, "other_ms": other_ms, "total_ms": total_ms}
 
     def metrics_payload(self) -> Dict[str, Any]:

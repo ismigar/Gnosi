@@ -71,7 +71,9 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
         config = {"configurable": {"thread_id": "greeting"}, "recursion_limit": 12}
         db_path = tmp_path / "chat.sqlite"
         started = time.monotonic()
-        state = AgentStreamState(started, started, selection, {}, "greeting-run")
+        started -= 0.125
+        setup = {"configuration": 25, "team": 100}
+        state = AgentStreamState(started, started + 0.125, selection, {}, "greeting-run", setup_breakdown_ms=setup)
         inputs = {"messages": [HumanMessage(content="Hola")], "user_request": "Hola",
                   "trace_id": state.trace_id, "active_skill_ids": snapshot.skill_ids,
                   "turn_authorized_tool_names": [], "current_user_role": scope.role}
@@ -122,6 +124,8 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
         saved_timings = messages[0].additional_kwargs["gnosi_timings"]
         assert saved_timings["response_ms"] == metrics["response_ms"]
         assert saved_timings["model_ms"] == metrics["model_ms"]
+        assert saved_timings["setup_breakdown_ms"] == metrics["setup_breakdown_ms"] == setup
+        assert metrics["setup_ms"] == sum(setup.values())
         assert saved_timings["routing_ms"] == metrics["routing_ms"]
         assert saved_timings.get("model_calls") == metrics.get("model_calls")
         assert not history.values["pending_team_messages"]
@@ -312,3 +316,55 @@ def test_standard_and_governed_tool_nodes_keep_their_own_time(monkeypatch, gover
         result = asyncio.run(graph.compile().ainvoke({"messages": [request]}))
     assert result["messages"][-1].content == "3"
     assert clock.waits(0, 1) == {"model": 0, "tools": 1000}
+
+def test_preparation_separates_worker_queue_nested_configuration_and_resumption(monkeypatch):
+    from backend.services import agent_chat_preparation as preparation
+
+    now = 0.0
+
+    def advance(seconds):
+        nonlocal now
+        now += seconds
+
+    async def queued_worker(fn):
+        advance(0.125)
+        result = fn()
+        advance(0.250)
+        return result
+
+    def load_capabilities():
+        with preparation.preparation_stage("configuration"):
+            advance(0.500)
+        advance(0.125)
+        return "ready"
+
+    clock = preparation.ChatPreparation(now)
+    monkeypatch.setattr(preparation, "monotonic", lambda: now)
+    monkeypatch.setattr(asyncio, "to_thread", queued_worker)
+    token = preparation.current_preparation.set(clock)
+    try:
+        advance(0.125)
+        with preparation.preparation_stage("workflow"):
+            assert asyncio.run(preparation.preparation_worker("capabilities", load_capabilities)) == "ready"
+            advance(0.125)
+    finally:
+        preparation.current_preparation.reset(token)
+
+    breakdown = clock.finish(now)
+    assert breakdown == {
+        "configuration": 500, "capabilities": 125, "worker_queue": 125,
+        "event_loop": 250, "workflow": 125, "other": 125,
+    }
+    advance(2.0)
+    assert clock.finish(now) == breakdown
+
+def test_cancelled_preparation_is_cut_off_while_worker_finishes(monkeypatch):
+    from backend.services import agent_chat_preparation as preparation
+
+    clock = preparation.ChatPreparation(10.0)
+    monkeypatch.setattr(preparation, "monotonic", lambda: 10.25)
+    with clock.stage("capabilities"):
+        clock.record("worker_queue", 10.25, 10.375)
+        breakdown = clock.finish(10.5)
+    assert breakdown == {"capabilities": 125, "worker_queue": 125, "other": 250}
+    assert clock.finish(11.0) == breakdown

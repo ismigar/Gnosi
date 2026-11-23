@@ -201,27 +201,46 @@ async def copy_coordinated(path: Path, target: BinaryIO, timeout: float) -> os.s
         raise MetadataUnavailable("Incomplete coordinated file", path=path) from exc
 
 
-async def verify_skill_sources(expected: dict[Path, tuple[int, ...]]) -> dict[Path, os.stat_result]:
-    """Ask the bundled coordinator for fresh grants. Missing proof requires individual reads."""
-    if sys.platform != "darwin" or not 1 <= len(expected) <= 256 or _shutdown_requested.is_set():
+MAX_CAPTURE_SOURCES = 16
+MAX_SKILL_BYTES = 4 * 1024 * 1024
+
+
+async def verify_skill_sources(
+    expected: dict[Path, tuple[int, ...]], target: BinaryIO | None = None,
+) -> dict[Path, os.stat_result]:
+    """Verify fresh grants, optionally copying the admitted bytes to a private file."""
+    limit = MAX_CAPTURE_SOURCES if target is not None else 256
+    if sys.platform != "darwin" or not 1 <= len(expected) <= limit or _shutdown_requested.is_set():
         return {}
     process = None
     try:
         helper = helper_path()
         if helper != _bundled_helper():
             return {}
-        process = await asyncio.create_subprocess_exec(
-            str(helper), "--verify-skill-sources", stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
-        )
-        _active_materializations.add(process)
-        if _shutdown_requested.is_set():
-            return {}
         data = json.dumps([(str(path), stamp) for path, stamp in expected.items()], ensure_ascii=False).encode()
-        output, _ = await asyncio.wait_for(process.communicate(data), timeout=3)
-        if process.returncode:
-            return {}
-        rows = json.loads(output)
+        capture = target is not None
+        async with asyncio.timeout(3):
+            rows = None
+            if target is not None:
+                try:
+                    status, rows = await _skill_workers.read(helper, data, target.fileno(), 3)
+                    if status:
+                        return {}
+                except LegacyHelper:
+                    pass  # A helper without worker mode can still support the one-shot command.
+            if rows is None:
+                process = await asyncio.create_subprocess_exec(
+                    str(helper), "--read-skill-sources" if capture else "--verify-skill-sources",
+                    stdin=asyncio.subprocess.PIPE, stdout=target if capture else asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE if capture else asyncio.subprocess.DEVNULL,
+                )
+                _active_materializations.add(process)
+                if _shutdown_requested.is_set():
+                    return {}
+                output, control = await process.communicate(data)
+                if process.returncode:
+                    return {}
+                rows = json.loads(control if capture else output)
         if not isinstance(rows, list) or len(rows) != len(expected):
             return {}
         return {path: _source_stat(row) for path, row in zip(expected, rows, strict=True)}
