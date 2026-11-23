@@ -11,6 +11,7 @@ from typing import Any, Iterator
 import uuid
 
 from backend.services import ai_usage_ledger as ledger
+from backend.services import reading_budget_grant as grants
 
 DEFAULT_LIMIT_USD = 0.50  # Separate limit for note migration.
 BOOK_LIMIT_USD = 5.0
@@ -29,6 +30,7 @@ def schema(db: Any) -> None:
         reported_usd TEXT)""")
     db.execute("CREATE TABLE IF NOT EXISTS reading_budget_books (budget_id TEXT PRIMARY KEY, book_key TEXT NOT NULL)")
     db.execute("CREATE INDEX IF NOT EXISTS reading_budget_books_key ON reading_budget_books(book_key)")
+    grants.schema(db)
     db.execute("CREATE INDEX IF NOT EXISTS reading_reservations_budget ON reading_reservations(budget_id)")
 
 
@@ -65,7 +67,22 @@ def _usage(db: Any, identifiers: set[str]) -> tuple[Decimal, Decimal]:
     return spent, held
 
 
-def _balance(db: Any, identifier: str, account: BookAccount | None = None) -> tuple[Decimal, Decimal, Decimal]:
+@dataclass(frozen=True)
+class _Balance:
+    limit: Decimal
+    spent: Decimal
+    held: Decimal
+    allowance: grants.Allowance | None
+
+    @property
+    def remaining(self) -> Decimal:
+        room = self.limit - self.spent - self.held
+        if self.allowance:
+            room = min(room, self.allowance.additional_remaining)
+        return max(Decimal(0), room)
+
+
+def _balance(db: Any, identifier: str, account: BookAccount | None = None) -> _Balance:
     current = db.execute("""SELECT b.limit_usd, m.book_key FROM reading_budgets b
         LEFT JOIN reading_budget_books m ON m.budget_id=b.id WHERE b.id=?""", (identifier,)).fetchone()
     if not current:
@@ -74,18 +91,24 @@ def _balance(db: Any, identifier: str, account: BookAccount | None = None) -> tu
     key = account.key if account else current[1]
     identifiers = {identifier}
     if key:
-        limit = min(limit, Decimal(str(BOOK_LIMIT_USD)))
         identifiers.update(_members(db, key))
     if account:
         identifiers.update(account.history)
+    allowance = grants.allowance(db, key, identifiers) if key else None
+    if key:
+        limit = min(limit, allowance.total if allowance else Decimal(str(BOOK_LIMIT_USD)))
     spent, held = _usage(db, identifiers)
-    return limit, spent, held
+    return _Balance(limit, spent, held, allowance)
 
 
 def totals(db: Any, identifier: str, account: BookAccount | None = None) -> dict[str, Any]:
-    limit, spent, held = _balance(db, identifier, account)
-    return {"id": identifier, "limit_usd": float(limit), "spent_usd": float(spent),
-            "reserved_usd": float(held), "remaining_usd": float(max(Decimal(0), limit-spent-held))}
+    balance = _balance(db, identifier, account)
+    result: dict[str, Any] = {"id": identifier, "limit_usd": float(balance.limit), "spent_usd": float(balance.spent),
+                              "reserved_usd": float(balance.held), "remaining_usd": float(balance.remaining)}
+    if balance.allowance:
+        result.update(authorized_limit_usd=float(balance.allowance.total),
+                      additional_remaining_usd=float(balance.allowance.additional_remaining))
+    return result
 
 
 def status(identifier: str, account: BookAccount | None = None) -> dict[str, Any]:
@@ -131,8 +154,6 @@ def configure(limit: float, identifier: str = "", *, book: BookAccount | None = 
     amount = ledger.decimal_cost(limit)
     if amount is None or amount <= 0:
         raise ValueError("reading_budget_invalid")
-    if book and amount > Decimal(str(BOOK_LIMIT_USD)):
-        raise ReadingBudgetError("reading_budget_exceeds_book_limit")
     identifier = identifier or uuid.uuid4().hex
     with ledger.connect() as db:
         schema(db)
@@ -140,8 +161,10 @@ def configure(limit: float, identifier: str = "", *, book: BookAccount | None = 
         db.execute("INSERT OR IGNORE INTO reading_budgets VALUES (?, ?)", (identifier, str(amount)))
         if book:
             _attach_book(db, identifier, book)
-        _, spent, held = _balance(db, identifier)
-        if amount < spent + held:
+        balance = _balance(db, identifier)
+        if book and amount > (balance.allowance.total if balance.allowance else Decimal(str(BOOK_LIMIT_USD))):
+            raise ReadingBudgetError("reading_budget_exceeds_book_limit")
+        if amount < balance.spent + balance.held:
             raise ReadingBudgetError("reading_budget_below_committed_cost")
         db.execute("UPDATE reading_budgets SET limit_usd=? WHERE id=?", (str(amount), identifier))
     return identifier
@@ -220,9 +243,9 @@ def reserve(call_id: str, messages: Any, parameters: dict[str, Any], rates: dict
         if db.execute("SELECT 1 FROM reading_reservations WHERE call_id=?", (call_id,)).fetchone():
             _record_attempt(call_id, amount)
             return
-        limit, spent, held = _balance(db, identifier)
-        if amount > max(Decimal(0), limit-spent-held):
-            reason = "reading_budget_pending_cost" if held else "reading_budget_exhausted"
+        balance = _balance(db, identifier)
+        if amount > balance.remaining:
+            reason = "reading_budget_pending_cost" if balance.held else "reading_budget_exhausted"
             raise ReadingBudgetError(reason)
         db.execute("INSERT INTO reading_reservations VALUES (?,?,?,NULL)", (call_id, identifier, str(amount)))
         _record_attempt(call_id, amount)

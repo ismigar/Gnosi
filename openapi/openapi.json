@@ -19934,6 +19934,28 @@
       },
       "LlmWikiBudgetResponse": {
         "properties": {
+          "additional_remaining_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Remaining Usd"
+          },
+          "authorized_limit_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized Limit Usd"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -21205,7 +21227,6 @@
           "max_cost_usd": {
             "default": 5.0,
             "exclusiveMinimum": 0.0,
-            "maximum": 5.0,
             "title": "Max Cost Usd",
             "type": "number"
           },
