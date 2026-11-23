@@ -14,9 +14,9 @@ import { KnowledgePicker, KnowledgeStatus } from './KnowledgeFields';
 import { graphNeighbors, latestDatedNote } from './graphModel';
 import { useKnowledgeQuery } from './knowledgeQueries';
 
-interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[] }
+interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[]; readonly catalogComplete: boolean }
 
-export function GraphBlock({ block, editing, onConfigure, scope, pages }: Props) {
+export function GraphBlock({ block, editing, onConfigure, scope, pages, catalogComplete }: Props) {
   const { t } = useTranslation();
   const subscribe = useCallback((notify: () => void) => subscribePersonalEdits(notify, scope), [scope]);
   const snapshot = useSyncExternalStore(subscribe, () => personalEditsSnapshot(scope), () => '[]');
@@ -32,11 +32,11 @@ export function GraphBlock({ block, editing, onConfigure, scope, pages }: Props)
     signal => fetchVaultLinkNeighborhood(centerId, signal, scope), Boolean(center));
   const neighbors = links.data ? graphNeighbors(centerId, links.data.incoming, links.data.outgoing, byId, edits) : [];
   return <div className="home-knowledge-block">
-    {editing && <KnowledgePicker label={t('home_canvas.knowledge.center')} placeholder={t('home_canvas.knowledge.lastEdited')}
+    {editing && <KnowledgePicker catalogComplete={catalogComplete} label={t('home_canvas.knowledge.center')} placeholder={t('home_canvas.knowledge.lastEdited')}
       value={pinned} choices={notes} onChange={pageId => { onConfigure({ ...block.settings, pageId }); }} />}
-    {!center ? <p className="home-knowledge-status">{pinned ? t('home_canvas.knowledge.missingNote')
+    {!center ? catalogComplete && <p className="home-knowledge-status">{pinned ? t('home_canvas.knowledge.missingNote')
       : notes.length ? t('home_canvas.knowledge.noEdits') : t('home_canvas.knowledge.noNotes')}</p>
-      : <>{fallback && <p className="home-knowledge-status">{t('home_canvas.knowledge.recentVault')}</p>}
+      : <>{fallback && <p className="home-knowledge-status">{catalogComplete ? t('home_canvas.knowledge.recentVault') : t('home_canvas.knowledge.recentIndexed')}</p>}
         {links.data?.incoming_complete === false && <div className="home-knowledge-index-status">
           <p className="home-knowledge-status" role="status">{t('home_canvas.knowledge.incomingPending')}</p>
           <RefreshButton loading={links.isFetching} onClick={() => { void links.refetch(); }} />

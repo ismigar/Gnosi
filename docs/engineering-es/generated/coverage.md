@@ -9,7 +9,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Dominio | Estado | Guía | Archivos fuente | Archivos de pruebas | Directivas encontradas |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 961 | 349 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1195 | 345 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1196 | 346 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 550 | 183 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |

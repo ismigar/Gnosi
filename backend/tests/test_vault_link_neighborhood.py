@@ -26,6 +26,7 @@ def vaults(isolated_validation_runtime, monkeypatch):
     from backend.domains.vault.links import document_cache, runtime
     from backend.domains.vault.links.api import neighborhood
     from backend.domains.vault.pages.index_entries import build_page_cache_entry
+    from backend.domains.vault.pages.index_service import _merge_index
 
     roots = {key: isolated_validation_runtime / key for key in ("alpha", "beta")}
     state = LinkIndexState()
@@ -48,7 +49,7 @@ def vaults(isolated_validation_runtime, monkeypatch):
                 path.write_text(f"---\nid: {page_id}\ntitle: {title}\n---\n{body}\n", encoding="utf-8")
                 entries[str(path)] = build_page_cache_entry(path, path.stat())
             monkeypatch.setitem(page_state.index_entries, str(root), entries)
-            monkeypatch.setitem(page_state.index_initialized, str(root), True)
+            _merge_index(root, entries, None)
         finally:
             active_vault_path.reset(token)
 
@@ -60,6 +61,8 @@ def vaults(isolated_validation_runtime, monkeypatch):
     app.include_router(vault_routes.router, prefix="/api/vault")
     with TestClient(app) as client:
         yield roots, state, runtime._LINK_INDEX_DEPENDENCIES, client
+    for root in roots.values():
+        page_state.full_index_vaults.discard(str(root))
 
 
 def _get(client, vault):
@@ -127,7 +130,7 @@ def test_existing_scoped_indexes_work_without_an_in_memory_navigation_catalog(va
         monkeypatch.setitem(page_state.index_initialized, str(root), False)
         monkeypatch.setitem(page_state.index_entries, str(root), {})
     monkeypatch.setattr(Path, "rglob", lambda *args: pytest.fail("Home traversed the Vault"))
-    assert _get(client, "alpha") == {"incoming": [SOURCE], "outgoing": [TARGET], "incoming_complete": True}
+    assert client.get("/api/vault/link-neighborhood", params={"page_id": CENTER}, headers={"X-Vault-ID": "alpha"}).status_code == 503
     assert _get(client, "beta") == {"incoming": [], "outgoing": [SOURCE], "incoming_complete": False}
 
 
@@ -187,4 +190,4 @@ def test_foreign_catalog_path_or_symlink_cannot_select_another_vault_note(vaults
     assert client.get("/api/vault/link-neighborhood", params=params, headers=headers).status_code == 404
     entries = page_state.index_entries[str(roots["alpha"])]
     entries[str(foreign)] = {**entries.pop(str(local)), "path": str(foreign)}
-    assert client.get("/api/vault/link-neighborhood", params=params, headers=headers).status_code == 404
+    assert client.get("/api/vault/link-neighborhood", params=params, headers=headers).status_code == 503

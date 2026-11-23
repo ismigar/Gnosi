@@ -5624,7 +5624,10 @@
       "wholeBoard": "Whole dashboard",
       "firstBoard": "First available dashboard",
       "recentVault": "Most recently modified note in this Vault",
-      "incomingPending": "Some links to this note may be missing until this Vault’s link index is ready."
+      "incomingPending": "Some links to this note may be missing until this Vault’s link index is ready.",
+      "catalogPending": "The list of notes and dashboards in this Vault is still incomplete.",
+      "openKnowledge": "Open Knowledge",
+      "recentIndexed": "Most recently modified note in the available list"
     },
     "day": {
       "select_vault": "Select a Vault to see this block.",

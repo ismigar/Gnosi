@@ -253,14 +253,25 @@ export async function fetchVaultSidebarSummary(
     staleTime: 15_000,
     queryFn: load,
   });
-  return pages.map((page) => ({
+  return pages.map(sidebarSummary);
+}
+
+function sidebarSummary(page: VaultSidebarTreePage): VaultSidebarPageSummary {
+  return {
     ...page,
     parent_id: page.parent_id ?? null,
     is_database: page.is_database ?? false,
     metadata: page.metadata ?? {},
     folder: page.folder ?? '',
     resolved_table_id: page.resolved_table_id ?? null,
+  };
+}
+
+export async function fetchHomeKnowledgeCatalog(signal: AbortSignal, scope: RequestContext) {
+  const result = unwrapApiResult(await apiClient.GET('/api/vault/home-knowledge-catalog', {
+    signal, headers: requestContextHeaders(scope),
   }));
+  return { complete: result.complete, pages: result.pages.map(sidebarSummary) };
 }
 
 

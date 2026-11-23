@@ -37,6 +37,8 @@ Click the **G** in the sidebar. **Edit home → Add a block** lists the blocks a
 | Automations, Control dashboard and Settings | Upcoming runs, system status, and your keyboard shortcuts. |
 | Assistant and Bookmarks | Conversations to resume and bookmarks to open. |
 
+While Gnosi indexes a Vault, the dashboard and graph can show entries already indexed. Each block indicates when its list is incomplete.
+
 If the Vault already has a pinned home page, the G opens that page. To open the canvas, choose **Settings → General → System → Home screen for this Vault → My block canvas**.
 
 ## If something goes wrong {#troubleshooting}

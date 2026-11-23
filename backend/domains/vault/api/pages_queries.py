@@ -8,18 +8,21 @@ import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
 from backend.domains.vault.pages.index_entries import is_metadata_stub
-from backend.domains.vault.pages.index_service import SIDEBAR_FOLDER_PREFIXES
+from backend.domains.vault.pages.index_service import SIDEBAR_FOLDER_PREFIXES, cached_navigation_entries
 from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
+    HomeKnowledgeCatalog,
     PageDetailResponse,
     PageInfo,
     PageIndexerStatusResponse,
@@ -30,6 +33,8 @@ from backend.domains.vault.schemas.pages import (
     TablePagesSnapshot,
     _BulkWarmPayload,
 )
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context
+from backend.utils.metadata_io import MetadataUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -362,6 +367,37 @@ async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
     ]
 
 
+def get_home_knowledge_catalog(context: WorkspaceContext = Depends(get_workspace_context)) -> HomeKnowledgeCatalog:
+    """Project known rows from the selected Vault without materializing missing notes."""
+    try:
+        entries, complete = cached_navigation_entries(context.vault_path)
+    except (MetadataUnavailable, OSError) as exc:
+        raise HTTPException(503, "The Vault navigation cache is temporarily unavailable") from exc
+    pages: list[SidebarTreePageInfo] = []
+    for page_id, entry in entries.items():
+        path = Path(str(entry["path"]))
+        raw = entry.get("metadata")
+        metadata = _compact_sidebar_metadata(raw) if is_record(raw) else {}
+        if is_record(raw):
+            for key in ("is_drawing", "is_canvas"):
+                if raw.get(key) is True:
+                    metadata[key] = True
+        modified = entry.get("mtime")
+        try:
+            timestamp = datetime.fromtimestamp(modified, timezone.utc).isoformat() if isinstance(modified, (int, float)) else ""
+        except (ValueError, OverflowError, OSError):
+            timestamp = ""
+        relative_folder = path.parent.relative_to(context.vault_path).as_posix()
+        folder = str(entry.get("folder") or relative_folder)
+        pages.append(SidebarTreePageInfo(
+            id=page_id, title=str(entry.get("title") or path.stem), last_modified=timestamp,
+            parent_id=str(entry["parent_id"]) if entry.get("parent_id") else None,
+            is_database=True if entry.get("is_database") else None, metadata=metadata or None,
+            folder=folder if folder != "." else None,
+        ))
+    return HomeKnowledgeCatalog(pages=pages, complete=complete)
+
+
 async def get_page(page_id: str) -> dict[str, object]:
     """Returns the full content of a page by ID."""
     dependencies = _deps()
@@ -559,6 +595,10 @@ def register_catalog_routes(router: APIRouter) -> None:
 
 
 def register_status_routes(router: APIRouter) -> None:
+    router.add_api_route(
+        "/home-knowledge-catalog", get_home_knowledge_catalog, methods=["GET"],
+        response_model=HomeKnowledgeCatalog, response_model_exclude_none=True,
+    )
     router.add_api_route(
         "/indexer-status",
         get_indexer_status_endpoint,

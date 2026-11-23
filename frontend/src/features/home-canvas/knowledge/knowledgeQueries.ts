@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchVaultPage, fetchVaultSidebarSummary } from '../../../shared/api/vaults';
+import { fetchHomeKnowledgeCatalog, fetchVaultPage } from '../../../shared/api/vaults';
 import { fetchPageViews, fetchVaultViews } from '../../../shared/api/vault-views';
 import { GnosiApiError } from '../../../shared/api/errors';
 import type { RequestContext } from '../../../shared/api/request-context';
@@ -28,7 +28,7 @@ export function useKnowledgeCatalog(scope: RequestContext) {
     const deleted = subscribeAppEvent('gnosi:page-deleted', refresh);
     return () => { saved(); changed(); deleted(); };
   }, [client, scope]);
-  return useKnowledgeQuery(scope, ['pages'], signal => fetchVaultSidebarSummary(signal, scope));
+  return useKnowledgeQuery(scope, ['catalog'], signal => fetchHomeKnowledgeCatalog(signal, scope));
 }
 
 function registryFallback<T>(error: unknown, fallback: T): T {

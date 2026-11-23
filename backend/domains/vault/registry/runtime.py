@@ -209,6 +209,7 @@ _legacy.page_index_service.configure(
         index_lock=_legacy._page_index_lock,
         index_entries=_legacy._page_index_entries,
         index_initialized=_legacy._page_index_initialized,
+        full_index_vaults=_legacy.page_state.full_index_vaults,
         id_to_path=_legacy._page_id_to_path,
         index_version=_legacy._page_index_version,
         body_cache_lock=_legacy._body_cache_lock,

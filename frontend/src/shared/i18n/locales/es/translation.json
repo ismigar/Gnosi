@@ -6171,7 +6171,10 @@
       "wholeBoard": "Todo el tablero",
       "firstBoard": "Primer tablero disponible",
       "recentVault": "Última nota modificada en este Vault",
-      "incomingPending": "Pueden faltar enlaces a esta nota hasta que el índice del Vault esté listo."
+      "incomingPending": "Pueden faltar enlaces a esta nota hasta que el índice del Vault esté listo.",
+      "catalogPending": "La lista de notas y tableros de este Vault todavía está incompleta.",
+      "openKnowledge": "Abrir Conocimiento",
+      "recentIndexed": "Nota modificada más recientemente entre las disponibles"
     },
     "day": {
       "select_vault": "Selecciona un Vault para ver este bloque.",

@@ -37,6 +37,8 @@ Pulsa la **G** de la barra lateral. En **Editar inicio → Añadir un bloque** v
 | Automatizaciones, Panel de control y Configuración | Próximas ejecuciones, estado del sistema y tus atajos de teclado. |
 | Asistente y Marcadores | Conversaciones que puedes retomar y marcadores que puedes abrir. |
 
+Mientras Gnosi indexa un Vault, el tablero y el grafo pueden mostrar las entradas ya indexadas. Cada bloque indica si su lista está incompleta.
+
 Si el Vault tiene una página de inicio fijada, la G sigue abriendo esa página. Para abrir el lienzo, selecciona **Configuración → General → Sistema → Pantalla de inicio de este Vault → Mi lienzo de bloques**.
 
 ## Si algo falla {#troubleshooting}

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../tests/mount-react';
 import { fetchVaultLinkNeighborhood } from '../../../shared/api/vault-neighborhood';
 import { currentRequestContext, USER_ID_STORAGE_KEY } from '../../../shared/api/request-context';
-import { fetchVaultPage, fetchVaultPagesByTable, fetchVaultSidebarSummary, type VaultPageSummary } from '../../../shared/api/vaults';
+import { fetchVaultPage, fetchVaultPagesByTable, fetchHomeKnowledgeCatalog, type VaultPageSummary } from '../../../shared/api/vaults';
 import { fetchPageViews, fetchVaultViews } from '../../../shared/api/vault-views';
 import { writeStorage, removeStorage } from '../../../shared/platform/browser-storage';
 import { activateVault } from '../../../shared/routing/vaultRouting';
@@ -17,7 +17,7 @@ vi.mock('react-i18next', async importOriginal => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { resolvedLanguage: 'en' } }),
 }));
 vi.mock('../../../shared/api/vaults', () => ({
-  fetchVaultPage: vi.fn(), fetchVaultPagesByTable: vi.fn(), fetchVaultSidebarSummary: vi.fn(),
+  fetchVaultPage: vi.fn(), fetchVaultPagesByTable: vi.fn(), fetchHomeKnowledgeCatalog: vi.fn(),
 }));
 vi.mock('../../../shared/api/vault-views', () => ({ fetchVaultViews: vi.fn(), fetchPageViews: vi.fn() }));
 vi.mock('../../../shared/api/vault-neighborhood', () => ({ fetchVaultLinkNeighborhood: vi.fn() }));
@@ -55,7 +55,7 @@ function mount(kind: 'board' | 'graph', settings: Record<string, string> = {}, e
 it('starts with the first accessible dashboard, renders live saved matches and navigates straight to its records', async () => {
   const alpha = page('a', 'Alpha', { is_dashboard: true });
   const boards = [page('z', 'Zulu', { is_dashboard: true }), alpha];
-  vi.mocked(fetchVaultSidebarSummary).mockResolvedValue(boards);
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: boards, complete: true });
   vi.mocked(fetchVaultPage).mockResolvedValue({ ...alpha, content: '{}', etag: 'etag' });
   vi.mocked(fetchPageViews).mockResolvedValue({ page_id: 'a', sections: [
     { section_id: 'tasks', view_id: 'todo', source_table_id: 'items', heading: 'Tasks' },
@@ -93,7 +93,7 @@ it('starts with the first accessible dashboard, renders live saved matches and n
 it('labels a first-open Vault fallback, honors personal recency, provides a configurable pin and clickable directed neighbors', async () => {
   selectScope('graph-defaults');
   const pages = [page('new', 'Newest', {}, '2026-11-19'), page('mine', 'My edit', {}, '2026-11-10'), page('other', 'Linked note')];
-  vi.mocked(fetchVaultSidebarSummary).mockResolvedValue(pages);
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages, complete: true });
   vi.mocked(fetchVaultLinkNeighborhood).mockResolvedValue({ incoming: ['other'], outgoing: [], incoming_complete: true });
   const view = mount('graph');
   await settle();
@@ -118,9 +118,9 @@ it('labels a first-open Vault fallback, honors personal recency, provides a conf
 
 it('aborts the previous graph read and never renders late cross-Vault results with matching IDs', async () => {
   selectScope('previous');
-  vi.mocked(fetchVaultSidebarSummary).mockImplementation((_signal, scope) => Promise.resolve([
-    page('center', scope?.vaultId ?? '', {}, '2026-11-22'), page('neighbor', 'Neighbor'),
-  ]));
+  vi.mocked(fetchHomeKnowledgeCatalog).mockImplementation((_signal, scope) => Promise.resolve({ complete: true, pages: [
+    page('center', scope.vaultId, {}, '2026-11-22'), page('neighbor', 'Neighbor'),
+  ] }));
   let finish: (value: Awaited<ReturnType<typeof fetchVaultLinkNeighborhood>>) => void = () => { throw new Error('Missing pending read'); };
   vi.mocked(fetchVaultLinkNeighborhood).mockImplementation((_id, _signal, scope) =>
     scope.vaultId === 'previous' ? new Promise(done => { finish = done; }) : Promise.resolve({ incoming: [], outgoing: [], incoming_complete: true }));
@@ -137,7 +137,7 @@ it('aborts the previous graph read and never renders late cross-Vault results wi
 });
 
 it('shows outgoing links while the incoming index is pending and can refresh its results', async () => {
-  vi.mocked(fetchVaultSidebarSummary).mockResolvedValue([page('center', 'Center'), page('target', 'Target')]);
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: [page('center', 'Center'), page('target', 'Target')], complete: true });
   vi.mocked(fetchVaultLinkNeighborhood)
     .mockResolvedValueOnce({ incoming: [], outgoing: ['target'], incoming_complete: false })
     .mockResolvedValueOnce({ incoming: [], outgoing: [], incoming_complete: false })

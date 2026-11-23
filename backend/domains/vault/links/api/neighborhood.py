@@ -9,28 +9,20 @@ from backend.domains.vault.links.parsing import extract_outlinks, normalize_ref,
 from backend.domains.vault.links.schemas import VaultLinkNeighborhoodResponse
 from backend.domains.vault.links.state import link_index_state
 from backend.domains.vault.pages.foundation import parse_frontmatter
-from backend.domains.vault.pages.index_service import get_available_page_entries
+from backend.domains.vault.pages.index_service import cached_navigation_entries
 from backend.services.context_vars import active_vault_path
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 
 
-def _catalog(vault: Path) -> dict[str, tuple[Path, str]] | None:
-    # Home uses this same navigation index to choose its center. Its reader
-    # can reopen a persisted catalog without discovering any files.
-    entries = get_available_page_entries(vault)
-    if entries is None:
-        with link_index_state.lock:
-            if not link_index_state.built or link_index_state.vault_key != str(vault):
-                return None
-            entries = [dict(meta, id=note_id) for note_id, meta in link_index_state.page_meta_by_id.items()]
+def _catalog(vault: Path) -> tuple[dict[str, tuple[Path, str]], bool]:
+    entries, complete = cached_navigation_entries(vault)
     notes: dict[str, tuple[Path, str]] = {}
-    for entry in entries:
+    for page_id, entry in entries.items():
         path = Path(str(entry.get("path") or ""))
-        page_id = entry.get("id")
         if page_id and path.suffix.lower() == ".md" and path.is_relative_to(vault) and ".." not in path.parts:
             notes[str(page_id)] = (path, str(entry.get("title") or path.stem))
-    return notes
+    return notes, complete
 
 
 def _incoming(vault: Path, page_id: str, catalog: dict[str, tuple[Path, str]]) -> tuple[list[str], bool]:
@@ -55,10 +47,10 @@ def get_link_neighborhood(
     """Read one Markdown note and use an already built reverse index when available."""
     vault = context.vault_path
     try:
-        catalog = _catalog(vault)
+        catalog, catalog_complete = _catalog(vault)
     except (MetadataUnavailable, OSError) as exc:
         raise HTTPException(503, "The Vault navigation index is temporarily unavailable") from exc
-    if catalog is None:
+    if page_id not in catalog and not catalog_complete:
         raise HTTPException(503, "The Vault navigation index is not ready")
     center = catalog.get(page_id)
     if not center:
@@ -85,7 +77,7 @@ def get_link_neighborhood(
         if note_id != page_id and not targets.isdisjoint((note_id.lower(), title.strip().lower(), note_path.stem.lower()))
     )
     incoming, complete = _incoming(vault, page_id, catalog)
-    return VaultLinkNeighborhoodResponse(incoming=incoming, outgoing=outgoing, incoming_complete=complete)
+    return VaultLinkNeighborhoodResponse(incoming=incoming, outgoing=outgoing, incoming_complete=complete and catalog_complete)
 
 
 def register_routes(router: APIRouter) -> None:

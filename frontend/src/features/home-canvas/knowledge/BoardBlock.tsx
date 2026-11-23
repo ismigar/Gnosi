@@ -13,7 +13,7 @@ import { KnowledgePicker, KnowledgeStatus } from './KnowledgeFields';
 import { readDashboard, useKnowledgeQuery } from './knowledgeQueries';
 
 const VaultMarkdown = lazy(() => import('../../../shared/editor/VaultMarkdown'));
-interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[] }
+interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[]; readonly catalogComplete: boolean }
 
 function LiveView({ part, registered, boardId, scope }: {
   readonly part: BoardView; readonly registered?: Readonly<Record<string, unknown>>;
@@ -48,7 +48,7 @@ function LiveView({ part, registered, boardId, scope }: {
   </section>;
 }
 
-export function BoardBlock({ block, editing, onConfigure, pages, scope }: Props) {
+export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogComplete }: Props) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const boards = useMemo(() => pages.filter(isDashboardPage).sort((a, b) =>
@@ -62,7 +62,7 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope }: Props)
   const parts = dashboard?.layout.partsFor(section);
   const titles = useMemo(() => Object.fromEntries(pages.map(page => [page.id, page.title])), [pages]);
   return <div className="home-knowledge-block">
-    {editing && <KnowledgePicker label={t('home_canvas.knowledge.board')} placeholder={t('home_canvas.knowledge.firstBoard')}
+    {editing && <KnowledgePicker catalogComplete={catalogComplete} label={t('home_canvas.knowledge.board')} placeholder={t('home_canvas.knowledge.firstBoard')}
       value={configuredBoard} choices={boards} onChange={id => { onConfigure({ ...block.settings, boardId: id, section: '' }); }} />}
     {board && <Link className="home-knowledge-source" to={knowledgeDocumentPath(board.id, { is_dashboard: true })}>{readablePageTitle(board.title)}</Link>}
     {editing && dashboard && (dashboard.layout.choices.length > 0 || section) && <label className="home-knowledge-field">
@@ -72,7 +72,7 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope }: Props)
         {section && !parts && <option value={section}>{t('home_canvas.knowledge.unavailable')}</option>}
         {dashboard.layout.choices.map(choice => <option key={choice.key} value={choice.key}>{choice.label || dashboard.registered.find(view => view.id === choice.viewId)?.name || t('home_canvas.knowledge.view')}</option>)}
       </select></label>}
-    {!board ? <p className="home-knowledge-status">{configuredBoard ? t('home_canvas.knowledge.missingBoard') : t('home_canvas.knowledge.noBoards')}</p>
+    {!board ? catalogComplete && <p className="home-knowledge-status">{configuredBoard ? t('home_canvas.knowledge.missingBoard') : t('home_canvas.knowledge.noBoards')}</p>
       : content.isError ? <KnowledgeStatus state="failed" retry={() => { void content.refetch(); }} />
       : content.isPending ? <KnowledgeStatus state="loading" />
       : !dashboard ? <p className="home-knowledge-status">{t('home_canvas.knowledge.missingBoard')}</p>

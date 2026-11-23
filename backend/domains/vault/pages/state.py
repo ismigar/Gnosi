@@ -31,6 +31,7 @@ class PageState:
         self.index_lock = threading.Lock()
         self.index_entries: dict[str, dict[str, PageCacheEntry]] = {}
         self.index_initialized: dict[str, bool] = {}
+        self.full_index_vaults: set[str] = set()
         self.id_to_path: dict[str, dict[object, str]] = {}
         self.index_version: dict[str, int] = {}
         self.last_vault_sync_time = 0.0

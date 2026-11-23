@@ -7050,6 +7050,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/home-knowledge-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Home Knowledge Catalog
+         * @description Project known rows from the selected Vault without materializing missing notes.
+         */
+        get: operations["get_home_knowledge_catalog_api_vault_home_knowledge_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/images/{image_path}": {
         parameters: {
             query?: never;
@@ -18279,6 +18299,16 @@ export interface components {
              * @enum {string}
              */
             start_mode: "page" | "canvas";
+        };
+        /**
+         * HomeKnowledgeCatalog
+         * @description Cached navigation rows and their full-Vault coverage.
+         */
+        HomeKnowledgeCatalog: {
+            /** Complete */
+            complete: boolean;
+            /** Pages */
+            pages: components["schemas"]["SidebarTreePageInfo"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -45019,6 +45049,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomeCanvasState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_home_knowledge_catalog_api_vault_home_knowledge_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeKnowledgeCatalog"];
                 };
             };
             /** @description Validation Error */

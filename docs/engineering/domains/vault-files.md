@@ -152,7 +152,7 @@ A conditional save also rejects a page deleted while it was waiting.
 
 The home layout belongs to the authenticated member in the current workspace and Vault. The client reads and saves it through `/api/vault/home-canvas`. The backend validates an opaque revision and atomically replaces the layout in `.gnosi/home/`. An absent layout uses the default blocks. Saving an empty list keeps the home empty. Existing pinned home pages remain the default destination until the member selects their canvas in Settings. Inactive plugins hide their blocks while their positions and settings are preserved. The last personally edited note and app preview timestamps are specific to the device.
 
-For the graph, `/api/vault/link-neighborhood` reads outgoing links from the center note and uses incoming links only from the active Vault’s index. The UI reports when incoming links are unavailable. Reader playback uses the episode identifier from `/api/reader/podcast/info` so its resume position follows the selected file revision.
+The Knowledge blocks select pages through `/api/vault/home-knowledge-catalog`. This reads cached navigation metadata and reports whether it covers the whole Vault. Opening Home can use locally indexed entries while other documents are offline. For the graph, `/api/vault/link-neighborhood` reads outgoing links from the center note and uses incoming links only from the active Vault’s index. The UI reports when incoming links are unavailable. Reader playback uses the episode identifier from `/api/reader/podcast/info` so its resume position follows the selected file revision.
 
 ## Complete content search and composition
 

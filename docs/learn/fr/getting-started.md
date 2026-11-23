@@ -37,6 +37,8 @@ Cliquez sur le **G** dans la barre latérale. **Modifier l’accueil → Ajouter
 | Automatisations, Tableau de contrôle et Réglages | Les prochaines exécutions, l’état du système et vos raccourcis clavier. |
 | Assistant et Favoris | Les conversations à reprendre et les favoris à ouvrir. |
 
+Pendant l’indexation du Vault, le tableau de bord et le graphe peuvent afficher les entrées déjà indexées. Chaque bloc signale si sa liste est incomplète.
+
 Si le Vault a déjà une page d’accueil épinglée, le G continue à l’ouvrir. Pour ouvrir les blocs, choisissez **Réglages → Général → Système → Écran d’accueil de ce Vault → Mon espace de blocs**.
 
 ## En cas de problème {#troubleshooting}

@@ -14,11 +14,19 @@ test('a personal canvas keeps a resized and reordered block after reopening', as
   const original = await readLayout();
   try {
     await page.addInitScript(() => { localStorage.setItem('i18nextLng', 'en'); });
-    await page.goto('/@' + state.primary_vault.slug + '/knowledge');
-    await expect(page.locator('.vault-shell__main')).toBeVisible();
+    // A cloud-only document elsewhere in the Vault must not be opened to build Home.
+    let sidebarTreeReads = 0;
+    await page.route('**/sidebar/tree*', async route => {
+      sidebarTreeReads += 1;
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{"detail":"Offline document"}' });
+    });
+    const catalogRead = page.waitForResponse(response =>
+      new URL(response.url()).pathname.endsWith('/home-knowledge-catalog'));
     await page.goto('/');
     const home = page.getByTestId('home-canvas');
     await expect(home).toBeVisible();
+    expect((await catalogRead).ok()).toBe(true);
+    expect(sidebarTreeReads).toBe(0);
     await page.getByTestId('home-edit').click();
     await home.locator('button[aria-controls="home-block-catalog"]').click();
     await home.locator('[data-add-kind="bookmarks"]').click();

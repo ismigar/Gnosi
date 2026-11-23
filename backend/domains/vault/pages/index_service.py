@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import BackgroundTasks
 
 from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
+from backend.domains.vault.pages.index_entries import newer_index_entry
 from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
@@ -98,6 +99,7 @@ class PageIndexDependencies:
     stale_check_ttl: float
     logger: logging.Logger
     refresh_locks: dict[str, LockType] = field(default_factory=dict)
+    full_index_vaults: set[str] = field(default_factory=set)
 
 
 _dependencies: PageIndexDependencies | None = None
@@ -206,6 +208,7 @@ def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
             if cached is not None:
                 cached.update(entry)
                 cached.pop("_cloud_pending", None)
+                cached.pop("_navigation_pending", None)
                 dependencies.id_to_path.setdefault(vault_key, {})[page.id] = str(file_path)
                 bump_page_index_version(vault_key)
 
@@ -306,6 +309,7 @@ def _unchanged_entry(
     return bool(
         cached
         and not cached.get("_cloud_pending")
+        and not cached.get("_navigation_pending")
         and cached.get("mtime_ns") == stat_result.st_mtime_ns
         and cached.get("size") == stat_result.st_size
     )
@@ -315,6 +319,7 @@ def _updated_entries(
     candidate_files: list[Path],
     vault_path: Path,
     cached_snapshot: dict[str, PageCacheEntry],
+    missing: list[Path] | None = None,
 ) -> dict[str, PageCacheEntry]:
     dependencies = _deps()
     updated: dict[str, PageCacheEntry] = {}
@@ -329,6 +334,8 @@ def _updated_entries(
             # entry and let a later refresh retry the inaccessible file.
             if path_key in cached_snapshot:
                 updated[path_key] = cached_snapshot[path_key]
+            elif missing is not None:
+                missing.append(file_path)
             continue
         cached = cached_snapshot.get(path_key)
         if _unchanged_entry(cached, stat_result):
@@ -342,13 +349,10 @@ def _updated_entries(
         if parse_failed and cached and not dependencies.is_metadata_stub(cached_metadata):
             updated[path_key] = cached
         else:
+            if parse_failed:
+                built["_navigation_pending"] = True
             updated[path_key] = built
     return updated
-
-
-def _entry_mtime(entry: PageCacheEntry) -> float:
-    raw_value = entry.get("mtime", 0)
-    return float(raw_value) if isinstance(raw_value, (int, float)) else 0.0
 
 
 def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[object, str]:
@@ -359,9 +363,7 @@ def _reverse_id_map(entries: dict[str, PageCacheEntry]) -> dict[object, str]:
             continue
         page_id = str(raw_page_id)
         existing_path = result.get(page_id)
-        if existing_path is None or _entry_mtime(entry) > _entry_mtime(
-            entries.get(existing_path, {})
-        ):
+        if newer_index_entry(entry, entries.get(existing_path or "")):
             result[page_id] = path_key
     return result
 
@@ -370,12 +372,17 @@ def _merge_index(
     vault_path: Path,
     updated: dict[str, PageCacheEntry],
     search_paths: list[Path] | None,
+    *, covered: bool = True,
 ) -> None:
     dependencies = _deps()
     vault_key = str(vault_path)
     with dependencies.index_lock:
+        if not covered:
+            dependencies.full_index_vaults.discard(vault_key)
         if not search_paths:
             dependencies.index_entries[vault_key] = updated
+            if covered:
+                dependencies.full_index_vaults.add(vault_key)
             id_map = _reverse_id_map(updated)
             dependencies.id_to_path[vault_key] = id_map
             dependencies.update_path_resolver(
@@ -449,8 +456,9 @@ def _refresh_cached_page_entries(
     candidates = _discover_candidate_files(vault_path, search_paths)
     with dependencies.index_lock:
         cached_snapshot = dict(dependencies.index_entries.setdefault(vault_key, {}))
-    updated = _updated_entries(candidates, vault_path, cached_snapshot)
-    _merge_index(vault_path, updated, search_paths)
+    missing: list[Path] = []
+    updated = _updated_entries(candidates, vault_path, cached_snapshot, missing)
+    _merge_index(vault_path, updated, search_paths, covered=not missing)
     dependencies.save_to_disk(vault_key)
     return _filter_by_search_paths(updated.values(), search_paths)
 
@@ -466,6 +474,35 @@ def get_available_page_entries(vault_path: Path) -> list[PageCacheEntry] | None:
             return None
     with dependencies.index_lock:
         return list(dependencies.index_entries.get(vault_key, {}).values())
+
+
+def cached_navigation_entries(vault: Path) -> tuple[dict[str, PageCacheEntry], bool]:
+    """Select canonical rows without opening notes, walking directories or hydrating placeholders."""
+    dependencies = _deps()
+    key = str(vault)
+    if not dependencies.index_initialized.get(key) and not dependencies.load_from_disk(key):
+        return {}, False
+    with dependencies.index_lock:
+        entries = dict(dependencies.index_entries.get(key, {}))
+        complete = key in dependencies.full_index_vaults
+    scoped: dict[str, PageCacheEntry] = {}
+    for path_key, entry in entries.items():
+        path = Path(path_key)
+        if not path.is_relative_to(vault) or ".." in path.parts or entry.get("path") != path_key:
+            complete = False
+            continue
+        if not entry.get("id"):
+            complete = False
+            continue
+        scoped[path_key] = entry
+    known: dict[str, PageCacheEntry] = {}
+    for page_id, selected_path in _reverse_id_map(scoped).items():
+        entry = scoped[selected_path]
+        if entry.get("_cloud_pending") or entry.get("_parse_failed") or entry.get("_navigation_pending"):
+            complete = False
+        else:
+            known[str(page_id)] = entry
+    return known, complete
 
 
 def _calendar_scope(
