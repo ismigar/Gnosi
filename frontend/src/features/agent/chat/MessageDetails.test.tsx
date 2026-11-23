@@ -74,7 +74,7 @@ describe('typed response details', () => {
     expect(details?.open).toBe(false);
     const summary = details?.querySelector('summary');
     expect(summary?.textContent).toBe(translation.chat.timing_setup.replace('{{count}}', '300'));
-    await act(async () => { summary?.click(); });
+    summary?.click();
     expect(details?.open).toBe(true);
     expect(Array.from(details?.querySelectorAll('li') ?? [], row => row.textContent)).toEqual([
       translation.chat.setup_stages.worker_queue.replace('{{count}}', '250'),

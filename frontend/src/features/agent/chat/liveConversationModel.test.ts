@@ -64,12 +64,12 @@ describe('live conversation hydration boundary', () => {
     expect(hydrateChatMessages(older, local).map(row => row.content)).toEqual(local.map(row => row.content));
   });
   it('uses the next checkpoint when the preceding rows have fallen outside local retention', () => {
-    const first = Array.from({ length: 3 }, (_, i) => checkpointPair('first' + i)).flat();
-    const next = Array.from({ length: 49 }, (_, i) => checkpointPair('next' + i)).flat();
+    const first = Array.from({ length: 3 }, (_, i) => checkpointPair(`first${String(i)}`)).flat();
+    const next = Array.from({ length: 49 }, (_, i) => checkpointPair(`next${String(i)}`)).flat();
     const canonical = [...first, ...next];
     const session = createChatSession('History', 'director');
     const initial = readLiveChatMessages([...first, ...admissionFailure('failed'), ...next]);
-    const retain = (rows: typeof initial) => boundedChatSessions([{ ...session, messages: rows }])[0]!.messages;
+    const retain = (rows: typeof initial) => boundedChatSessions([{ ...session, messages: rows }])[0]?.messages ?? [];
     expect(retain(initial)[0]?.turnId).toBe('failed');
     const reopened = hydrateChatMessages(canonical, retain(initial));
     const again = hydrateChatMessages(canonical, retain(reopened));
