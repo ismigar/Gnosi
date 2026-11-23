@@ -13,8 +13,14 @@ export function bookSpendingCeiling(estimate: ResourceProcessingEstimate | null)
 
 export function remainingBookBudget(estimate: ResourceProcessingEstimate | null, limit: number): number {
     const budget = estimate?.budget;
-    const room = limit - (budget?.spent_usd ?? 0) - (budget?.reserved_usd ?? 0);
-    return Math.max(0, Math.min(room, budget?.additional_remaining_usd ?? room));
+    if (budget && limit === budget.limit_usd) {
+        return Math.max(0, Math.min(budget.remaining_usd, budget.additional_remaining_usd ?? budget.remaining_usd));
+    }
+    const committed = (budget?.spent_usd ?? 0) + (budget?.reserved_usd ?? 0);
+    const room = limit - committed;
+    // Currency conversions and edited limits can differ by one floating-point unit.
+    if (room <= Number.EPSILON * Math.max(1, limit, committed)) return 0;
+    return Math.min(room, budget?.additional_remaining_usd ?? room);
 }
 export const POLL_INTERVAL_MS = 1500;
 export const NO_BRAIN_TABLE_ERROR = 'No Brain table is configured';
