@@ -25,6 +25,7 @@ class _Span:
 class ChatPreparation:
     def __init__(self, started_at: float) -> None:
         self._started_at = started_at
+        self.finished_at = started_at
         self._spans: list[_Span] = []
         self._result: dict[str, int] | None = None
 
@@ -58,6 +59,7 @@ class ChatPreparation:
             stage = next((name for opened, closed, name in spans if opened <= left and right <= closed), "other")
             # Rounding offsets keeps the partition equal to the legacy setup_ms.
             durations[stage] += int((right - start) * 1000) - int((left - start) * 1000)
+        self.finished_at = end
         self._result = durations
         self._spans.clear()
         return durations

@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 648 | 127857 |
+| `domains` | 648 | 127859 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 292 | 57477 |
+| `services` | 292 | 57479 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1160 modules** and **221321 source lines**.
+Total: **1160 modules** and **221325 source lines**.
 
 ## agent
 
@@ -218,7 +218,7 @@ Total: **1160 modules** and **221321 source lines**.
 | [`backend/domains/agent/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Modular HTTP routes for the agent domain. |
 | [`backend/domains/agent/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/attachments.py) | 223 | 0 | 9 | 2 | 4 | No module docstring |
 | [`backend/domains/agent/routes/chat_error_messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_error_messages.py) | 91 | 0 | 1 | 0 | 0 | User-facing stream failures in the application's four languages. |
-| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 577 | 0 | 9 | 4 | 1 | No module docstring |
+| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 579 | 0 | 9 | 4 | 1 | No module docstring |
 | [`backend/domains/agent/routes/chat_stream.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream.py) | 279 | 0 | 4 | 2 | 0 | Orchestration for the public NDJSON agent event stream. |
 | [`backend/domains/agent/routes/chat_stream_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_errors.py) | 284 | 0 | 4 | 2 | 0 | Failure translation and cleanup for agent event streams. |
 | [`backend/domains/agent/routes/chat_stream_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_state.py) | 123 | 1 | 0 | 0 | 0 | Mutable request-local state for one agent event stream. |
@@ -975,7 +975,7 @@ Total: **1160 modules** and **221321 source lines**.
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
 | [`backend/services/agent_catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_models.py) | 30 | 2 | 0 | 0 | 2 | Immutable catalog registration and resolved runtime capability values. |
 | [`backend/services/agent_catalog_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_snapshot.py) | 210 | 2 | 8 | 0 | 4 | Catalog data shared for a single synchronous team metadata read. |
-| [`backend/services/agent_chat_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_preparation.py) | 100 | 2 | 2 | 1 | 0 | Exclusive monotonic timings for the serial admission stages of one chat turn. |
+| [`backend/services/agent_chat_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_preparation.py) | 102 | 2 | 2 | 1 | 0 | Exclusive monotonic timings for the serial admission stages of one chat turn. |
 | [`backend/services/agent_chat_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_chat_timing.py) | 107 | 1 | 3 | 0 | 1 | Monotonic phase timings shared by the workers of a single chat request. |
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
 | [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 139 | 2 | 5 | 0 | 3 | Offline token accounting with an explicit conservative fallback. |

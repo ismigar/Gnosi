@@ -22,6 +22,7 @@ from backend.domains.agent.routes.attachments import (
     _consume_attachment_context,
 )
 from backend.domains.agent.routes.chat_stream import stream_agent_events
+from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.responses import _response_language
 from backend.domains.agent.routes.chat_error_messages import failure_message
 from backend.domains.agent.routes.checkpoints import (
@@ -230,12 +231,11 @@ def _setup_error_response(
     error: Exception | asyncio.CancelledError,
     *,
     request: Request,
-    trace_id: str,
+    timing_state: AgentStreamState,
     chat_req: ChatRequest,
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
-    setup_breakdown_ms: dict[str, int],
     assistant_profile: dict[str, str] | None = None,
 ) -> StreamingResponse:
     if isinstance(error, asyncio.CancelledError):
@@ -259,15 +259,15 @@ def _setup_error_response(
             "type": "error", "code": error_code,
             "content": message, "content_language": language,
             "retryable": recovery["retryable"], "recovery": recovery,
-            "setup_ms": sum(setup_breakdown_ms.values()), "setup_breakdown_ms": setup_breakdown_ms,
         }) + "\n"
+        yield json.dumps(timing_state.metrics_payload()) + "\n"
         yield json.dumps({"type": "done", "has_response": False, "message_count": 0}) + "\n"
 
     return StreamingResponse(
         protocolize_stream(
             unavailable_generator(),
-            stream_id=trace_id,
-            trace_id=trace_id,
+            stream_id=timing_state.trace_id,
+            trace_id=timing_state.trace_id,
             turn_id=chat_req.turn_id or "",
             journal_scope=chat_stream_scope(workspace_context, agent_id, session_id),
             assistant_profile=assistant_profile,
@@ -565,12 +565,14 @@ async def chat_endpoint(
         return _setup_error_response(
             error,
             request=request,
-            trace_id=trace_id,
+            timing_state=AgentStreamState(
+                request_started_at=request_started_at, workflow_ready_at=preparation.finished_at,
+                llm_selection={}, turn_plan={}, trace_id=trace_id, setup_breakdown_ms=setup_breakdown_ms,
+            ),
             chat_req=chat_req,
             workspace_context=workspace_context,
             agent_id=agent_id,
             session_id=chat_req.session_id.strip(),
-            setup_breakdown_ms=setup_breakdown_ms,
             assistant_profile=assistant_profile,
         )
     finally:
