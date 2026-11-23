@@ -37,7 +37,7 @@ Clica la **G** de la barra lateral. A **Edita l’inici → Afegeix un bloc** ve
 | Automatitzacions, Tauler de control i Configuració | Properes execucions, estat del sistema i les teves dreceres de teclat. |
 | Assistent i Marcadors | Converses que pots reprendre i marcadors que pots obrir. |
 
-Mentre Gnosi indexa un Vault, el taulell i el graf poden mostrar les entrades ja indexades. Cada bloc indica si la seva llista és incompleta.
+Mentre Gnosi indexa un Vault, el taulell i el graf poden mostrar les entrades ja indexades. Si encara poden faltar notes, connexions o files d’una vista, el bloc t’ho indica i et permet actualitzar-les.
 
 Si el Vault té una pàgina d’inici fixada, la G hi continua portant. Per obrir el llenç, tria **Configuració → General → Sistema → Pantalla d’inici d’aquest Vault → El meu llenç de blocs**.
 

@@ -52,7 +52,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2476 | 0 |
-| `features` | 1338 | 140004 | 57 |
+| `features` | 1338 | 140014 | 57 |
 | `generated` | 3 | 58344 | 603 |
 | `shared` | 360 | 37862 | 517 |
 
@@ -351,9 +351,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/home-canvas/apps/live.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/apps/live.ts) | 47 | `livePreviewItems` | — |
 | [`frontend/src/features/home-canvas/day/DayBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/day/DayBlocks.tsx) | 119 | `DayBlocks`, `function` | — |
 | [`frontend/src/features/home-canvas/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/index.ts) | 1 | — | — |
-| [`frontend/src/features/home-canvas/knowledge/BoardBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/BoardBlock.tsx) | 87 | `BoardBlock` | — |
+| [`frontend/src/features/home-canvas/knowledge/BoardBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/BoardBlock.tsx) | 89 | `BoardBlock` | — |
 | [`frontend/src/features/home-canvas/knowledge/GraphBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/GraphBlock.tsx) | 66 | `GraphBlock` | — |
-| [`frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx) | 28 | `KnowledgeBlocks`, `function` | — |
+| [`frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/KnowledgeBlocks.tsx) | 36 | `KnowledgeBlocks`, `function` | — |
 | [`frontend/src/features/home-canvas/knowledge/KnowledgeFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/KnowledgeFields.tsx) | 40 | `KnowledgePicker`, `KnowledgeStatus` | — |
 | [`frontend/src/features/home-canvas/knowledge/dashboardModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/dashboardModel.ts) | 91 | `dashboardLayout` | — |
 | [`frontend/src/features/home-canvas/knowledge/graphModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/knowledge/graphModel.ts) | 33 | `graphNeighbors`, `latestDatedNote` | — |

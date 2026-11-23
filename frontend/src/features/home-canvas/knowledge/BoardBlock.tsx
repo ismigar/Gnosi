@@ -15,12 +15,12 @@ import { readDashboard, useKnowledgeQuery } from './knowledgeQueries';
 const VaultMarkdown = lazy(() => import('../../../shared/editor/VaultMarkdown'));
 interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[]; readonly catalogComplete: boolean }
 
-function LiveView({ part, registered, boardId, scope }: {
+function LiveView({ part, registered, boardId, scope, catalogComplete }: {
   readonly part: BoardView; readonly registered?: Readonly<Record<string, unknown>>;
-  readonly boardId: string; readonly scope: RequestContext;
+  readonly boardId: string; readonly scope: RequestContext; readonly catalogComplete: boolean;
 }) {
   const { t } = useTranslation();
-  const projection = useKnowledgeQuery(scope, ['view', boardId, part.key, part.view, registered], signal =>
+  const projection = useKnowledgeQuery(scope, ['view', catalogComplete, boardId, part.key, part.view, registered], signal =>
     readOnlyDashboardView(boardId, part.view, registered, tableId => fetchVaultPagesByTable(tableId, {}, signal, scope)));
   const result = projection.data;
   const registeredTitle = typeof registered?.displayTitle === 'string' ? registered.displayTitle.trim() : '';
@@ -31,9 +31,8 @@ function LiveView({ part, registered, boardId, scope }: {
     {projection.isError ? <KnowledgeStatus state="failed" retry={() => { void projection.refetch(); }} />
       : projection.isPending ? <KnowledgeStatus state="loading" />
       : !result ? <p className="home-knowledge-status">{t('home_canvas.knowledge.unavailable')}</p>
-      : !result.total ? <p className="home-knowledge-status">{t('home_canvas.knowledge.noMatches')}</p>
       : <>
-        <div className="home-knowledge-table-wrap"><table><thead><tr>
+        {result.records.length > 0 && <div className="home-knowledge-table-wrap"><table><thead><tr>
           <th scope="col">{t('home_canvas.knowledge.record')}</th>
           {result.columns.map((column, index) => <th key={index} scope="col">{column}</th>)}
         </tr></thead><tbody>
@@ -41,9 +40,11 @@ function LiveView({ part, registered, boardId, scope }: {
             <td><Link to={knowledgeDocumentPath(record.id)}>{readablePageTitle(record.title)}</Link></td>
             {record.cells.map((cell, column) => <td key={column}>{cell}</td>)}
           </tr>)}
-        </tbody></table></div>
-        {result.total > result.records.length && <p className="home-knowledge-status">
-          {t('home_canvas.knowledge.showing', { shown: result.records.length, total: result.total })}</p>}
+        </tbody></table></div>}
+        {!catalogComplete ? <p className="home-knowledge-status">{t('home_canvas.knowledge.partialView')}</p>
+          : !result.total ? <p className="home-knowledge-status">{t('home_canvas.knowledge.noMatches')}</p>
+          : result.total > result.records.length && <p className="home-knowledge-status">
+            {t('home_canvas.knowledge.showing', { shown: result.records.length, total: result.total })}</p>}
       </>}
   </section>;
 }
@@ -79,7 +80,8 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogC
       : !parts ? <p className="home-knowledge-status">{t('home_canvas.knowledge.missingSection')}</p>
       : !parts.length ? <p className="home-knowledge-status">{t('home_canvas.knowledge.emptyBoard')}</p>
       : <div className="home-knowledge-sections">{parts.map(part => part.kind === 'view'
-        ? <LiveView key={part.key} part={part} registered={dashboard.registered.find(view => view.id === part.view.view_id)} boardId={boardId} scope={scope} />
+        ? <LiveView key={part.key} part={part} registered={dashboard.registered.find(view => view.id === part.view.view_id)}
+            boardId={boardId} scope={scope} catalogComplete={catalogComplete} />
         : <Suspense key={part.key} fallback={<KnowledgeStatus state="loading" />}><VaultMarkdown md={part.markdown} idToTitle={titles}
           vaultId={scope.vaultId} sourcePageId={boardId} allowVaultQueries
           onOpenInCurrentTab={id => { void navigate(knowledgeDocumentPath(id)); }} /></Suspense>)}</div>}

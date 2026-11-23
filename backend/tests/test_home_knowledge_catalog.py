@@ -154,3 +154,50 @@ def test_local_pin_and_newest_duplicate_work_beside_an_offline_placeholder(home_
     _save_page_index_to_disk(str(vault))
     assert _load_page_index_from_disk(str(vault))
     check()
+
+
+@pytest.mark.parametrize("use_navigation_index", [True, False])
+def test_warm_graph_and_incremental_updates_follow_canonical_duplicate_notes(home_vault, monkeypatch, use_navigation_index):
+    from dataclasses import replace
+
+    from backend.domains.vault.links import index_service as reverse_index
+    from backend.domains.vault.links.api import neighborhood
+    from backend.domains.vault.links.runtime import _LINK_INDEX_DEPENDENCIES
+    from backend.domains.vault.links.state import LinkIndexState
+    from backend.domains.vault.pages.index_service import get_cached_page_entries
+    from backend.domains.vault.pages.runtime import _load_page_index_from_disk
+
+    vault, client = home_vault
+    center = note(vault, "Wiki/Current.md", "center", "[[target]]", when=1800000000)
+    old_center = note(vault, "Copies/Older.md", "center", "[[obsolete]]")
+    source = note(vault, "Wiki/Incoming.md", "source", "[[center]]", when=1800000000)
+    old_source = note(vault, "Copies/Former source.md", "source", "[[obsolete]]")
+    note(vault, "Wiki/Target.md", "target")
+    note(vault, "Wiki/Obsolete.md", "obsolete")
+    note(vault, "Wiki/Moved link.md", "moved-link", "[[target]]", when=1800000000)
+    note(vault, "Copies/Former link.md", "moved-link", "[[center]]")
+    get_cached_page_entries(force_refresh=True)
+    get_cached_page_entries(search_paths=[old_center.parent], force_refresh=True)
+    assert _load_page_index_from_disk(str(vault))
+
+    state = LinkIndexState()
+    monkeypatch.setattr(neighborhood, "link_index_state", state)
+    monkeypatch.setattr(reverse_index, "schedule_link_index_persist", lambda *_args: None)
+    ports = replace(_LINK_INDEX_DEPENDENCIES, get_cache_path=lambda: vault.parent / "links-cache.json")
+    if not use_navigation_index:
+        ports = replace(ports, indexed_path=lambda _page_id, _vault: None)
+
+    def assert_current():
+        graph = client.get("/api/vault/link-neighborhood", params={"page_id": "center"})
+        assert graph.status_code == 200
+        assert graph.json() == {"incoming": ["source"], "outgoing": ["target"], "incoming_complete": True}
+        assert state.page_meta_by_id["center"]["path"] == str(center)
+        assert state.page_meta_by_id["source"]["path"] == str(source)
+
+    for _ in range(2):
+        reverse_index.rebuild_link_index(state, ports)
+        assert_current()
+    assert reverse_index.load_link_index(state, ports)
+    for copy in [old_center, old_source]:
+        reverse_index.update_link_index_for_page(copy, state, ports)
+        assert_current()

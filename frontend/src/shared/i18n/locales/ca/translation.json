@@ -6174,7 +6174,8 @@
       "incomingPending": "Fins que l’índex d’aquest Vault estigui a punt, poden faltar enllaços cap a aquesta nota.",
       "catalogPending": "La llista de notes i taulers d’aquest Vault encara és incompleta.",
       "openKnowledge": "Obre Coneixement",
-      "recentIndexed": "Nota modificada més recentment entre les disponibles"
+      "recentIndexed": "Nota modificada més recentment entre les disponibles",
+      "partialView": "Pot ser que encara faltin registres que coincideixin amb aquesta vista."
     },
     "day": {
       "select_vault": "Selecciona un Vault per veure aquest bloc.",

@@ -90,6 +90,63 @@ it('starts with the first accessible dashboard, renders live saved matches and n
   expect(view.container.textContent).toContain('home_canvas.knowledge.missingBoard');
 });
 
+it('keeps partial joined matches, retries partial tables, and waits for a complete read before reporting totals or zero matches', async () => {
+  const board = page('board', 'Board', { is_dashboard: true });
+  let phase: 'wiki' | 'partial' | 'full' = 'wiki';
+  let finishFull = () => {};
+  const fullRead = new Promise<void>(resolve => { finishFull = resolve; });
+  const records = Array.from({ length: 9 }, (_, index) =>
+    page(`task-${String(index)}`, `Task ${String(index)}`, { Owner: `person-${String(index)}`, Rank: index }));
+  const people = records.map((_, index) => page(`person-${String(index)}`, `Person ${String(index)}`));
+  vi.mocked(fetchHomeKnowledgeCatalog).mockImplementation(() => Promise.resolve({ pages: [board], complete: phase === 'full' }));
+  vi.mocked(fetchVaultPage).mockResolvedValue({ ...board, content: '{}', etag: 'tag' });
+  vi.mocked(fetchPageViews).mockResolvedValue({ page_id: board.id, sections: [
+    { section_id: 'joined', view_id: 'joined', source_table_id: 'tasks', heading: 'Joined records' },
+    { section_id: 'none', view_id: 'none', source_table_id: 'tasks', heading: 'No matching rank' },
+  ] });
+  vi.mocked(fetchVaultViews).mockResolvedValue([
+    { id: 'joined', table_id: 'tasks', joins: [{ tableId: 'people', leftField: 'Owner', rightField: 'id', type: 'inner' }],
+      sorts: [{ field: 'Rank', direction: 'desc' }] },
+    { id: 'none', table_id: 'tasks', filters: [{ field: 'Rank', operator: 'equals', value: '99' }] },
+  ]);
+  vi.mocked(fetchVaultPagesByTable).mockImplementation(async table => {
+    if (phase === 'wiki') return [];
+    if (phase === 'full') await fullRead;
+    if (table === 'tasks') return records;
+    return phase === 'partial' ? people.slice(0, 8) : people;
+  });
+  const view = mount('board');
+  const refresh = () => {
+    const button = view.container.querySelector<HTMLButtonElement>('.home-knowledge-index-status button');
+    if (!button) throw new Error('Missing partial catalog refresh');
+    act(() => { button.click(); });
+  };
+  const status = () => view.container.textContent;
+  const rows = () => [...view.container.querySelectorAll('tbody a')].map(link => link.textContent);
+  await settle();
+  expect(rows()).toEqual([]);
+  expect(status()).toContain('home_canvas.knowledge.partialView');
+  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
+  phase = 'partial';
+  refresh();
+  await settle();
+  expect(rows()).toEqual(['Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3', 'Task 2']);
+  expect(status()).toContain('home_canvas.knowledge.partialView');
+  expect(status()).not.toContain('home_canvas.knowledge.showing');
+  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
+  phase = 'full';
+  refresh();
+  await settle();
+  expect(status()).not.toContain('home_canvas.knowledge.showing');
+  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
+  act(() => { finishFull(); });
+  await settle();
+  expect(rows()).toEqual(['Task 8', 'Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3']);
+  expect(status()).toContain('home_canvas.knowledge.showing');
+  expect(status()).toContain('home_canvas.knowledge.noMatches');
+  expect(status()).not.toContain('home_canvas.knowledge.partialView');
+});
+
 it('labels a first-open Vault fallback, honors personal recency, provides a configurable pin and clickable directed neighbors', async () => {
   selectScope('graph-defaults');
   const pages = [page('new', 'Newest', {}, '2026-11-19'), page('mine', 'My edit', {}, '2026-11-10'), page('other', 'Linked note')];
