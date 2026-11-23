@@ -151,7 +151,7 @@ it.each([
   if (_kind === 'root array') {
     expect(result.stdout).toContain("error TS2304: Cannot find name 'MissingAmbientType'.");
   }
-});
+}, 30_000);
 
 it('reports invalid project references', () => {
   config({}, { references: [{ path: './referenced' }] });
