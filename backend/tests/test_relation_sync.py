@@ -77,7 +77,7 @@ def _target(vault: Path, inverse_value=None) -> Path:
 
 
 def _wire(monkeypatch, tfile: Path, tables=TABLES):
-    monkeypatch.setattr(vr, "_link_index_built", False)  # cold index → bare, clean id
+    monkeypatch.setattr(vr.link_index_state, "built", False)  # cold index → bare, clean id
     monkeypatch.setattr(vr, "_table_by_id", lambda tid: tables.get(tid))
     monkeypatch.setattr(
         vr, "find_page_path", lambda pid, **k: tfile if pid == T1 else None

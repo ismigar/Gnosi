@@ -3,8 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Response, Query, Body, HTTPException, Depends
 from pathlib import Path
 import asyncio
+from functools import partial
 import logging
-from typing import Any, Callable, Optional, cast
+from typing import Annotated, Any, Callable, Optional, cast
 
 from backend.utils.safe_io import safe_write_text
 from backend.utils.errors import safe_error_detail
@@ -17,7 +18,7 @@ from backend.services.google_calendar_service import (
     respond_to_invitation,
     patch_event_attendees,
 )
-from backend.services.workspace_service import get_workspace_context
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 from backend.services.context_vars import get_active_vault_path
 from backend.models.calendar import HiddenEvent
 from backend.data.management_db import get_mgmt_session
@@ -27,6 +28,7 @@ from backend.domains.calendar import mutations as calendar_mutations
 from backend.domains.calendar import runtime as calendar_runtime
 from backend.domains.calendar import schemas as calendar_schemas
 from backend.domains.calendar import provider_operations
+from backend.domains.calendar.cache_scope import calendar_cache_scope, request_cache_owner
 from backend.domains.calendar.provider_errors import CalendarProviderError
 from backend.domains.calendar.timing import (
     calendar_phase,
@@ -99,6 +101,7 @@ def _default_range() -> tuple[str, str]:
 async def get_calendars(
     response: Response, email: Optional[str] = Query(None),
     request: Request = cast(Request, None),
+    context: Annotated[WorkspaceContext, Depends(get_workspace_context)] = cast(WorkspaceContext, None),
 ) -> list[dict[str, Any]]:
     """Returns the list of available calendars for an account or for all of them.
 
@@ -116,7 +119,7 @@ async def get_calendars(
 
     # Request/Response remain injectable without becoming OpenAPI parameters;
     # the None fallback preserves existing direct internal/test calls.
-    with collect_calendar_timing(
+    with calendar_cache_scope(request_cache_owner(context)), collect_calendar_timing(
         request is not None and request.headers.get("x-gnosi-calendar-timing") == "1"
     ) as timing:
         integrations = await calendar_to_thread(read_integrations)
@@ -149,6 +152,8 @@ async def get_events(
     include_vault: bool = Query(True),
     request: Request = cast(Request, None),
     response: Response = cast(Response, None),
+    expand_instances: Annotated[bool, Query(description="Expand external recurring events within a time-zone-aware window of up to 25 hours.")] = False,
+    context: Annotated[WorkspaceContext, Depends(get_workspace_context)] = cast(WorkspaceContext, None),
 ) -> list[dict[str, Any]]:
     """
         Returns Google Calendar / CalDAV events directly (without the vault).
@@ -158,13 +163,16 @@ async def get_events(
     t_min, t_max = _default_range()
     time_min = time_min or t_min
     time_max = time_max or t_max
+    if expand_instances and not calendar_runtime.is_agenda_range(time_min, time_max):
+        raise HTTPException(422, "Expanded calendar events require a day range with time zones.")
+    read = partial(collect_all_events, expand_instances=True) if expand_instances else collect_all_events
 
-    with collect_calendar_timing(
+    with calendar_cache_scope(request_cache_owner(context)), collect_calendar_timing(
         request is not None and request.headers.get("x-gnosi-calendar-timing") == "1",
         profile=request is not None and request.headers.get("x-gnosi-calendar-profile") == "1",
     ) as timing:
         events = await calendar_to_thread(
-            collect_all_events, time_min, time_max, search, calendar_id, include_vault, email
+            read, time_min, time_max, search, calendar_id, include_vault, email
         )
     if timing is not None and response is not None:
         response.headers["Server-Timing"] = timing.header()
@@ -180,6 +188,8 @@ def collect_all_events(
     calendar_id: Optional[str] = None,
     include_vault: bool = True,
     email: Optional[str] = None,
+    *,
+    expand_instances: bool = False,
 ) -> list[dict[str, Any]]:
     """Gathers events from all accounts (Google/CalDAV) + vault within a range.
 
@@ -200,9 +210,10 @@ def collect_all_events(
         search,
         calendar_id,
         include_vault,
-        fetch_calendar_accounts,
+        partial(fetch_calendar_accounts, expand_instances=True) if expand_instances else fetch_calendar_accounts,
         _get_hidden_event_ids,
         _get_vault_events,
+        expand_instances=expand_instances,
     )
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCreateBlockNote } from '@blocknote/react';
 import { withCollaboration } from '@blocknote/core/yjs';
@@ -10,6 +10,7 @@ import { useMediaUpload } from './useMediaUpload';
 import { useInitialDocument } from './useInitialDocument';
 import type { PageEditorBodyProps } from './page-editor/types';
 import { useDropBridge } from './useDropBridge';
+import type { EditorChangeInfo } from './useEditorPersistence';
 import { isEmptyDocument } from './emptyDocument';
 
 export function useEditorRuntime({ noteFilename, initialContent, contextValue, metadata, metadataRef }: PageEditorBodyProps) {
@@ -24,6 +25,9 @@ export function useEditorRuntime({ noteFilename, initialContent, contextValue, m
     const tableId = metadata.table_id || metadata.database_table_id || '';
     const uploadFileToAssetsDirect = useMediaUpload(tableId, metadataRef, editorRef);
     const { collaboration, ready: collabReady } = useYjsCollaboration(noteFilename);
+    const seeding = useRef(false);
+    const isPersonalChange = useCallback((info?: EditorChangeInfo) => !seeding.current
+        && (!collaboration || Boolean(info?.getChanges().some(change => change.source.type !== 'yjs-remote'))), [collaboration]);
     const baseOptions = {
         schema, dictionary, uploadFile: uploadFileToAssetsDirect, dropCursor: multiColumnDropCursor,
         _tiptapOptions: {
@@ -47,11 +51,12 @@ export function useEditorRuntime({ noteFilename, initialContent, contextValue, m
                 const meta = document.getMap('meta'); if (meta.get('seeded')) return;
                 if (isEmptyDocument(editor.document)) {
                     document.transact(() => { meta.set('seeded', true); });
-                    editor.replaceBlocks(editor.document, blocks);
+                    seeding.current = true;
+                    try { editor.replaceBlocks(editor.document, blocks); } finally { seeding.current = false; }
                 }
             } catch (error) { console.warn('Yjs seed skipped:', error); }
         }, 400);
         return () => { clearTimeout(timer); };
     }, [blocks, collaboration, editor]);
-    return { editor, schema, isParsing, editorReady, loadError, tableId, toggleDropHandlerRef, uploadFileToAssetsDirect };
+    return { editor, schema, isPersonalChange, isParsing, editorReady, loadError, tableId, toggleDropHandlerRef, uploadFileToAssetsDirect };
 }

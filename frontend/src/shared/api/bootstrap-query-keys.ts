@@ -1,4 +1,5 @@
 import { getActiveVaultId } from './vault-context';
+import { currentRequestContext } from './request-context';
 
 export const bootstrapQueryKeys = {
   health: ['bootstrap', 'health'] as const,
@@ -7,7 +8,7 @@ export const bootstrapQueryKeys = {
   editorConfiguration: (): readonly unknown[] => ['bootstrap', 'editor-configuration', getActiveVaultId() || ''],
   interfaceSettings: (): readonly unknown[] => ['bootstrap', 'interface-settings', getActiveVaultId() || ''],
   vaultRegistry: (): readonly unknown[] => ['bootstrap', 'vault-registry', getActiveVaultId() || ''],
-  vaultTables: (databaseId?: string): readonly unknown[] => ['bootstrap', 'vault-tables', getActiveVaultId() || '', databaseId ?? null],
+  vaultTables: (databaseId?: string, context = currentRequestContext()): readonly unknown[] => ['bootstrap', 'vault-tables', context, databaseId ?? null],
   vaultTablePages: (tableId: string, query: Readonly<Record<string, unknown>>): readonly unknown[] => ['bootstrap', 'vault-table-pages', getActiveVaultId() || '', tableId, query],
   vaultTablePageReferences: (tableId: string, query: Readonly<Record<string, unknown>>): readonly unknown[] => ['bootstrap', 'vault-table-page-references', getActiveVaultId() || '', tableId, query],
   vaultSidebar: (): readonly unknown[] => ['bootstrap', 'vault-sidebar', getActiveVaultId() || ''],

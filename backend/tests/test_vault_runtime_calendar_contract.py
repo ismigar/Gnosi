@@ -75,7 +75,8 @@ def test_calendar_source_keeps_native_attribute_error() -> None:
 
 def test_link_view_retains_late_bound_state_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     outlinks = {"synthetic": {"child"}}
-    monkeypatch.setattr(vault_routes, "_outlinks_by_source", outlinks)
+    # The facade forwards missing attributes. Drop this override on teardown.
+    monkeypatch.setitem(vars(vault_routes), "_outlinks_by_source", outlinks)
     view = runtime._link_index_view()
     assert view.outlinks_by_source is outlinks
     assert view.lock is vault_routes._link_index_lock

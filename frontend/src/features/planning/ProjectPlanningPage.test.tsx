@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentRequestContext } from '../../shared/api/request-context';
 
 import ProjectPlanningPage from './ProjectPlanningPage';
 
@@ -293,7 +294,7 @@ describe('ProjectPlanningPage', () => {
     expect(mocks.allocationQuery).toHaveBeenLastCalledWith('default', false);
     expect(mocks.worklogsQuery).toHaveBeenLastCalledWith('default', false);
     expect(mocks.projectReferences).toHaveBeenCalledWith(
-      'projects-table', { include_templates: false }, expect.any(AbortSignal),
+      'projects-table', { include_templates: false }, expect.any(AbortSignal), currentRequestContext(),
     );
     await act(async () => {
       resolveProjects([{ id: 'project-1', title: 'Project one' }]);

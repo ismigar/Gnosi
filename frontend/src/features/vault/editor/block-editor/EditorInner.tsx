@@ -33,7 +33,7 @@ export function EditorInner(props: PageEditorBodyProps) {
     const insert = useInsertionRequest();
     const links = useLinkPaste(editor, props.idToTitle);
     const icons = useInlineIcon(editor);
-    const handleSave = useEditorPersistence({ ...props, editor, editorReady, isParsing: isParsing || loadError !== null });
+    const handleSave = useEditorPersistence({ ...props, editor, editorReady, isPersonalChange: runtime.isPersonalChange, isParsing: isParsing || loadError !== null });
     const commands = useLinkCommands({ editor, handleSave, onRefreshNotes: props.onRefreshNotes });
     const generated = useGeneratedContent(editor, schema, handleSave, props.noteFilename, props.isEditable);
     const { registerEditorApi: registerPageEditorApi } = props;

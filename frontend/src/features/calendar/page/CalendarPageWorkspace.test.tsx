@@ -10,10 +10,11 @@ import { CalendarPageWorkspace } from './CalendarPageWorkspace';
 import { useCalendarPage, type CalendarPageController } from './useCalendarPage';
 import { externalEvent } from '../components/calendar-sidebar-right/calendarTestFixtures';
 import { calendarQueryKeys } from '../../../shared/api/useCalendarData';
+import { currentRequestContext } from '../../../shared/api/request-context';
 
 const api = vi.hoisted(() => ({
     fetchVaultPages: vi.fn(), fetchVaultTables: vi.fn(), fetchIntegrations: vi.fn(),
-    fetchCalendarList: vi.fn(), fetchCalendarEvents: vi.fn(),
+    fetchCalendarList: vi.fn(), fetchCalendarEvents: vi.fn<typeof import('../../../shared/api/calendar').fetchCalendarEvents>(),
     fetchMeetingReminderSettings: vi.fn(), updateMeetingReminderSettings: vi.fn(),
     updateCalendarSelection: vi.fn(), updateCalendarAliases: vi.fn(),
     updateCalendarColors: vi.fn(), updateDefaultCalendar: vi.fn(),
@@ -65,8 +66,8 @@ async function ready(check: () => void) {
     } while (Date.now() < deadline);
     throw lastError instanceof Error ? lastError : new Error('Calendar state did not settle');
 }
-async function mount() {
-    await update(() => { root.render(<MemoryRouter><QueryClientProvider client={client}><Harness /></QueryClientProvider></MemoryRouter>); });
+async function mount(path = '/') {
+    await update(() => { root.render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={client}><Harness /></QueryClientProvider></MemoryRouter>); });
 }
 function eventsForRange(query: CalendarEventsQuery): CalendarEvent[] {
     const day = new Date(query.timeMin ?? '2026-09-02').getTime() + 2 * 86_400_000;
@@ -86,7 +87,7 @@ beforeEach(() => {
     api.fetchVaultTables.mockResolvedValue([]);
     api.fetchIntegrations.mockResolvedValue({});
     api.fetchCalendarList.mockResolvedValue({ authError: '', items: [] });
-    api.fetchCalendarEvents.mockImplementation((query: CalendarEventsQuery) => Promise.resolve(eventsForRange(query)));
+    api.fetchCalendarEvents.mockImplementation((query = {}) => Promise.resolve(eventsForRange(query)));
 });
 afterEach(async () => { await update(() => { root.unmount(); }); client.clear(); host.remove(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
@@ -97,6 +98,19 @@ it('disables the source controls while their drawer is closed', async () => {
     expect(drawer?.hasAttribute('inert')).toBe(true);
     await update(() => { controller.setShowLeftSidebar(true); });
     expect(drawer?.hasAttribute('inert')).toBe(false);
+});
+
+it('opens the linked day in the real calendar with time-zone-aware recurrence bounds', async () => {
+    await mount('/@fixture/calendar?date=2026-10-25');
+    await ready(() => { expect(api.fetchCalendarEvents).toHaveBeenCalledOnce(); });
+    expect(host.querySelector('.fc-timeGridDay-view')).not.toBeNull();
+    const query = api.fetchCalendarEvents.mock.calls[0]?.[0];
+    if (!query) throw new Error('Missing day query');
+    expect(query.expandInstances).toBe(true);
+    expect(query.timeMin).toMatch(/(?:Z|[+-]\d{2}:\d{2})$/u);
+    expect(query.timeMax).toMatch(/(?:Z|[+-]\d{2}:\d{2})$/u);
+    expect(new Date(query.timeMin || '')).toEqual(new Date(2026, 9, 25));
+    expect(new Date(query.timeMax || '')).toEqual(new Date(2026, 9, 26));
 });
 
 it('starts external reads from the real calendar range while local data is pending and honors saved hidden calendars', async () => {
@@ -110,7 +124,7 @@ it('starts external reads from the real calendar range while local data is pendi
     expect(api.fetchCalendarEvents).toHaveBeenCalledWith({
         includeVault: false, search: undefined,
         timeMin: controller.dateRange?.start, timeMax: controller.dateRange?.end,
-    }, expect.any(AbortSignal));
+    }, expect.any(AbortSignal), currentRequestContext());
     expect(controller.dateRange?.start).toBeTruthy();
     expect(controller.selectedCalendars.size).toBe(0);
     expect(host.querySelector('.fc')).not.toBeNull();

@@ -1,12 +1,13 @@
 """Reader podcast generation and download HTTP routes."""
 
 import asyncio
-import re
-from pathlib import Path
-from typing import Callable, cast
+from datetime import datetime
+from typing import Annotated, Callable, cast
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi.responses import FileResponse, Response
+
+from backend.domains.reader.podcast_media import EpisodeResponse, PodcastEpisode, find_episode, latest_episode, open_episode
 
 from backend.domains.reader.routing import RouteReturn, require_active_vault
 from backend.domains.reader.schemas import (
@@ -15,7 +16,11 @@ from backend.domains.reader.schemas import (
     ReaderPodcastStatusResponse,
 )
 from backend.services.plugin_access import require_plugins
-from backend.services.workspace_service import require_role
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context, require_role
+
+
+PodcastContext = Annotated[WorkspaceContext, Depends(get_workspace_context)]
+OptionalPodcastContext = Annotated[WorkspaceContext | None, Depends(get_workspace_context)]
 
 
 def trigger_podcast_generation() -> RouteReturn:
@@ -56,51 +61,76 @@ def get_podcast_status() -> RouteReturn:
     }
 
 
-def _latest_episode_file() -> Path | None:
+def _latest_for_context(context: WorkspaceContext | None) -> PodcastEpisode | None:
     from backend.services.audio_summarizer import get_podcast_output_dir
-    from backend.utils.metadata_io import MetadataUnavailable
 
-    directory = get_podcast_output_dir()
-    if directory.is_symlink() or directory.parent.is_symlink():
-        raise MetadataUnavailable(path=directory, reason="permission")
+    directory = get_podcast_output_dir(context.vault_path) if context else get_podcast_output_dir()
     try:
-        latest = max((path for path in directory.iterdir()
-                      if re.fullmatch(r"daily_podcast_[0-9]{4}_[0-9]{2}_[0-9]{2}\.mp3", path.name)), default=None)
-    except FileNotFoundError:
-        return None
-    if latest and latest.is_symlink():
-        raise MetadataUnavailable(path=latest, reason="permission")
-    return latest
+        return latest_episode(directory)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail="Podcast storage is temporarily unavailable") from error
 
 
-def get_podcast_info() -> RouteReturn:
-    """Return the last published episode available to this Reader."""
-    from datetime import datetime
-
-    latest = _latest_episode_file()
-    if latest is None:
+def get_podcast_info(context: OptionalPodcastContext = None) -> RouteReturn:
+    """Read latest publication metadata without opening or hydrating any audio."""
+    episode = _latest_for_context(context)
+    if episode is None:
         return {"exists": False}
-    latest_file = latest.name
-    dt = datetime.fromtimestamp(latest.stat().st_mtime)
+    dt = datetime.fromtimestamp(episode.metadata.st_mtime).astimezone()
 
     return {
         "exists": True,
-        "filename": latest_file,
+        "filename": episode.path.name,
+        "episode_id": episode.episode_id,
         "created_at": dt.isoformat(),
         "formatted_date": dt.strftime("%d/%m/%Y"),
         "formatted_time": dt.strftime("%H:%M"),
     }
 
 
-async def get_latest_podcast() -> FileResponse:
-    """Stream the selected episode using the same coordinated file snapshot as vault downloads."""
+async def get_latest_podcast(context: OptionalPodcastContext = None) -> FileResponse:
+    """Stream the latest published episode through the coordinated Vault reader."""
     from backend.domains.vault.files.serving import serve_snapshot
 
-    latest = await asyncio.to_thread(_latest_episode_file)
-    if latest is None:
+    episode = await asyncio.to_thread(_latest_for_context, context)
+    if episode is None:
         raise HTTPException(status_code=404, detail="No podcasts available")
-    return await serve_snapshot(latest, require_active_vault(),
-                                headers={"Content-Disposition": 'attachment; filename="gnosi_daily.mp3"'})
+    root = context.vault_path if context else episode.path.parents[2]
+    return await serve_snapshot(
+        episode.path, root, headers={"Content-Disposition": 'attachment; filename="gnosi_daily.mp3"'}
+    )
+
+
+async def get_podcast_episode(
+    episode_id: Annotated[str, Path(pattern=r"^[a-f0-9]{64}$")], context: PodcastContext
+) -> Response:
+    """Stream the requested published file revision in the authenticated Vault.
+
+    Use the opaque episode_id from /podcast/info. Newer daily files leave retained
+    episodes playable. Removing or replacing the named revision expires its URL.
+    Byte ranges seek within this exact revision.
+    """
+    from backend.services.audio_summarizer import get_podcast_output_dir
+
+    from backend.domains.vault.files.serving import serve_snapshot
+    from backend.utils.metadata_io import is_native_vault_file
+
+    directory = get_podcast_output_dir(context.vault_path)
+    try:
+        episode = await asyncio.to_thread(find_episode, directory, episode_id)
+        if episode is None:
+            raise HTTPException(status_code=404, detail="Podcast episode is unavailable")
+        if await asyncio.to_thread(is_native_vault_file, episode.path, episode.metadata):
+            return await serve_snapshot(
+                episode.path, context.vault_path, expected_stat=episode.metadata,
+                headers={"etag": f'"{episode.episode_id}"', "cache-control": "private, no-cache"},
+            )
+        opened = await asyncio.to_thread(open_episode, directory, episode_id)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail="Podcast storage is temporarily unavailable") from error
+    if opened is None:
+        raise HTTPException(status_code=404, detail="Podcast episode is unavailable")
+    return EpisodeResponse(*opened)
 
 
 def register_routes(router: APIRouter) -> None:
@@ -120,6 +150,21 @@ def register_routes(router: APIRouter) -> None:
         response_model_exclude_unset=True,
     )(get_podcast_info)
     router.get("/podcast/latest")(get_latest_podcast)
+    audio_content = {"audio/mpeg": {"schema": {"type": "string", "format": "binary"}}}
+    router.get(
+        "/podcast/episodes/{episode_id}",
+        response_class=Response,
+        responses={
+            200: {"description": "The published audio revision", "content": audio_content},
+            206: {"description": "Requested byte range(s) of the published revision", "content": {
+                **audio_content, "multipart/byteranges": {"schema": {"type": "string", "format": "binary"}},
+            }},
+            400: {"description": "Malformed byte range"},
+            404: {"description": "Unknown, removed or replaced episode in this Vault"},
+            416: {"description": "Unsatisfiable or excessive byte ranges"},
+            503: {"description": "Podcast storage is temporarily unavailable"},
+        },
+    )(get_podcast_episode)
 
 
 __all__ = [

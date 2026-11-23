@@ -24,6 +24,23 @@ The desktop app for your operating system and a folder you can write to. For a h
 
 You have a selected Vault, two saved pages and a working link. Next, add a source and a reading note.
 
+## Customize your home {#personal-home}
+
+Click the **G** in the sidebar. **Edit home → Add a block** lists the blocks available for this Vault’s enabled plugins. Choose a width of one, two or three columns. Drag a block or use its arrow buttons to move it. Click **Save** to keep the layout for your account in this Vault.
+
+| App | What you can put on your home |
+| --- | --- |
+| Knowledge and Graph | A dashboard, one of its sections, or a filtered view. Show up to five direct connections to the last note you edited on this device or to a note you pin. |
+| Calendar and Reader | Today’s agenda, daily audio with playback progress, and unread articles. |
+| Contacts, Resources and Notebooks | Recently updated contacts, recent literature searches, and notebooks with their resource counts. |
+| Mail, Planning, Social, Media and Websites | Unread messages by account, projects, scheduled posts, recent files, and sites. The block shows when this device last loaded the information. |
+| Automations, Control dashboard and Settings | Upcoming runs, system status, and your keyboard shortcuts. |
+| Assistant and Bookmarks | Conversations to resume and bookmarks to open. |
+
+While Gnosi indexes a Vault, the dashboard and graph can show entries already indexed. If notes, links or rows in a saved view may still be missing, the block tells you and offers a refresh.
+
+If the Vault already has a pinned home page, the G opens that page. To open the canvas, choose **Settings → General → System → Home screen for this Vault → My block canvas**.
+
 ## If something goes wrong {#troubleshooting}
 
 If a feature is missing, check the active Vault and its enabled plugins. If the app cannot open your folder, check its location and write permissions before creating another copy.

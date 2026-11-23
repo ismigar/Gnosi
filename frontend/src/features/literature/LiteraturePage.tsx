@@ -1,5 +1,5 @@
 import { BookOpenCheck, LibraryBig, Search } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
@@ -19,6 +19,15 @@ export default function LiteraturePage() {
   const { i18n, t } = useTranslation();
   const { isEnabled } = usePlugins();
   const controller = useLiteratureSearch({ t });
+  const { openSearch } = controller.actions;
+  const linkedSearch = useRef(new URLSearchParams(window.location.search).get('search'));
+  useEffect(() => {
+    const id = linkedSearch.current;
+    if (!id || !/^[a-f0-9]{32}$/u.test(id)) return;
+    linkedSearch.current = null;
+    void openSearch(id);
+  }, [openSearch]);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { setters, state } = controller;
   useKeyboardScroll(scrollContainerRef, {

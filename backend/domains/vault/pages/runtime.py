@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from backend.domains.vault.links.state import LinkIndexView
-from backend.domains.vault.pages.disk_cache import prepare_page_index
+from backend.domains.vault.pages.disk_cache import coverage_path, full_coverage_record, has_full_coverage, prepare_page_index
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.utils.open_values import contains_value
 
@@ -145,6 +145,7 @@ def _clear_page_index_cache() -> None:
     with _page_index_lock:
         affected_vaults = list(_page_index_entries.keys())
         _page_index_entries.clear()
+        _legacy.page_state.full_index_vaults.clear()
         for v_str in affected_vaults:
             _legacy._bump_page_index_version(v_str)
         _page_id_to_path.clear()
@@ -166,6 +167,7 @@ def purge_vault_caches(v_str: str) -> None:
         return
     with _page_index_lock:
         _page_index_entries.pop(v_str, None)
+        _legacy.page_state.full_index_vaults.discard(v_str)
         _page_index_initialized.pop(v_str, None)
         _page_id_to_path.pop(v_str, None)
         _legacy._bump_page_index_version(v_str)
@@ -173,6 +175,7 @@ def purge_vault_caches(v_str: str) -> None:
         _legacy._id_title_cache.pop(v_str, None)
     for path_fn in (
         _legacy.get_page_index_cache_path,
+        lambda key: coverage_path(_legacy.get_page_index_cache_path(key)),
         _legacy._get_id_title_cache_path,
     ):
         try:
@@ -434,8 +437,15 @@ def _save_page_index_to_disk(v_str: str) -> None:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         with _page_index_lock:
             data = dict(_page_index_entries.get(v_str, {}))
-        if data:
-            _legacy.safe_write_json(cache_path, data, indent=2, ensure_ascii=False)
+            full = v_str in _legacy.page_state.full_index_vaults
+            initialized = _page_index_initialized.get(v_str, False)
+        if data or initialized:
+            raw = _legacy.json.dumps(data, indent=2, ensure_ascii=False)
+            if not full:
+                coverage_path(cache_path).unlink(missing_ok=True)
+            _legacy.safe_write_text(cache_path, raw)
+            if full:
+                _legacy.safe_write_json(coverage_path(cache_path), full_coverage_record(v_str, raw))
             _legacy.log.info(f"💾 Page index cache saved to disk for {v_str}")
     except MetadataUnavailable:
         raise
@@ -455,11 +465,15 @@ def _load_page_index_from_disk(v_str: str) -> bool:
                 )
                 cache_path = legacy_path
         if cache_path.exists():
-            data, id_map, files_ordered = prepare_page_index(
-                _legacy.json.loads(read_metadata_text(cache_path, encoding="utf-8")), _legacy.Path
-            )
+            raw = read_metadata_text(cache_path, encoding="utf-8")
+            data, id_map, files_ordered = prepare_page_index(_legacy.json.loads(raw), _legacy.Path)
+            full = has_full_coverage(cache_path, v_str, raw)
             with _page_index_lock:
                 _page_index_entries[v_str] = data
+                if full:
+                    _legacy.page_state.full_index_vaults.add(v_str)
+                else:
+                    _legacy.page_state.full_index_vaults.discard(v_str)
                 _page_index_initialized[v_str] = True
                 _legacy._bump_page_index_version(v_str)
                 _page_id_to_path[v_str] = id_map

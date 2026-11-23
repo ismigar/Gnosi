@@ -13,6 +13,49 @@ def test_normalize_datetime_preserves_aware_iso_value() -> None:
     assert service._normalize_dt("20260828") == "2026-08-28"
 
 
+def test_expanded_day_requests_caldav_occurrences_with_exact_dst_bounds(monkeypatch) -> None:
+    from types import SimpleNamespace
+    from xml.etree import ElementTree
+    from backend.domains.calendar.caldav_resources import event_query
+
+    lower, upper = "2026-10-25T00:00:00+02:00", "2026-10-26T00:00:00+01:00"
+    report = """<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+    <d:response><d:href>/calendar/work/series.ics</d:href><d:propstat><d:prop><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:series
+DTSTAMP:20261001T100000Z
+RECURRENCE-ID:20261025T090000Z
+DTSTART:20261025T113000Z
+DTEND:20261025T120000Z
+SUMMARY:Rescheduled session
+END:VEVENT
+END:VCALENDAR</c:calendar-data></d:prop></d:propstat></d:response></d:multistatus>"""
+    reports = []
+
+    class Client:
+        def __init__(self, _account): pass
+
+        def calendars(self, _email):
+            return [{"id": "work", "name": "Work", "url": "https://example.test/calendar/work/"}]
+
+        def request(self, method, _url, *, data, headers):
+            assert method == "REPORT" and headers["Depth"] == "1"
+            reports.append(ElementTree.fromstring(data))
+            return SimpleNamespace(text=report)
+
+    monkeypatch.setattr(service, "_get_account", lambda *_args, **_kwargs: {"provider": "caldav"})
+    monkeypatch.setattr(service, "CalDAVClient", Client)
+    events = service.list_events("fixture@example.test", lower, upper, expand_instances=True)
+    tag = "{urn:ietf:params:xml:ns:caldav}"
+    expand = reports[0].find(f".//{tag}calendar-data/{tag}expand")
+    assert expand is not None and expand.attrib == {"start": "20261024T220000Z", "end": "20261025T230000Z"}
+    assert events[0]["title"] == "Rescheduled session"
+    assert events[0]["start"] == "2026-10-25T11:30:00+00:00"
+    assert events[0]["is_read_only"]
+    assert ElementTree.fromstring(event_query(time_min=lower, time_max=upper)).find(f".//{tag}expand") is None
+
+
 def test_google_dispatch_uses_selected_account(monkeypatch) -> None:
     monkeypatch.setattr(
         service.integration_manager,

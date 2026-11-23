@@ -1,6 +1,8 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { requestContextHeaders, type RequestContext } from './request-context';
+import { canonicalizeVaultApiUrl } from './vault-context';
 
 
 export type ReaderSource = components['schemas']['FeedSourceResponse'];
@@ -220,9 +222,13 @@ export async function cancelReaderAnalysis(jobId: string): Promise<ReaderAnalysi
 
 export async function fetchReaderArticles(
   query: ReaderArticlesQuery = {},
+  signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<ReaderArticle[]> {
   return unwrapApiResult<ReaderArticle[], unknown>(
     await apiClient.GET('/api/reader/articles', {
+      signal,
+      headers: context && requestContextHeaders(context),
       params: {
         query: {
           include_content: query.includeContent,
@@ -293,21 +299,30 @@ export async function generateReaderPodcast(): Promise<ReaderPodcastGeneration> 
 }
 
 
-export async function fetchReaderPodcastStatus(): Promise<ReaderPodcastStatus> {
+export async function fetchReaderPodcastStatus(context?: RequestContext, signal?: AbortSignal): Promise<ReaderPodcastStatus> {
   return unwrapApiResult<ReaderPodcastStatus, unknown>(
-    await apiClient.GET('/api/reader/podcast/status'),
+    await apiClient.GET('/api/reader/podcast/status', { signal, headers: requestContextHeaders(context) }),
   );
 }
 
 
-export async function fetchReaderPodcastInfo(): Promise<ReaderPodcastInfo> {
+export async function fetchReaderPodcastInfo(context?: RequestContext, signal?: AbortSignal): Promise<ReaderPodcastInfo> {
   return unwrapApiResult<ReaderPodcastInfo, unknown>(
-    await apiClient.GET('/api/reader/podcast/info'),
+    await apiClient.GET('/api/reader/podcast/info', { signal, headers: requestContextHeaders(context) }),
   );
 }
 
 
+/** Legacy latest-publication link for callers that deliberately follow the moving latest episode. */
 export function readerPodcastUrl(cacheBust?: number): string {
-  const path = '/api/reader/podcast/latest';
+  const path = canonicalizeVaultApiUrl('/api/reader/podcast/latest');
   return cacheBust === undefined ? path : `${path}?t=${String(cacheBust)}`;
+}
+
+/** The URL and the resume key are both bound to this exact published revision. */
+export function readerEpisodeUrl(info: ReaderPodcastInfo): string | null {
+  const id = info.episode_id;
+  return info.exists && id && /^[a-f0-9]{64}$/u.test(id)
+    ? canonicalizeVaultApiUrl(`/api/reader/podcast/episodes/${id}`)
+    : null;
 }

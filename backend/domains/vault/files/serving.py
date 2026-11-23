@@ -16,6 +16,7 @@ from starlette.types import Receive, Scope, Send
 
 from backend.domains.vault.files.state import FileServingState
 from backend.platform.files.base import FilesProvider
+from backend.platform.files.snapshots import revision
 from backend.utils.metadata_io import VaultFileSnapshot, is_native_vault_file, vault_file_snapshot_async
 
 log = logging.getLogger(__name__)
@@ -51,11 +52,14 @@ class _SnapshotFileResponse(FileResponse):
 
 async def serve_snapshot(
     path: Path, root: Path, *, headers: dict[str, str] | None = None,
+    expected_stat: os.stat_result | None = None,
 ) -> FileResponse:
     """Serve the selected source's MIME type and validators from one coordinated read."""
     media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     snapshot = await vault_file_snapshot_async(path, root=root)
     try:
+        if expected_stat is not None and (not snapshot.is_private or revision(expected_stat) != revision(snapshot.stat_result)):
+            raise HTTPException(status_code=404, detail="Requested file revision is unavailable")
         return _SnapshotFileResponse(snapshot, media_type, headers)
     except BaseException:
         snapshot.close()

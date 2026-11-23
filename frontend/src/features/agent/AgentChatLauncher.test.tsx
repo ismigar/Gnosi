@@ -1,6 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emitAppEvent } from '../../shared/platform/app-events';
+import type { AgentChatProps } from './chat/agentChatTypes';
 
 const mocks = vi.hoisted(() => ({ loaded: 0 }));
 
@@ -10,7 +12,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('./AgentChat', () => {
   mocks.loaded += 1;
-  return { default: () => <div data-testid="loaded-agent-chat" /> };
+  return { default: (props: AgentChatProps) => <div data-testid="loaded-agent-chat" data-session={props.openRequest?.sessionId} /> };
 });
 
 import { AgentChatLauncher } from './AgentChatLauncher';
@@ -49,5 +51,7 @@ describe('AgentChatLauncher', () => {
 
     expect(mocks.loaded).toBe(1);
     expect(container.querySelector('[data-testid="loaded-agent-chat"]')).not.toBeNull();
+    act(() => { emitAppEvent('gnosi:open-assistant', { sessionId: 'selected-session' }); });
+    expect(container.querySelector('[data-session="selected-session"]')).not.toBeNull();
   });
 });

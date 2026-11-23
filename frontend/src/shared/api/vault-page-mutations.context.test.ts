@@ -31,6 +31,16 @@ describe('captured page mutation context', () => {
         controller.abort();
         expect(request.signal.aborted).toBe(true);
     });
+    it('pins an anonymous local editor to its Vault without requiring an account cookie', async () => {
+        writeApiTestStorage('gnosi_active_vault', 'local-vault');
+        const context = currentRequestContext();
+        const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ id: 'local', etag: 'new' }));
+        vi.stubGlobal('fetch', fetchMock);
+        await patchVaultPage('local', { content: 'edit' }, { context, allowLocalSession: true });
+        const request = requestAt(fetchMock.mock.calls, 0);
+        expect(request.headers.get('X-Vault-ID')).toBe('local-vault');
+        expect(request.headers.get('X-Gnosi-Expected-User-ID')).toBeNull();
+    });
     it.each(['gnosi_workspace_id', 'gnosi_user_id', 'gnosi_user_email', 'gnosi_active_vault'])('does not send a queued write after %s changes', async field => {
         const context = scope();
         const fetchMock = vi.fn<typeof fetch>();

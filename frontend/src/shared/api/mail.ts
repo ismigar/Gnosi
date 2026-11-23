@@ -1,6 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { assertApiSuccess, unwrapApiResult } from './errors';
+import { requestContextHeaders, type RequestContext } from './request-context';
 
 export {
   createMailTag,
@@ -70,9 +71,11 @@ export interface MailMessageQuery {
 export async function fetchMailCounts(
   email: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<MailCounts> {
   return unwrapApiResult<MailCounts, unknown>(
     await apiClient.GET('/api/mail/counts', {
+      headers: requestContextHeaders(context),
       params: { query: { email } },
       signal,
     }),

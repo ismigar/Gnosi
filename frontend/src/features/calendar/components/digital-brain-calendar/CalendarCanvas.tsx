@@ -23,7 +23,7 @@ interface Props {
 
 export function CalendarCanvas({ calendarRef, controller: c }: Props) {
   return <div className={`calendar-container flex-1 ${c.showHeaderToolbar ? 'min-h-[34rem]' : ''}`}>
-    <FullCalendar ref={calendarRef} plugins={PLUGINS} initialView={c.initialView}
+    <FullCalendar ref={calendarRef} plugins={PLUGINS} initialView={c.initialView} initialDate={c.props.initialDate}
       eventDisplay="block" fixedWeekCount={false} multiMonthMaxColumns={4} views={VIEWS}
       headerToolbar={false} dayMaxEvents={4}
       moreLinkContent={(arg) => `+ ${arg.shortText} ${c.t('calendar.more_suffix', 'more')}`}

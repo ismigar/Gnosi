@@ -20,6 +20,19 @@ from backend.platform.files.coordinated import is_cloud_placeholder
 Metadata = RegistryData
 # The cache envelope has string field names; nested page metadata stays open.
 PageCacheEntry = dict[str, object]
+
+
+def newer_index_entry(candidate: PageCacheEntry, previous: PageCacheEntry | None) -> bool:
+    """Newest modification wins for a stable page ID; the first row breaks ties."""
+    if previous is None:
+        return True
+    modified = candidate.get("mtime")
+    old_modified = previous.get("mtime")
+    return (modified if isinstance(modified, (float, int)) else 0) > (
+        old_modified if isinstance(old_modified, (float, int)) else 0
+    )
+
+
 ParseFrontmatter = Callable[[str, Path], tuple[Metadata, str]]
 
 

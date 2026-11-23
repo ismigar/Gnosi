@@ -46,6 +46,7 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                             <DigitalBrainCalendar
                                 allNotes={[...pages, ...externalEvents]}
                                 initialView={activeView}
+                                initialDate={controller.initialDate}
                                 searchQuery={searchQuery}
                                 selectedCalendars={selectedCalendars}
 

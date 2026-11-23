@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 import logging
 from typing import Optional, Sequence
 
@@ -64,13 +65,17 @@ def fetch_calendar_accounts(
     time_max: str,
     search: Optional[str],
     calendar_id: Optional[str],
+    *,
+    expand_instances: bool = False,
 ) -> list[CalendarAccountEvents]:
     """Load independent accounts concurrently while isolating provider failures."""
+
+    read = partial(list_events, expand_instances=True) if expand_instances else list_events
 
     def fetch_account(account: tuple[str, str]) -> CalendarAccountEvents:
         email, cache_key = account
         try:
-            events = list_events(email, time_min, time_max, search, calendar_id)
+            events = read(email, time_min, time_max, search, calendar_id)
         except GoogleAuthExpired:
             log.info(
                 "fetch_calendar_accounts: Google authentication expired for %s; skipping",

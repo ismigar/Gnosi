@@ -14,20 +14,22 @@ import { useCalendarVisibility } from './useCalendarVisibility';
 
 const NO_EVENTS: CalendarEntry[] = [];
 
-export function useCalendarSources(searchQuery: string, dateRange: { start: string; end: string } | null) {
+export function useCalendarSources(searchQuery: string, dateRange: { start: string; end: string } | null,
+    { notifyErrors = true, expandInstances = false }: { notifyErrors?: boolean; expandInstances?: boolean } = {}) {
     const { t } = useTranslation();
     const vaultId = getActiveVaultId();
     const client = useQueryClient();
-    const local = useCalendarLocalSources(vaultId);
+    const local = useCalendarLocalSources(vaultId, notifyErrors);
     const { pages, setPages, integrations, setIntegrations, enabledTables, undatedNotes, loading, refreshing, localSourcesError, fetchPages } = local;
     const [externalSnapshot, setExternalSnapshot] = useState<{ vaultId: string; data: CalendarEvent[] | undefined; events: CalendarEntry[] } | null>(null);
     const calendarListQuery = useCalendarList();
     const externalEventsQueryInput = useMemo<CalendarEventsQuery>(() => ({
         includeVault: false,
+        ...(expandInstances ? { expandInstances: true } : {}),
         search: searchQuery || undefined,
         timeMax: dateRange?.end,
         timeMin: dateRange?.start,
-    }), [dateRange?.end, dateRange?.start, searchQuery]);
+    }), [dateRange?.end, dateRange?.start, expandInstances, searchQuery]);
     const externalEventsQuery = useCalendarEvents(externalEventsQueryInput, dateRange !== null);
     const receivedExternalEvents = useMemo(() => externalEventsQuery.data?.map(hybridCalendarEntry), [externalEventsQuery.data]);
     // Use a completed query synchronously on remount. The editable snapshot only
@@ -98,5 +100,11 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
     const externalEventsRefreshing = dateRange !== null && externalEventsQuery.isFetching && !externalEventsLoading;
     const externalSourcesUpdating = calendarListQuery.isFetching || (dateRange !== null && externalEventsQuery.isFetching);
     const externalEventsError = externalEventsQuery.isError;
-    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, refreshing, localSourcesError, externalEventsLoading, externalEventsRefreshing, externalSourcesUpdating, externalEventsError, integrations, calendarConfigs, defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
+    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, refreshing, localSourcesError,
+        settingsAvailable: local.settingsAvailable, calendarListPending: calendarListQuery.isPending,
+        calendarListError: calendarListQuery.isError || Boolean(calendarListQuery.data?.authError),
+        fetchCalendarList: calendarListQuery.refetch,
+        externalRangePending: externalEventsQuery.isPending || externalEventsQuery.isPlaceholderData,
+        externalEventsLoading, externalEventsRefreshing, externalSourcesUpdating, externalEventsError, integrations, calendarConfigs,
+        defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
 }

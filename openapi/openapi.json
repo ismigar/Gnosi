@@ -15089,6 +15089,121 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HomeCanvasBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "settings": {
+            "maxProperties": 16,
+            "patternProperties": {
+              "^[A-Za-z0-9_-]+$": {
+                "maxLength": 2048,
+                "type": "string"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": "Settings",
+            "type": "object"
+          },
+          "width": {
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width"
+        ],
+        "title": "HomeCanvasBlock",
+        "type": "object"
+      },
+      "HomeCanvasState": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HomeCanvasBlock"
+                },
+                "maxItems": 128,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocks"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "start_mode": {
+            "default": "page",
+            "enum": [
+              "page",
+              "canvas"
+            ],
+            "title": "Start Mode",
+            "type": "string"
+          }
+        },
+        "title": "HomeCanvasState",
+        "type": "object"
+      },
+      "HomeKnowledgeCatalog": {
+        "description": "Cached navigation rows and their full-Vault coverage.",
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SidebarTreePageInfo"
+            },
+            "title": "Pages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages",
+          "complete"
+        ],
+        "title": "HomeKnowledgeCatalog",
+        "type": "object"
+      },
       "IconAssetResponse": {
         "description": "Stored icon location returned by upload and URL import routes.",
         "properties": {
@@ -32615,6 +32730,19 @@
             ],
             "title": "Created At"
           },
+          "episode_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque immutable playback identifier for this published file revision in the current Vault. Use /podcast/episodes/{episode_id}. A removed or replaced revision becomes unavailable.",
+            "title": "Episode Id"
+          },
           "exists": {
             "title": "Exists",
             "type": "boolean"
@@ -41582,6 +41710,36 @@
           "changed_notes"
         ],
         "title": "VaultLinkMentionsResponse",
+        "type": "object"
+      },
+      "VaultLinkNeighborhoodResponse": {
+        "description": "Direct note links. A cold reverse index can only report outgoing links.",
+        "properties": {
+          "incoming": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incoming",
+            "type": "array"
+          },
+          "incoming_complete": {
+            "title": "Incoming Complete",
+            "type": "boolean"
+          },
+          "outgoing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outgoing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "incoming",
+          "outgoing",
+          "incoming_complete"
+        ],
+        "title": "VaultLinkNeighborhoodResponse",
         "type": "object"
       },
       "VaultLinkedMentionChangeResponse": {
@@ -57835,6 +57993,18 @@
             }
           },
           {
+            "description": "Expand external recurring events within a time-zone-aware window of up to 25 hours.",
+            "in": "query",
+            "name": "expand_instances",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Expand external recurring events within a time-zone-aware window of up to 25 hours.",
+              "title": "Expand Instances",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "header",
             "name": "x-workspace-id",
             "required": false,
@@ -62798,6 +62968,38 @@
                 }
               ],
               "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "name",
+              "enum": [
+                "name",
+                "updated"
+              ],
+              "title": "Sort",
+              "type": "string"
             }
           },
           {
@@ -82223,6 +82425,161 @@
         ]
       }
     },
+    "/api/reader/podcast/episodes/{episode_id}": {
+      "get": {
+        "description": "Stream the requested published file revision in the authenticated Vault.\n\nUse the opaque episode_id from /podcast/info. Newer daily files leave retained\nepisodes playable. Removing or replacing the named revision expires its URL.\nByte ranges seek within this exact revision.",
+        "operationId": "get_podcast_episode_api_reader_podcast_episodes__episode_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The published audio revision"
+          },
+          "206": {
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "multipart/byteranges": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Requested byte range(s) of the published revision"
+          },
+          "400": {
+            "description": "Malformed byte range"
+          },
+          "404": {
+            "description": "Unknown, removed or replaced episode in this Vault"
+          },
+          "416": {
+            "description": "Unsatisfiable or excessive byte ranges"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "Podcast storage is temporarily unavailable"
+          }
+        },
+        "summary": "Get Podcast Episode",
+        "tags": [
+          "Reader",
+          "reader"
+        ]
+      }
+    },
     "/api/reader/podcast/generate": {
       "post": {
         "description": "Launches podcast generation in the background",
@@ -82340,7 +82697,7 @@
     },
     "/api/reader/podcast/info": {
       "get": {
-        "description": "Return the last published episode available to this Reader.",
+        "description": "Read latest publication metadata without opening or hydrating any audio.",
         "operationId": "get_podcast_info_api_reader_podcast_info_get",
         "parameters": [
           {
@@ -82455,7 +82812,7 @@
     },
     "/api/reader/podcast/latest": {
       "get": {
-        "description": "Stream the selected episode using the same coordinated file snapshot as vault downloads.",
+        "description": "Stream the latest published episode through the coordinated Vault reader.",
         "operationId": "get_latest_podcast_api_reader_podcast_latest_get",
         "parameters": [
           {
@@ -93134,6 +93491,354 @@
         ]
       }
     },
+    "/api/vault/home-canvas": {
+      "get": {
+        "operationId": "get_home_canvas_api_vault_home_canvas_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeCanvasState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Home Canvas",
+        "tags": [
+          "Vault"
+        ]
+      },
+      "put": {
+        "operationId": "save_home_canvas_api_vault_home_canvas_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeCanvasState"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeCanvasState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Home Canvas",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/home-knowledge-catalog": {
+      "get": {
+        "description": "Project known rows from the selected Vault without materializing missing notes.",
+        "operationId": "get_home_knowledge_catalog_api_vault_home_knowledge_catalog_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeKnowledgeCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Home Knowledge Catalog",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
     "/api/vault/images/{image_path}": {
       "get": {
         "description": "Serves images directly from VAULT/Images.",
@@ -96750,6 +97455,131 @@
           }
         },
         "summary": "Get Link Index Stats",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/link-neighborhood": {
+      "get": {
+        "description": "Read one Markdown note and use an already built reverse index when available.",
+        "operationId": "get_link_neighborhood_api_vault_link_neighborhood_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Page Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultLinkNeighborhoodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Link Neighborhood",
         "tags": [
           "Vault"
         ]

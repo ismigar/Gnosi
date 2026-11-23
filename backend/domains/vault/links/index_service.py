@@ -8,6 +8,7 @@ import re
 import threading
 import time
 from collections.abc import Callable, Iterable
+from contextvars import copy_context
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -43,6 +44,7 @@ class LinkIndexDependencies:
     write_json: JsonWriter
     iter_documents: Callable[[], list[Document]]
     current_vault_key: Callable[[], str]
+    indexed_path: Callable[[str, Path], Path | None]
     get_body: Callable[[Path], str]
     is_dashboard: Callable[[Path], bool]
     read_dashboard: Callable[[Path], tuple[PageMetadata, str]]
@@ -147,6 +149,7 @@ def save_link_index(state: LinkIndexState, dependencies: LinkIndexDependencies) 
         with state.lock:
             payload = {
                 "schema_version": LINK_INDEX_SCHEMA_VERSION,
+                "vault_key": state.vault_key,
                 "built_ts": state.build_ts,
                 "outlinks": {
                     page_id: sorted(refs) for page_id, refs in state.outlinks_by_source.items()
@@ -189,6 +192,7 @@ def load_link_index(state: LinkIndexState, dependencies: LinkIndexDependencies) 
         tokens_raw = _string_map(data.get("tokens"))
         meta_raw = _string_map(data.get("meta"))
         with state.lock:
+            state.vault_key = None
             state.outlinks_by_source.clear()
             for page_id, refs in outlinks_raw.items():
                 if isinstance(refs, list):
@@ -213,6 +217,8 @@ def load_link_index(state: LinkIndexState, dependencies: LinkIndexDependencies) 
             )
             rebuild_backlinks_locked(state)
             state.built = True
+            owner = data.get("vault_key")
+            state.vault_key = owner if isinstance(owner, str) else None
             built_ts = data.get("built_ts")
             state.build_ts = float(built_ts) if isinstance(built_ts, (int, float)) else time.time()
             state.source_count = len(state.page_meta_by_id)
@@ -320,20 +326,51 @@ def get_cached_document_texts(
     return {path: cache[path][2] for path in requested if path in cache}
 
 
+def _prefer_link_document(
+    path: Path, page_id: str, previous: dict[str, object] | None,
+    vault_key: str | None, dependencies: LinkIndexDependencies,
+) -> bool:
+    """Resolve a duplicate exactly as navigation does, without scanning the Vault."""
+    stored_path = (previous or {}).get("path")
+    if not isinstance(stored_path, str) or stored_path == str(path):
+        return True
+    previous_path = Path(stored_path)
+    if vault_key:
+        indexed = dependencies.indexed_path(page_id, Path(vault_key))
+        if indexed in (path, previous_path):
+            return indexed == path
+    # A reverse rebuild can precede the page index. Stat only the conflicting
+    # copies and retain the first on an equal mtime, as the page index does.
+    try:
+        before = previous_path.stat().st_mtime
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    try:
+        return path.stat().st_mtime > before
+    except OSError:
+        return False
+
+
 def rebuild_link_index(
     state: LinkIndexState,
     dependencies: LinkIndexDependencies,
     persist: bool = True,
 ) -> None:
     started = time.time()
+    vault_key: str | None = dependencies.current_vault_key() or None
     new_outlinks: dict[str, set[str]] = {}
     new_kinds: dict[str, dict[str, str]] = {}
     new_tokens: dict[str, frozenset[str]] = {}
     new_meta: dict[str, dict[str, object]] = {}
     for file_path, metadata, body, _is_dashboard in dependencies.iter_documents():
         try:
+            if vault_key and not file_path.is_relative_to(vault_key):
+                # Older navigation caches can contain paths for a different Vault.
+                vault_key = None
             page_id = resolve_page_id(metadata, file_path)
-            if not page_id:
+            if not page_id or not _prefer_link_document(file_path, page_id, new_meta.get(page_id), vault_key, dependencies):
                 continue
             refs, kinds = extract_outlinks_with_kinds(metadata, body)
             new_outlinks[page_id] = refs
@@ -346,6 +383,7 @@ def rebuild_link_index(
         except Exception as exc:
             log.warning("link-index: error indexing %s: %s", file_path.name, exc)
     with state.lock:
+        state.vault_key = None
         state.outlinks_by_source.clear()
         state.outlinks_by_source.update(new_outlinks)
         state.outlink_kinds_by_source.clear()
@@ -356,6 +394,7 @@ def rebuild_link_index(
         state.page_meta_by_id.update(new_meta)
         rebuild_backlinks_locked(state)
         state.built = True
+        state.vault_key = vault_key
         state.build_ts = time.time()
         state.source_count = len(new_meta)
     log.info(
@@ -398,7 +437,8 @@ def kickoff_link_index_rebuild(
             load_link_index(state, dependencies)
         except Exception as exc:
             log.warning("link-index disk load failed: %s", exc)
-    if state.build_ts and (time.time() - state.build_ts) < 1800:
+    fresh_for_vault = state.vault_key == dependencies.current_vault_key() and state.build_ts
+    if fresh_for_vault and (time.time() - state.build_ts) < 1800:
         log.info(
             "🔗 link-index rebuild skipped: cache de fa %ss (<1800s)",
             int(time.time() - state.build_ts),
@@ -418,7 +458,8 @@ def kickoff_link_index_rebuild(
             with state.rebuild_state_lock:
                 state.rebuild_in_progress = False
 
-    threading.Thread(target=run, daemon=True, name="link-index-rebuild").start()
+    context = copy_context()
+    threading.Thread(target=context.run, args=(run,), daemon=True, name="link-index-rebuild").start()
 
 
 def update_link_index_for_page(
@@ -444,6 +485,12 @@ def update_link_index_for_page(
         return
     refs, kinds = extract_outlinks_with_kinds(metadata, body)
     with state.lock:
+        if state.vault_key and (
+            state.vault_key != dependencies.current_vault_key() or not file_path.is_relative_to(state.vault_key)
+        ):
+            state.vault_key = None
+        if not _prefer_link_document(file_path, page_id, state.page_meta_by_id.get(page_id), state.vault_key, dependencies):
+            return
         state.outlinks_by_source[page_id] = refs
         state.outlink_kinds_by_source[page_id] = kinds
         state.tokens_by_source[page_id] = tokenize_body(body)
@@ -464,6 +511,8 @@ def remove_from_link_index(
         return
     page_id = str(page_id).strip()
     with state.lock:
+        if state.vault_key != dependencies.current_vault_key():
+            state.vault_key = None
         state.outlinks_by_source.pop(page_id, None)
         state.outlink_kinds_by_source.pop(page_id, None)
         state.tokens_by_source.pop(page_id, None)

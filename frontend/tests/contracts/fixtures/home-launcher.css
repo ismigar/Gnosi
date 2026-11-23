@@ -1,0 +1,162 @@
+/* Home Page Premium Styles */
+.home-page {
+  /* IMPORTANT: do NOT set `overflow-x: hidden` here.
+     CSS spec: when overflow-x and overflow-y have different values and one is
+     `hidden`, the browser converts the other from `visible` to `auto` —
+     producing an unwanted second vertical scrollbar inside this element.
+     Horizontal clipping for the decorative glows is therefore done at the
+     parent level (App.jsx → flex-1 overflow-x-hidden), which already has an
+     explicit vertical overflow value so the spec rule never triggers. */
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--home-bg);
+  color: var(--text-primary);
+  min-height: 100%;
+  padding: 2rem 2rem 3rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.home-page__glow {
+  position: absolute;
+  width: 40vw;
+  height: 40vw;
+  filter: blur(120px);
+  opacity: 0.15;
+  z-index: 0;
+  border-radius: 50%;
+}
+
+.home-page__glow--1 {
+  top: -10%;
+  left: -10%;
+  background: var(--gnosi-primary);
+}
+
+.home-page__glow--2 {
+  bottom: -10%;
+  right: -10%;
+  background: var(--gnosi-primary);
+}
+
+.home-page__hero {
+  text-align: center;
+  margin-bottom: 1.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.home-page__title {
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 800;
+  margin-bottom: 1rem;
+  background: linear-gradient(to bottom, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.home-page__subtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  max-width: 600px;
+}
+
+.home-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  position: relative;
+  z-index: 1;
+}
+
+.home-card {
+  background: var(--home-card-bg);
+  border: 1px solid var(--home-card-border);
+  min-height: 200px;
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  text-decoration: none;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  backdrop-filter: blur(10px);
+}
+
+.home-card:focus-visible {
+  outline: 2px solid var(--gnosi-primary);
+  outline-offset: 2px;
+}
+
+.home-card__icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.home-card__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.home-card__desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.home-card__arrow {
+  margin-top: auto;
+  font-size: 1.2rem;
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding: 5.25rem 1rem 2rem;
+  }
+
+  .home-page__hero {
+    margin-bottom: 2rem;
+  }
+
+  .home-page__title {
+    font-size: clamp(2.5rem, 13vw, 3rem);
+  }
+
+  .home-page__subtitle {
+    max-width: 310px;
+    font-size: 0.95rem;
+  }
+
+  .home-page__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-card {
+    min-height: 172px;
+    padding: 1.25rem;
+  }
+}

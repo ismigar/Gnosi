@@ -42,7 +42,8 @@ export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSo
 
 
     // Click on event → opens edit panel (vault) or detail panel (external)
-    const handleEventClick = useCallback(async (pageId: string, patchData: CalendarEditUpdate | null = null, action: 'move' | 'resize' | null = null) => {
+    const handleEventClick = useCallback(async (pageId: string, patchData: CalendarEditUpdate | null = null, action: 'move' | 'resize' | null = null,
+        target?: { source?: string; instance?: string }) => {
         // If patchData and action are passed to us, it's a direct modification (drag/resize)
         if (patchData && action) {
             const event = pages.find(p => p.id === pageId) || externalEvents.find(ev => ev.id === pageId);
@@ -75,7 +76,8 @@ export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSo
         }
 
         // Check whether it's an external event (Google/CalDAV)
-        const externalEv = externalEvents.find(ev => ev.id === pageId);
+        const externalEv = externalEvents.find(ev => ev.id === pageId && (!target?.source || ev.metadata.source === target.source)
+            && (!target?.instance || ev.metadata.date === target.instance));
         if (externalEv) {
             // One's own Google appointments (not read-only) open in edit mode so that
             // they can be edited (they're saved with PATCH to Google); shared/read-only ones and the

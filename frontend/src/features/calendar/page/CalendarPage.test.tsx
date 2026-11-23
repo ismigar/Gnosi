@@ -8,6 +8,7 @@ import { createVaultPage, deleteVaultPage, fetchVaultPage, fetchVaultPages, fetc
 import { fetchCalendarList, fetchCalendarEvents, fetchMeetingReminderSettings, updateMeetingReminderSettings, rsvpCalendarEvent } from '../../../shared/api/calendar';
 import { fetchIntegrations, updateCalendarAliases, updateCalendarColors, updateCalendarSelection, updateDefaultCalendar } from '../../../shared/api/integrations';
 import { calendarQueryKeys } from '../../../shared/api/useCalendarData';
+import { currentRequestContext } from '../../../shared/api/request-context';
 import { externalEvent, LOCAL_EVENT, mutation, pageSummary } from '../components/calendar-sidebar-right/calendarTestFixtures';
 import { toast } from '../../../shared/notifications/toast';
 
@@ -60,12 +61,28 @@ beforeEach(() => {
     vi.mocked(patchVaultPage).mockResolvedValue(mutation());
 });
 afterEach(async () => { await run(() => { root.unmount(); }); client.clear(); container.remove(); vi.clearAllMocks(); });
-async function mount() {
-    await run(() => { root.render(<MemoryRouter><QueryClientProvider client={client}><Harness /></QueryClientProvider></MemoryRouter>); });
+async function mount(path = '/') {
+    await run(() => { root.render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={client}><Harness /></QueryClientProvider></MemoryRouter>); });
     await run(() => {});
 }
 
 describe('calendar page controller', () => {
+    it('opens the requested day and the correct CalDAV occurrence after loading', async () => {
+        const start = '2026-09-02T14:00:00+00:00';
+        const source = 'caldav@example.test';
+        const event = { ...externalEvent('caldav'), all_day: false, is_read_only: true };
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([
+            { ...event, title: 'Earlier', start: '2026-09-02T11:00:00+00:00' },
+            { ...event, title: 'Chosen occurrence', start },
+        ]);
+        await mount(`/@work/calendar/event/caldav-event?${new URLSearchParams({ date: '2026-09-02', source, instance: start }).toString()}`);
+        expect(page().activeView).toBe('timeGridDay');
+        expect(page().initialDate).toBe('2026-09-02');
+        await run(() => { page().setDateRange({ start: '2026-09-02T00:00:00Z', end: '2026-09-03T00:00:00Z' }); });
+        await waitForState(() => { expect(page().eventPanel?.data?.title).toBe('Chosen occurrence'); });
+        expect(page().eventPanel?.mode).toBe('view');
+        expect(vi.mocked(fetchCalendarEvents).mock.calls[0]?.[0]).toMatchObject({ expandInstances: true });
+    });
     it('loads local pages, restores selection, and retains explicit hiding when async calendars arrive', async () => {
         await mount();
         expect(container.textContent).toContain('Local appointment');
@@ -117,14 +134,14 @@ describe('calendar page controller', () => {
     });
     it('fetches external events by visible range/search and opens Google and CalDAV editing contexts', async () => {
         await mount(); await run(() => { page().setDateRange({start: '2026-09-01', end: '2026-10-01'}); });
-        expect(fetchCalendarEvents).toHaveBeenCalledWith({timeMin: '2026-09-01', timeMax: '2026-10-01', search: undefined, includeVault: false}, expect.any(AbortSignal));
+        expect(fetchCalendarEvents).toHaveBeenCalledWith({timeMin: '2026-09-01', timeMax: '2026-10-01', search: undefined, includeVault: false}, expect.any(AbortSignal), currentRequestContext());
         await waitForState(() => { expect(page().externalEvents).toHaveLength(2); });
         for (const provider of ['google','caldav']) {
             await run(async () => { await page().handleEventClick(provider + '-event'); });
             expect(page().eventPanel).toMatchObject({mode: 'edit', isExternal: true, data: {metadata: {_provider: provider}}});
         }
         await run(() => { page().setSearchQuery('meeting'); });
-        expect(fetchCalendarEvents).toHaveBeenLastCalledWith(expect.objectContaining<Record<string, unknown>>({search: 'meeting'}), expect.any(AbortSignal));
+        expect(fetchCalendarEvents).toHaveBeenLastCalledWith(expect.objectContaining<Record<string, unknown>>({search: 'meeting'}), expect.any(AbortSignal), currentRequestContext());
         await run(async () => { await page().handleEventClick('local-event'); });
         expect(fetchVaultPage).toHaveBeenCalledWith('local-event');
         expect(page().eventPanel?.mode).toBe('edit');

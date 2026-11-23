@@ -1,5 +1,6 @@
 import { agent, budget, configuration, createSettingsApiFixture, model, type SettingsApiFixture } from './__fixtures__/settingsController';
 import { AgentsPanel } from './AgentsPanel';
+import { TestApiProvider } from '../../../../tests/TestApiProvider';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import React, { act, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -59,7 +60,9 @@ function Harness(props: GlobalSettingsModalProps & { showView?: boolean; showAge
   useLayoutEffect(() => { current = controller; });
   if (props.showAgents) return <AgentsPanel context={controller} />;
   if (props.showBudget) return <ModelBudget context={controller} />;
-  return props.showView ? <MemoryRouter><GlobalSettingsView context={controller} /><LocationProbe /></MemoryRouter> : null;
+  return props.showView ? <TestApiProvider client={queryClient}>
+    <MemoryRouter><GlobalSettingsView context={controller} /><LocationProbe /></MemoryRouter>
+  </TestApiProvider> : null;
 }
 async function mount(props: Partial<GlobalSettingsModalProps> = {}) {
   await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} {...props} />); await Promise.resolve(); });
@@ -74,15 +77,10 @@ function settingsDialog(): HTMLElement {
 }
 function writes() { return api.requests.filter(request => request.method !== 'GET'); }
 beforeAll(async () => {
-  // These integration cases render real editors. Transform their module graphs
-  // before fake timers/act start so a slow test compiler cannot strand an act
-  // scope and invalidate the following persistence tests. No editor is mounted.
+  // Preload the editors before fake timers so a slow transform cannot strand an act scope.
+  const panels = ['accounts', 'reader', 'graph', 'ai', 'plugins'] as const;
   await Promise.all([
-    settingsPanelLoaders.accounts(),
-    settingsPanelLoaders.reader(),
-    settingsPanelLoaders.graph(),
-    settingsPanelLoaders.ai(),
-    settingsPanelLoaders.plugins(),
+    ...panels.map(panel => settingsPanelLoaders[panel]()),
     import('../../literature/settings/ResourcesPluginConfig'),
   ]);
 }, 30_000);

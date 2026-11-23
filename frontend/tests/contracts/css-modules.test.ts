@@ -53,10 +53,17 @@ function importPath(params: string): string {
   return path;
 }
 
-function expand(path: string, visited = new Set<string>()): Root {
+function expand(path: string, visited = new Set<string>(), restoreLauncher = false): Root {
   if (visited.has(path)) throw new Error(`Duplicate or cyclic CSS import: ${path}`);
   visited.add(path);
   const root = parseFile(path);
+  if (restoreLauncher && path === resolve(frontend, 'src/app/styles/home.css')) {
+    // Bind the complete new canvas stylesheet before comparing the historical
+    // extraction with the exact launcher styles it originally contained.
+    expect(digest(root)).toBe('91b9ca9f2669781898e85fc71d2cfbb8cd6b792629729824e9732eaf7d18c5e4');
+    const original = readFileSync(resolve(frontend, 'tests/contracts/fixtures/home-launcher.css'), 'utf8');
+    return postcss.parse(original, { from: path });
+  }
   root.walkAtRules('import', rule => {
     const target = importPath(rule.params);
     if (target === 'tailwindcss') return;
@@ -67,7 +74,7 @@ function expand(path: string, visited = new Set<string>()): Root {
       throw new Error(`CSS import escapes maintained source: ${target}`);
     }
     if (rule.parent !== root) throw new Error(`Nested CSS import: ${target}`);
-    rule.replaceWith(...expand(resolve(dirname(path), target), visited).nodes);
+    rule.replaceWith(...expand(resolve(dirname(path), target), visited, restoreLauncher).nodes);
   });
   return root;
 }
@@ -299,7 +306,7 @@ function removeVerifiedActivityRules(root: Root): void {
 }
 
 function extractionTree(entry: string): Root {
-  const root = expand(resolve(frontend, entry));
+  const root = expand(resolve(frontend, entry), new Set(), true);
   if (entry === 'src/app/styles/index.css') {
     verifySkillSwitchRules(root, true);
     // Verify the mobile control's exact scope, declarations and cascade position
@@ -438,7 +445,19 @@ describe('semantic CSS extraction contracts', () => {
     const global = expand(resolve(frontend, 'src/app/styles/index.css'));
     const mobile = global.nodes.filter(node => node.type === 'atrule'
       && node.name === 'media' && node.params === '(max-width: 768px)');
-    expect(mobile).toHaveLength(2);
+    expect(mobile).toHaveLength(1);
+    const grid = global.nodes.findIndex(node => node.type === 'rule' && node.selector === '.home-grid');
+    expect(grid).toBeGreaterThanOrEqual(0);
+    const compact = global.nodes.findIndex(node => node.type === 'atrule'
+      && node.name === 'container' && node.params === '(max-width: 680px)');
+    expect(compact).toBeGreaterThan(grid);
+    const singleColumn = postcss.parse(`@container (max-width: 680px) {
+      .home-grid { grid-template-columns: minmax(0, 1fr); }
+      .home-grid .home-block { grid-column: 1; }
+    }`);
+    const responsiveRule = global.nodes[compact];
+    if (!responsiveRule || !singleColumn.first) throw new Error('Missing the compact Home grid');
+    expect(semantic(responsiveRule)).toEqual(semantic(singleColumn.first));
     const literature = expand(resolve(frontend, 'src/features/literature/LiteraturePage.css'));
     const media: string[] = [];
     literature.walkAtRules('media', rule => { media.push(rule.params); });

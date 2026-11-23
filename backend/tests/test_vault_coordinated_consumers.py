@@ -120,6 +120,40 @@ def test_selected_files_stream_first_range_from_coordinated_bytes(cloud, monkeyp
     assert all(not copy.exists() for copy in cloud.copies)
 
 
+@pytest.mark.parametrize("replace_while_reading", [False, True])
+def test_podcast_home_selects_only_its_coordinated_revision(cloud, monkeypatch, replace_while_reading):
+    from fastapi import APIRouter
+    from backend.domains.reader import podcast_routes
+    from backend.services.workspace_service import WorkspaceContext, get_workspace_context
+
+    path = cloud.source("data/podcasts/daily_podcast_2026_11_22.mp3", b"0123456789")
+    app = FastAPI()
+    router = APIRouter(prefix="/reader")
+    podcast_routes.register_routes(router)
+    app.include_router(router)
+    app.dependency_overrides[get_workspace_context] = lambda: WorkspaceContext("team", "actor", "viewer", cloud.vault)
+    with TestClient(app) as client:
+        info = client.get("/reader/podcast/info").json()
+        assert info["filename"] == path.name and cloud.reads == []
+        cloud.source("data/podcasts/daily_podcast_2026_11_23.mp3", b"new episode")
+        if replace_while_reading:
+            copy = snapshots.copy_coordinated
+
+            async def changed(source, destination, timeout):
+                source.write_bytes(b"replacement")
+                return await copy(source, destination, timeout)
+
+            monkeypatch.setattr(snapshots, "copy_coordinated", changed)
+        response = client.get("/reader/podcast/episodes/" + info["episode_id"], headers={"range": "bytes=2-5"})
+        if replace_while_reading:
+            assert response.status_code == 404
+        else:
+            assert response.status_code == 206 and response.content == b"2345"
+            assert response.headers["etag"] == f'"{info["episode_id"]}"'
+            assert response.headers["content-range"] == "bytes 2-5/10"
+    assert cloud.reads == [path] and all(not copy_path.exists() for copy_path in cloud.copies)
+
+
 def test_disconnected_file_response_releases_its_copy(cloud):
     path = cloud.source("media.wav", b"audio")
 

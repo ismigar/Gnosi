@@ -65,6 +65,7 @@ export interface DigitalBrainCalendarProps {
   readonly endDateField?: string;
   readonly ignoreCalendarFilter?: boolean;
   readonly initialView?: string;
+  readonly initialDate?: string;
   readonly showHeaderToolbar?: boolean;
 }
 

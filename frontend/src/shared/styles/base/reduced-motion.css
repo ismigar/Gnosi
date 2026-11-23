@@ -7,9 +7,5 @@
   .vault-page-compact-header {
     transition: none;
   }
-  .home-card,
-  .home-card__icon-wrap,
-  .home-card__arrow {
-    transition: none;
-  }
+  .home-block { transition: none !important; }
 }

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { patchVaultPage } from '../../../../shared/api/vaults';
+import { useRequestContext } from '../../../../shared/hooks/useRequestContext';
+import { recordPersonalNoteEdit } from '../../../../shared/records/personalNoteEdits';
+import type { RequestContext } from '../../../../shared/api/request-context';
+import { patchEditedPage } from '../patchEditedPage';
 import { GnosiApiError } from '../../../../shared/api/errors';
 import { notifyError, logError } from '../../../../shared/notifications/notifyError';
 import { blocksToRichMarkdown } from '../../../../shared/editor/markdown-mapper';
@@ -10,9 +13,12 @@ import { extractOutgoingPageLinks } from './outgoingLinks';
 import type { MarkdownCodeEditorProps, CodeEditorMetadata } from './codeTypes';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export interface EditorChangeInfo {
+    readonly getChanges: () => readonly { readonly source: { readonly type: string } }[];
+}
 export interface PersistenceEditor {
     readonly document: unknown;
-    readonly onChange: (listener: () => void) => (() => void) | { remove: () => void } | undefined;
+    readonly onChange: (listener: (editor?: unknown, info?: EditorChangeInfo) => void) => (() => void) | { remove: () => void } | undefined;
 }
 
 const TRANSIENT_RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000, 60000] as const;
@@ -32,6 +38,8 @@ export interface EditorPersistenceOptions {
     readonly noteFilename: string;
     readonly isParsing: boolean;
     readonly editorReady: boolean;
+    readonly isEditable?: boolean;
+    readonly isPersonalChange?: (info?: EditorChangeInfo) => boolean;
     readonly metadataRef: RefObject<CodeEditorMetadata>;
     readonly setSaveStatus: Dispatch<SetStateAction<SaveStatus>>;
     readonly onUpdate?: MarkdownCodeEditorProps['onUpdate'];
@@ -41,9 +49,9 @@ export interface EditorPersistenceOptions {
 }
 
 /** Track exactly the promise whose completion is allowed to clear the cache. */
-function savePage(id: string, content: string, metadata: CodeEditorMetadata, untitled: string) {
+function savePage(scope: RequestContext, id: string, content: string, metadata: CodeEditorMetadata, untitled: string) {
     const data = { title: metadata.title || untitled, content, metadata };
-    const promise = patchVaultPage(id, data);
+    const promise = patchEditedPage(scope, id, data);
     inFlightSaves.set(id, { content, metadata, promise, timestamp: Date.now() });
     return { data, promise };
 }
@@ -51,8 +59,9 @@ function clearOwnSave(id: string, promise: Promise<unknown>): void {
     if (inFlightSaves.get(id)?.promise === promise) inFlightSaves.delete(id);
 }
 
-export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle, registerSave }: EditorPersistenceOptions) {
+export function useEditorPersistence({ editor, noteFilename, isParsing, editorReady, isEditable = true, isPersonalChange, metadataRef, setSaveStatus, onUpdate, onOutgoingLinksChange, idToTitle, registerSave }: EditorPersistenceOptions) {
     const { t } = useTranslation();
+    const scope = useRequestContext();
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const savedStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const savedStatusScopeRef = useRef<object | null>(null);
@@ -75,6 +84,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
         noteFilename: string;
         saved: string;
         observed: string;
+        personalEditAt?: number;
     } | null>(null);
     // This is a data ref, deliberately read at flush time, not a DOM ref.
     const readMetadata = useCallback(() => metadataRef.current, [metadataRef]);
@@ -89,8 +99,10 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 && content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
             cancelSavedStatusTimer();
             setSaveStatus('saving');
-            const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
-            try { await promise; } finally { clearOwnSave(noteFilename, promise); }
+            const { data, promise } = savePage(scope, noteFilename, content, readMetadata(), t('editor.untitled'));
+            const editedAt = tracked?.personalEditAt;
+            try { recordPersonalNoteEdit(scope, await promise, editedAt); } finally { clearOwnSave(noteFilename, promise); }
+            if (tracked && tracked.personalEditAt === editedAt) delete tracked.personalEditAt;
             if (tracked?.editor === editor && tracked.noteFilename === noteFilename) tracked.saved = data.content;
             transientRetryRef.current = 0;
             if (savedStatusScope && savedStatusScopeRef.current === savedStatusScope) {
@@ -119,7 +131,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             notifyError('autosave', error, t('editor.autosave_error'));
             setSaveStatus('error');
         }
-    }, [cancelSavedStatusTimer, editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, setSaveStatus, t]);
+    }, [cancelSavedStatusTimer, editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, scope, setSaveStatus, t]);
 
     const cancelPendingSave = useCallback(() => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -157,10 +169,11 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             contentRef.current = { editor, noteFilename, saved: content, observed: content };
         }
         const tracked = contentRef.current;
-        const subscription = editor.onChange(() => {
+        const subscription = editor.onChange((_editor, info) => {
             const content = blocksToRichMarkdown(editor.document);
             if (content === tracked.observed) return;
             tracked.observed = content;
+            if (isEditable && (!isPersonalChange || isPersonalChange(info))) tracked.personalEditAt = Date.now();
             transientRetryRef.current = 0;
             if (onOutgoingLinksChange) {
                 const links = extractOutgoingPageLinks(content, idToTitle, noteFilename);
@@ -186,8 +199,10 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             saveTimerRef.current = null;
             const content = blocksToRichMarkdown(editor.document);
             if (content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
-            const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
-            void promise.then(() => {
+            const { data, promise } = savePage(scope, noteFilename, content, readMetadata(), t('editor.untitled'));
+            const editedAt = tracked.personalEditAt;
+            void promise.then(page => {
+                recordPersonalNoteEdit(scope, page, editedAt);
                 tracked.saved = data.content;
                 onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
             }).finally(() => {
@@ -196,7 +211,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 }
             }).catch((error: unknown) => { logError('unmount-save', error); });
         };
-    }, [editor, editorReady, handleSave, idToTitle, isParsing, readMetadata, noteFilename, onOutgoingLinksChange, onUpdate, t]);
+    }, [editor, editorReady, handleSave, idToTitle, isEditable, isParsing, isPersonalChange, readMetadata, noteFilename, onOutgoingLinksChange, onUpdate, scope, t]);
 
     return handleSave;
 }

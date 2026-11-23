@@ -47,7 +47,7 @@ function Session({ context }: { context: RequestContext }) {
   const [catalogueRequested, setCatalogueRequested] = useState(false);
   const [catalogueError, setCatalogueError] = useState('');
   const [cataloguePartial, setCataloguePartial] = useState(false);
-  const [selectedId, setSelectedId] = useState('');
+  const [selectedId, setSelectedId] = useState(() => new URLSearchParams(window.location.search).get('site') || '');
   const [drafts, setDrafts] = useState<Record<string, api.SiteConfig>>({});
   const [saved, setSaved] = useState<Record<string, api.SiteConfig>>({});
   const [status, setStatus] = useState<api.SiteStatus | null>(null);

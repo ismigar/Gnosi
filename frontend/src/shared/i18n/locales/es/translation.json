@@ -6115,6 +6115,190 @@
     "remove_dependency": "Eliminar dependencia",
     "remove_dependency_hint": "Se conservarán las fechas de las tareas. Puedes deshacer este cambio."
   },
+  "home_canvas": {
+    "window_title": "Gnosi — Tu sistema de conocimiento",
+    "board": "Panel de conocimiento",
+    "agenda": "Agenda de hoy",
+    "graph": "Conexiones de la nota",
+    "audio": "Audio del día",
+    "open_app": "Abrir {{app}}",
+    "edit": "Editar inicio",
+    "add": "Añadir un bloque",
+    "catalog": "Bloques disponibles",
+    "empty": "Tu lienzo aún no tiene bloques visibles.",
+    "add_named": "Añadir «{{title}}»",
+    "already_added": "«{{title}}» ya está en el inicio",
+    "added": "Bloque añadido",
+    "saving": "Guardando…",
+    "saved": "Se ha guardado el inicio",
+    "width_named": "Anchura de «{{title}}»",
+    "columns_1": "1 columna",
+    "columns_2": "2 columnas",
+    "columns_3": "3 columnas",
+    "earlier": "Mover «{{title}}» antes",
+    "later": "Mover «{{title}}» después",
+    "remove_named": "Quitar «{{title}}» del inicio",
+    "move_named": "Mover «{{title}}»",
+    "drag_help": "Pulsa espacio para coger el bloque, muévelo con las flechas y vuelve a pulsar espacio para soltarlo.",
+    "drag_start": "Moviendo el bloque",
+    "drag_position": "Posición {{position}}",
+    "drag_end": "Bloque colocado",
+    "moved": "Movido a la posición {{position}}",
+    "choose_vault": "Elige un Vault para abrir el inicio.",
+    "load_error": "No se ha podido cargar la disposición del inicio.",
+    "save_error": "No se han podido guardar los cambios. Inténtalo de nuevo.",
+    "conflict": "El inicio ha cambiado en otra sesión. Puedes sustituir este borrador por la versión guardada.",
+    "load_saved": "Cargar la versión guardada",
+    "block_error": "No se ha podido mostrar este bloque.",
+    "retry": "Volver a intentar",
+    "start_label": "Pantalla de inicio de este Vault",
+    "start_help": "Elige qué se abre al iniciar Gnosi o al pulsar la G de la barra lateral. Si el Vault no tiene una página de inicio fijada, se abre el lienzo.",
+    "follow_page": "Página de inicio fijada en el Vault, si la hay",
+    "personal_canvas": "Mi lienzo de bloques",
+    "knowledge": {
+      "board": "Tablero de Conocimiento",
+      "both": "Enlace en ambos sentidos",
+      "center": "Nota central",
+      "emptyBoard": "Este tablero está vacío.",
+      "failed": "No se ha podido cargar el contenido.",
+      "find": "Filtrar por nombre",
+      "incoming": "Enlaza a la nota central",
+      "lastEdited": "La última nota que he editado",
+      "map": "Notas enlazadas a {{title}}",
+      "missingBoard": "Este tablero ya no está disponible. Elige otro en el modo de edición.",
+      "missingNote": "La nota fijada ya no está disponible. Elige otra en el modo de edición.",
+      "missingSection": "Esta sección ya no está disponible. Elige otra en el modo de edición.",
+      "noBoards": "Este Vault no tiene tableros.",
+      "noEdits": "Edita una nota en este dispositivo o fija una en el modo de edición.",
+      "noLinks": "Esta nota no tiene notas enlazadas.",
+      "noMatches": "Ningún registro coincide con esta vista.",
+      "noNotes": "Este Vault no tiene notas que mostrar.",
+      "outgoing": "Enlace desde la nota central",
+      "record": "Registro",
+      "section": "Sección",
+      "showing": "Se muestran {{shown}} de {{total}} registros.",
+      "unavailable": "No disponible",
+      "view": "Vista guardada",
+      "wholeBoard": "Todo el tablero",
+      "firstBoard": "Primer tablero disponible",
+      "recentVault": "Última nota modificada en este Vault",
+      "incomingPending": "Pueden faltar enlaces a esta nota hasta que el índice del Vault esté listo.",
+      "catalogPending": "La lista de notas y tableros de este Vault todavía está incompleta.",
+      "openKnowledge": "Abrir Conocimiento",
+      "recentIndexed": "Nota modificada más recientemente entre las disponibles",
+      "partialView": "Es posible que aún falten registros que coincidan con esta vista."
+    },
+    "day": {
+      "select_vault": "Selecciona un Vault para ver este bloque.",
+      "open_date": "Abrir el calendario del {{date}}",
+      "now": "Ahora",
+      "next": "A continuación",
+      "agenda_empty": "Hoy no tienes eventos.",
+      "agenda_done": "Hoy ya no te quedan eventos.",
+      "no_calendars": "No hay calendarios visibles.",
+      "agenda_error": "No se ha podido cargar la agenda.",
+      "agenda_partial": "No se han podido cargar todos los calendarios.",
+      "retry_agenda": "Volver a cargar la agenda",
+      "audio_empty": "Aún no hay ningún episodio diario.",
+      "audio_error": "No se ha podido cargar la información del episodio.",
+      "retry_audio": "Volver a cargar la información del episodio",
+      "generating": "Se está preparando un episodio…",
+      "generation_progress": "{{done}} de {{total}}",
+      "generation_failed": "No se ha podido generar el último episodio.",
+      "episode_date": "Episodio del {{date}}",
+      "resume": "Reanudar en {{position}}",
+      "playback_error": "Este episodio no está disponible en este momento.",
+      "open_reader": "Abrir el lector"
+    },
+    "apps": {
+      "untitled": "Sin título",
+      "last_seen": "Última consulta",
+      "contacts": {
+        "title": "Contactos actualizados recientemente",
+        "empty": "Tu libreta de contactos está vacía."
+      },
+      "mail": {
+        "title": "Correo sin leer por cuenta",
+        "first": "Abre Correo para ver aquí cuántos mensajes tienes sin leer en cada bandeja de entrada.",
+        "empty": "Todavía no hay recuentos de las bandejas de entrada.",
+        "count_one": "{{count}} mensaje sin leer",
+        "count_other": "{{count}} mensajes sin leer",
+        "count_many": "{{count}} mensajes sin leer"
+      },
+      "feeds": {
+        "title": "Artículos sin leer",
+        "empty": "Has leído todos los artículos de tus canales."
+      },
+      "resources": {
+        "title": "Búsquedas bibliográficas recientes",
+        "empty": "Aquí aparecerán las búsquedas bibliográficas que guardes.",
+        "count_one": "{{count}} resultado",
+        "count_other": "{{count}} resultados",
+        "count_many": "{{count}} resultados"
+      },
+      "notebooks": {
+        "title": "Cuadernos recientes",
+        "empty": "Todavía no tienes ningún cuaderno en este espacio de trabajo.",
+        "count_one": "{{count}} fuente",
+        "count_other": "{{count}} fuentes",
+        "count_many": "{{count}} fuentes"
+      },
+      "planning": {
+        "title": "Tus proyectos",
+        "empty": "La tabla de proyectos seleccionada está vacía.",
+        "first": "Abre Planificación para ver aquí los proyectos de la tabla seleccionada.",
+        "unconfigured": "Elige una tabla de proyectos en los ajustes de Planificación."
+      },
+      "social": {
+        "title": "Publicaciones programadas",
+        "empty": "No había publicaciones programadas cuando abriste por última vez el calendario de contenidos.",
+        "first": "Abre el calendario de contenidos de redes sociales para ver aquí las próximas publicaciones."
+      },
+      "media": {
+        "title": "Fotos y archivos multimedia recientes",
+        "empty": "La fototeca estaba vacía en tu última visita.",
+        "first": "Abre la fototeca para ver aquí los últimos archivos modificados."
+      },
+      "websites": {
+        "title": "Tus sitios web",
+        "empty": "No había sitios web en este Vault en tu última visita.",
+        "first": "Abre Sitios web para ver aquí los sitios que gestionas.",
+        "permission": "Necesitas el rol de editor en este espacio de trabajo para gestionar sitios web.",
+        "count_one": "{{count}} página",
+        "count_other": "{{count}} páginas",
+        "count_many": "{{count}} páginas"
+      },
+      "automations": {
+        "title": "Próximas ejecuciones programadas",
+        "empty": "Ninguna automatización tiene una ejecución prevista."
+      },
+      "control": {
+        "title": "Estado del sistema",
+        "service": "Servicio de Gnosi",
+        "online": "En línea",
+        "configured": "Configurado",
+        "unconfigured": "Pendiente de configurar",
+        "access": "Inicio de sesión",
+        "signin": "Obligatorio",
+        "local": "Opcional"
+      },
+      "settings": {
+        "title": "Atajos de teclado",
+        "empty": "No hay atajos de aplicación asignados.",
+        "edit": "Editar atajos"
+      },
+      "assistant": {
+        "title": "Conversaciones recientes",
+        "empty": "Aquí aparecerán las conversaciones de este dispositivo."
+      },
+      "bookmarks": {
+        "title": "Marcadores recientes",
+        "first": "Abre Conocimiento para cargar tus marcadores en este dispositivo.",
+        "empty": "Todavía no has guardado ningún marcador.",
+        "saved": "Última sincronización con Conocimiento en este dispositivo."
+      }
+    }
+  },
   "home": {
     "subtitle": "Tu ecosistema de conocimiento",
     "module_graph_title": "Grafo de Conocimiento",

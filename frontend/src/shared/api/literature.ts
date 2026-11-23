@@ -1,5 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
+export { cancelLiteratureSearch, createLiteratureSearch, fetchLiteratureSearch, fetchLiteratureSearches, type LiteratureSearch, type LiteratureSearchInput } from './literature-search';
 import {
   GnosiApiError,
   type ApiResult,
@@ -8,18 +9,6 @@ import {
 
 export type LiteratureJson = Record<string, unknown>;
 export type LiteratureWork = LiteratureJson;
-export interface LiteratureSearch extends LiteratureJson {
-  readonly ai_audits?: readonly LiteratureJson[];
-  readonly errors?: readonly LiteratureJson[];
-  readonly filters?: LiteratureJson;
-  readonly id: string;
-  readonly query?: string;
-  readonly result_count?: number;
-  readonly results?: readonly LiteratureWork[];
-  readonly source_ids?: readonly string[];
-  readonly source_queries?: Readonly<Record<string, string>>;
-  readonly state: string;
-}
 export interface LiteratureReview extends LiteratureJson {
   readonly configuration: LiteratureJson;
   readonly criteria: LiteratureJson;
@@ -132,15 +121,6 @@ export interface LiteratureSnowballInput {
   readonly seeds: LiteratureWork[];
 }
 
-export interface LiteratureSearchInput {
-  readonly ai_audits: LiteratureJson[];
-  readonly filters: LiteratureJson;
-  readonly limit_per_source: number;
-  readonly query: string;
-  readonly source_ids: string[];
-  readonly source_queries: Record<string, string>;
-}
-
 export interface LiteratureAiInput {
   readonly agent_id?: string;
   readonly operation:
@@ -157,15 +137,6 @@ export interface LiteratureAiInput {
 
 function isRecord(value: unknown): value is LiteratureJson {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isSearch(value: unknown): value is LiteratureSearch {
-  return (
-    isRecord(value)
-    && typeof value.id === 'string'
-    && typeof value.state === 'string'
-    && (!('results' in value) || Array.isArray(value.results))
-  );
 }
 
 function isReview(value: unknown): value is LiteratureReview {
@@ -380,65 +351,6 @@ export async function discoverLiteratureCitations(
     throw new GnosiApiError(result.response, 'The API returned invalid citation expansion');
   }
   return payload as unknown as LiteratureSnowballResult;
-}
-
-export async function fetchLiteratureSearches(
-  limit = 50,
-  signal?: AbortSignal,
-): Promise<readonly LiteratureSearch[]> {
-  const result = await apiClient.GET('/api/vault/literature/searches', {
-    params: { query: { limit } },
-    signal,
-  });
-  const payload = recordResult(result, 'The API returned an invalid search history');
-  if (!Array.isArray(payload.searches) || !payload.searches.every(isSearch)) {
-    throw new GnosiApiError(result.response, 'The API returned an invalid search history');
-  }
-  return payload.searches;
-}
-
-export async function fetchLiteratureSearch(
-  searchId: string,
-  offset: number,
-  limit: number,
-  signal?: AbortSignal,
-): Promise<LiteratureSearch> {
-  return validated(
-    await apiClient.GET('/api/vault/literature/searches/{search_id}', {
-      params: { path: { search_id: searchId }, query: { limit, offset } },
-      signal,
-    }),
-    isSearch,
-    'The API returned an invalid literature search',
-  );
-}
-
-export async function createLiteratureSearch(
-  input: LiteratureSearchInput,
-  signal?: AbortSignal,
-): Promise<LiteratureSearch> {
-  return validated(
-    await apiClient.POST('/api/vault/literature/searches', {
-      body: input,
-      signal,
-    }),
-    isSearch,
-    'The API returned an invalid literature search',
-  );
-}
-
-export async function cancelLiteratureSearch(
-  searchId: string,
-  signal?: AbortSignal,
-): Promise<LiteratureSearch> {
-  return validated(
-    await apiClient.DELETE('/api/vault/literature/searches/{search_id}', {
-      params: { path: { search_id: searchId } },
-      signal,
-    }),
-    isSearch,
-    'The API returned an invalid literature search',
-  );
 }
 
 export async function runLiteratureAi(
