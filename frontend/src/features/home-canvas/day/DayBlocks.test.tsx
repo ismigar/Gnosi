@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resetApiTestStorage, writeApiTestStorage } from '../../../../tests/api-request';
 import { queryClient as sharedClient } from '../../../shared/api/query-client';
 import { requestContextHeaders, currentRequestContext } from '../../../shared/api/request-context';
-import { readerEpisodeUrl, type ReaderPodcastInfo } from '../../../shared/api/reader';
+import type { ReaderPodcastInfo } from '../../../shared/api/reader';
 import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import { ReaderPodcastPlayer } from '../../reader/ReaderPodcastPlayer';
 import DayBlocks from './DayBlocks';
@@ -21,7 +21,7 @@ let host: HTMLDivElement;
 let client: QueryClient;
 let requests: Request[];
 let reply: (path: string, req: Request) => Response | Promise<Response>;
-const episode = { exists: true, filename: 'daily.mp3', created_at: '2026-11-23T05:00:00' };
+const episode = { exists: true, episode_id: 'a'.repeat(64), filename: 'daily.mp3', created_at: '2026-11-23T05:00:00' };
 const idle = { running: false, progress: '', error: null };
 const now = new Date(2026, 10, 23, 10, 15);
 
@@ -151,7 +151,7 @@ it('distinguishes loading, absence, generation and completion using read-only qu
     await settled(() => { expect(host.querySelector('audio')).not.toBeNull(); });
     expect(host.textContent).toContain('November 23, 2026');
     expect(media().preload).toBe('none');
-    expect(media().getAttribute('src')).toMatch(/^\/api\/v1\/vaults\/library\/reader\/podcast\/latest\?t=\d+$/u);
+    expect(media().getAttribute('src')).toBe(`/api/v1/vaults/library/reader/podcast/episodes/${episode.episode_id}`);
     expect(requests.every(req => req.method === 'GET' && /\/podcast\/(info|status)$/u.test(new URL(req.url).pathname))).toBe(true);
 });
 
@@ -164,12 +164,12 @@ it('restores progress across the Home and Reader players, independent of another
         audio.currentTime = 87.5; audio.dispatchEvent(new Event('seeked'));
     });
     const open = async (info = episode) => {
-        await render(<ReaderPodcastPlayer info={info} src={readerEpisodeUrl(info)} />);
+        await render(<ReaderPodcastPlayer info={info} />);
         await update(() => { media().dispatchEvent(new Event('loadedmetadata')); });
         return media().currentTime;
     };
     expect(await open()).toBe(87.5);
-    expect(await open({ ...episode, created_at: '2026-11-24T05:00:00' })).toBe(0);
+    expect(await open({ ...episode, episode_id: 'b'.repeat(64) })).toBe(0);
     for (const [field, other, original] of [['gnosi_user_id', 'other', 'alex'], ['gnosi_active_vault', 'other-vault', 'vault']] as const) {
         await update(() => { writeApiTestStorage(field, other); dispatchWindowEvent(new StorageEvent('storage', { key: field })); });
         expect(await open()).toBe(0);
@@ -179,4 +179,31 @@ it('restores progress across the Home and Reader players, independent of another
     await update(() => { const audio = media(); audio.currentTime = audio.duration; audio.dispatchEvent(new Event('ended')); });
     await render(null);
     expect(await open()).toBe(0);
+});
+
+it('retries an unavailable episode without overwriting its last saved position', async () => {
+    const refresh = vi.fn();
+    await render(<ReaderPodcastPlayer info={{ ...episode, episode_id: null }} onRefresh={refresh} />);
+    expect(host.querySelector('audio')).toBeNull();
+    expect(host.textContent).toContain('home_canvas.day.playback_error');
+    await render(<ReaderPodcastPlayer info={episode} onRefresh={refresh} />);
+    const audio = media();
+    const reload = vi.fn();
+    Object.defineProperty(audio, 'load', { configurable: true, value: reload });
+    await update(() => {
+        audio.dispatchEvent(new Event('loadedmetadata'));
+        audio.currentTime = 35;
+        audio.dispatchEvent(new Event('seeked'));
+        audio.currentTime = 0;
+        audio.dispatchEvent(new Event('error'));
+        audio.dispatchEvent(new Event('pause'));
+    });
+    expect(host.textContent).toContain('home_canvas.day.playback_error');
+    expect(audio.getAttribute('src')).toContain(episode.episode_id);
+    await update(() => { host.querySelector('button')?.click(); });
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
+    await update(() => { audio.dispatchEvent(new Event('loadedmetadata')); });
+    expect(audio.currentTime).toBe(35);
+    expect(requests).toEqual([]);
 });

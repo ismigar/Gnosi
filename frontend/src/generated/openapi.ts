@@ -5223,6 +5223,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reader/podcast/episodes/{episode_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Podcast Episode
+         * @description Stream the requested published file revision in the authenticated Vault.
+         *
+         *     Use the opaque episode_id from /podcast/info. Newer daily files leave retained
+         *     episodes playable. Removing or replacing the named revision expires its URL.
+         *     Byte ranges seek within this exact revision.
+         */
+        get: operations["get_podcast_episode_api_reader_podcast_episodes__episode_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reader/podcast/generate": {
         parameters: {
             query?: never;
@@ -5252,7 +5276,7 @@ export interface paths {
         };
         /**
          * Get Podcast Info
-         * @description Returns information about the last generated podcast
+         * @description Read latest publication metadata without opening or hydrating any audio.
          */
         get: operations["get_podcast_info_api_reader_podcast_info_get"];
         put?: never;
@@ -7611,6 +7635,26 @@ export interface paths {
          *     See: docs/dev_memory/directives/wiki_inverse_link_index.md
          */
         get: operations["get_link_index_stats_api_vault_link_index_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/link-neighborhood": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Link Neighborhood
+         * @description Read one Markdown note and use an already built reverse index when available.
+         */
+        get: operations["get_link_neighborhood_api_vault_link_neighborhood_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -24568,6 +24612,11 @@ export interface components {
         ReaderPodcastInfoResponse: {
             /** Created At */
             created_at?: string | null;
+            /**
+             * Episode Id
+             * @description Opaque immutable playback identifier for this published file revision in the current Vault. Use /podcast/episodes/{episode_id}. A removed or replaced revision becomes unavailable.
+             */
+            episode_id?: string | null;
             /** Exists */
             exists: boolean;
             /** Filename */
@@ -28371,6 +28420,18 @@ export interface components {
             target_title: string;
             /** Total Replacements */
             total_replacements: number;
+        };
+        /**
+         * VaultLinkNeighborhoodResponse
+         * @description Direct note links. A cold reverse index can only report outgoing links.
+         */
+        VaultLinkNeighborhoodResponse: {
+            /** Incoming */
+            incoming: string[];
+            /** Incoming Complete */
+            incoming_complete: boolean;
+            /** Outgoing */
+            outgoing: string[];
         };
         /** VaultListResponse */
         VaultListResponse: {
@@ -41213,6 +41274,82 @@ export interface operations {
             };
         };
     };
+    get_podcast_episode_api_reader_podcast_episodes__episode_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                episode_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The published audio revision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            /** @description Requested byte range(s) of the published revision */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                    "multipart/byteranges": string;
+                };
+            };
+            /** @description Malformed byte range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown, removed or replaced episode in this Vault */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unsatisfiable or excessive byte ranges */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Podcast storage is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     trigger_podcast_generation_api_reader_podcast_generate_post: {
         parameters: {
             query?: never;
@@ -46018,6 +46155,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkIndexStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_link_neighborhood_api_vault_link_neighborhood_get: {
+        parameters: {
+            query: {
+                page_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultLinkNeighborhoodResponse"];
                 };
             };
             /** @description Validation Error */

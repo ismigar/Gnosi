@@ -3,7 +3,7 @@ import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../tests/mount-react';
-import { fetchBlockEditorBacklinks, fetchBlockEditorOutlinks } from '../../../shared/api/block-editor';
+import { fetchVaultLinkNeighborhood } from '../../../shared/api/vault-neighborhood';
 import { currentRequestContext, USER_ID_STORAGE_KEY } from '../../../shared/api/request-context';
 import { fetchVaultPage, fetchVaultPagesByTable, fetchVaultSidebarSummary, type VaultPageSummary } from '../../../shared/api/vaults';
 import { fetchPageViews, fetchVaultViews } from '../../../shared/api/vault-views';
@@ -20,7 +20,7 @@ vi.mock('../../../shared/api/vaults', () => ({
   fetchVaultPage: vi.fn(), fetchVaultPagesByTable: vi.fn(), fetchVaultSidebarSummary: vi.fn(),
 }));
 vi.mock('../../../shared/api/vault-views', () => ({ fetchVaultViews: vi.fn(), fetchPageViews: vi.fn() }));
-vi.mock('../../../shared/api/block-editor', () => ({ fetchBlockEditorOutlinks: vi.fn(), fetchBlockEditorBacklinks: vi.fn() }));
+vi.mock('../../../shared/api/vault-neighborhood', () => ({ fetchVaultLinkNeighborhood: vi.fn() }));
 
 const selectScope = (id: string) => activateVault({ id, slug: id, name: id });
 const page = (id: string, title: string, metadata: Record<string, unknown> = {}, timestamp = ''): VaultPageSummary =>
@@ -35,8 +35,7 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(fetchVaultViews).mockResolvedValue([]);
   vi.mocked(fetchPageViews).mockResolvedValue({ page_id: 'a', sections: [] });
-  vi.mocked(fetchBlockEditorBacklinks).mockResolvedValue([]);
-  vi.mocked(fetchBlockEditorOutlinks).mockResolvedValue({ links: [], relations: [], unresolved: [] });
+  vi.mocked(fetchVaultLinkNeighborhood).mockResolvedValue({ incoming: [], outgoing: [], incoming_complete: true });
 });
 afterEach(() => { client.clear(); removeStorage(USER_ID_STORAGE_KEY); vi.useRealTimers(); });
 
@@ -95,7 +94,7 @@ it('labels a first-open Vault fallback, honors personal recency, provides a conf
   selectScope('graph-defaults');
   const pages = [page('new', 'Newest', {}, '2026-11-19'), page('mine', 'My edit', {}, '2026-11-10'), page('other', 'Linked note')];
   vi.mocked(fetchVaultSidebarSummary).mockResolvedValue(pages);
-  vi.mocked(fetchBlockEditorBacklinks).mockResolvedValue([{ id: 'other', title: 'Linked note', kind: 'link' }]);
+  vi.mocked(fetchVaultLinkNeighborhood).mockResolvedValue({ incoming: ['other'], outgoing: [], incoming_complete: true });
   const view = mount('graph');
   await settle();
   expect(view.container.textContent).toContain('home_canvas.knowledge.recentVault');
@@ -122,17 +121,42 @@ it('aborts the previous graph read and never renders late cross-Vault results wi
   vi.mocked(fetchVaultSidebarSummary).mockImplementation((_signal, scope) => Promise.resolve([
     page('center', scope?.vaultId ?? '', {}, '2026-11-22'), page('neighbor', 'Neighbor'),
   ]));
-  let finish: (value: Awaited<ReturnType<typeof fetchBlockEditorOutlinks>>) => void = () => { throw new Error('Missing pending read'); };
-  vi.mocked(fetchBlockEditorOutlinks).mockImplementation((_id, _signal, scope) =>
-    scope?.vaultId === 'previous' ? new Promise(done => { finish = done; }) : Promise.resolve({ links: [], relations: [], unresolved: [] }));
+  let finish: (value: Awaited<ReturnType<typeof fetchVaultLinkNeighborhood>>) => void = () => { throw new Error('Missing pending read'); };
+  vi.mocked(fetchVaultLinkNeighborhood).mockImplementation((_id, _signal, scope) =>
+    scope.vaultId === 'previous' ? new Promise(done => { finish = done; }) : Promise.resolve({ incoming: [], outgoing: [], incoming_complete: true }));
   const view = mount('graph');
   await settle();
-  const previousSignal = vi.mocked(fetchBlockEditorOutlinks).mock.calls[0]?.[1];
+  const previousSignal = vi.mocked(fetchVaultLinkNeighborhood).mock.calls[0]?.[1];
   act(() => { selectScope('next'); });
   await settle();
   expect(previousSignal?.aborted).toBe(true);
-  act(() => { finish({ links: [{ id: 'neighbor', title: 'Old' }], relations: [], unresolved: [] }); });
+  act(() => { finish({ incoming: [], outgoing: ['neighbor'], incoming_complete: true }); });
   await settle();
   expect(view.container.querySelector('.home-knowledge-center')?.textContent).toBe('next');
   expect(view.container.querySelector('.home-knowledge-neighbors')).toBeNull();
+});
+
+it('shows outgoing links while the incoming index is pending and can refresh its results', async () => {
+  vi.mocked(fetchVaultSidebarSummary).mockResolvedValue([page('center', 'Center'), page('target', 'Target')]);
+  vi.mocked(fetchVaultLinkNeighborhood)
+    .mockResolvedValueOnce({ incoming: [], outgoing: ['target'], incoming_complete: false })
+    .mockResolvedValueOnce({ incoming: [], outgoing: [], incoming_complete: false })
+    .mockResolvedValue({ incoming: [], outgoing: [], incoming_complete: true });
+  const view = mount('graph', { pageId: 'center' });
+  await settle();
+  expect(view.container.querySelector('.home-knowledge-neighbors a')?.getAttribute('href')).toBe('/@first/knowledge/page/target');
+  expect(view.container.textContent).toContain('home_canvas.knowledge.incomingPending');
+  const refresh = () => {
+    const button = view.container.querySelector<HTMLButtonElement>('button[aria-label="common.refresh"]');
+    if (!button) throw new Error('Missing refresh control');
+    act(() => { button.click(); });
+  };
+  refresh();
+  await settle();
+  expect(view.container.textContent).toContain('home_canvas.knowledge.incomingPending');
+  expect(view.container.textContent).not.toContain('home_canvas.knowledge.noLinks');
+  refresh();
+  await settle();
+  expect(view.container.textContent).toContain('home_canvas.knowledge.noLinks');
+  expect(view.container.textContent).not.toContain('home_canvas.knowledge.incomingPending');
 });

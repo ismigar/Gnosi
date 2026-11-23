@@ -9,7 +9,7 @@ import { useHomePreferences } from '../shared/api/useHomePreferences';
 import { knowledgeDocumentPath } from '../shared/routing/vaultRouting';
 import { RefreshButton } from '../shared/ui/actions/RefreshButton';
 
-const HomeCanvas = lazy(() => import('../features/home'));
+const HomeCanvas = lazy(() => import('../features/home-canvas'));
 
 function HomePage() {
     const { t } = useTranslation();

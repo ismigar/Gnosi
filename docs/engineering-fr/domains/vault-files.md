@@ -3,7 +3,7 @@ status: implemented
 last_verified: 2026-11-23
 source_paths:
   - backend/domains/vault/home_canvas.py
-  - frontend/src/features/home
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -76,7 +76,7 @@ tests:
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_home_canvas.py
-  - frontend/src/features/home/HomeCanvas.test.tsx
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -148,6 +148,8 @@ Les sauvegardes complètes par PUT conservent la détection initiale des conflit
 ## Espace d’accueil personnel
 
 La disposition de l’accueil appartient au membre authentifié dans le Vault et l’espace de travail actifs. Le client la lit et l’enregistre via `/api/vault/home-canvas`. Le backend valide une révision opaque puis remplace la disposition de manière atomique dans `.gnosi/home/`. En l’absence de disposition enregistrée, les blocs par défaut apparaissent. Enregistrer une liste vide conserve un accueil vide. La page épinglée reste la destination par défaut jusqu’à ce que le membre choisisse son espace de blocs dans les réglages. Les blocs des extensions inactives sont masqués et conservent leur position et leurs réglages. La dernière note modifiée par le membre et les dates de consultation des applications sont propres à l’appareil.
+
+Pour le graphe, `/api/vault/link-neighborhood` lit les liens sortants de la note centrale et consulte les liens entrants dans l’index du Vault actif. Le bloc indique quand les liens entrants sont indisponibles. Le Lecteur utilise l’identifiant d’épisode fourni par `/api/reader/podcast/info` et associe la position de reprise à cette version du fichier.
 
 ## Recherche du contenu complet et composition
 

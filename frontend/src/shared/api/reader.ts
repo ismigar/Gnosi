@@ -313,12 +313,16 @@ export async function fetchReaderPodcastInfo(context?: RequestContext, signal?: 
 }
 
 
+/** Legacy latest-publication link for callers that deliberately follow the moving latest episode. */
 export function readerPodcastUrl(cacheBust?: number): string {
   const path = canonicalizeVaultApiUrl('/api/reader/podcast/latest');
   return cacheBust === undefined ? path : `${path}?t=${String(cacheBust)}`;
 }
 
-export function readerEpisodeUrl(info: ReaderPodcastInfo): string {
-  const stamp = Date.parse(info.created_at ?? '');
-  return readerPodcastUrl(Number.isFinite(stamp) ? stamp : undefined);
+/** The URL and the resume key are both bound to this exact published revision. */
+export function readerEpisodeUrl(info: ReaderPodcastInfo): string | null {
+  const id = info.episode_id;
+  return info.exists && id && /^[a-f0-9]{64}$/u.test(id)
+    ? canonicalizeVaultApiUrl(`/api/reader/podcast/episodes/${id}`)
+    : null;
 }

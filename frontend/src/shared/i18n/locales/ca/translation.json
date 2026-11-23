@@ -6170,7 +6170,8 @@
       "view": "Vista desada",
       "wholeBoard": "Tot el tauler",
       "firstBoard": "Primer tauler disponible",
-      "recentVault": "Darrera nota modificada al Vault"
+      "recentVault": "Darrera nota modificada al Vault",
+      "incomingPending": "Fins que l’índex d’aquest Vault estigui a punt, poden faltar enllaços cap a aquesta nota."
     },
     "day": {
       "select_vault": "Selecciona un Vault per veure aquest bloc.",
@@ -6191,7 +6192,7 @@
       "generation_failed": "No s’ha pogut generar l’últim episodi.",
       "episode_date": "Episodi del {{date}}",
       "resume": "Reprèn la reproducció a {{position}}",
-      "playback_error": "No s’ha pogut reproduir l’àudio.",
+      "playback_error": "Aquest episodi ara mateix no està disponible.",
       "open_reader": "Obre el lector"
     },
     "apps": {

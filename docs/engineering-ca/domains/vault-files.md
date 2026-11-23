@@ -3,7 +3,7 @@ status: implemented
 last_verified: 2026-11-23
 source_paths:
   - backend/domains/vault/home_canvas.py
-  - frontend/src/features/home
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -76,7 +76,7 @@ tests:
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_home_canvas.py
-  - frontend/src/features/home/HomeCanvas.test.tsx
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -148,6 +148,8 @@ Les desades completes amb PUT conserven la detecció inicial de conflictes i tor
 ## Llenç personal d’inici
 
 La disposició de l’inici pertany al membre autenticat en el seu espai de treball i Vault. El client la llegeix i la desa mitjançant `/api/vault/home-canvas`. El backend valida una revisió opaca i substitueix la disposició de manera atòmica a `.gnosi/home/`. Si no hi ha cap disposició desada, es mostren els blocs inicials. Desar una llista buida conserva l’inici buit. La pàgina fixada al Vault continua sent la destinació inicial fins que el membre tria el llenç a Configuració. Els blocs dels complements inactius s’oculten i conserven la seva posició i configuració. L’última nota editada pel membre i les dates de consulta de les aplicacions són específiques del dispositiu.
+
+Per al graf, `/api/vault/link-neighborhood` llegeix els enllaços sortints de la nota central i consulta els entrants a l’índex del Vault actiu. El bloc indica quan encara no pot mostrar els enllaços entrants. El reproductor del Lector utilitza l’identificador d’episodi que retorna `/api/reader/podcast/info` i associa el punt de represa a aquella versió del fitxer.
 
 ## Cerca de contingut complet i composició
 

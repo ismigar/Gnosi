@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import type { RequestContext } from '../../../shared/api/request-context';
-import { fetchBlockEditorBacklinks, fetchBlockEditorOutlinks } from '../../../shared/api/block-editor';
+import { fetchVaultLinkNeighborhood } from '../../../shared/api/vault-neighborhood';
 import type { VaultSidebarPageSummary } from '../../../shared/api/vaults';
 import { isKnowledgeNote, parsePersonalEdits, personalEditsSnapshot, subscribePersonalEdits } from '../../../shared/records/personalNoteEdits';
 import { readablePageTitle } from '../../../shared/records/pageReferenceTitle';
 import { knowledgeDocumentPath } from '../../../shared/routing/vaultRouting';
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import type { HomeBlockProps } from '../model';
 import { KnowledgePicker, KnowledgeStatus } from './KnowledgeFields';
 import { graphNeighbors, latestDatedNote } from './graphModel';
@@ -27,13 +28,8 @@ export function GraphBlock({ block, editing, onConfigure, scope, pages }: Props)
   const fallback = useMemo(() => pinned || lastEdited ? '' : latestDatedNote(notes), [lastEdited, notes, pinned]);
   const centerId = pinned || lastEdited || fallback;
   const center = byId.get(centerId);
-  const links = useKnowledgeQuery(scope, ['links', centerId], async signal => {
-    const [incoming, outgoing] = await Promise.all([
-      fetchBlockEditorBacklinks(centerId, signal, scope),
-      fetchBlockEditorOutlinks(centerId, signal, scope),
-    ]);
-    return { incoming, outgoing: [...outgoing.links, ...outgoing.relations] };
-  }, Boolean(center));
+  const links = useKnowledgeQuery(scope, ['links', centerId],
+    signal => fetchVaultLinkNeighborhood(centerId, signal, scope), Boolean(center));
   const neighbors = links.data ? graphNeighbors(centerId, links.data.incoming, links.data.outgoing, byId, edits) : [];
   return <div className="home-knowledge-block">
     {editing && <KnowledgePicker label={t('home_canvas.knowledge.center')} placeholder={t('home_canvas.knowledge.lastEdited')}
@@ -41,6 +37,10 @@ export function GraphBlock({ block, editing, onConfigure, scope, pages }: Props)
     {!center ? <p className="home-knowledge-status">{pinned ? t('home_canvas.knowledge.missingNote')
       : notes.length ? t('home_canvas.knowledge.noEdits') : t('home_canvas.knowledge.noNotes')}</p>
       : <>{fallback && <p className="home-knowledge-status">{t('home_canvas.knowledge.recentVault')}</p>}
+        {links.data?.incoming_complete === false && <div className="home-knowledge-index-status">
+          <p className="home-knowledge-status" role="status">{t('home_canvas.knowledge.incomingPending')}</p>
+          <RefreshButton loading={links.isFetching} onClick={() => { void links.refetch(); }} />
+        </div>}
         <div className="home-knowledge-map" role="group" aria-label={t('home_canvas.knowledge.map', { title: readablePageTitle(center.title) })}>
         <Link className="home-knowledge-node home-knowledge-center" to={knowledgeDocumentPath(center.id)} title={readablePageTitle(center.title)}>
           <span aria-hidden="true" className="home-knowledge-dot" />{readablePageTitle(center.title)}</Link>
@@ -60,7 +60,7 @@ export function GraphBlock({ block, editing, onConfigure, scope, pages }: Props)
       </div>
       {links.isError ? <KnowledgeStatus state="failed" retry={() => { void links.refetch(); }} />
         : links.isPending ? <KnowledgeStatus state="loading" />
-        : !neighbors.length && <p className="home-knowledge-status">{t('home_canvas.knowledge.noLinks')}</p>}
+        : links.data.incoming_complete && !neighbors.length && <p className="home-knowledge-status">{t('home_canvas.knowledge.noLinks')}</p>}
       </>}
   </div>;
 }

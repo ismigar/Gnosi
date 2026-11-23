@@ -3,7 +3,7 @@ status: implemented
 last_verified: 2026-11-23
 source_paths:
   - backend/domains/vault/home_canvas.py
-  - frontend/src/features/home
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -76,7 +76,7 @@ tests:
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
   - backend/tests/test_home_canvas.py
-  - frontend/src/features/home/HomeCanvas.test.tsx
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -148,6 +148,8 @@ Los guardados completos con PUT conservan la detección inicial de conflictos y 
 ## Lienzo personal de inicio
 
 La disposición del inicio pertenece al miembro autenticado en el espacio de trabajo y el Vault actuales. El cliente la lee y la guarda mediante `/api/vault/home-canvas`. El backend valida una revisión opaca y sustituye la disposición de forma atómica en `.gnosi/home/`. Cuando no hay una disposición guardada, se muestran los bloques iniciales. Guardar una lista vacía conserva el inicio vacío. La página fijada sigue siendo el destino inicial hasta que el miembro elige su lienzo en Configuración. Los bloques de los complementos inactivos se ocultan y conservan su posición y configuración. La última nota editada por el miembro y las fechas de consulta de las aplicaciones son específicas del dispositivo.
+
+Para el grafo, `/api/vault/link-neighborhood` lee los enlaces salientes de la nota central y consulta los entrantes en el índice del Vault activo. El bloque indica cuándo aún no puede mostrar los enlaces entrantes. El reproductor del Lector utiliza el identificador de episodio de `/api/reader/podcast/info` y asocia el punto de reanudación a esa versión del archivo.
 
 ## Búsqueda de contenido completo y composición
 

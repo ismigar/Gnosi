@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { calendarDayLink, useDayAgenda, visibleAppointments } from '../../calendar/agenda';
 import { ReaderPodcastPlayer } from '../../reader/ReaderPodcastPlayer';
-import { readerEpisodeUrl } from '../../../shared/api/reader';
 import { useReaderPodcastInfo, useReaderPodcastStatus } from '../../../shared/api/useReaderData';
 import { useRequestContext } from '../../../shared/hooks/useRequestContext';
 import { getIntlLocale } from '../../../shared/i18n/locales/registry';
@@ -101,7 +100,7 @@ function DailyAudio() {
         {lastFailed && <p className="home-block__state" role="status">{t('home_canvas.day.generation_failed')}</p>}
         {episode && <>
             {date && <p className="home-day__meta">{t('home_canvas.day.episode_date', { date })}</p>}
-            <ReaderPodcastPlayer info={episode} src={readerEpisodeUrl(episode)} showResume />
+            <ReaderPodcastPlayer info={episode} showResume onRefresh={() => { void refreshInfo(); }} />
         </>}
         {!episode && !running && !error && loading && <p className="home-block__state" role="status">{t('common.loading')}</p>}
         {!episode && !running && !error && !loading && <>

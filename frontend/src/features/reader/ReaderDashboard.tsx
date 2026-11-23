@@ -14,8 +14,6 @@ import {
     fetchReaderArticle,
     fetchReaderPodcastStatus,
     generateReaderPodcast,
-    readerPodcastUrl,
-    readerEpisodeUrl,
     type ReaderArticle,
     type ReaderSource,
 } from '../../shared/api/reader';
@@ -54,7 +52,6 @@ function ReaderDashboardContent({ context }: { readonly context: RequestContext 
     const [selectedArticleIsSummary, setSelectedArticleIsSummary] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
-    const [generatedPodcastUrl, setGeneratedPodcastUrl] = useState<string | null>(null);
     const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
     const readingIds = useRef(new Set<number>());
     const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<string>>(
@@ -77,9 +74,6 @@ function ReaderDashboardContent({ context }: { readonly context: RequestContext 
     const articles = articlesQuery.data ?? EMPTY_ARTICLES;
     const inventory = inventoryQuery.data;
     const podcastInfo = podcastInfoQuery.data?.exists ? podcastInfoQuery.data : null;
-    const podcastUrl = podcastEnabled
-        ? (podcastInfo ? readerEpisodeUrl(podcastInfo) : generatedPodcastUrl)
-        : null;
 
     useEffect(() => {
         const canonicalMatch = window.location.pathname.match(
@@ -181,7 +175,6 @@ function ReaderDashboardContent({ context }: { readonly context: RequestContext 
                 toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${errorMessage}`);
             }
             else if (status.result_filename) {
-                setGeneratedPodcastUrl(readerPodcastUrl(Date.now()));
                 await podcastInfoQuery.refetch();
             }
         } catch (error: unknown) {
@@ -278,8 +271,8 @@ function ReaderDashboardContent({ context }: { readonly context: RequestContext 
                 onToggleCategory={handleToggleCategory}
                 podcastEnabled={podcastEnabled}
                 podcastInfo={podcastInfo}
+                onRefreshPodcast={() => { void podcastInfoQuery.refetch(); }}
                 podcastProgress={podcastProgress}
-                podcastUrl={podcastUrl}
                 selectedSourceId={selectedSourceId}
                 sourceCount={sources.length}
                 unreadCount={inventory?.count ?? 0}

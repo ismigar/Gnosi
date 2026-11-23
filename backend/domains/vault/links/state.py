@@ -56,6 +56,8 @@ class LinkIndexState:
     page_meta_by_id: dict[str, Metadata] = field(default_factory=dict)
     lock: LockLike = field(default_factory=threading.RLock)
     built: bool = False
+    # Only a complete index built for this Vault can answer scoped reverse reads.
+    vault_key: str | None = None
     build_ts: float = 0.0
     source_count: int = 0
     persist_pending: bool = False

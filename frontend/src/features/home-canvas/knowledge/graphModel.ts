@@ -1,4 +1,3 @@
-import type { BlockEditorPageLink } from '../../../shared/api/block-editor';
 import type { VaultSidebarPageSummary } from '../../../shared/api/vaults';
 import type { PersonalNoteEdit } from '../../../shared/records/personalNoteEdits';
 
@@ -17,14 +16,14 @@ export function latestDatedNote(notes: readonly VaultSidebarPageSummary[]): stri
 
 export function graphNeighbors(
   center: string,
-  incoming: readonly BlockEditorPageLink[],
-  outgoing: readonly BlockEditorPageLink[],
+  incoming: readonly string[],
+  outgoing: readonly string[],
   notes: ReadonlyMap<string, VaultSidebarPageSummary>,
   edits: readonly PersonalNoteEdit[],
 ) {
   const times = new Map(edits.map(edit => [edit.id, edit.at]));
-  const from = new Set(incoming.map(note => note.id));
-  const to = new Set(outgoing.map(note => note.id));
+  const from = new Set(incoming);
+  const to = new Set(outgoing);
   return [...new Set([...from, ...to])].filter(id => id !== center)
     .flatMap(id => {
       const note = notes.get(id);

@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 68 |
 | `config` | 14 | 1428 |
 | `data` | 2 | 214 |
-| `domains` | 645 | 125681 |
+| `domains` | 648 | 126171 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2466 |
 | `models` | 14 | 1321 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1114 |
 
-Total: **1144 modules** and **215859 source lines**.
+Total: **1147 modules** and **216349 source lines**.
 
 ## agent
 
@@ -527,10 +527,12 @@ Total: **1144 modules** and **215859 source lines**.
 | [`backend/domains/reader/analysis_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/analysis_routes.py) | 171 | 1 | 8 | 0 | 9 | Reader inventory and durable-analysis HTTP routes. |
 | [`backend/domains/reader/backfill_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/backfill_routes.py) | 175 | 1 | 4 | 0 | 4 | Reader full-content extraction and backfill HTTP routes. |
 | [`backend/domains/reader/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/internal_sources.py) | 54 | 0 | 5 | 0 | 5 | Typed boundary around the legacy Reader helpers owned by the agent domain. |
-| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 112 | 0 | 6 | 0 | 5 | Reader podcast generation and download HTTP routes. |
+| [`backend/domains/reader/podcast_media.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_media.py) | 219 | 2 | 6 | 0 | 3 | Identify and stream published podcast file revisions within the active Vault. |
+| [`backend/domains/reader/podcast_media_windows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_media_windows.py) | 100 | 1 | 4 | 0 | 2 | Windows handles for versioned Reader media on local and cloud-backed NTFS. |
+| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 153 | 0 | 7 | 0 | 6 | Reader podcast generation and download HTTP routes. |
 | [`backend/domains/reader/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py) | 533 | 1 | 17 | 1 | 16 | No module docstring |
 | [`backend/domains/reader/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routing.py) | 28 | 0 | 1 | 0 | 1 | Shared runtime contract for Reader route modules. |
-| [`backend/domains/reader/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/schemas.py) | 207 | 19 | 0 | 0 | 19 | Public request and response contracts for the Reader domain. |
+| [`backend/domains/reader/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/schemas.py) | 211 | 19 | 0 | 0 | 19 | Public request and response contracts for the Reader domain. |
 | [`backend/domains/reader/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/service.py) | 678 | 0 | 21 | 0 | 8 | Durable Reader analysis lifecycle and retry orchestration. |
 | [`backend/domains/reader/source_registry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/source_registry.py) | 176 | 1 | 7 | 0 | 2 | Vault-owned subscriptions with a disposable local SQL projection. |
 | [`backend/domains/reader/source_urls.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/source_urls.py) | 19 | 0 | 1 | 0 | 1 | Canonicalize the explicit newsletter input alias without accepting secrets. |
@@ -607,7 +609,7 @@ Total: **1144 modules** and **215859 source lines**.
 | [`backend/domains/vault/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | HTTP adapters for the vault domain. |
 | [`backend/domains/vault/api/configuration_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/configuration_routes.py) | 306 | 0 | 18 | 4 | 7 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/core_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_composition.py) | 149 | 5 | 0 | 0 | 1 | Narrow late-bound collaborators for page creation and daily-note routing. |
-| [`backend/domains/vault/api/core_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 453 | 2 | 21 | 6 | 17 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/api/core_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 455 | 2 | 21 | 6 | 17 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/history.py) | 200 | 1 | 8 | 4 | 7 | HTTP adapter for vault page history. |
 | [`backend/domains/vault/api/pages_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 208 | 4 | 2 | 0 | 5 | HTTP registration for vault page mutation services. |
 | [`backend/domains/vault/api/pages_duplicate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_duplicate.py) | 127 | 1 | 4 | 1 | 1 | HTTP adapter for duplicating a vault page. |
@@ -703,16 +705,17 @@ Total: **1144 modules** and **215859 source lines**.
 | [`backend/domains/vault/links/api/dependencies.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/dependencies.py) | 49 | 2 | 0 | 0 | 0 | Narrow composition ports used by link HTTP adapters. |
 | [`backend/domains/vault/links/api/mentions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/mentions.py) | 287 | 0 | 7 | 0 | 0 | Unlinked-mention discovery and link action HTTP adapters. |
 | [`backend/domains/vault/links/api/navigation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/navigation.py) | 344 | 0 | 8 | 0 | 0 | Reverse-link observability and navigation HTTP adapters. |
+| [`backend/domains/vault/links/api/neighborhood.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/neighborhood.py) | 94 | 0 | 4 | 0 | 1 | One-hop note links for the active Vault without an on-demand reverse scan. |
 | [`backend/domains/vault/links/api/overview.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/overview.py) | 51 | 0 | 1 | 0 | 0 | Global and alias index HTTP registration. |
 | [`backend/domains/vault/links/api/preview.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/preview.py) | 169 | 1 | 4 | 1 | 1 | Safe external-link preview HTTP adapter. |
 | [`backend/domains/vault/links/document_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/document_cache.py) | 279 | 2 | 10 | 0 | 10 | Persistent mtime-keyed body and parsed-document caches for Vault links. |
 | [`backend/domains/vault/links/document_inventory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/document_inventory.py) | 148 | 2 | 6 | 0 | 3 | Cached inventory of Markdown pages and dashboards eligible for linking. |
-| [`backend/domains/vault/links/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 565 | 2 | 16 | 0 | 0 | Reverse-link index services and persistence. |
+| [`backend/domains/vault/links/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 584 | 2 | 16 | 0 | 0 | Reverse-link index services and persistence. |
 | [`backend/domains/vault/links/parsing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/parsing.py) | 215 | 0 | 12 | 0 | 0 | Pure parsing operations for wikilinks and unlinked mentions. |
 | [`backend/domains/vault/links/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/relation_sync.py) | 188 | 1 | 4 | 0 | 4 | Filesystem orchestration for bidirectional Vault relation synchronization. |
 | [`backend/domains/vault/links/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 558 | 0 | 43 | 0 | 22 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 109 | 13 | 0 | 0 | 5 | Public request contracts for vault links. |
-| [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 93 | 4 | 0 | 0 | 1 | Single process-wide owner for the reverse-link index. |
+| [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 118 | 14 | 0 | 0 | 6 | Public request contracts for vault links. |
+| [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 95 | 4 | 0 | 0 | 1 | Single process-wide owner for the reverse-link index. |
 | [`backend/domains/vault/links/titles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/titles.py) | 26 | 0 | 2 | 0 | 0 | Readable reference labels without changing stored page identities. |
 | [`backend/domains/vault/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
 | [`backend/domains/vault/media/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/composition.py) | 93 | 1 | 2 | 0 | 3 | Typed late-bound ports for the remaining historical Vault collaborators. |

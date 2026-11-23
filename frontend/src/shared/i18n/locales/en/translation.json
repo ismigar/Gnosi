@@ -5623,7 +5623,8 @@
       "view": "Saved view",
       "wholeBoard": "Whole dashboard",
       "firstBoard": "First available dashboard",
-      "recentVault": "Most recently modified note in this Vault"
+      "recentVault": "Most recently modified note in this Vault",
+      "incomingPending": "Some links to this note may be missing until this Vault’s link index is ready."
     },
     "day": {
       "select_vault": "Select a Vault to see this block.",
@@ -5644,7 +5645,7 @@
       "generation_failed": "The last attempt to generate an episode failed.",
       "episode_date": "Episode from {{date}}",
       "resume": "Resume at {{position}}",
-      "playback_error": "The audio could not be played.",
+      "playback_error": "This episode is currently unavailable.",
       "open_reader": "Open Reader"
     },
     "apps": {

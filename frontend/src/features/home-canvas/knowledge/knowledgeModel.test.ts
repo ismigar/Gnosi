@@ -51,9 +51,8 @@ it('uses registered nested filters, the host board, joined values and numeric mu
 it('keeps only existing direct neighbors, ranks both directions by personal edits and returns at most five', () => {
   const records: VaultSidebarPageSummary[] = ['a','b','c','d','e','f','center'].map(id => row(id, id));
   const catalog = new Map(records.map(page => [page.id, page]));
-  const link = (id: string) => ({ id, title: id });
-  const incoming = ['a','b','e','f','center','deleted'].map(link);
-  const outgoing = ['b','c','d','e','deleted'].map(link);
+  const incoming = ['a','b','e','f','center','deleted'];
+  const outgoing = ['b','c','d','e','deleted'];
   const neighbors = graphNeighbors('center', incoming, outgoing, catalog, [{ id: 'f', at: 12 }, { id: 'b', at: 10 }]);
   expect(neighbors.map(note => note.id)).toEqual(['f','b','a','c','d']);
   expect(neighbors[1]).toMatchObject({ incoming: true, outgoing: true });

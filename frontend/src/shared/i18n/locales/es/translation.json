@@ -6170,7 +6170,8 @@
       "view": "Vista guardada",
       "wholeBoard": "Todo el tablero",
       "firstBoard": "Primer tablero disponible",
-      "recentVault": "Última nota modificada en este Vault"
+      "recentVault": "Última nota modificada en este Vault",
+      "incomingPending": "Pueden faltar enlaces a esta nota hasta que el índice del Vault esté listo."
     },
     "day": {
       "select_vault": "Selecciona un Vault para ver este bloque.",
@@ -6191,7 +6192,7 @@
       "generation_failed": "No se ha podido generar el último episodio.",
       "episode_date": "Episodio del {{date}}",
       "resume": "Reanudar en {{position}}",
-      "playback_error": "No se ha podido reproducir el audio.",
+      "playback_error": "Este episodio no está disponible en este momento.",
       "open_reader": "Abrir el lector"
     },
     "apps": {

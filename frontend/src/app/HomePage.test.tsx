@@ -17,7 +17,7 @@ vi.mock('../shared/api/useHomePreferences', () => ({ useHomePreferences: () => (
 }) }));
 vi.mock('../shared/api/vault-home', () => ({ fetchVaultHome: api.fetchHome }));
 vi.mock('../shared/api/vaults', () => ({ fetchVaultPage: api.fetchPage }));
-vi.mock('../features/home', () => ({ default: () => <div>Personal canvas</div> }));
+vi.mock('../features/home-canvas', () => ({ default: () => <div>Personal canvas</div> }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 function Destination() { return <p>{useLocation().pathname}</p>; }

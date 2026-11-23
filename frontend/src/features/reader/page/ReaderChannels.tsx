@@ -31,8 +31,8 @@ interface ReaderChannelsProps {
     readonly onToggleCategory: (category: string) => void;
     readonly podcastEnabled: boolean;
     readonly podcastInfo: ReaderPodcastInfo | null;
+    readonly onRefreshPodcast: () => void;
     readonly podcastProgress: string;
-    readonly podcastUrl: string | null;
     readonly selectedSourceId: number | null;
     readonly sourceCount: number;
     readonly unreadCount: number;
@@ -50,8 +50,8 @@ export function ReaderChannels({
     onToggleCategory,
     podcastEnabled,
     podcastInfo,
+    onRefreshPodcast,
     podcastProgress,
-    podcastUrl,
     selectedSourceId,
     sourceCount,
     unreadCount,
@@ -124,15 +124,15 @@ export function ReaderChannels({
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">{t('reader_podcast_generating')}</div>
                     <div className="text-xs text-slate-700 dark:text-slate-200 truncate">{podcastProgress || t('reader_podcast_synthesizing')}</div>
                 </div>
-            </div> : podcastUrl ? <div>
+            </div> : podcastInfo ? <div>
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                         <Headphones size={14} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{t('reader_podcast_daily')}{podcastInfo?.formatted_date ? ` · ${podcastInfo.formatted_date}` : ''}</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{t('reader_podcast_daily')}{podcastInfo.formatted_date ? ` · ${podcastInfo.formatted_date}` : ''}</span>
                     </div>
                     <button onClick={onGeneratePodcast} title={t('reader_podcast_regenerate')} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 -mr-1" type="button"><RotateCw size={12} /></button>
                 </div>
-                <ReaderPodcastPlayer info={podcastInfo} src={podcastUrl} />
+                <ReaderPodcastPlayer info={podcastInfo} onRefresh={onRefreshPodcast} />
             </div> : <button onClick={onGeneratePodcast} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-xs text-slate-600 dark:text-slate-300 hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border-primary)]" type="button">
                 <Play size={12} fill="currentColor" /><span>{t('reader_podcast_generate')}</span>
             </button>}

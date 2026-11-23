@@ -41,6 +41,14 @@ class VaultOutlinksResponse(BaseModel):
     unresolved: list[VaultUnresolvedLinkResponse]
 
 
+class VaultLinkNeighborhoodResponse(BaseModel):
+    """Direct note links. A cold reverse index can only report outgoing links."""
+
+    incoming: list[str]
+    outgoing: list[str]
+    incoming_complete: bool
+
+
 class LinkIndexDiskCacheResponse(BaseModel):
     """Persistent reverse-link index cache metadata."""
 
@@ -102,6 +110,7 @@ __all__ = [
     "VaultBacklinkResponse",
     "VaultLinkedMentionChangeResponse",
     "VaultLinkMentionsResponse",
+    "VaultLinkNeighborhoodResponse",
     "VaultOutlinksResponse",
     "VaultPageLinkResponse",
     "VaultUnlinkedMentionResponse",

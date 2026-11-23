@@ -20,6 +20,7 @@ from backend.domains.vault.api.core_composition import vault as _vault
 from backend.domains.vault.composer.api import register_routes as _register_composer_routes
 from backend.domains.vault.bookmarks.api import register_routes as _register_bookmark_routes
 from backend.domains.vault.home_canvas import register_routes as _register_home_canvas_routes
+from backend.domains.vault.links.api.neighborhood import register_routes as _register_link_neighborhood
 from backend.domains.vault.daily import service as _daily_service
 from backend.domains.vault.daily.contracts import (
     DailyNoteDocumentResponse,
@@ -69,6 +70,7 @@ _register_composer_routes(router)
 _register_publishing_routes(router)
 _register_bookmark_routes(router)
 _register_home_canvas_routes(router)
+_register_link_neighborhood(router)
 get_indexer_status_endpoint = _page_queries_api.get_indexer_status_endpoint
 list_sidebar_summary = _page_queries_api.list_sidebar_summary
 

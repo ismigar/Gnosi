@@ -32580,6 +32580,19 @@
             ],
             "title": "Created At"
           },
+          "episode_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque immutable playback identifier for this published file revision in the current Vault. Use /podcast/episodes/{episode_id}. A removed or replaced revision becomes unavailable.",
+            "title": "Episode Id"
+          },
           "exists": {
             "title": "Exists",
             "type": "boolean"
@@ -41503,6 +41516,36 @@
           "changed_notes"
         ],
         "title": "VaultLinkMentionsResponse",
+        "type": "object"
+      },
+      "VaultLinkNeighborhoodResponse": {
+        "description": "Direct note links. A cold reverse index can only report outgoing links.",
+        "properties": {
+          "incoming": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incoming",
+            "type": "array"
+          },
+          "incoming_complete": {
+            "title": "Incoming Complete",
+            "type": "boolean"
+          },
+          "outgoing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outgoing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "incoming",
+          "outgoing",
+          "incoming_complete"
+        ],
+        "title": "VaultLinkNeighborhoodResponse",
         "type": "object"
       },
       "VaultLinkedMentionChangeResponse": {
@@ -82188,6 +82231,161 @@
         ]
       }
     },
+    "/api/reader/podcast/episodes/{episode_id}": {
+      "get": {
+        "description": "Stream the requested published file revision in the authenticated Vault.\n\nUse the opaque episode_id from /podcast/info. Newer daily files leave retained\nepisodes playable. Removing or replacing the named revision expires its URL.\nByte ranges seek within this exact revision.",
+        "operationId": "get_podcast_episode_api_reader_podcast_episodes__episode_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The published audio revision"
+          },
+          "206": {
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "multipart/byteranges": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Requested byte range(s) of the published revision"
+          },
+          "400": {
+            "description": "Malformed byte range"
+          },
+          "404": {
+            "description": "Unknown, removed or replaced episode in this Vault"
+          },
+          "416": {
+            "description": "Unsatisfiable or excessive byte ranges"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "Podcast storage is temporarily unavailable"
+          }
+        },
+        "summary": "Get Podcast Episode",
+        "tags": [
+          "Reader",
+          "reader"
+        ]
+      }
+    },
     "/api/reader/podcast/generate": {
       "post": {
         "description": "Launches podcast generation in the background",
@@ -82305,7 +82503,7 @@
     },
     "/api/reader/podcast/info": {
       "get": {
-        "description": "Returns information about the last generated podcast",
+        "description": "Read latest publication metadata without opening or hydrating any audio.",
         "operationId": "get_podcast_info_api_reader_podcast_info_get",
         "parameters": [
           {
@@ -96949,6 +97147,131 @@
           }
         },
         "summary": "Get Link Index Stats",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/link-neighborhood": {
+      "get": {
+        "description": "Read one Markdown note and use an already built reverse index when available.",
+        "operationId": "get_link_neighborhood_api_vault_link_neighborhood_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Page Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultLinkNeighborhoodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Link Neighborhood",
         "tags": [
           "Vault"
         ]
