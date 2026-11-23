@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateChatMessages, readLiveChatMessages } from './liveConversationModel';
 
+const checkpointPair = (turn_id: string) => [
+  { role: 'user', content: 'Question', turn_id }, { role: 'assistant', content: 'Answer', turn_id },
+];
+const admissionFailure = (turnId: string) => [
+  { role: 'user', content: 'Question', turnId },
+  { role: 'assistant', content: 'Temporarily unavailable', turnId, errorCode: 'metadata_unavailable', retryable: true,
+    timings: { model_calls: 0, model_ms: 0, setup_ms: 127, total_ms: 128, setup_breakdown_ms: { configuration: 127 } } },
+];
+
 describe('live conversation hydration boundary', () => {
   it('does not truncate live content or scrub a pending confirmation like the storage codec', () => {
     const content = 'long'.repeat(6000);
@@ -18,6 +27,33 @@ describe('live conversation hydration boundary', () => {
     const cached = readLiveChatMessages([{ role: 'user', content: 'retained' }]);
     expect(hydrateChatMessages([], cached, true)[0]?.content).toBe('retained');
     expect(hydrateChatMessages([], cached)).toEqual([]);
+  });
+  it('keeps admission failures in their original position on repeated history hydration', () => {
+    const first = checkpointPair('first'), next = checkpointPair('next');
+    const local = readLiveChatMessages([...admissionFailure('before'), ...first, ...admissionFailure('middle'),
+      ...next, ...admissionFailure('after')]);
+    for (const notebook of [false, true]) {
+      const once = hydrateChatMessages([...first, ...next], local, notebook);
+      const again = hydrateChatMessages([...first, ...next], once, notebook);
+      expect(again.filter(row => row.role === 'assistant').map(row => row.turnId)).toEqual(['before','first','middle','next','after']);
+      expect(again.filter(row => row.errorCode)).toHaveLength(3);
+      expect(again.at(-1)).toMatchObject({ retryable: true, timings: { model_calls: 0, setup_breakdown_ms: { configuration: 127 } } });
+      expect(again.filter(row => row.content === 'Answer').every(row => !row.timings && !row.errorCode)).toBe(true);
+    }
+  });
+  it('uses a checkpointed retry and never revives failures from a rewound branch', () => {
+    const first = checkpointPair('first'), retry = checkpointPair('retried');
+    const cached = readLiveChatMessages([...first, ...admissionFailure('retried'), ...retry.map(row => ({ ...row, saved: true })),
+      ...checkpointPair('removed'), ...admissionFailure('stale')]);
+    const result = hydrateChatMessages([...first, ...retry], cached);
+    expect(result.map(row => row.content)).toEqual([...first, ...retry].map(row => row.content));
+    expect(result.at(-1)).toMatchObject({ content: 'Answer', saved: true });
+    expect(result.some(row => row.errorCode || row.timings)).toBe(false);
+  });
+  it('places a failed turn after a unique older message without a turn identifier', () => {
+    const older = [{ role: 'user', content: 'Old question' }, { role: 'assistant', content: 'Old answer' }];
+    const result = hydrateChatMessages(older, readLiveChatMessages([...older, ...admissionFailure('recent')]));
+    expect(result.map(row => row.content)).toEqual([...older, ...admissionFailure('recent')].map(row => row.content));
   });
   it('retains a known profile and model only for an explicit matching assistant turn, including repeated text', () => {
     const profile = { id: 'first', name: 'First assistant' };
