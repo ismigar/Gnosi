@@ -24,7 +24,7 @@ La aplicación de escritorio de tu sistema y una carpeta con permiso de escritur
 
 Tienes un Vault seleccionado, dos páginas guardadas y un enlace funcional. Después puedes añadir una fuente y una nota de lectura.
 
-## Personaliza el inicio {#personal-home}
+### Personaliza el inicio
 
 Pulsa la **G** de la barra lateral. En **Editar inicio → Añadir un bloque** verás los bloques disponibles para los complementos activos del Vault. Elige una anchura de una, dos o tres columnas. Puedes arrastrar un bloque o moverlo con las flechas. Pulsa **Guardar** para conservar la disposición en tu cuenta para este Vault.
 

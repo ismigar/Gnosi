@@ -24,7 +24,7 @@ The desktop app for your operating system and a folder you can write to. For a h
 
 You have a selected Vault, two saved pages and a working link. Next, add a source and a reading note.
 
-## Customize your home {#personal-home}
+### Customize your home
 
 Click the **G** in the sidebar. **Edit home → Add a block** lists the blocks available for this Vault’s enabled plugins. Choose a width of one, two or three columns. Drag a block or use its arrow buttons to move it. Click **Save** to keep the layout for your account in this Vault.
 
