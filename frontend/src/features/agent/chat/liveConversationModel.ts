@@ -38,31 +38,48 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
   // Keep its prompt and diagnostic together without matching them to a later answer.
   const checkpointCache = cached.filter(row => !isPreparationError(row) && (row.role !== 'user' || !failedTurns.has(explicitTurnId(row) ?? '')));
   const history = readLiveChatMessages(merge(canonical, checkpointCache));
-  const ends = new Map<string, number>();
-  const legacyRows = new Map<string, number | undefined>();
-  history.forEach((row, index) => {
+  const checkpointRows = canonical.filter(isRecord);
+  const checkpointIds = new Set(checkpointRows.map(explicitTurnId).filter(id => id !== undefined));
+  const positions = new Map<string, number[]>();
+  function indexRow(key: string, index: number) {
+    const matches = positions.get(key);
+    if (matches) matches.push(index);
+    else positions.set(key, [index]);
+  }
+  checkpointRows.forEach((row, index) => {
     const id = explicitTurnId(row);
-    if (id) ends.set(id, index + 1);
-    else {
-      const key = JSON.stringify([row.role, row.content]);
-      legacyRows.set(key, legacyRows.has(key) ? undefined : index + 1);
-    }
+    if (id) indexRow(JSON.stringify(['turn', row.role, id]), index);
+    indexRow(JSON.stringify(['text', row.role, row.content]), index);
   });
   const inserts = new Map<number, StoredChatMessage[]>();
-  let position: number | undefined = 0;
+  let pending: StoredChatMessage[] = [];
+  let cursor = 0;
+  let followsRemovedTurn = false;
+  function placePending(index: number | undefined) {
+    if (pending.length && index !== undefined) inserts.set(index, [...(inserts.get(index) ?? []), ...pending]);
+    pending = [];
+  }
   for (const row of cached) {
     if (row.role !== 'user' && row.role !== 'assistant') continue;
     const id = explicitTurnId(row);
-    if (id && failedTurns.has(id) && !ends.has(id) && (row.role === 'user' || isPreparationError(row))) {
-      if (position !== undefined) {
-        const group = inserts.get(position) ?? [];
-        group.push(row);
-        inserts.set(position, group);
-      }
-    } else {
-      // A checkpoint rewind can remove the local branch that an error followed.
-      position = id ? ends.get(id) : legacyRows.get(JSON.stringify([row.role, row.content]));
+    if (id && failedTurns.has(id) && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
+      if (!followsRemovedTurn) pending.push(row);
+      continue;
+    }
+    const strict = id ? positions.get(JSON.stringify(['turn', row.role, id])) : undefined;
+    const text = positions.get(JSON.stringify(['text', row.role, row.content]));
+    const index = strict?.find(i => i >= cursor)
+      ?? text?.find(i => i >= cursor && (!id || !explicitTurnId(checkpointRows[i])));
+    if (index !== undefined) {
+      // The saved window can begin with a failure. Its next checkpoint row still fixes its position.
+      placePending(index);
+      cursor = index + 1;
+      followsRemovedTurn = false;
+    } else if (!id || !checkpointIds.has(id)) {
+      placePending(cursor > 0 && !followsRemovedTurn ? cursor : undefined);
+      followsRemovedTurn = true;
     }
   }
+  placePending(followsRemovedTurn ? undefined : cursor || history.length);
   return [...(inserts.get(0) ?? []), ...history.flatMap((row, index) => [row, ...(inserts.get(index + 1) ?? [])])];
 }

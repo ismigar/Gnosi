@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateChatMessages, readLiveChatMessages } from './liveConversationModel';
+import { boundedChatSessions, createChatSession } from './sessionModel';
 
 const checkpointPair = (turn_id: string) => [
   { role: 'user', content: 'Question', turn_id }, { role: 'assistant', content: 'Answer', turn_id },
@@ -54,6 +55,27 @@ describe('live conversation hydration boundary', () => {
     const older = [{ role: 'user', content: 'Old question' }, { role: 'assistant', content: 'Old answer' }];
     const result = hydrateChatMessages(older, readLiveChatMessages([...older, ...admissionFailure('recent')]));
     expect(result.map(row => row.content)).toEqual([...older, ...admissionFailure('recent')].map(row => row.content));
+  });
+  it('anchors a preparation failure after repeated answers in a legacy checkpoint', () => {
+    const older = ['First question', 'Second question'].flatMap(content => [
+      { role: 'user', content }, { role: 'assistant', content: 'OK' },
+    ]);
+    const local = readLiveChatMessages([...older, ...admissionFailure('failed')]);
+    expect(hydrateChatMessages(older, local).map(row => row.content)).toEqual(local.map(row => row.content));
+  });
+  it('uses the next checkpoint when the preceding rows have fallen outside local retention', () => {
+    const first = Array.from({ length: 3 }, (_, i) => checkpointPair('first' + i)).flat();
+    const next = Array.from({ length: 49 }, (_, i) => checkpointPair('next' + i)).flat();
+    const canonical = [...first, ...next];
+    const session = createChatSession('History', 'director');
+    const initial = readLiveChatMessages([...first, ...admissionFailure('failed'), ...next]);
+    const retain = (rows: typeof initial) => boundedChatSessions([{ ...session, messages: rows }])[0]!.messages;
+    expect(retain(initial)[0]?.turnId).toBe('failed');
+    const reopened = hydrateChatMessages(canonical, retain(initial));
+    const again = hydrateChatMessages(canonical, retain(reopened));
+    expect(again).toHaveLength(initial.length);
+    expect(again.findIndex(row => row.turnId === 'failed')).toBe(6);
+    expect(again[7]?.timings?.setup_breakdown_ms).toEqual({ configuration: 127 });
   });
   it('retains a known profile and model only for an explicit matching assistant turn, including repeated text', () => {
     const profile = { id: 'first', name: 'First assistant' };
