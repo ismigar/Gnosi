@@ -45,7 +45,11 @@ class HomeCanvasState(BaseModel):
 
 
 def _layout_path(context: WorkspaceContext) -> Path:
-    vault = Path(context.vault_path).absolute()
+    # Resolve the registered Vault once. Layout metadata below it must still be local to this root.
+    try:
+        vault = Path(context.vault_path).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise HTTPException(503, "Vault is unavailable") from exc
     if not vault.is_dir():
         raise HTTPException(503, "Vault is unavailable")
     identity = json.dumps([context.workspace_id, context.user_id], separators=(",", ":"))

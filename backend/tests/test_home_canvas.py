@@ -58,3 +58,33 @@ def test_unreadable_existing_metadata_and_duplicate_ids_are_preserved(tmp_path):
     card = HomeCanvasBlock(kind="board", id="unique", width=2)
     with pytest.raises(ValidationError):
         HomeCanvasState(blocks=[card, card])
+
+
+def test_registered_root_alias_shares_the_saved_layout_and_revision(tmp_path):
+    vault = tmp_path / "research"
+    vault.mkdir()
+    alias = tmp_path / "registered-root"
+    alias.symlink_to(vault, target_is_directory=True)
+    selected = WorkspaceContext("team", "member", "owner", alias)
+    canonical = WorkspaceContext("team", "member", "owner", vault)
+
+    assert get_home_canvas(selected) == get_home_canvas(canonical)
+    saved = save_home_canvas(HomeCanvasState(start_mode="canvas", blocks=[]), selected)
+    assert saved.revision and get_home_canvas(canonical) == saved
+    updated = save_home_canvas(HomeCanvasState(start_mode="page", revision=saved.revision), canonical)
+    assert get_home_canvas(selected) == updated
+    assert len(list((vault / ".gnosi" / "home").glob("*.json"))) == 1
+
+
+def test_registered_alias_keeps_metadata_directory_link_checks(tmp_path):
+    vault = tmp_path / "research"
+    vault.mkdir()
+    alias = tmp_path / "registered-root"
+    alias.symlink_to(vault, target_is_directory=True)
+    directory = vault / "settings"
+    directory.mkdir()
+    (vault / ".gnosi").symlink_to(directory, target_is_directory=True)
+    with pytest.raises(HTTPException) as rejected:
+        get_home_canvas(WorkspaceContext("team", "member", "owner", alias))
+    assert rejected.value.status_code == 409
+    assert list(directory.iterdir()) == []
