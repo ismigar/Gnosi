@@ -4,7 +4,10 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symli
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+// These integration tests launch real CLI processes on shared CI runners.
+vi.setConfig({ testTimeout: 30_000 });
 
 const frontend = fileURLToPath(new URL('../../', import.meta.url));
 const options = { target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler',
@@ -123,7 +126,6 @@ it.each([
   compare(false);
 });
 
-// Allow for three real compiler/runner invocations on the shared CI host.
 it('preserves declaration diagnostics with noEmit and never creates declarations or build info', () => {
   config({ declaration: true, incremental: true, tsBuildInfoFile: 'build.tsbuildinfo' });
   write('src/main.ts', 'export const value = new class { private hidden = 1; }();');
@@ -133,7 +135,7 @@ it('preserves declaration diagnostics with noEmit and never creates declarations
   expect(run().status).toBe(1);
   expect(existsSync(join(fixture, 'build.tsbuildinfo'))).toBe(false);
   expect(existsSync(join(fixture, 'src/main.d.ts'))).toBe(false);
-}, 30_000);
+});
 
 it.each([
   ['root array', 'tsconfig.json', '{"compilerOptions":['],
@@ -151,7 +153,7 @@ it.each([
   if (_kind === 'root array') {
     expect(result.stdout).toContain("error TS2304: Cannot find name 'MissingAmbientType'.");
   }
-}, 30_000);
+});
 
 it('reports invalid project references', () => {
   config({}, { references: [{ path: './referenced' }] });

@@ -4,7 +4,10 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writ
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+// These integration tests launch real CLI processes on shared CI runners.
+vi.setConfig({ testTimeout: 30_000 });
 
 const frontend = fileURLToPath(new URL('../../', import.meta.url));
 let fixture: string;
@@ -72,7 +75,6 @@ it('discovers the same paths as real ESLint, including extra extensions, dotfile
   expect(run().status).toBe(0);
 });
 
-// Multiple real CLI passes can exceed Vitest's 5s default on the shared CI host.
 it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and repeated runs', cache => {
   write('eslint.config.mjs', `import { appendFileSync } from 'node:fs';
     export default [
@@ -96,7 +98,7 @@ it.each(['.eslintcache', 'custom.cache'])('reuses %s across serial batches and r
   expect(counts.sort((left, right) => left - right)).toEqual([1, 192, 192]);
   expect(run(environment).status).toBe(0);
   expect(readFileSync(join(fixture, 'rule-count.txt'), 'utf8')).toBe(first);
-}, 30_000);
+});
 
 it('allows config diagnostics on stdout without corrupting file discovery', () => {
   write('source.js', 'export {};');
@@ -139,7 +141,7 @@ it('executes type-aware rules with the project service across batches', () => {
   const fixed = run();
   expect(fixed.status, fixed.stderr).toBe(0);
   expect(fixed.stdout).toContain('ESLint batch 17/17 (1 files)');
-}, 30_000);
+});
 
 it('invalidates content cache entries across batches and never caches discovery as success', () => {
   for (let index = 0; index < 385; index += 1) write(`source/${String(index).padStart(3, '0')}.js`, 'export {};');
@@ -151,7 +153,7 @@ it('invalidates content cache entries across batches and never caches discovery 
   const result = run(environment);
   expect(result.status).toBe(1);
   expect(result.stdout).toContain('no-debugger');
-}, 30_000);
+});
 
 it('fails on config errors and empty discovery instead of silently accepting', () => {
   write('eslint.config.mjs', 'throw new Error("fixture config failure");');
