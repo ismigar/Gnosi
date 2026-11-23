@@ -95,6 +95,27 @@ describe('live conversation hydration boundary', () => {
     expect(rewound.map(row => row.turnId)).toEqual(['earlier', 'earlier']);
     expect(rewound[1]?.timings?.setup_breakdown_ms).toEqual({ configuration: 127 });
   });
+  it('keeps the local prefix before a successor that arrives after observing an empty rewind', () => {
+    const earlier = admissionFailure('earlier'), target = admissionFailure('target'), tail = admissionFailure('tail');
+    const prompt = { role: 'user', content: 'Question', turn_id: 'target' };
+    const next = checkpointPair('replacement');
+    const session = createChatSession('History', 'director');
+    const store = (rows: typeof session.messages) => boundedChatSessions([{ ...session, messages: rows }])[0]?.messages ?? [];
+    for (const notebook of [false, true]) {
+      const observed = hydrateChatMessages([prompt], readLiveChatMessages([...earlier, ...target, ...tail]), notebook);
+      const emptyRemote = hydrateChatMessages([], store(observed), notebook);
+      const emptyLocal = hydrateRewoundChatMessages([], store(readLiveChatMessages(earlier)));
+      for (const empty of [emptyRemote, emptyLocal]) {
+        const opened = hydrateChatMessages(next, store(empty), notebook);
+        const again = hydrateChatMessages(next, store(opened), notebook);
+        expect(again.map(row => row.turnId)).toEqual(['earlier', 'earlier', 'replacement', 'replacement']);
+        expect(again[1]?.errorCode).toBe('metadata_unavailable');
+        const laterUndo = hydrateRewoundChatMessages([], store(again.slice(0, 2)));
+        expect(laterUndo.map(row => row.turnId)).toEqual(['earlier', 'earlier']);
+        expect(hydrateChatMessages([], store(again), notebook).map(row => row.turnId)).toEqual(['earlier', 'earlier']);
+      }
+    }
+  });
   it('uses a checkpointed retry and never revives failures from a rewound branch', () => {
     const first = checkpointPair('first'), retry = checkpointPair('retried');
     const cached = readLiveChatMessages([...first, ...admissionFailure('retried'), ...retry.map(row => ({ ...row, saved: true })),

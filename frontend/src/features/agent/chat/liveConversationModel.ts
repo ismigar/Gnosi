@@ -25,8 +25,8 @@ function isPreparationError(row: StoredChatMessage): boolean {
     && row.timings?.model_calls === 0 && !!row.timings.setup_breakdown_ms;
 }
 
-export function isCheckpointedPreparationError(row: StoredChatMessage): boolean {
-  return row.promptWasCheckpointed === true && isPreparationError(row);
+export function hasPreparationHistoryAnchor(row: StoredChatMessage): boolean {
+  return (row.promptWasCheckpointed === true || row.beforeFirstCheckpoint === true) && isPreparationError(row);
 }
 
 export function hydrateChatMessages(canonical: unknown, cached: readonly StoredChatMessage[], notebook = false): StoredChatMessage[] {
@@ -45,7 +45,7 @@ function reconcileHistory(canonical: unknown, cached: readonly StoredChatMessage
     if (id && isPreparationError(row)) failedTurns.set(id, row);
   }
   if (!failedTurns.size || !Array.isArray(canonical)) return readLiveChatMessages(merge(canonical, cached));
-  if (!canonical.length && mode !== 'rewind' && !cached.some(isCheckpointedPreparationError)) {
+  if (!canonical.length && mode !== 'rewind' && !cached.some(hasPreparationHistoryAnchor)) {
     return readLiveChatMessages(merge(canonical, cached));
   }
 
@@ -70,14 +70,20 @@ function reconcileHistory(canonical: unknown, cached: readonly StoredChatMessage
   for (const [id, error] of failedTurns) {
     const prompt = positions.get(JSON.stringify(['turn', 'user', id]))?.at(-1);
     if (prompt !== undefined && !positions.has(JSON.stringify(['turn', 'assistant', id]))) {
-      inserts.set(prompt + 1, [{ ...error, promptWasCheckpointed: true }]);
+      inserts.set(prompt + 1, [{ ...error, promptWasCheckpointed: true, beforeFirstCheckpoint: false }]);
     }
   }
   let pending: StoredChatMessage[] = [];
   let cursor = 0;
   let followsRemovedTurn = false;
   function placePending(index: number | undefined) {
-    if (pending.length && index !== undefined) inserts.set(index, [...(inserts.get(index) ?? []), ...pending]);
+    if (pending.length && index !== undefined) {
+      const placed = inserts.get(index) ?? [];
+      for (const row of pending) {
+        placed.push(isPreparationError(row) ? { ...row, beforeFirstCheckpoint: index === 0 } : row);
+      }
+      inserts.set(index, placed);
+    }
     pending = [];
   }
   for (const row of cached) {
@@ -93,6 +99,9 @@ function reconcileHistory(canonical: unknown, cached: readonly StoredChatMessage
         followsRemovedTurn = true;
       } else if (!followsRemovedTurn) {
         pending.push(row);
+        // Keep the observed start of the branch when its first new server turn
+        // arrives in a later fetch, after a reload or another client’s undo.
+        if (cursor === 0 && failure.beforeFirstCheckpoint === true) placePending(0);
       }
       continue;
     }

@@ -52,7 +52,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2662 | 0 |
-| `features` | 1310 | 138672 | 57 |
+| `features` | 1310 | 138681 | 57 |
 | `generated` | 3 | 58012 | 599 |
 | `shared` | 355 | 37579 | 514 |
 
@@ -115,7 +115,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/agent/chat/confirmationActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationActions.ts) | 81 | `cancelPendingAction`, `confirmPendingAction` | — |
 | [`frontend/src/features/agent/chat/confirmationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationModel.ts) | 31 | `confirmationDetailRecord`, `confirmationScope`, `formatConfirmationValue` | — |
 | [`frontend/src/features/agent/chat/confirmationState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationState.ts) | 87 | `confirmationRequest`, `localizedConfirmationError`, `mergeLiveConfirmationRecords`, `partialConfirmationMessage`, `recoveredConfirmationMessage`, `withConfirmationStatus` | — |
-| [`frontend/src/features/agent/chat/liveConversationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/liveConversationModel.ts) | 115 | `hydrateChatMessages`, `hydrateRewoundChatMessages`, `isCheckpointedPreparationError`, `readLiveChatMessages` | — |
+| [`frontend/src/features/agent/chat/liveConversationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/liveConversationModel.ts) | 124 | `hasPreparationHistoryAnchor`, `hydrateChatMessages`, `hydrateRewoundChatMessages`, `readLiveChatMessages` | — |
 | [`frontend/src/features/agent/chat/memoryProvenance.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/memoryProvenance.ts) | 10 | `boundedMemoryProvenance` | — |
 | [`frontend/src/features/agent/chat/messageActionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messageActionModel.ts) | 50 | `messageFeedback`, `previousPrompt`, `turnRewindRows` | — |
 | [`frontend/src/features/agent/chat/messageDetailsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messageDetailsModel.ts) | 26 | `hasMessageDetails` | — |

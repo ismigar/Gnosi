@@ -1,7 +1,7 @@
 import { deleteChatSessionCheckpoint, fetchChatSessionHistory } from '../../../shared/api/chat-sessions';
 import { logChatError as logError } from './chatDiagnostics';
 import { createChatSession } from './sessionModel';
-import { hydrateChatMessages, isCheckpointedPreparationError } from './liveConversationModel';
+import { hydrateChatMessages, hasPreparationHistoryAnchor } from './liveConversationModel';
 import type { ChatSessionController } from './sessionControllerTypes';
 
 export async function selectChatSession(context: ChatSessionController, nextId: string): Promise<void> {
@@ -20,7 +20,7 @@ export async function selectChatSession(context: ChatSessionController, nextId: 
   try {
     const canonical = await fetchChatSessionHistory(target, notebookId);
     if (historyHydrationRef.current !== hydrationId) return;
-    if (Array.isArray(canonical) && (canonical.length || target.messages.some(isCheckpointedPreparationError))) {
+    if (Array.isArray(canonical) && (canonical.length || target.messages.some(hasPreparationHistoryAnchor))) {
       const messages = hydrateChatMessages(canonical, target.messages);
       setMessages(messages);
       setChatSessions((previous) => previous.map((session) => session.id === target.id ? { ...session, messages } : session));
