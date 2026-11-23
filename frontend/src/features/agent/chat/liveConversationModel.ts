@@ -27,15 +27,15 @@ function isPreparationError(row: StoredChatMessage): boolean {
 
 export function hydrateChatMessages(canonical: unknown, cached: readonly StoredChatMessage[], notebook = false): StoredChatMessage[] {
   const merge = notebook ? mergeNotebookConversation : mergeCanonicalMessageMetadata;
-  const failedTurns = new Set<string>();
+  const failedTurns = new Map<string, StoredChatMessage>();
   for (const row of cached) {
     const id = explicitTurnId(row);
-    if (id && isPreparationError(row)) failedTurns.add(id);
+    if (id && isPreparationError(row)) failedTurns.set(id, row);
   }
   if (!failedTurns.size || !Array.isArray(canonical) || !canonical.length) return readLiveChatMessages(merge(canonical, cached));
 
-  // A failure before the workflow starts never enters the model's checkpoint.
-  // Keep its prompt and diagnostic together without matching them to a later answer.
+  // The checkpoint can omit the whole failed turn or contain only its prompt.
+  // Keep cached diagnostics out of the metadata merge for subsequent answers.
   const checkpointCache = cached.filter(row => !isPreparationError(row) && (row.role !== 'user' || !failedTurns.has(explicitTurnId(row) ?? '')));
   const history = readLiveChatMessages(merge(canonical, checkpointCache));
   const checkpointRows = canonical.filter(isRecord);
@@ -52,6 +52,12 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
     indexRow(JSON.stringify(['text', row.role, row.content]), index);
   });
   const inserts = new Map<number, StoredChatMessage[]>();
+  for (const [id, error] of failedTurns) {
+    const prompt = positions.get(JSON.stringify(['turn', 'user', id]))?.at(-1);
+    if (prompt !== undefined && !positions.has(JSON.stringify(['turn', 'assistant', id]))) {
+      inserts.set(prompt + 1, [error]);
+    }
+  }
   let pending: StoredChatMessage[] = [];
   let cursor = 0;
   let followsRemovedTurn = false;
@@ -62,6 +68,7 @@ export function hydrateChatMessages(canonical: unknown, cached: readonly StoredC
   for (const row of cached) {
     if (row.role !== 'user' && row.role !== 'assistant') continue;
     const id = explicitTurnId(row);
+    if (id && checkpointIds.has(id) && isPreparationError(row)) continue;
     if (id && failedTurns.has(id) && !checkpointIds.has(id) && (row.role === 'user' || isPreparationError(row))) {
       if (!followsRemovedTurn) pending.push(row);
       continue;

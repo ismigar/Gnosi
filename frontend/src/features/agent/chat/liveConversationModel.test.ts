@@ -42,6 +42,25 @@ describe('live conversation hydration boundary', () => {
       expect(again.filter(row => row.content === 'Answer').every(row => !row.timings && !row.errorCode)).toBe(true);
     }
   });
+  it('restores a diagnostic after its checkpointed question until the answer is recorded', () => {
+    const first = checkpointPair('first'), next = checkpointPair('next');
+    const failed = admissionFailure('failed');
+    const prompt = { role: 'user', content: 'Question', turn_id: 'failed' };
+    for (const following of [[], next]) {
+      const canonical = [...first, prompt, ...following];
+      const cache = readLiveChatMessages([...first, ...failed, ...following]);
+      for (const notebook of [false, true]) {
+        const once = hydrateChatMessages(canonical, cache, notebook);
+        const reopened = hydrateChatMessages(canonical, once, notebook);
+        expect(reopened.map(row => row.content)).toEqual(cache.map(row => row.content));
+        expect(reopened[3]).toMatchObject({ turnId: 'failed', errorCode: 'metadata_unavailable', retryable: true,
+          timings: { model_calls: 0, setup_breakdown_ms: { configuration: 127 } } });
+        const retry = hydrateChatMessages([...first, ...checkpointPair('failed'), ...following], reopened, notebook);
+        expect(retry.map(row => row.content)).toEqual([...first, ...checkpointPair('failed'), ...following].map(row => row.content));
+        expect(retry.some(row => row.errorCode || row.timings)).toBe(false);
+      }
+    }
+  });
   it('uses a checkpointed retry and never revives failures from a rewound branch', () => {
     const first = checkpointPair('first'), retry = checkpointPair('retried');
     const cached = readLiveChatMessages([...first, ...admissionFailure('retried'), ...retry.map(row => ({ ...row, saved: true })),
