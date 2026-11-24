@@ -86,6 +86,8 @@ function SessionRecoveryScreen({ recovery }: {
 
 function ApplicationShell() {
   const { t } = useTranslation();
+  const windowTitle = t('home_canvas.window_title', 'Gnosi — Your knowledge system');
+  useEffect(() => { document.title = windowTitle; }, [windowTitle]);
   const location = useLocation();
   const navigate = useNavigate();
   const { effectiveTheme } = useTheme();

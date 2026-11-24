@@ -1,0 +1,16 @@
+.home-day { display: grid; gap: .65rem; min-width: 0; }
+.home-day__line, .home-day__timing { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+.home-day__line { justify-content: space-between; }
+.home-day__date, .home-day__meta, .home-day__timing { color: var(--text-secondary); font-size: .8rem; }
+.home-day__date, .home-day__link { width: fit-content; }
+.home-day__link, .home-day__date:hover { color: var(--gnosi-link); text-decoration: underline; }
+.home-day__link { font-size: .875rem; }
+.home-day__appointments { list-style: none; padding: 0; margin: 0; max-height: 24rem; overflow-y: auto; }
+.home-day__appointment { display: flex; gap: .6rem; padding: .45rem .3rem; border-radius: var(--radius-sm); }
+.home-day__appointment:hover, .home-day__appointment:focus-visible { background: var(--bg-secondary); }
+.home-day__marker { width: .25rem; flex: 0 0 .25rem; border-radius: var(--radius-sm); background: var(--gnosi-primary); }
+.home-day__details { display: grid; gap: .1rem; min-width: 0; }
+.home-day__timing { font-variant-numeric: tabular-nums; }
+.home-day__timing strong { color: var(--gnosi-link); font-size: .74rem; }
+.home-day__name { font-size: .9rem; color: var(--text-primary); }
+.home-day__appointment--past .home-day__name { color: var(--text-secondary); }

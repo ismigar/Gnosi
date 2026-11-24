@@ -3,7 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { fetchIntegrations } from '../../../shared/api/integrations';
 import { fetchVaultPages, fetchVaultTables } from '../../../shared/api/vaults';
-import { calendarQueryKeys } from '../../../shared/api/useCalendarData';
+import { calendarPrincipalKey, calendarQueryKeys } from '../../../shared/api/useCalendarData';
+import type { RequestContext } from '../../../shared/api/request-context';
+import { useRequestContext } from '../../../shared/hooks/useRequestContext';
 import { getActiveVaultId } from '../../../shared/api/vault-context';
 import { toast } from '../../../shared/notifications/toast';
 import { calendarEntry, textValue } from '../components/calendar-sidebar-right/calendarBoundary';
@@ -28,7 +30,7 @@ class PartialCalendarSources extends Error {
     }
 }
 
-async function readLocalSources(querySignal: AbortSignal): Promise<CalendarLocalSources> {
+async function readLocalSources(querySignal: AbortSignal, context: RequestContext): Promise<CalendarLocalSources> {
     const controller = new AbortController();
     const timer = globalThis.setTimeout(() => {
         controller.abort(new DOMException('Calendar sources read timed out', 'TimeoutError'));
@@ -41,18 +43,18 @@ async function readLocalSources(querySignal: AbortSignal): Promise<CalendarLocal
     else querySignal.addEventListener('abort', abortFromCaller, { once: true });
     try {
         controller.signal.throwIfAborted();
-        return await readLocalSourcesWithSignal(controller.signal);
+        return await readLocalSourcesWithSignal(controller.signal, context);
     } finally {
         globalThis.clearTimeout(timer);
         querySignal.removeEventListener('abort', abortFromCaller);
     }
 }
 
-async function readLocalSourcesWithSignal(signal: AbortSignal): Promise<CalendarLocalSources> {
+async function readLocalSourcesWithSignal(signal: AbortSignal, context: RequestContext): Promise<CalendarLocalSources> {
     const [pagesResult, settingsResult, tablesResult] = await Promise.allSettled([
-        fetchVaultPages({ only_calendar: true }, signal),
-        fetchIntegrations(signal),
-        fetchVaultTables(undefined, signal),
+        fetchVaultPages({ only_calendar: true }, signal, context),
+        fetchIntegrations(signal, context),
+        fetchVaultTables(undefined, signal, context),
     ]);
     signal.throwIfAborted();
     if (pagesResult.status !== 'fulfilled') throw pagesResult.reason;
@@ -85,14 +87,16 @@ async function readLocalSourcesWithSignal(signal: AbortSignal): Promise<Calendar
     return snapshot;
 }
 
-export function useCalendarLocalSources(vaultId: string) {
+export function useCalendarLocalSources(vaultId: string, notifyErrors = true) {
     const { t } = useTranslation();
     const client = useQueryClient();
+    const context = useRequestContext();
+    const principal = calendarPrincipalKey(context);
     const query = useQuery({
-        queryKey: calendarQueryKeys.localSources(vaultId),
+        queryKey: calendarQueryKeys.localSources(vaultId, principal),
         queryFn: ({ signal }) => {
             if (getActiveVaultId() !== vaultId) throw new DOMException('The active vault changed', 'AbortError');
-            return readLocalSources(signal);
+            return readLocalSources(signal, { ...context, vaultId });
         },
         staleTime: 0,
         retry: false,
@@ -102,23 +106,23 @@ export function useCalendarLocalSources(vaultId: string) {
     const snapshot = partialEdit?.vaultId === vaultId && partialEdit.source === source ? partialEdit.value : source;
     const hasData = source !== EMPTY_SOURCES;
     useEffect(() => {
-        if (!query.error) return;
+        if (!notifyErrors || !query.error) return;
         toast.error(t(query.error instanceof PartialCalendarSources ? 'calendar.partial_data_warning' : 'calendar.error_loading_pages'));
-    }, [query.error, t]);
+    }, [notifyErrors, query.error, t]);
 
     const updateSnapshot = useCallback((update: (previous: CalendarLocalSources) => CalendarLocalSources) => {
         // Late mutation callbacks belong to their original vault. Updating its
         // successful cache is safe; never apply them to the newly active vault.
-        const key = calendarQueryKeys.localSources(vaultId);
+        const key = calendarQueryKeys.localSources(vaultId, principal);
         if (client.getQueryData<CalendarLocalSources>(key)) {
             client.setQueryData<CalendarLocalSources>(key, previous => previous ? update(previous) : previous);
-        } else if (getActiveVaultId() === vaultId) {
+        } else if (getActiveVaultId() === vaultId && calendarPrincipalKey() === principal) {
             setPartialEdit(previous => ({
                 vaultId, source,
                 value: update(previous?.vaultId === vaultId && previous.source === source ? previous.value : source),
             }));
         }
-    }, [client, source, vaultId]);
+    }, [client, principal, source, vaultId]);
     const setPages = useCallback((update: SetStateAction<CalendarEntry[]>) => {
         updateSnapshot(previous => ({ ...previous, pages: typeof update === 'function' ? update(previous.pages) : update }));
     }, [updateSnapshot]);

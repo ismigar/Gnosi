@@ -329,8 +329,8 @@ def test_reader_durable_operations_have_deterministic_server_calls():
 
 
 def test_index_freshness_reports_age_coverage_and_nonblocking_policy(monkeypatch):
-    monkeypatch.setattr(vault_routes, "_link_index_built", True)
-    monkeypatch.setattr(vault_routes, "_link_index_build_ts", time.time() - 2_000)
+    monkeypatch.setattr(vault_routes.link_index_state, "built", True)
+    monkeypatch.setattr(vault_routes.link_index_state, "build_ts", time.time() - 2_000)
     monkeypatch.setattr(vault_routes, "_current_vault_key", lambda: "")
 
     freshness = vault_routes.get_agent_index_freshness(

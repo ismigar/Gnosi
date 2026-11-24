@@ -6104,6 +6104,190 @@
     "remove_dependency": "Supprimer la dépendance",
     "remove_dependency_hint": "Les dates des tâches seront conservées. Vous pouvez annuler cette modification."
   },
+  "home_canvas": {
+    "window_title": "Gnosi — Votre système de connaissances",
+    "board": "Tableau de connaissances",
+    "agenda": "Agenda du jour",
+    "graph": "Liens de la note",
+    "audio": "Audio du jour",
+    "open_app": "Ouvrir {{app}}",
+    "edit": "Modifier l’accueil",
+    "add": "Ajouter un bloc",
+    "catalog": "Blocs disponibles",
+    "empty": "Votre espace d’accueil ne contient aucun bloc visible.",
+    "add_named": "Ajouter « {{title}} »",
+    "already_added": "« {{title}} » figure déjà sur l’accueil",
+    "added": "Bloc ajouté",
+    "saving": "Enregistrement…",
+    "saved": "Accueil enregistré",
+    "width_named": "Largeur de « {{title}} »",
+    "columns_1": "1 colonne",
+    "columns_2": "2 colonnes",
+    "columns_3": "3 colonnes",
+    "earlier": "Avancer « {{title}} »",
+    "later": "Reculer « {{title}} »",
+    "remove_named": "Retirer « {{title}} » de l’accueil",
+    "move_named": "Déplacer « {{title}} »",
+    "drag_help": "Appuyez sur Espace pour prendre le bloc, déplacez-le avec les flèches, puis appuyez sur Espace pour le déposer.",
+    "drag_start": "Déplacement du bloc",
+    "drag_position": "Position {{position}}",
+    "drag_end": "Bloc déposé",
+    "moved": "Déplacé en position {{position}}",
+    "choose_vault": "Sélectionnez un Vault pour ouvrir l’accueil.",
+    "load_error": "Impossible de charger la disposition de l’accueil.",
+    "save_error": "Impossible d’enregistrer les modifications. Réessayez.",
+    "conflict": "L’accueil a été modifié dans une autre session. Vous pouvez remplacer ce brouillon par la version enregistrée.",
+    "load_saved": "Charger la version enregistrée",
+    "block_error": "Impossible d’afficher ce bloc.",
+    "retry": "Réessayer",
+    "start_label": "Écran d’accueil de ce Vault",
+    "start_help": "Choisissez ce qui s’ouvre au démarrage de Gnosi ou lorsque vous cliquez sur le G de la barre latérale. Sans page d’accueil épinglée, votre espace personnel s’ouvre.",
+    "follow_page": "Page d’accueil épinglée du Vault, si disponible",
+    "personal_canvas": "Mon espace de blocs",
+    "knowledge": {
+      "board": "Tableau de bord des connaissances",
+      "both": "Lien dans les deux sens",
+      "center": "Note centrale",
+      "emptyBoard": "Ce tableau de bord est vide.",
+      "failed": "Impossible de charger le contenu.",
+      "find": "Filtrer par nom",
+      "incoming": "Renvoie à la note centrale",
+      "lastEdited": "Ma dernière note modifiée",
+      "map": "Notes liées à {{title}}",
+      "missingBoard": "Ce tableau de bord est indisponible. Choisissez-en un autre en mode édition.",
+      "missingNote": "La note épinglée est indisponible. Choisissez-en une autre en mode édition.",
+      "missingSection": "Cette section est indisponible. Choisissez-en une autre en mode édition.",
+      "noBoards": "Ce Vault ne contient aucun tableau de bord.",
+      "noEdits": "Modifiez une note sur cet appareil ou épinglez-en une en mode édition.",
+      "noLinks": "Cette note ne contient aucun lien avec d’autres notes.",
+      "noMatches": "Aucun enregistrement ne correspond à cette vue.",
+      "noNotes": "Ce Vault ne contient aucune note à afficher.",
+      "outgoing": "Lien depuis la note centrale",
+      "record": "Enregistrement",
+      "section": "Section",
+      "showing": "{{shown}} enregistrements affichés sur {{total}}.",
+      "unavailable": "Indisponible",
+      "view": "Vue enregistrée",
+      "wholeBoard": "Tableau de bord entier",
+      "firstBoard": "Premier tableau de bord disponible",
+      "recentVault": "Dernière note modifiée dans ce Vault",
+      "incomingPending": "Certains liens vers cette note peuvent manquer tant que l’index du Vault n’est pas prêt.",
+      "catalogPending": "La liste des notes et des tableaux de bord de ce Vault est encore incomplète.",
+      "openKnowledge": "Ouvrir Connaissances",
+      "recentIndexed": "Note modifiée le plus récemment parmi celles disponibles",
+      "partialView": "Certains enregistrements correspondant à cette vue peuvent encore manquer."
+    },
+    "day": {
+      "select_vault": "Sélectionnez un Vault pour afficher ce bloc.",
+      "open_date": "Ouvrir le calendrier du {{date}}",
+      "now": "En cours",
+      "next": "À suivre",
+      "agenda_empty": "Aucun événement aujourd’hui.",
+      "agenda_done": "Plus aucun événement pour aujourd’hui.",
+      "no_calendars": "Aucun calendrier n’est visible.",
+      "agenda_error": "Impossible de charger l’agenda.",
+      "agenda_partial": "Certains calendriers n’ont pas pu être chargés.",
+      "retry_agenda": "Recharger l’agenda",
+      "audio_empty": "Aucun épisode quotidien pour le moment.",
+      "audio_error": "Impossible de charger les informations sur l’épisode.",
+      "retry_audio": "Recharger les informations sur l’épisode",
+      "generating": "Préparation d’un épisode…",
+      "generation_progress": "{{done}} sur {{total}}",
+      "generation_failed": "La génération du dernier épisode a échoué.",
+      "episode_date": "Épisode du {{date}}",
+      "resume": "Reprendre à {{position}}",
+      "playback_error": "Cet épisode est momentanément indisponible.",
+      "open_reader": "Ouvrir le lecteur"
+    },
+    "apps": {
+      "untitled": "Sans titre",
+      "last_seen": "Dernière consultation",
+      "contacts": {
+        "title": "Contacts récemment mis à jour",
+        "empty": "Votre carnet d’adresses est vide."
+      },
+      "mail": {
+        "title": "Courriels non lus par compte",
+        "first": "Ouvrez Courriel pour afficher ici le nombre de messages non lus dans chaque boîte de réception.",
+        "empty": "Aucun décompte des messages reçus n’est disponible.",
+        "count_one": "{{count}} message non lu",
+        "count_other": "{{count}} messages non lus",
+        "count_many": "{{count}} messages non lus"
+      },
+      "feeds": {
+        "title": "Articles non lus",
+        "empty": "Vous avez lu tous les articles de vos flux."
+      },
+      "resources": {
+        "title": "Recherches bibliographiques récentes",
+        "empty": "Vos recherches bibliographiques enregistrées apparaîtront ici.",
+        "count_one": "{{count}} résultat",
+        "count_other": "{{count}} résultats",
+        "count_many": "{{count}} résultats"
+      },
+      "notebooks": {
+        "title": "Carnets récents",
+        "empty": "Vous n’avez pas encore de carnet dans cet espace de travail.",
+        "count_one": "{{count}} source",
+        "count_other": "{{count}} sources",
+        "count_many": "{{count}} sources"
+      },
+      "planning": {
+        "title": "Vos projets",
+        "empty": "La table de projets sélectionnée est vide.",
+        "first": "Ouvrez Planification pour afficher ici les projets de la table sélectionnée.",
+        "unconfigured": "Choisissez une table de projets dans les paramètres de Planification."
+      },
+      "social": {
+        "title": "Publications programmées",
+        "empty": "Aucune publication n’était programmée lors de votre dernière consultation du calendrier éditorial.",
+        "first": "Ouvrez le calendrier éditorial des réseaux sociaux pour afficher ici les prochaines publications."
+      },
+      "media": {
+        "title": "Photos et médias récents",
+        "empty": "La photothèque était vide lors de votre dernière visite.",
+        "first": "Ouvrez la photothèque pour afficher ici les derniers fichiers modifiés."
+      },
+      "websites": {
+        "title": "Vos sites web",
+        "empty": "Ce Vault ne contenait aucun site lors de votre dernière visite.",
+        "first": "Ouvrez Sites web pour afficher ici les sites que vous gérez.",
+        "permission": "Le rôle d’éditeur est nécessaire pour gérer les sites de cet espace de travail.",
+        "count_one": "{{count}} page",
+        "count_other": "{{count}} pages",
+        "count_many": "{{count}} pages"
+      },
+      "automations": {
+        "title": "Prochaines exécutions programmées",
+        "empty": "Aucune exécution d’automatisation n’est prévue."
+      },
+      "control": {
+        "title": "État du système",
+        "service": "Service Gnosi",
+        "online": "En ligne",
+        "configured": "Configuré",
+        "unconfigured": "En attente de configuration",
+        "access": "Connexion",
+        "signin": "Obligatoire",
+        "local": "Facultative"
+      },
+      "settings": {
+        "title": "Raccourcis clavier",
+        "empty": "Aucun raccourci d’application n’est attribué.",
+        "edit": "Modifier les raccourcis"
+      },
+      "assistant": {
+        "title": "Conversations récentes",
+        "empty": "Les conversations de cet appareil apparaîtront ici."
+      },
+      "bookmarks": {
+        "title": "Favoris récents",
+        "first": "Ouvrez Connaissances pour charger vos favoris sur cet appareil.",
+        "empty": "Vous n’avez pas encore enregistré de favoris.",
+        "saved": "Dernière synchronisation avec Connaissances sur cet appareil."
+      }
+    }
+  },
   "home": {
     "subtitle": "Votre écosystème de connaissances",
     "module_graph_title": "Graphe de connaissances",

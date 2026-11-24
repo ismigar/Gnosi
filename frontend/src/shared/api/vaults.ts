@@ -4,7 +4,7 @@ import { bootstrapQueryKeys } from './bootstrap-query-keys';
 import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
-import type { RequestContext } from './request-context';
+import { currentRequestContext, requestContextHeaders, type RequestContext } from './request-context';
 
 export {
   bulkApplyVaultTemplate,
@@ -140,15 +140,17 @@ export async function deleteVaultDatabase(
 export async function fetchVaultTables(
   databaseId?: string,
   signal?: AbortSignal,
+  context = currentRequestContext(),
 ): Promise<VaultRegistryRecord[]> {
   return fetchCachedQuery({
-    queryKey: bootstrapQueryKeys.vaultTables(databaseId),
+    queryKey: bootstrapQueryKeys.vaultTables(databaseId, context),
     signal,
     // Share overlapping reads (including StrictMode remounts), but always
     // revalidate a later visit so edits and external vault changes are visible.
     staleTime: 0,
     queryFn: async (sharedSignal) => unwrapApiResult<VaultRegistryRecord[], unknown>(
       await apiClient.GET('/api/vault/tables', {
+        headers: requestContextHeaders(context),
         params: { query: { database_id: databaseId } },
         signal: sharedSignal,
       }),
@@ -225,9 +227,11 @@ export async function patchVaultTableProperty(
 export async function fetchVaultPages(
   query: VaultPagesQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultPageSummary[]> {
   return unwrapApiResult<VaultPageSummary[], unknown>(
     await apiClient.GET('/api/vault/pages', {
+      headers: requestContextHeaders(context),
       params: { query },
       signal,
     }),
@@ -237,26 +241,37 @@ export async function fetchVaultPages(
 
 export async function fetchVaultSidebarSummary(
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultSidebarPageSummary[]> {
-  const pages = await fetchCachedQuery({
+  const load = async (requestSignal?: AbortSignal) => unwrapApiResult<VaultSidebarTreePage[], unknown>(
+    await apiClient.GET('/api/vault/sidebar/tree', { signal: requestSignal, headers: requestContextHeaders(context) }),
+  );
+  // Callers owning an explicit account scope also own cancellation and caching.
+  const pages = context ? await load(signal) : await fetchCachedQuery({
     queryKey: bootstrapQueryKeys.vaultSidebar(),
     signal,
-    // Route transitions can remount Knowledge consumers sequentially after the
-    // first promise has settled. Reuse the immutable projection briefly instead
-    // of downloading the complete tree again.
     staleTime: 15_000,
-    queryFn: async (sharedSignal) => unwrapApiResult<VaultSidebarTreePage[], unknown>(
-      await apiClient.GET('/api/vault/sidebar/tree', { signal: sharedSignal }),
-    ),
+    queryFn: load,
   });
-  return pages.map((page) => ({
+  return pages.map(sidebarSummary);
+}
+
+function sidebarSummary(page: VaultSidebarTreePage): VaultSidebarPageSummary {
+  return {
     ...page,
     parent_id: page.parent_id ?? null,
     is_database: page.is_database ?? false,
     metadata: page.metadata ?? {},
     folder: page.folder ?? '',
     resolved_table_id: page.resolved_table_id ?? null,
+  };
+}
+
+export async function fetchHomeKnowledgeCatalog(signal: AbortSignal, scope: RequestContext) {
+  const result = unwrapApiResult(await apiClient.GET('/api/vault/home-knowledge-catalog', {
+    signal, headers: requestContextHeaders(scope),
   }));
+  return { complete: result.complete, pages: result.pages.map(sidebarSummary) };
 }
 
 
@@ -274,12 +289,7 @@ export async function fetchVaultPage(
     await apiClient.GET('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
       signal,
-      headers: context ? {
-        'X-Vault-ID': context.vaultId,
-        'X-Workspace-ID': context.workspaceId,
-        'X-User-ID': context.userId,
-        'X-User-Email': context.userEmail,
-      } : undefined,
+      headers: requestContextHeaders(context),
     }),
   );
 }
@@ -289,17 +299,20 @@ export async function fetchVaultPagesByTable(
   tableId: string,
   query: VaultTablePagesQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultPageSummary[]> {
-  return fetchCachedQuery({
+  const load = async (requestSignal?: AbortSignal) => unwrapApiResult<VaultPageSummary[], unknown>(
+    await apiClient.GET('/api/vault/pages/by-table/{table_id}', {
+      params: { path: { table_id: tableId }, query },
+      signal: requestSignal,
+      headers: requestContextHeaders(context),
+    }),
+  );
+  return context ? load(signal) : fetchCachedQuery({
     queryKey: bootstrapQueryKeys.vaultTablePages(tableId, query),
     signal,
     staleTime: 0,
-    queryFn: async (sharedSignal) => unwrapApiResult<VaultPageSummary[], unknown>(
-      await apiClient.GET('/api/vault/pages/by-table/{table_id}', {
-        params: { path: { table_id: tableId }, query },
-        signal: sharedSignal,
-      }),
-    ),
+    queryFn: load,
   });
 }
 
@@ -308,13 +321,16 @@ export async function fetchVaultPageReferencesByTable(
   tableId: string,
   query: VaultTablePagesQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultPageReference[]> {
+  const queryKey = bootstrapQueryKeys.vaultTablePageReferences(tableId, query);
   return fetchCachedQuery({
-    queryKey: bootstrapQueryKeys.vaultTablePageReferences(tableId, query),
+    queryKey: context ? [...queryKey, context] : queryKey,
     signal,
     staleTime: 0,
     queryFn: async (sharedSignal) => unwrapApiResult<VaultPageReference[], unknown>(
       await apiClient.GET('/api/vault/pages/by-table/{table_id}/references', {
+        headers: requestContextHeaders(context),
         params: { path: { table_id: tableId }, query },
         signal: sharedSignal,
       }),

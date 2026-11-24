@@ -1,5 +1,6 @@
 import type { CalendarEntry, EventAttendee, EventMetadata } from './calendarTypes';
 import type { VaultPage, VaultPageMutation, VaultPageSummary } from '../../../../shared/api/vaults';
+import { dateBoundary, unifiedDate } from '../../../../shared/dates/unifiedDate';
 
 export function record(value: unknown): Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : {};
@@ -32,6 +33,12 @@ export function eventMetadata(value: unknown): EventMetadata {
     if ('exdates' in raw) result.exdates = typeof raw.exdates === 'string' ? raw.exdates : stringList(raw.exdates);
     for (const key of ['all_day', 'readonly', '_end_exclusive'] as const) {
         if (key in raw) result[key] = Boolean(raw[key]);
+    }
+    if (raw.date && typeof raw.date === 'object' && !Array.isArray(raw.date)) {
+        const date = unifiedDate(raw.date);
+        result.date = dateBoundary(date, 'start');
+        if (date.kind === 'period') result.end_date = dateBoundary(date, 'end') || result.end_date;
+        result.all_day = !date.withTime;
     }
     for (const key of ['location_lat', 'location_lon'] as const) {
         if (key in raw) result[key] = typeof raw[key] === 'number' ? raw[key] : null;

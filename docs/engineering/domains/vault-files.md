@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-23
 source_paths:
+  - backend/domains/vault/home_canvas.py
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -73,6 +75,8 @@ tests:
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
+  - backend/tests/test_home_canvas.py
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -143,6 +147,12 @@ Complete PUT saves retain the initial conflict fast-fail and re-resolve the page
 and ETag after acquiring its write lock. A concurrent save or rename cannot make
 a previously valid revision overwrite the newer file while waiting for the lock.
 A conditional save also rejects a page deleted while it was waiting.
+
+## Personal home canvas
+
+The home layout belongs to the authenticated member in the current workspace and Vault. The client reads and saves it through `/api/vault/home-canvas`. The backend validates an opaque revision and atomically replaces the layout in `.gnosi/home/`. An absent layout uses the default blocks. Saving an empty list keeps the home empty. Existing pinned home pages remain the default destination until the member selects their canvas in Settings. Inactive plugins hide their blocks while their positions and settings are preserved. The last personally edited note and app preview timestamps are specific to the device.
+
+The Knowledge blocks select pages through `/api/vault/home-knowledge-catalog`. This reads cached navigation metadata and reports whether it covers the whole Vault. Opening Home can use locally indexed entries while other documents are offline. For the graph, `/api/vault/link-neighborhood` reads outgoing links from the center note and uses incoming links only from the active Vault’s index. The reverse index uses the same file as navigation when two files share a page ID. The block indicates when incoming links are incomplete. Reader playback uses the episode identifier from `/api/reader/podcast/info` so its resume position follows the selected file revision.
 
 ## Complete content search and composition
 

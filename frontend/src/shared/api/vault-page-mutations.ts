@@ -69,6 +69,8 @@ export async function saveVaultPage(
 export interface PageMutationOptions {
   readonly context?: RequestContext;
   readonly signal?: AbortSignal;
+  /** Interactive Knowledge also supports the anonymous, single-user desktop session. */
+  readonly allowLocalSession?: boolean;
 }
 
 export async function patchVaultPage(
@@ -96,7 +98,8 @@ export async function patchVaultPage(
             'X-Workspace-ID': context.workspaceId,
             'X-User-ID': context.userId,
             'X-User-Email': context.userEmail,
-            'X-Gnosi-Expected-User-ID': context.userId,
+            ...(options.allowLocalSession && context.userId === 'ismael-legacy' && !context.userEmail
+              ? {} : { 'X-Gnosi-Expected-User-ID': context.userId }),
           } : undefined,
         })
         .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),

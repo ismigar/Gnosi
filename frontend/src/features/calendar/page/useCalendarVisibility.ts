@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { updateCalendarSelection } from '../../../shared/api/integrations';
-import { calendarQueryKeys } from '../../../shared/api/useCalendarData';
+import { calendarPrincipalKey, calendarQueryKeys } from '../../../shared/api/useCalendarData';
 import { getActiveVaultId } from '../../../shared/api/vault-context';
 import { toast } from '../../../shared/notifications/toast';
 import type { CalendarConfig } from '../components/calendar-sidebar-right/calendarTypes';
@@ -16,7 +16,8 @@ export function useCalendarVisibility(vaultId: string, calendars: CalendarConfig
     const { t } = useTranslation();
     const client = useQueryClient();
     const [confirmed, setConfirmed] = useState<{ vaultId: string; preference: CalendarVisibility } | null>(null);
-    const mutationKey = ['calendar', vaultId, 'visibility'];
+    const principal = calendarPrincipalKey();
+    const mutationKey = ['calendar', vaultId, 'visibility', principal];
     const pendingWrites = { mutationKey, exact: true, status: 'pending' as const };
     const pending = useMutationState({ filters: pendingWrites, select: mutation => calendarVisibility(mutation.state.variables) });
     const preference = pending.at(-1) ?? (confirmed?.vaultId === vaultId ? confirmed.preference : integrations.calendar_selection) ?? SHOW_ALL;
@@ -30,8 +31,8 @@ export function useCalendarVisibility(vaultId: string, calendars: CalendarConfig
         mutationFn: (next: CalendarVisibility) => updateCalendarSelection(next),
         onSuccess: (_result, next) => {
             setIntegrations(previous => ({ ...previous, calendar_selection: next }));
-            if (getActiveVaultId() === vaultId) setConfirmed({ vaultId, preference: next });
-            const queryKey = calendarQueryKeys.localSources(vaultId);
+            if (getActiveVaultId() === vaultId && calendarPrincipalKey() === principal) setConfirmed({ vaultId, preference: next });
+            const queryKey = calendarQueryKeys.localSources(vaultId, principal);
             if (client.isFetching({ queryKey, exact: true })) {
                 void client.invalidateQueries({ queryKey, exact: true });
             }

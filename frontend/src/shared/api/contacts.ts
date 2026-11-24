@@ -1,6 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { requestContextHeaders, type RequestContext } from './request-context';
 
 export type Contact = components['schemas']['ContactResponse'];
 export type ContactWriteInput = components['schemas']['ContactWriteRequest'];
@@ -11,6 +12,8 @@ export type ContactSyncStatus =
   components['schemas']['ContactSyncStatusResponse'];
 
 export interface ContactQuery {
+  readonly limit?: number;
+  readonly sort?: 'name' | 'updated';
   readonly search?: string;
   readonly source?: string;
   readonly type?: string;
@@ -19,17 +22,21 @@ export interface ContactQuery {
 export async function fetchContacts(
   query: ContactQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<Contact[]> {
   return unwrapApiResult<Contact[], unknown>(
     await apiClient.GET('/api/contacts', {
       params: {
         query: {
+          limit: query.limit,
+          sort: query.sort,
           search: query.search,
           source: query.source,
           type: query.type,
         },
       },
       signal,
+      headers: context && requestContextHeaders(context),
     }),
   );
 }

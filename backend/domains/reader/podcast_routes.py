@@ -1,11 +1,12 @@
 """Reader podcast generation and download HTTP routes."""
 
-import os
-from pathlib import Path
-from typing import Callable, cast
+from datetime import datetime
+from typing import Annotated, Callable, cast
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi.responses import FileResponse, Response
+
+from backend.domains.reader.podcast_media import EpisodeResponse, PodcastEpisode, latest_episode, open_episode
 
 from backend.domains.reader.routing import RouteReturn, require_active_vault
 from backend.domains.reader.schemas import (
@@ -14,7 +15,11 @@ from backend.domains.reader.schemas import (
     ReaderPodcastStatusResponse,
 )
 from backend.services.plugin_access import require_plugins
-from backend.services.workspace_service import require_role
+from backend.services.workspace_service import WorkspaceContext, get_workspace_context, require_role
+
+
+PodcastContext = Annotated[WorkspaceContext, Depends(get_workspace_context)]
+OptionalPodcastContext = Annotated[WorkspaceContext | None, Depends(get_workspace_context)]
 
 
 def trigger_podcast_generation() -> RouteReturn:
@@ -50,57 +55,59 @@ def get_podcast_status() -> RouteReturn:
     }
 
 
-def get_podcast_info() -> RouteReturn:
-    """Returns information about the last generated podcast"""
-    import os
-    from datetime import datetime
-
+def _latest_for_context(context: WorkspaceContext | None) -> PodcastEpisode | None:
     from backend.services.audio_summarizer import get_podcast_output_dir
 
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    pod_dir.mkdir(parents=True, exist_ok=True)
+    directory = get_podcast_output_dir(context.vault_path) if context else get_podcast_output_dir()
+    try:
+        return latest_episode(directory)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail="Podcast storage is temporarily unavailable") from error
 
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
+
+def get_podcast_info(context: OptionalPodcastContext = None) -> RouteReturn:
+    """Read latest publication metadata without opening or hydrating any audio."""
+    episode = _latest_for_context(context)
+    if episode is None:
         return {"exists": False}
-
-    latest_file = sorted(files, reverse=True)[0]
-    # Previous bug: file_path was built using AUDIO_OUTPUT_DIR (config.paths.AUDIO)
-    # but the files lived in pod_dir → getmtime failed with FileNotFoundError.
-    file_path = os.path.join(pod_dir, latest_file)
-
-    # Get the modification date
-    mtime = os.path.getmtime(file_path)
-    dt = datetime.fromtimestamp(mtime)
+    dt = datetime.fromtimestamp(episode.metadata.st_mtime).astimezone()
 
     return {
         "exists": True,
-        "filename": latest_file,
+        "filename": episode.path.name,
+        "episode_id": episode.episode_id,
         "created_at": dt.isoformat(),
         "formatted_date": dt.strftime("%d/%m/%Y"),
         "formatted_time": dt.strftime("%H:%M"),
     }
 
 
-def get_latest_podcast() -> RouteReturn:
+def get_latest_podcast(context: OptionalPodcastContext = None) -> RouteReturn:
     """Download/Stream the most recent podcast"""
+    episode = _latest_for_context(context)
+    if episode is None:
+        raise HTTPException(status_code=404, detail="No podcasts available")
+    return FileResponse(episode.path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+
+
+def get_podcast_episode(
+    episode_id: Annotated[str, Path(pattern=r"^[a-f0-9]{64}$")], context: PodcastContext
+) -> Response:
+    """Stream the requested published file revision in the authenticated Vault.
+
+    Use the opaque episode_id from /podcast/info. Newer daily files leave retained
+    episodes playable. Removing or replacing the named revision expires its URL.
+    Byte ranges seek within this exact revision.
+    """
     from backend.services.audio_summarizer import get_podcast_output_dir
 
-    output_dir = cast(Callable[[], Path], get_podcast_output_dir)
-    pod_dir = output_dir()
-    if not os.path.exists(pod_dir):
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    files = [f for f in os.listdir(pod_dir) if f.endswith(".mp3")]
-    if not files:
-        raise HTTPException(status_code=404, detail="No podcasts available")
-
-    # Sort files by name (which contains the date format YYYY_MM_DD) to get the latest
-    latest_file = sorted(files, reverse=True)[0]
-    file_path = os.path.join(pod_dir, latest_file)
-
-    return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+    try:
+        opened = open_episode(get_podcast_output_dir(context.vault_path), episode_id)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail="Podcast storage is temporarily unavailable") from error
+    if opened is None:
+        raise HTTPException(status_code=404, detail="Podcast episode is unavailable")
+    return EpisodeResponse(*opened)
 
 
 def register_routes(router: APIRouter) -> None:
@@ -120,6 +127,21 @@ def register_routes(router: APIRouter) -> None:
         response_model_exclude_unset=True,
     )(get_podcast_info)
     router.get("/podcast/latest")(get_latest_podcast)
+    audio_content = {"audio/mpeg": {"schema": {"type": "string", "format": "binary"}}}
+    router.get(
+        "/podcast/episodes/{episode_id}",
+        response_class=Response,
+        responses={
+            200: {"description": "The published audio revision", "content": audio_content},
+            206: {"description": "Requested byte range(s) of the published revision", "content": {
+                **audio_content, "multipart/byteranges": {"schema": {"type": "string", "format": "binary"}},
+            }},
+            400: {"description": "Malformed byte range"},
+            404: {"description": "Unknown, removed or replaced episode in this Vault"},
+            416: {"description": "Unsatisfiable or excessive byte ranges"},
+            503: {"description": "Podcast storage is temporarily unavailable"},
+        },
+    )(get_podcast_episode)
 
 
 __all__ = [

@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-23
 source_paths:
+  - backend/domains/vault/home_canvas.py
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -73,6 +75,8 @@ tests:
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
+  - backend/tests/test_home_canvas.py
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -140,6 +144,12 @@ Un changement explicite du titre d’un enregistrement met à jour le titre cano
 L’enregistrement automatique sérialise les écritures de page dans le client web. Une version obsolète renvoie un conflit (409), et non une erreur de page introuvable (404), même lorsque la lecture conditionnelle omet le corps. Les pages inexistantes renvoient toujours 404 ; les conflits ne remplacent jamais silencieusement un contenu plus récent.
 
 Les sauvegardes complètes par PUT conservent la détection initiale des conflits et résolvent à nouveau la page et l’ETag après acquisition du verrou d’écriture. Une sauvegarde ou un renommage concurrent ne peut écraser une version plus récente pendant l’attente du verrou. Une sauvegarde conditionnelle rejette aussi une page supprimée pendant l’attente.
+
+## Espace d’accueil personnel
+
+La disposition de l’accueil appartient au membre authentifié dans le Vault et l’espace de travail actifs. Le client la lit et l’enregistre via `/api/vault/home-canvas`. Le backend valide une révision opaque puis remplace la disposition de manière atomique dans `.gnosi/home/`. En l’absence de disposition enregistrée, les blocs par défaut apparaissent. Enregistrer une liste vide conserve un accueil vide. La page épinglée reste la destination par défaut jusqu’à ce que le membre choisisse son espace de blocs dans les réglages. Les blocs des extensions inactives sont masqués et conservent leur position et leurs réglages. La dernière note modifiée par le membre et les dates de consultation des applications sont propres à l’appareil.
+
+Les blocs de connaissances sélectionnent les pages via `/api/vault/home-knowledge-catalog`. Cette requête lit les métadonnées de navigation en cache et indique si elles couvrent tout le Vault. L’accueil peut afficher les entrées indexées sur l’appareil lorsque d’autres documents sont hors ligne. Pour le graphe, `/api/vault/link-neighborhood` lit les liens sortants de la note centrale et consulte les liens entrants dans l’index du Vault actif. Lorsque deux fichiers partagent le même identifiant de page, l’index des liens entrants retient le même fichier que la navigation. Le bloc signale quand ces liens sont incomplets. Le Lecteur utilise l’identifiant d’épisode fourni par `/api/reader/podcast/info` et associe la position de reprise à cette version du fichier.
 
 ## Recherche du contenu complet et composition
 

@@ -8,11 +8,12 @@ import { toast } from '../../shared/notifications/toast';
 import { logError } from '../../shared/notifications/notifyError';
 import { getIntlLocale } from '../../shared/i18n/locales/registry';
 import { usePlugins } from '../../shared/plugins/usePlugins';
+import { useRequestContext } from '../../shared/hooks/useRequestContext';
+import type { RequestContext } from '../../shared/api/request-context';
 import {
     fetchReaderArticle,
     fetchReaderPodcastStatus,
     generateReaderPodcast,
-    readerPodcastUrl,
     type ReaderArticle,
     type ReaderSource,
 } from '../../shared/api/reader';
@@ -38,6 +39,11 @@ const EMPTY_ARTICLES: readonly ReaderArticle[] = Object.freeze([]);
 const EMPTY_SOURCES: readonly ReaderSource[] = Object.freeze([]);
 
 export default function ReaderDashboard() {
+    const context = useRequestContext();
+    return <ReaderDashboardContent key={JSON.stringify(context)} context={context} />;
+}
+
+function ReaderDashboardContent({ context }: { readonly context: RequestContext }) {
     const { t, i18n } = useTranslation();
     const { isEnabled } = usePlugins();
     const podcastEnabled = isEnabled('ai-platform');
@@ -46,7 +52,6 @@ export default function ReaderDashboard() {
     const [selectedArticleIsSummary, setSelectedArticleIsSummary] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
-    const [generatedPodcastUrl, setGeneratedPodcastUrl] = useState<string | null>(null);
     const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
     const readingIds = useRef(new Set<number>());
     const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<string>>(
@@ -55,6 +60,7 @@ export default function ReaderDashboard() {
     const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
     const [podcastProgress, setPodcastProgress] = useState('');
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const mounted = useRef(true);
     const sourcesQuery = useReaderSources();
     const articlesQuery = useReaderArticles({
         includeContent: false,
@@ -68,9 +74,6 @@ export default function ReaderDashboard() {
     const articles = articlesQuery.data ?? EMPTY_ARTICLES;
     const inventory = inventoryQuery.data;
     const podcastInfo = podcastInfoQuery.data?.exists ? podcastInfoQuery.data : null;
-    const podcastUrl = podcastEnabled
-        ? generatedPodcastUrl ?? (podcastInfo ? readerPodcastUrl() : null)
-        : null;
 
     useEffect(() => {
         const canonicalMatch = window.location.pathname.match(
@@ -117,8 +120,12 @@ export default function ReaderDashboard() {
         }]);
     }, [t]);
 
-    useEffect(() => () => {
-        if (pollingRef.current) clearInterval(pollingRef.current);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
     }, []);
 
     const handleOpenArticle = (article: ReaderArticle): void => {
@@ -144,7 +151,8 @@ export default function ReaderDashboard() {
 
     const pollPodcastStatus = async (): Promise<void> => {
         try {
-            const status = await fetchReaderPodcastStatus();
+            const status = await fetchReaderPodcastStatus(context);
+            if (!mounted.current) return;
             setPodcastProgress(status.progress || '');
             if (status.running) return;
             stopPodcastGeneration();
@@ -167,7 +175,6 @@ export default function ReaderDashboard() {
                 toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${errorMessage}`);
             }
             else if (status.result_filename) {
-                setGeneratedPodcastUrl(readerPodcastUrl(Date.now()));
                 await podcastInfoQuery.refetch();
             }
         } catch (error: unknown) {
@@ -180,11 +187,13 @@ export default function ReaderDashboard() {
         setPodcastProgress(t('reader_podcast_starting'));
         try {
             const generation = await generateReaderPodcast();
+            if (!mounted.current) return;
             if (generation.status === 'already_running') {
                 setPodcastProgress(generation.progress || t('reader_podcast_in_progress'));
             }
             pollingRef.current = setInterval(() => { void pollPodcastStatus(); }, 5_000);
         } catch (error: unknown) {
+            if (!mounted.current) return;
             toast.error(t('reader_podcast_error'));
             logError('reader-podcast-generate', error);
             stopPodcastGeneration();
@@ -262,8 +271,8 @@ export default function ReaderDashboard() {
                 onToggleCategory={handleToggleCategory}
                 podcastEnabled={podcastEnabled}
                 podcastInfo={podcastInfo}
+                onRefreshPodcast={() => { void podcastInfoQuery.refetch(); }}
                 podcastProgress={podcastProgress}
-                podcastUrl={podcastUrl}
                 selectedSourceId={selectedSourceId}
                 sourceCount={sources.length}
                 unreadCount={inventory?.count ?? 0}

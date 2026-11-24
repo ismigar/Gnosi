@@ -3,6 +3,7 @@ import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { assertApiSuccess, unwrapApiResult } from './errors';
 import type { RequestContext } from './request-context';
+import { APP_PREVIEW_LIMIT, rememberAppPreview } from './app-previews';
 
 type Identified<T> = Omit<T, 'id'> & { id: string };
 export type SiteSource = Omit<Identified<components['schemas']['SiteSource']>, 'page_size' | 'show_tag_filter'> & { page_size?: number; show_tag_filter?: boolean };
@@ -70,7 +71,11 @@ function scope(context: RequestContext, signal?: AbortSignal) {
   return { signal, headers: { 'X-Vault-ID': context.vaultId, 'X-Workspace-ID': context.workspaceId, 'X-User-ID': context.userId, 'X-User-Email': context.userEmail } };
 }
 export async function listSites(context: RequestContext, signal?: AbortSignal) {
-  return unwrapApiResult(await apiClient.GET('/api/vault/sites', scope(context, signal))).map(configuration);
+  const sites = unwrapApiResult(await apiClient.GET('/api/vault/sites', scope(context, signal))).map(configuration);
+  if (!signal?.aborted) rememberAppPreview('websites', context, sites.slice(0, APP_PREVIEW_LIMIT).map(site => ({
+    id: site.id, title: site.name, count: site.pages?.length,
+  })));
+  return sites;
 }
 export async function createSite(name: string, importPilot: boolean, context: RequestContext, signal?: AbortSignal) {
   return configuration(unwrapApiResult(await apiClient.POST('/api/vault/sites', { body: { name, import_pilot: importPilot }, ...scope(context, signal) })));

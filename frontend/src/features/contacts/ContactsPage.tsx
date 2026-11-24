@@ -45,7 +45,10 @@ function describeError(error: unknown): string {
 /** Coordinate the contact master list, details, and editor panes. */
 export default function ContactsPage() {
   const { t } = useTranslation();
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selection, setSelection] = useState<{ id: string; contact: Contact | null } | null>(() => {
+    const id = new URLSearchParams(window.location.search).get('contact');
+    return id ? { id, contact: null } : null;
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<ContactQuery>({ search: '', type: '' });
@@ -63,8 +66,9 @@ export default function ContactsPage() {
     [integrationsQuery.data],
   );
   const contacts = contactsQuery.data ?? [];
-  const displayedContact = contacts.find((contact) => contact.id === selectedContact?.id)
-    ?? selectedContact;
+  const selectedContact = contacts.find(contact => contact.id === selection?.id) ?? selection?.contact ?? null;
+  const displayedContact = selectedContact;
+  const setSelectedContact = (contact: Contact | null): void => { setSelection(contact ? { id: contact.id, contact } : null); };
   const hasActivePane = isEditing || selectedContact !== null;
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
+import { requestContextHeaders, type RequestContext } from './request-context';
 import { unwrapApiResult, type ApiResult } from './errors';
 
 
@@ -81,11 +82,13 @@ export async function patchEmbeddedVaultPageMetadata(
 export async function fetchPageViews(
   pageId: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<PageViewsResponse> {
   const payload = unwrapJsonRecord(
     await apiClient.GET('/api/pages/{page_id}/views', {
       params: { path: { page_id: pageId } },
       signal,
+      headers: requestContextHeaders(context),
     }),
     'page views',
   );
@@ -122,11 +125,13 @@ export async function upsertPageView(
 export async function fetchVaultViews(
   tableId?: string,
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<VaultView[]> {
   return unwrapApiResult<VaultView[], unknown>(
     await apiClient.GET('/api/vault/views', {
       params: { query: { table_id: tableId } },
       signal,
+      headers: requestContextHeaders(context),
     }),
   );
 }

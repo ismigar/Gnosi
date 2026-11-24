@@ -141,11 +141,11 @@ def test_decorate_is_idempotent():
 
 def test_agent_text_snapshot_expands_relation_ids_to_titles(monkeypatch):
     subject_id = "subject"
-    monkeypatch.setattr(vr, "_link_index_built", True)
-    monkeypatch.setattr(vr, "_tokens_by_source", {subject_id: frozenset({"practice"})})
-    monkeypatch.setattr(vr, "_outlinks_by_source", {subject_id: {RID}})
-    monkeypatch.setattr(vr, "_page_meta_by_id", {RID: {"title": "Coaching course"}})
-    monkeypatch.setattr(vr, "_link_index_build_ts", 123.0)
+    monkeypatch.setattr(vr.link_index_state, "built", True)
+    monkeypatch.setattr(vr.link_index_state, "tokens_by_source", {subject_id: frozenset({"practice"})})
+    monkeypatch.setattr(vr.link_index_state, "outlinks_by_source", {subject_id: {RID}})
+    monkeypatch.setattr(vr.link_index_state, "page_meta_by_id", {RID: {"title": "Coaching course"}})
+    monkeypatch.setattr(vr.link_index_state, "build_ts", 123.0)
 
     snapshot, built_at = vr.get_link_index_terms([subject_id])
 
@@ -197,10 +197,10 @@ def vault(tmp_path: Path) -> Path:
 @pytest.fixture()
 def warm_index(monkeypatch):
     """Simulates the warm link index with two known titles."""
-    monkeypatch.setattr(vr, "_link_index_built", True)
+    monkeypatch.setattr(vr.link_index_state, "built", True)
     monkeypatch.setattr(
-        vr,
-        "_page_meta_by_id",
+        vr.link_index_state,
+        "page_meta_by_id",
         {
             RID: {"title": TITLE, "path": "x"},
             RID2: {"title": TITLE2, "path": "y"},
@@ -246,7 +246,7 @@ def test_save_decorates_and_parse_strips(vault: Path, warm_index, relation_table
 
 
 def test_save_with_cold_index_keeps_bare_ids(vault: Path, relation_table, monkeypatch):
-    monkeypatch.setattr(vr, "_link_index_built", False)
+    monkeypatch.setattr(vr.link_index_state, "built", False)
     f = vault / "recurs.md"
     save_page_md(f, {"id": PAGE_ID, "table_id": TABLE_ID, "title": "Recurs",
                      "Àrees": [RID]}, "cos")

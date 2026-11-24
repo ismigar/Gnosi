@@ -171,6 +171,13 @@ class SidebarTreePageInfo(BaseModel):
     resolved_table_id: Optional[str] = None
 
 
+class HomeKnowledgeCatalog(BaseModel):
+    """Cached navigation rows and their full-Vault coverage."""
+
+    pages: list[SidebarTreePageInfo]
+    complete: bool
+
+
 class TablePagesSnapshot(BaseModel):
     table_id: str
     raw_count: int

@@ -327,6 +327,7 @@ _LINK_INDEX_DEPENDENCIES = _legacy.link_index_service.LinkIndexDependencies(
     write_json=_legacy.safe_write_json,
     iter_documents=_iter_linkable_page_documents,
     current_vault_key=_current_vault_key,
+    indexed_path=_legacy.path_resolver.find_path,
     get_body=_get_body_for_path,
     is_dashboard=_legacy._is_dashboard_file_path,
     read_dashboard=_legacy._read_dashboard_file,

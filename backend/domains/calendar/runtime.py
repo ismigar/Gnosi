@@ -16,6 +16,7 @@ from backend.services.calendar_event_aggregation import (
     CalendarAccountEvents,
 )
 from backend.domains.calendar.timing import calendar_phase
+from backend.domains.calendar.cache_scope import scoped_calendar_key
 
 JsonObject = dict[str, object]
 
@@ -38,6 +39,15 @@ def default_range() -> tuple[str, str]:
         (now - timedelta(days=30)).isoformat(),
         (now + timedelta(days=90)).isoformat(),
     )
+
+
+def is_agenda_range(time_min: str, time_max: str) -> bool:
+    """Civil days can span 23, 24 or 25 hours through a clock change."""
+    try:
+        lower, upper = (datetime.fromisoformat(value.replace("Z", "+00:00")) for value in (time_min, time_max))
+        return lower.tzinfo is not None and upper.tzinfo is not None and timedelta(0) < upper - lower <= timedelta(hours=25)
+    except ValueError:
+        return False
 
 
 def account_emails(integrations: Mapping[str, object], email: str | None) -> list[str]:
@@ -69,7 +79,7 @@ def load_calendars(
     pending_accounts: list[str] = []
     now = time.time()
     for email in email_list:
-        cached = CALENDARS_CACHE.get(email)
+        cached = CALENDARS_CACHE.get(scoped_calendar_key(email))
         if cached and now < cached[0]:
             calendars_by_account[email] = cached[1]
         else:
@@ -83,7 +93,7 @@ def load_calendars(
             auth_errors.append(result.email)
         elif result.succeeded:
             calendars = [dict(calendar) for calendar in result.calendars]
-            CALENDARS_CACHE[result.email] = (
+            CALENDARS_CACHE[scoped_calendar_key(result.email)] = (
                 time.time() + CALENDARS_CACHE_TTL,
                 calendars,
             )
@@ -112,12 +122,16 @@ def collect_events(
     ],
     hidden_ids_loader: Callable[[], set[str]],
     vault_events_loader: Callable[[str, str, str | None], list[JsonObject]],
+    *,
+    expand_instances: bool = False,
 ) -> list[JsonObject]:
     events: list[JsonObject] = []
     pending: list[tuple[str, str]] = []
     now = time.time()
     for email in email_list:
-        cache_key = f"{email}|{time_min}|{time_max}|{search}|{calendar_id}"
+        cache_key = scoped_calendar_key(f"{email}|{time_min}|{time_max}|{search}|{calendar_id}")
+        if expand_instances:
+            cache_key += "|instances"
         cached = EVENTS_CACHE.get(cache_key)
         if cached and now < cached[0]:
             events.extend(cached[1])

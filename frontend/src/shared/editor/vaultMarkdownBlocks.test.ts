@@ -53,3 +53,26 @@ describe('parseVaultMarkdownBlocks', () => {
     ]);
   });
 });
+
+it('preserves fenced directive examples inside callouts and subsequent sibling text', () => {
+  const blocks = parseVaultMarkdownBlocks([':::callout{type=warning}', '```md', ':::column', ':::', '```',
+    ':::', 'After', ':::column-list', ':::column {width=2}', 'Left', ':::', ':::column', 'Right', ':::', ':::'].join('\n'));
+  expect(blocks).toMatchObject([
+    { type: 'callout', tone: 'warning', children: [{ type: 'markdown', content: '```md\n:::column\n:::\n```' }] },
+    { type: 'markdown', content: 'After' },
+    { type: 'column-list', children: [{ type: 'column', width: 2 }, { type: 'column', width: 1 }] },
+  ]);
+});
+
+it('removes editor indentation from structural children without flattening lists or literal code examples', () => {
+  const body = [':::column-list', ':::column', '  ## Heading', '    **Rich text**', '    - Parent', '      - Child',
+    '    ```md', '    :::callout{type=info}', '      code', '    :::', '    ```', ':::', ':::'].join('\n');
+  expect(parseVaultMarkdownBlocks(body)).toMatchObject([{ type: 'column-list', children: [
+    { type: 'column', children: [{ type: 'markdown', content: '## Heading\n**Rich text**\n- Parent\n  - Child\n```md\n:::callout{type=info}\n  code\n:::\n```' }] },
+  ] }]);
+});
+
+it('keeps literal indented directive examples outside containers', () => {
+  const code = '    :::column\n    literal\n    :::';
+  expect(parseVaultMarkdownBlocks(code)).toEqual([{ type: 'markdown', content: code }]);
+});

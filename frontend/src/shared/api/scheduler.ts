@@ -1,5 +1,6 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
+import { requestContextHeaders, type RequestContext } from './request-context';
 import { unwrapApiResult } from './errors';
 
 
@@ -25,9 +26,9 @@ export interface SchedulerHistoryQuery {
 }
 
 
-export async function fetchScheduledTasks(): Promise<ScheduledTask[]> {
+export async function fetchScheduledTasks(signal?: AbortSignal, context?: RequestContext): Promise<ScheduledTask[]> {
   return unwrapApiResult<ScheduledTask[], unknown>(
-    await apiClient.GET('/api/schedulers'),
+    await apiClient.GET('/api/schedulers', { signal, headers: context && requestContextHeaders(context) }),
   );
 }
 

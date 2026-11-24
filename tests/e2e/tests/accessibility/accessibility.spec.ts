@@ -31,7 +31,7 @@ const ENABLED_BUILTIN_PLUGINS = [
 
 // Actual feature surfaces, not the common shell or a disabled-plugin fallback.
 const ROUTE_SURFACES: Record<string, { suffix: string; selector: string }> = {
-  '/': { suffix: '/', selector: '[data-testid="home-settings-card"]' },
+  '/': { suffix: '/', selector: '[data-testid="home-canvas"]' },
   '/vault': { suffix: '/knowledge', selector: '.vault-shell__main' },
   '/graph': { suffix: '/graph', selector: '#sigma-container' },
   '/contacts': { suffix: '/contacts', selector: '.contacts-split' },
@@ -178,7 +178,7 @@ test.describe('keyboard, focus, names, and live-region contracts', () => {
 
   test('cancelable dialog traps focus, closes with Escape, and restores the opener', async ({ page }) => {
     await openStableRoute(page, '/');
-    const opener = page.getByTestId('home-settings-card');
+    const opener = page.locator('#gnosi-global-navigation').getByRole('button', { name: /^(settings|configuraci[óo]n?|paramètres|ajustos)$/i });
     await opener.click();
 
     const dialog = page.getByRole('dialog');

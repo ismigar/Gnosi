@@ -5557,6 +5557,186 @@
     "remove_dependency": "Remove dependency",
     "remove_dependency_hint": "Task dates will be preserved. You can undo this change."
   },
+  "home_canvas": {
+    "window_title": "Gnosi — Your knowledge system",
+    "board": "Knowledge dashboard",
+    "agenda": "Today’s agenda",
+    "graph": "Note connections",
+    "audio": "Daily audio",
+    "open_app": "Open {{app}}",
+    "edit": "Edit home",
+    "add": "Add a block",
+    "catalog": "Available blocks",
+    "empty": "Your canvas has no visible blocks yet.",
+    "add_named": "Add {{title}}",
+    "already_added": "{{title}} is already on your home",
+    "added": "Block added",
+    "saving": "Saving…",
+    "saved": "Home saved",
+    "width_named": "Width of {{title}}",
+    "columns_1": "1 column",
+    "columns_2": "2 columns",
+    "columns_3": "3 columns",
+    "earlier": "Move {{title}} earlier",
+    "later": "Move {{title}} later",
+    "remove_named": "Remove {{title}} from home",
+    "move_named": "Move {{title}}",
+    "drag_help": "Press Space to pick up a block, use the arrow keys to move it, and press Space to place it.",
+    "drag_start": "Moving block",
+    "drag_position": "Position {{position}}",
+    "drag_end": "Block placed",
+    "moved": "Moved to position {{position}}",
+    "choose_vault": "Select a Vault to open your home.",
+    "load_error": "The home layout could not be loaded.",
+    "save_error": "Your changes could not be saved. Try again.",
+    "conflict": "Another session changed this home. You can load the saved version to replace this draft.",
+    "load_saved": "Load saved version",
+    "block_error": "This block could not be displayed.",
+    "retry": "Try again",
+    "start_label": "Home screen for this Vault",
+    "start_help": "Choose what opens when you start Gnosi or click the G in the sidebar. A Vault without a pinned home page opens your canvas.",
+    "follow_page": "Pinned Vault home page, when available",
+    "personal_canvas": "My block canvas",
+    "knowledge": {
+      "board": "Knowledge dashboard",
+      "both": "Linked in both directions",
+      "center": "Central note",
+      "emptyBoard": "This dashboard is empty.",
+      "failed": "Could not load this content.",
+      "find": "Filter by name",
+      "incoming": "Links to the central note",
+      "lastEdited": "My last edited note",
+      "map": "Notes linked to {{title}}",
+      "missingBoard": "This dashboard is unavailable. Choose another in edit mode.",
+      "missingNote": "The pinned note is unavailable. Choose another in edit mode.",
+      "missingSection": "This section is unavailable. Choose another in edit mode.",
+      "noBoards": "This Vault has no dashboards.",
+      "noEdits": "Edit a note on this device or pin one in edit mode.",
+      "noLinks": "This note has no linked notes.",
+      "noMatches": "No records match this view.",
+      "noNotes": "This Vault has no notes to show.",
+      "outgoing": "Linked from the central note",
+      "record": "Record",
+      "section": "Section",
+      "showing": "Showing {{shown}} of {{total}} records.",
+      "unavailable": "Unavailable",
+      "view": "Saved view",
+      "wholeBoard": "Whole dashboard",
+      "firstBoard": "First available dashboard",
+      "recentVault": "Most recently modified note in this Vault",
+      "incomingPending": "Some links to this note may be missing until this Vault’s link index is ready.",
+      "catalogPending": "The list of notes and dashboards in this Vault is still incomplete.",
+      "openKnowledge": "Open Knowledge",
+      "recentIndexed": "Most recently modified note in the available list",
+      "partialView": "Some matching records may still be missing from this view."
+    },
+    "day": {
+      "select_vault": "Select a Vault to see this block.",
+      "open_date": "Open the calendar for {{date}}",
+      "now": "Now",
+      "next": "Up next",
+      "agenda_empty": "No events today.",
+      "agenda_done": "No more events today.",
+      "no_calendars": "No calendars are currently visible.",
+      "agenda_error": "The agenda could not be loaded.",
+      "agenda_partial": "Some calendars could not be loaded.",
+      "retry_agenda": "Reload the agenda",
+      "audio_empty": "There is no daily episode yet.",
+      "audio_error": "Episode information could not be loaded.",
+      "retry_audio": "Reload episode information",
+      "generating": "Preparing an episode…",
+      "generation_progress": "{{done}} of {{total}}",
+      "generation_failed": "The last attempt to generate an episode failed.",
+      "episode_date": "Episode from {{date}}",
+      "resume": "Resume at {{position}}",
+      "playback_error": "This episode is currently unavailable.",
+      "open_reader": "Open Reader"
+    },
+    "apps": {
+      "untitled": "Untitled",
+      "last_seen": "Last checked",
+      "contacts": {
+        "title": "Recently updated contacts",
+        "empty": "Your address book is empty."
+      },
+      "mail": {
+        "title": "Unread mail by account",
+        "first": "Open Mail to see the latest unread counts for your inboxes here.",
+        "empty": "No inbox counts have been received.",
+        "count_one": "{{count}} unread message",
+        "count_other": "{{count}} unread messages"
+      },
+      "feeds": {
+        "title": "Unread articles",
+        "empty": "You have read all your feed articles."
+      },
+      "resources": {
+        "title": "Recent literature searches",
+        "empty": "Your saved literature searches will appear here.",
+        "count_one": "{{count}} result",
+        "count_other": "{{count}} results"
+      },
+      "notebooks": {
+        "title": "Recent notebooks",
+        "empty": "You do not have any notebooks in this workspace yet.",
+        "count_one": "{{count}} source",
+        "count_other": "{{count}} sources"
+      },
+      "planning": {
+        "title": "Your projects",
+        "empty": "The selected project table is empty.",
+        "first": "Open Planning to see projects from the selected table here.",
+        "unconfigured": "Choose a project table in Planning settings."
+      },
+      "social": {
+        "title": "Scheduled posts",
+        "empty": "There were no scheduled posts when you last opened the content calendar.",
+        "first": "Open the social content calendar to see its next scheduled posts here."
+      },
+      "media": {
+        "title": "Recent photos and media",
+        "empty": "The photo library was empty on your last visit.",
+        "first": "Open the photo library to see its most recently modified files here."
+      },
+      "websites": {
+        "title": "Your websites",
+        "empty": "There were no websites in this Vault on your last visit.",
+        "first": "Open Websites to see the sites you manage here.",
+        "permission": "Website management requires an editor role in this workspace.",
+        "count_one": "{{count}} page",
+        "count_other": "{{count}} pages"
+      },
+      "automations": {
+        "title": "Next scheduled runs",
+        "empty": "No automation has an upcoming run."
+      },
+      "control": {
+        "title": "System status",
+        "service": "Gnosi service",
+        "online": "Online",
+        "configured": "Configured",
+        "unconfigured": "Awaiting configuration",
+        "access": "Sign-in",
+        "signin": "Required",
+        "local": "Optional"
+      },
+      "settings": {
+        "title": "Keyboard shortcuts",
+        "empty": "No application shortcuts are assigned.",
+        "edit": "Edit shortcuts"
+      },
+      "assistant": {
+        "title": "Recent conversations",
+        "empty": "Conversations from this device will appear here."
+      },
+      "bookmarks": {
+        "title": "Recent bookmarks",
+        "first": "Open Knowledge to load your bookmarks on this device.",
+        "empty": "You have not saved any bookmarks yet.",
+        "saved": "Last synchronized with Knowledge on this device."
+      }
+    }
+  },
   "home": {
     "subtitle": "Your knowledge ecosystem",
     "module_graph_title": "Knowledge Graph",

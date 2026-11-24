@@ -32,9 +32,10 @@ def _primary_vault(vault_path: Path | str | None = None) -> Path:
     return Path(cast(str | Path, configured))
 
 
-def literature_dir(vault_path: Path | str | None = None) -> Path:
+def literature_dir(vault_path: Path | str | None = None, *, create: bool = True) -> Path:
     root = _primary_vault(vault_path) / ".gnosi" / "literature"
-    root.mkdir(parents=True, exist_ok=True)
+    if create:
+        root.mkdir(parents=True, exist_ok=True)
     return root
 
 

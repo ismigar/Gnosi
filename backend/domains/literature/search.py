@@ -561,7 +561,7 @@ def append_search_ai_audit(
 
 
 def list_searches(vault_path: Path | str, limit: int = 50) -> list[dict[str, Any]]:
-    directory = literature_dir(vault_path) / "searches"
+    directory = literature_dir(vault_path, create=False) / "searches"
     rows: list[dict[str, Any]] = []
     for path in (
         sorted(directory.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True)[

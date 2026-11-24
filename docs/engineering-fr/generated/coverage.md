@@ -8,16 +8,16 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 951 | 346 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1163 | 339 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 547 | 182 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 962 | 349 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1197 | 346 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 550 | 183 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 70 | 42 | 0 |
 | `genograms` | **covered** | [`Genograms`](../domains/genograms.md) | 30 | 7 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 146 | 59 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 369 | 152 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 147 | 60 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 370 | 152 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 108 | 66 | 0 |
-| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 108 | 49 | 0 |
+| `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 113 | 50 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 74 | 24 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 350 | 130 | 0 |
@@ -35,8 +35,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## Vault and files
 
 - Guide: [`Vault and files`](../domains/vault-files.md)
-- Motifs des sources: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/features/vault/**/*`, `frontend/src/features/vault-management/**/*`, `frontend/src/shared/editor/**/*`, `frontend/src/shared/page-search/**/*`, `frontend/src/shared/resources/**/*`
-- Motifs des tests: `backend/tests/test_vault*.py`, `backend/tests/test_translation_provider_contracts.py`, `backend/tests/test_table_workspace_security_contract.py`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`
+- Motifs des sources: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/features/home-canvas/**/*`, `frontend/src/features/vault/**/*`, `frontend/src/features/vault-management/**/*`, `frontend/src/shared/editor/**/*`, `frontend/src/shared/page-search/**/*`, `frontend/src/shared/resources/**/*`
+- Motifs des tests: `backend/tests/test_vault*.py`, `backend/tests/test_translation_provider_contracts.py`, `backend/tests/test_table_workspace_security_contract.py`, `frontend/src/features/home-canvas/**/*.test.*`, `frontend/src/features/vault/**/*.test.*`, `frontend/src/features/vault-management/**/*.test.*`, `frontend/src/shared/editor/**/*.test.*`, `frontend/src/shared/page-search/**/*.test.*`, `frontend/src/shared/resources/**/*.test.*`, `tests/e2e/tests/e2e/vault*.spec.ts`, `tests/e2e/tests/critical/daily-work.spec.ts`, `tests/e2e/tests/restart/persistence.spec.ts`
 - Directives: none found
 
 ## Database views and project planning

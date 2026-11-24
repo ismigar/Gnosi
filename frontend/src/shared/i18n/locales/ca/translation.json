@@ -6104,6 +6104,190 @@
     "remove_dependency": "Elimina la dependència",
     "remove_dependency_hint": "Es conservaran les dates de les tasques. Pots desfer aquest canvi."
   },
+  "home_canvas": {
+    "window_title": "Gnosi — El teu sistema de coneixement",
+    "board": "Taulell de coneixement",
+    "agenda": "Agenda d’avui",
+    "graph": "Connexions de la nota",
+    "audio": "Àudio del dia",
+    "open_app": "Obre {{app}}",
+    "edit": "Edita l’inici",
+    "add": "Afegeix un bloc",
+    "catalog": "Blocs disponibles",
+    "empty": "El llenç encara no té cap bloc visible.",
+    "add_named": "Afegeix «{{title}}»",
+    "already_added": "«{{title}}» ja és a l’inici",
+    "added": "Bloc afegit",
+    "saving": "S’està desant…",
+    "saved": "S’ha desat l’inici",
+    "width_named": "Amplada de «{{title}}»",
+    "columns_1": "1 columna",
+    "columns_2": "2 columnes",
+    "columns_3": "3 columnes",
+    "earlier": "Mou «{{title}}» abans",
+    "later": "Mou «{{title}}» després",
+    "remove_named": "Treu «{{title}}» de l’inici",
+    "move_named": "Mou «{{title}}»",
+    "drag_help": "Prem espai per agafar el bloc, mou-lo amb les fletxes i torna a prémer espai per deixar-lo.",
+    "drag_start": "S’està movent el bloc",
+    "drag_position": "Posició {{position}}",
+    "drag_end": "Bloc col·locat",
+    "moved": "S’ha mogut a la posició {{position}}",
+    "choose_vault": "Tria un Vault per obrir l’inici.",
+    "load_error": "No s’ha pogut carregar la disposició de l’inici.",
+    "save_error": "No s’han pogut desar els canvis. Torna-ho a provar.",
+    "conflict": "L’inici s’ha modificat en una altra sessió. Pots substituir aquest esborrany per la versió desada.",
+    "load_saved": "Carrega la versió desada",
+    "block_error": "No s’ha pogut mostrar aquest bloc.",
+    "retry": "Torna-ho a provar",
+    "start_label": "Pantalla d’inici d’aquest Vault",
+    "start_help": "Tria què s’obre quan inicies Gnosi o cliques la G de la barra lateral. Si el Vault no té cap pàgina d’inici fixada, s’obre el llenç.",
+    "follow_page": "Pàgina d’inici fixada al Vault, si n’hi ha",
+    "personal_canvas": "El meu llenç de blocs",
+    "knowledge": {
+      "board": "Tauler de Coneixement",
+      "both": "Enllaç en tots dos sentits",
+      "center": "Nota central",
+      "emptyBoard": "Aquest tauler és buit.",
+      "failed": "No s’ha pogut carregar el contingut.",
+      "find": "Filtra pel nom",
+      "incoming": "Enllaça amb la nota central",
+      "lastEdited": "La darrera nota que he editat",
+      "map": "Notes enllaçades a {{title}}",
+      "missingBoard": "Aquest tauler ja no està disponible. Tria’n un altre en mode d’edició.",
+      "missingNote": "La nota fixada ja no està disponible. Tria’n una altra en mode d’edició.",
+      "missingSection": "Aquesta secció ja no està disponible. Tria’n una altra en mode d’edició.",
+      "noBoards": "Aquest Vault no té cap tauler.",
+      "noEdits": "Edita una nota en aquest dispositiu o fixa’n una en mode d’edició.",
+      "noLinks": "Aquesta nota no té notes enllaçades.",
+      "noMatches": "Cap registre coincideix amb aquesta vista.",
+      "noNotes": "Aquest Vault no té notes per mostrar.",
+      "outgoing": "Enllaç des de la nota central",
+      "record": "Registre",
+      "section": "Secció",
+      "showing": "Es mostren {{shown}} de {{total}} registres.",
+      "unavailable": "No disponible",
+      "view": "Vista desada",
+      "wholeBoard": "Tot el tauler",
+      "firstBoard": "Primer tauler disponible",
+      "recentVault": "Darrera nota modificada al Vault",
+      "incomingPending": "Fins que l’índex d’aquest Vault estigui a punt, poden faltar enllaços cap a aquesta nota.",
+      "catalogPending": "La llista de notes i taulers d’aquest Vault encara és incompleta.",
+      "openKnowledge": "Obre Coneixement",
+      "recentIndexed": "Nota modificada més recentment entre les disponibles",
+      "partialView": "Pot ser que encara faltin registres que coincideixin amb aquesta vista."
+    },
+    "day": {
+      "select_vault": "Selecciona un Vault per veure aquest bloc.",
+      "open_date": "Obre el calendari del dia {{date}}",
+      "now": "Ara",
+      "next": "A continuació",
+      "agenda_empty": "Avui no tens cap esdeveniment.",
+      "agenda_done": "Avui ja no et queda cap esdeveniment.",
+      "no_calendars": "No hi ha cap calendari visible.",
+      "agenda_error": "No s’ha pogut carregar l’agenda.",
+      "agenda_partial": "No s’han pogut carregar tots els calendaris.",
+      "retry_agenda": "Torna a carregar l’agenda",
+      "audio_empty": "Encara no hi ha cap episodi diari.",
+      "audio_error": "No s’ha pogut carregar la informació de l’episodi.",
+      "retry_audio": "Torna a carregar la informació de l’episodi",
+      "generating": "S’està preparant un episodi…",
+      "generation_progress": "{{done}} de {{total}}",
+      "generation_failed": "No s’ha pogut generar l’últim episodi.",
+      "episode_date": "Episodi del {{date}}",
+      "resume": "Reprèn la reproducció a {{position}}",
+      "playback_error": "Aquest episodi ara mateix no està disponible.",
+      "open_reader": "Obre el lector"
+    },
+    "apps": {
+      "untitled": "Sense títol",
+      "last_seen": "Darrera consulta",
+      "contacts": {
+        "title": "Contactes actualitzats recentment",
+        "empty": "La llibreta de contactes és buida."
+      },
+      "mail": {
+        "title": "Correu pendent de llegir per compte",
+        "first": "Obre el Correu per veure aquí quants missatges tens pendents de llegir a cada bústia.",
+        "empty": "Encara no hi ha recomptes de les bústies.",
+        "count_one": "{{count}} missatge pendent de llegir",
+        "count_other": "{{count}} missatges pendents de llegir",
+        "count_many": "{{count}} missatges pendents de llegir"
+      },
+      "feeds": {
+        "title": "Articles pendents de llegir",
+        "empty": "Has llegit tots els articles dels canals."
+      },
+      "resources": {
+        "title": "Cerques bibliogràfiques recents",
+        "empty": "Aquí apareixeran les cerques bibliogràfiques que desis.",
+        "count_one": "{{count}} resultat",
+        "count_other": "{{count}} resultats",
+        "count_many": "{{count}} resultats"
+      },
+      "notebooks": {
+        "title": "Quaderns recents",
+        "empty": "Encara no tens cap quadern en aquest espai de treball.",
+        "count_one": "{{count}} font",
+        "count_other": "{{count}} fonts",
+        "count_many": "{{count}} fonts"
+      },
+      "planning": {
+        "title": "Els teus projectes",
+        "empty": "La taula de projectes seleccionada és buida.",
+        "first": "Obre la Planificació per veure aquí els projectes de la taula seleccionada.",
+        "unconfigured": "Tria una taula de projectes a la configuració de Planificació."
+      },
+      "social": {
+        "title": "Publicacions programades",
+        "empty": "No hi havia cap publicació programada quan vas obrir el calendari de continguts per darrera vegada.",
+        "first": "Obre el calendari de continguts de les xarxes socials per veure aquí les properes publicacions."
+      },
+      "media": {
+        "title": "Fotos i fitxers multimèdia recents",
+        "empty": "La fototeca era buida durant la darrera visita.",
+        "first": "Obre la fototeca per veure aquí els últims fitxers modificats."
+      },
+      "websites": {
+        "title": "Els teus webs",
+        "empty": "No hi havia cap web en aquest Vault durant la darrera visita.",
+        "first": "Obre Webs per veure aquí els llocs que gestiones.",
+        "permission": "Cal tenir el rol d’editor en aquest espai de treball per gestionar els webs.",
+        "count_one": "{{count}} pàgina",
+        "count_other": "{{count}} pàgines",
+        "count_many": "{{count}} pàgines"
+      },
+      "automations": {
+        "title": "Properes execucions programades",
+        "empty": "No hi ha cap automatització amb una execució prevista."
+      },
+      "control": {
+        "title": "Estat del sistema",
+        "service": "Servei de Gnosi",
+        "online": "En línia",
+        "configured": "Configurat",
+        "unconfigured": "Pendent de configurar",
+        "access": "Inici de sessió",
+        "signin": "Obligatori",
+        "local": "Opcional"
+      },
+      "settings": {
+        "title": "Dreceres de teclat",
+        "empty": "No hi ha cap drecera d’aplicació assignada.",
+        "edit": "Edita les dreceres"
+      },
+      "assistant": {
+        "title": "Converses recents",
+        "empty": "Aquí apareixeran les converses d’aquest dispositiu."
+      },
+      "bookmarks": {
+        "title": "Marcadors recents",
+        "first": "Obre Coneixement per carregar els marcadors en aquest dispositiu.",
+        "empty": "Encara no has desat cap marcador.",
+        "saved": "Darrera sincronització amb Coneixement en aquest dispositiu."
+      }
+    }
+  },
   "home": {
     "subtitle": "El teu ecosistema de coneixement",
     "module_graph_title": "Graf de Coneixement",

@@ -2,6 +2,8 @@ import type { components, operations, paths } from '../../generated/openapi';
 import { apiClient } from './client';
 import { GnosiApiError, unwrapApiResult } from './errors';
 import { transportFetch } from './transports';
+import { APP_PREVIEW_LIMIT, rememberAppPreview } from './app-previews';
+import { currentRequestContext, requestContextHeaders } from './request-context';
 
 
 export type MediaRoot = components['schemas']['MediaRootResponse'];
@@ -87,13 +89,23 @@ export async function fetchMediaPage(
   signal?: AbortSignal,
   timeoutMs = MEDIA_PAGE_TIMEOUT_MS,
 ): Promise<MediaPage> {
+  const scope = currentRequestContext();
   return withTimeout(timeoutMs, signal, async (timedSignal) => {
     const result = await apiClient.GET('/api/vault/media', {
+        headers: requestContextHeaders(scope),
         params: { query },
         signal: timedSignal,
       });
     const page = unwrapApiResult<MediaPage, unknown>(result);
     const state = result.response.headers.get('X-Gnosi-Media-Index');
+    // The index belongs to the gallery. Home can display its last complete, recent-first page.
+    const latestPhotos = (!query.root || query.root === 'images') && !query.offset
+      && Object.keys(query).every(field => ['root', 'offset', 'limit'].includes(field));
+    if (latestPhotos && !timedSignal.aborted && (state === 'fresh' || state === null)) {
+      rememberAppPreview('media', scope, page.items.slice(0, APP_PREVIEW_LIMIT).map(item => ({
+        id: item.id, title: item.filename, detail: item.album, date: item.last_modified,
+      })));
+    }
     const revision = result.response.headers.get('X-Gnosi-Media-Index-Revision');
     const retryAfter = Number(result.response.headers.get('Retry-After'));
     const nextOffsetHeader = result.response.headers.get('X-Gnosi-Media-Next-Offset');

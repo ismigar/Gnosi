@@ -19,6 +19,7 @@ from defusedxml import ElementTree as ET
 
 from backend.services.integration_manager import integration_manager
 from backend.domains.calendar.timing import calendar_phase
+from backend.domains.calendar.cache_scope import scoped_calendar_key
 from backend.domains.calendar.conference_links import google_join_url, caldav_join_url
 from backend.domains.calendar.caldav_transport import CalDAVClient, checked_url
 from backend.domains.calendar.caldav_time import effective_event_end, parse_calendar
@@ -111,6 +112,7 @@ def _cached_calendar_list(
     cache_key: str, loader: Callable[[], list[JsonObject]]
 ) -> list[JsonObject]:
     """Return one fresh provider list and coalesce concurrent discovery."""
+    cache_key = scoped_calendar_key(cache_key)
 
     def fresh_value() -> list[JsonObject] | None:
         cached = _calendar_list_cache.get(cache_key)
@@ -354,6 +356,8 @@ def caldav_list_events(
     time_max: str,
     search: str | None = None,
     calendar_id: str | None = None,
+    *,
+    expand_instances: bool = False,
 ) -> list[JsonObject]:
     from backend.domains.calendar.caldav_resources import event_query
 
@@ -372,7 +376,7 @@ def caldav_list_events(
             result = client.request(
                 "REPORT",
                 calendar["url"],
-                data=event_query(time_min=time_min, time_max=time_max),
+                data=event_query(time_min=time_min, time_max=time_max, expand_instances=expand_instances),
                 headers={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"},
             )
             events.extend(_parse_caldav_response(result.text, email, calendar, search))
@@ -520,6 +524,8 @@ def list_events(
     time_max: str,
     search: str | None = None,
     calendar_id: str | None = None,
+    *,
+    expand_instances: bool = False,
 ) -> list[JsonObject]:
     acc = _get_account(email, resolve_secrets=False)
     if not acc:
@@ -531,6 +537,8 @@ def list_events(
     if acc.get("provider") == "google":
         return google_list_events(email, time_min, time_max, search, calendar_id)
     if _is_caldav_account(acc):
+        if expand_instances:
+            return caldav_list_events(email, time_min, time_max, search, calendar_id, expand_instances=True)
         if calendar_id is None:
             return caldav_list_events(email, time_min, time_max, search)
         return caldav_list_events(email, time_min, time_max, search, calendar_id)

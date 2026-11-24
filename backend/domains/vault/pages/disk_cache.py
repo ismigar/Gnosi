@@ -2,11 +2,30 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeGuard
 
-from backend.domains.vault.pages.index_entries import PageCacheEntry
+from backend.domains.vault.pages.index_entries import PageCacheEntry, newer_index_entry
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
+
+def coverage_path(cache: Path) -> Path:
+    return cache.with_suffix(".coverage.json")
+
+
+def full_coverage_record(vault_key: str, raw: str) -> dict[str, str]:
+    return {"vault": vault_key, "sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()}
+
+
+def has_full_coverage(cache: Path, vault_key: str, raw: str) -> bool:
+    try:
+        record: object = json.loads(read_metadata_text(coverage_path(cache)))
+    except (OSError, ValueError, MetadataUnavailable):
+        return False
+    return record == full_coverage_record(vault_key, raw)
 
 
 def _is_entry(value: object) -> TypeGuard[PageCacheEntry]:
@@ -35,6 +54,6 @@ def prepare_page_index(
     for path, entry in document.items():
         files_ordered.append(make_path(path))
         page_id = entry.get("id")
-        if page_id:
+        if page_id and newer_index_entry(entry, document.get(id_map.get(page_id, ""))):
             id_map[page_id] = path
     return document, id_map, files_ordered

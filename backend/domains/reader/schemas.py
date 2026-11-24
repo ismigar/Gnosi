@@ -201,6 +201,10 @@ class ReaderPodcastInfoResponse(BaseModel):
     """Metadata for the latest generated podcast, when one exists."""
 
     exists: bool
+    episode_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$", description=(
+        "Opaque immutable playback identifier for this published file revision in the current Vault. "
+        "Use /podcast/episodes/{episode_id}. A removed or replaced revision becomes unavailable."
+    ))
     filename: str | None = None
     created_at: str | None = None
     formatted_date: str | None = None

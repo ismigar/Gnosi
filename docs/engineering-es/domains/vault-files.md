@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-10-28
+last_verified: 2026-11-23
 source_paths:
+  - backend/domains/vault/home_canvas.py
+  - frontend/src/features/home-canvas
   - backend/domains/vault/pages/title_metadata.py
   - backend/domains/llm_wiki
   - backend/services/llm_wiki_suggestions.py
@@ -73,6 +75,8 @@ tests:
   - backend/tests/test_page_creation_recovery_executor.py
   - backend/tests/test_page_creation_index_reconciliation.py
   - backend/tests/test_handwriting_download.py
+  - backend/tests/test_home_canvas.py
+  - frontend/src/features/home-canvas/HomeCanvas.test.tsx
   - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - frontend/src/features/vault/dashboard/DashboardContent.test.tsx
@@ -140,6 +144,12 @@ Un cambio explícito del título de un registro actualiza tanto el título canó
 El autoguardado serializa las escrituras de página dentro del cliente web. Una versión obsoleta devuelve un conflicto (409), no un error de página inexistente (404), aunque la lectura condicional omita el cuerpo. Las páginas inexistentes siguen devolviendo 404; los conflictos no sobrescriben silenciosamente contenido más reciente.
 
 Los guardados completos con PUT conservan la detección inicial de conflictos y vuelven a resolver la página y el ETag tras adquirir el bloqueo de escritura. Un guardado o cambio de nombre concurrente no puede sobrescribir una versión más reciente mientras espera el bloqueo. Un guardado condicional también rechaza una página eliminada durante la espera.
+
+## Lienzo personal de inicio
+
+La disposición del inicio pertenece al miembro autenticado en el espacio de trabajo y el Vault actuales. El cliente la lee y la guarda mediante `/api/vault/home-canvas`. El backend valida una revisión opaca y sustituye la disposición de forma atómica en `.gnosi/home/`. Cuando no hay una disposición guardada, se muestran los bloques iniciales. Guardar una lista vacía conserva el inicio vacío. La página fijada sigue siendo el destino inicial hasta que el miembro elige su lienzo en Configuración. Los bloques de los complementos inactivos se ocultan y conservan su posición y configuración. La última nota editada por el miembro y las fechas de consulta de las aplicaciones son específicas del dispositivo.
+
+Los bloques de Conocimiento seleccionan las páginas mediante `/api/vault/home-knowledge-catalog`. La consulta lee los metadatos de navegación guardados e indica si cubren todo el Vault. El inicio puede mostrar entradas indexadas en el dispositivo aunque otros documentos estén sin conexión. Para el grafo, `/api/vault/link-neighborhood` lee los enlaces salientes de la nota central y consulta los entrantes en el índice del Vault activo. Cuando dos archivos comparten el identificador de página, el índice de enlaces entrantes elige el mismo archivo que la navegación. El bloque indica cuándo esos enlaces están incompletos. El reproductor del Lector utiliza el identificador de episodio de `/api/reader/podcast/info` y asocia el punto de reanudación a esa versión del archivo.
 
 ## Búsqueda de contenido completo y composición
 

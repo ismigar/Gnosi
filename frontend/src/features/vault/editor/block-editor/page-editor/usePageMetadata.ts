@@ -7,13 +7,16 @@ import { RELATION_VALUE_APPLIED_EVENT } from '../../../properties/relationItemUt
 import { announceRelationUnlinked } from '../../../properties/relationItemUtils';
 import { normalizeRelationValues } from '../../../properties/relationItemUtils';
 import { notifyError } from '../../../../../shared/notifications/notifyError';
-import { patchVaultPage } from '../../../../../shared/api/vaults';
+import { useRequestContext } from '../../../../../shared/hooks/useRequestContext';
+import { recordPersonalNoteEdit } from '../../../../../shared/records/personalNoteEdits';
+import { patchEditedPage } from '../../patchEditedPage';
 import { useCallback } from 'react';
 import { useEffect } from 'react';
 import { withoutRelationValue } from '../../../properties/relationItemUtils';
 import type { usePageEditorState } from './usePageEditorState';
 type Input = Pick<ReturnType<typeof usePageEditorState>, 'allTables' | 'isEditor' | 'noteFilename' | 'metaSaveInFlightRef' | 'pendingMetaRef' | 'pendingRemoveKeysRef' | 'setSaveStatus' | 't' | 'onUpdate' | 'metadataRef' | 'metaSaveTimerRef' | 'setMetadata' | 'onUpdatePageMetadata'>;
 export function usePageMetadata(state: Input) {
+  const scope = useRequestContext();
   const { allTables, isEditor, noteFilename, metaSaveInFlightRef, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t, onUpdate, metadataRef, metaSaveTimerRef, setMetadata, onUpdatePageMetadata } = state;
 
   const _doSaveMetadata = useCallback(async function saveMetadata(currentMetadata: PageMetadata, removeKeys: string[] | null = null): Promise<boolean> {
@@ -35,7 +38,9 @@ export function usePageMetadata(state: Input) {
         // The PATCH merges on the backend; to REMOVE keys (properties
         // local/ad-hoc) they must be sent explicitly.
         if (keys && keys.length) data.remove_metadata_keys = keys;
-        await patchVaultPage(noteFilename, data);
+        const editedAt = Date.now();
+        const page = await patchEditedPage(scope, noteFilename, data);
+        recordPersonalNoteEdit(scope, page, editedAt);
         setSaveStatus('saved');
         // Notifies the parent so that `tabs[i].title` and the breadcrumb
         // follow the rename. Without this, title changes via the
@@ -71,7 +76,7 @@ export function usePageMetadata(state: Input) {
     });
     metaSaveInFlightRef.current = promise;
     return promise;
-  }, [metaSaveInFlightRef, noteFilename, onUpdate, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t]);
+  }, [metaSaveInFlightRef, noteFilename, onUpdate, pendingMetaRef, pendingRemoveKeysRef, scope, setSaveStatus, t]);
 
   const handleSaveMetadata = useCallback((updatedMetadata?: PageMetadata, options: SaveMetadataOptions = {}) => {
     const currentMetadata = updatedMetadata || metadataRef.current;

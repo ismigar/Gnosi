@@ -1,6 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { requestContextHeaders, type RequestContext } from './request-context';
 
 
 export type CalendarListItem = components['schemas']['CalendarListItemResponse'];
@@ -33,6 +34,7 @@ export interface CalendarListResult {
 export interface CalendarEventsQuery {
   readonly calendarId?: string;
   readonly email?: string;
+  readonly expandInstances?: boolean;
   readonly includeVault?: boolean;
   readonly search?: string;
   readonly timeMax?: string;
@@ -82,8 +84,9 @@ export interface CalendarRsvpInput {
 }
 
 
-export async function fetchCalendarList(email?: string): Promise<CalendarListResult> {
+export async function fetchCalendarList(email?: string, signal?: AbortSignal, context?: RequestContext): Promise<CalendarListResult> {
   const result = await apiClient.GET('/api/calendar/calendars', {
+    signal, headers: requestContextHeaders(context),
     params: { query: { email } },
   });
   return {
@@ -96,13 +99,16 @@ export async function fetchCalendarList(email?: string): Promise<CalendarListRes
 export async function fetchCalendarEvents(
   query: CalendarEventsQuery = {},
   signal?: AbortSignal,
+  context?: RequestContext,
 ): Promise<CalendarEvent[]> {
   return unwrapApiResult<CalendarEvent[], unknown>(
     await apiClient.GET('/api/calendar/events', {
+      headers: requestContextHeaders(context),
       params: {
         query: {
           calendar_id: query.calendarId,
           email: query.email,
+          expand_instances: query.expandInstances,
           include_vault: query.includeVault,
           search: query.search,
           time_max: query.timeMax,

@@ -2,6 +2,7 @@ import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
 import { PasswordInput } from './PasswordInput';
+import { HomeStartPreference } from './HomeStartPreference';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
@@ -35,6 +36,7 @@ export function GeneralPanel({ context }: Props) {
       />
       {generalSection === 'system' && (
         <Section title={tn('general.system_title')} icon={SettingsIcon}>
+          <HomeStartPreference />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
             <FormGroup label={tn('general.workspace_name')} description={tn('general.workspace_name_desc')}>
               <input type="text" className="gnosi-input" value={draft.settings.workspace_name} onChange={e => { setDraft({ ...draft, settings: { ...draft.settings, workspace_name: e.target.value } }); }} placeholder={tn('general.workspace_name_placeholder')} />

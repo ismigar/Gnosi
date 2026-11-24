@@ -2,6 +2,9 @@ import { act, useState, type RefObject } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountTestComponent } from '../../../../../tests/mount-react';
 import { patchVaultPage } from '../../../../shared/api/vaults';
+import { currentRequestContext, VAULT_ID_STORAGE_KEY } from '../../../../shared/api/request-context';
+import { removeStorage, writeStorage } from '../../../../shared/platform/browser-storage';
+import { parsePersonalEdits, personalEditsSnapshot } from '../../../../shared/records/personalNoteEdits';
 import { GnosiApiError } from '../../../../shared/api/errors';
 import { logError, notifyError } from '../../../../shared/notifications/notifyError';
 import { inFlightSaves } from '../editorState';
@@ -27,6 +30,7 @@ afterEach(async () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
     await act(async () => { await Promise.resolve(); });
     vi.clearAllTimers(); vi.useRealTimers(); inFlightSaves.clear();
+    removeStorage(VAULT_ID_STORAGE_KEY);
 });
 function Harness(props: Omit<EditorPersistenceOptions, 'setSaveStatus'>) {
     const [status, setSaveStatus] = useState<SaveStatus>('idle');
@@ -57,6 +61,25 @@ async function advance(milliseconds: number) { await act(async () => { await vi.
 async function flush() { await act(async () => { await Promise.resolve(); }); }
 
 describe('rich editor persistence', () => {
+    it('marks only a confirmed personal edit for the home graph', async () => {
+        writeStorage(VAULT_ID_STORAGE_KEY, 'personal-editor-test');
+        const scope = currentRequestContext();
+        const readIds = () => parsePersonalEdits(personalEditsSnapshot(scope)).map(edit => edit.id);
+        let personal = false;
+        const view = fixture({ isPersonalChange: () => personal });
+        view.edit('Remote collaborator');
+        await advance(700);
+        expect(readIds()).toEqual([]);
+        personal = true;
+        patch.mockRejectedValueOnce(new Error('network'));
+        view.edit('Failed edit');
+        await advance(700);
+        expect(readIds()).toEqual([]);
+        view.edit('My saved note');
+        await advance(700);
+        expect(readIds()).toEqual(['page']);
+    });
+
     it('registers a flush that persists pending edits before a Composer operation without a later debounce', async () => {
         const registerSave = vi.fn<(flush: (() => Promise<boolean>) | null) => void>();
         const view = fixture({ registerSave });

@@ -52,13 +52,15 @@ const TABS: readonly SocialTab[] = [
 
 export default function SocialDashboard() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<SocialTabId>('dashboard');
+  const [activeTab, setActiveTab] = useState<SocialTabId>(() =>
+    window.location.pathname.endsWith('/social/calendar') ? 'calendar' : 'dashboard',
+  );
   const [showComposer, setShowComposer] = useState(false);
   const [showAiComposer, setShowAiComposer] = useState(false);
   const [showAddStream, setShowAddStream] = useState(false);
   const streamsQuery = useSocialStreams();
   const columns = streamsQuery.data ?? DEFAULT_STREAMS;
-  const feedQueries = useSocialFeeds(columns);
+  const feedQueries = useSocialFeeds(activeTab === 'dashboard' ? columns : []);
   const updateStreams = useUpdateSocialStreams();
   const streamData = columns.reduce<Record<string, SocialPost[]>>(
     (data, column, index) => {
