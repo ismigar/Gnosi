@@ -96,15 +96,15 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                     // exist in the registry, we build the section from the view.
                     // The fence's `view_id` is the source of truth: this way the block
                     // renders even if the page section has been lost.
-                    if (!section) {
-                        let regView = ctx.registry.views.find(v => String(v.id) === viewId);
-                        if (!regView) {
-                            try {
-                                const allViews = await fetchVaultViews();
-                                regView = allViews.find(v => String(v.id) === viewId);
-                            } catch { /* registry inaccessible: it will fall to the error below */ }
-                        }
-                        if (regView) {
+                    let regView = ctx.registry.views.find(v => String(v.id) === viewId);
+                    if (!regView && (!section || !section.joins || !section.filters || !section.sorts)) {
+                        try {
+                            const allViews = await fetchVaultViews();
+                            regView = allViews.find(v => String(v.id) === viewId);
+                        } catch { /* registry inaccessible: it will fall to the error below */ }
+                    }
+                    if (regView) {
+                        if (!section) {
                             section = {
                                 view_id: regView.id || undefined,
                                 heading: headingProp || '',
@@ -113,6 +113,15 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                                 filters: regView.filters || [],
                                 sorts: regView.sorts || (regView.sort ? [regView.sort] : []),
                                 visible_properties: regView.visibleProperties || regView.visible_properties || ['title'],
+                                joins: regView.joins,
+                            };
+                        } else {
+                            section = {
+                                ...section,
+                                source_table_id: section.source_table_id || regView.table_id || undefined,
+                                joins: section.joins ?? regView.joins,
+                                filters: section.filters ?? regView.filters,
+                                sorts: section.sorts ?? (regView.sorts || (regView.sort ? [regView.sort] : [])),
                             };
                         }
                     }

@@ -42,7 +42,7 @@ export function HomeBlockCard({ block, editing, definition, onConfigure, onWidth
         className={'home-block' + (isDragging ? ' home-block--dragging' : '')}
         style={{ transform: CSS.Translate.toString(transform), transition }}>
         <header className="home-block__header">
-            <div><span className="home-block__app">{app}</span><h2>{title}</h2></div>
+            <div><h2>{title}</h2></div>
             {definition.route && <Link className="home-block__icon" to={legacyBrowserPathToCanonical(definition.route)}
                 aria-label={t('home_canvas.open_app', { app })} title={t('home_canvas.open_app', { app })}><ArrowUpRight size={17} /></Link>}
         </header>

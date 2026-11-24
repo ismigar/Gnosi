@@ -194,6 +194,16 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
         }
         return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: "+ Image" })}</span>;
       }
+      if (value && typeof value === 'object' && !Array.isArray(value) && (value as { version?: unknown }).version === 3) {
+        const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
+        const date = unifiedDate(value, 'date');
+        const label = formatUnifiedDate(value, { legacyType: 'date', dateFormat: fmt.dateFormat,
+          locale: fmt.dateLocale || i18n.language, pending: t('vault_date.end_pending') });
+        return <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
+          {date.withTime ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
+          <span>{label || '—'}</span>
+        </div>;
+      }
       return <span className="truncate max-w-[200px] block" title={typeof value === 'boolean' ? undefined : tableText(value)}>{cellNode(value)}</span>;
   }
 }
