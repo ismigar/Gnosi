@@ -38,4 +38,20 @@ describe('VaultMarkdown', () => {
         expect(html).toContain('Tasques');
         expect(html).not.toContain('toggle-heading');
     });
+    it('renders headings containing styled spans with br without breaking into raw markdown links', () => {
+        const md = '# <span style="background-color: rgb(246, 243, 249);">📖 Cervell digital<br></span> Notes pendents de processar.';
+        const html = renderToStaticMarkup(<VaultMarkdown md={md} />);
+        expect(html).toContain('<h1');
+        expect(html).toContain('Cervell digital');
+        expect(html).toContain('Notes pendents de processar.');
+        expect(html).not.toContain('gnosi-style:');
+        expect(html).not.toContain('](gnosi');
+    });
+    it('normalizes wikilink aliases with leading pipes and adjacent text after styled spans', () => {
+        const md = '[[page-id|| CV | Ismael García Fernández]] and <span style="color: red;">Tag</span>Adjacent text';
+        const html = renderToStaticMarkup(<VaultMarkdown md={md} />);
+        expect(html).toContain('CV | Ismael García Fernández');
+        expect(html).not.toContain('| CV');
+        expect(html).toContain('Tag</span> Adjacent text');
+    });
 });

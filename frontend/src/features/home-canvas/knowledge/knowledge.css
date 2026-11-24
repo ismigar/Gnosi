@@ -24,6 +24,16 @@
   flex: 1 1 0;
   overflow: hidden;
 }
+.home-knowledge-sections .vault-preview-callout .vault-preview-columns {
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+}
+.home-knowledge-sections .vault-preview-callout .vault-preview-column {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  overflow: visible;
+}
 .home-knowledge-sections .gnosi-view-embed-container {
   margin-bottom: 0.5rem;
   min-width: 0;

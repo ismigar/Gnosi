@@ -13,4 +13,5 @@
 .home-day__timing { font-variant-numeric: tabular-nums; }
 .home-day__timing strong { color: var(--gnosi-link); font-size: .74rem; }
 .home-day__name { font-size: .9rem; color: var(--text-primary); }
+.home-day__appointment--past { opacity: 0.55; }
 .home-day__appointment--past .home-day__name { color: var(--text-secondary); }

@@ -6,6 +6,7 @@ GET    /api/pages/{page_id}/views          → lists the page's views
 DELETE /api/pages/{page_id}/views/{heading} → deletes a view
 """
 
+import asyncio
 import json
 import logging
 import sys
@@ -18,7 +19,7 @@ from typing import Any, List, Optional, cast
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict
 
-from backend.utils.metadata_io import read_vault_text
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
 from backend.utils.errors import safe_error_detail
@@ -186,13 +187,13 @@ async def get_page_views(page_id: str) -> dict[str, Any]:
         if not vault_path:
             raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
-        registry, _ = _load_registry(vault_path)
+        registry, _ = await asyncio.to_thread(_load_registry, vault_path)
         page_cfg = (registry.get("pages") or {}).get(page_id, {})
         return PageViewsResponse(
             page_id=page_id,
             sections=page_cfg.get("sections", []),
         ).model_dump()
-    except HTTPException:
+    except (HTTPException, MetadataUnavailable):
         raise
     except FileNotFoundError as e:
         raise HTTPException(
@@ -354,7 +355,7 @@ async def upsert_page_view(
             md_synced=synced,
         ).model_dump(exclude_none=True)
 
-    except HTTPException:
+    except (HTTPException, MetadataUnavailable):
         raise
     except FileNotFoundError as e:
         raise HTTPException(
@@ -410,7 +411,7 @@ async def delete_page_view(
             heading_deleted=heading,
         ).model_dump(exclude_none=True)
 
-    except HTTPException:
+    except (HTTPException, MetadataUnavailable):
         raise
     except Exception as e:
         log.exception(e)

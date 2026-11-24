@@ -47,7 +47,7 @@ export const convertWikilinksToMd = (md?: string | null): string | null | undefi
         alias?: string,
     ) => {
         const fullTarget = (target || '').trim() + (section ? `#${section.trim()}` : '');
-        const displayTitle = (alias || (section ? `${target}#${section}` : target) || '').trim();
+        const displayTitle = (alias ? alias.replace(/^\|+/, '') : (section ? `${target}#${section}` : target) || '').trim();
         // We avoid `[`/`]` in the link text and `(` `)` in the href so it doesn't
         // break the link's markdown syntax.
         const safeTitle = displayTitle.replace(/[\][]/g, '');
@@ -182,8 +182,12 @@ export function decodeStylePayload(href: unknown): InlineStyle {
 export const convertInlineHtmlToMd = (md?: string | null): string | null | undefined => {
     if (!md || typeof md !== 'string') return md;
     let out = md;
+    // Normalize trailing <br> before </span> to prevent line breaks inside style links
+    out = out.replace(/<br\s*\/?>\s*<\/span>/gi, '</span><br>');
     // Soft breaks (`<br>` / `<br>\n`) → hard line break (two spaces + newline).
     out = out.replace(/<br\s*\/?>(?:\r?\n)?/gi, '  \n');
+    // Ensure separating whitespace when </span> is directly followed by a word character
+    out = out.replace(/<\/span>([^\s<>[\]()])/gi, '</span> $1');
     // Color spans → link with a sentinel (preserves the color through the `a` render).
     out = out.replace(/<span\b[^>]*?\sstyle="([^"]*)"[^>]*>([\s\S]*?)<\/span>/gi, (
         _match: string,
@@ -195,7 +199,8 @@ export const convertInlineHtmlToMd = (md?: string | null): string | null | undef
         if (!color && !bg) return text; // no recognized color → just the inner text
         // The `[` `]` in the text would break the link's syntax; we strip them (colored
         // text tends to be a short tag/word, not complex markdown).
-        const safeText = text.replace(/[\][]/g, '');
+        // Also strip any newlines so the link remains on a single line (CommonMark requirement for headings).
+        const safeText = text.replace(/[\][]/g, '').replace(/[\r\n]+/g, ' ').trim();
         return `[${safeText}](${STYLE_HREF_SENTINEL}${encodeStylePayload(color, bg)})`;
     });
     // Underline and BLOCK color divs: no clean equivalent in the preview →
