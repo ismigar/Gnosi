@@ -139,13 +139,19 @@ def audit_payload(primary: dict[str, object], drafts: list[dict[str, object]], s
         schema["required"].append("finding_resolutions")
         instruction = (" For each finding_id in coverage, give its disposition and a specific reason grounded"
                        " in the supplied original. Apply necessary changes, explain source limitations and"
-                       " leave any remaining defect unresolved. Include the supporting evidence in your assessment.")
+                       " leave any remaining defect in the notes unresolved. If a prior finding only notes an"
+                       " OCR or transcription typo, a missing facsimile, or an incomplete source excerpt while"
+                       " the notes accurately reflect and quote the supplied text, mark its status as"
+                       " source_limitation and do not repeat it in unresolved_issues."
+                       " Include the supporting evidence in your assessment.")
     return {"reading_engine": "semantic", "original": source_view(primary), "support": [source_view(s) for s in support],
             "drafts": drafts, "properties": fields(dimensions), "coverage": coverage,
             "instruction": "Verify these drafts against this original. Return only justified corrections. "
             "Use position 0 for a missing substantive idea or the one-based position to replace a draft. "
             "Return a null replacement only to exclude an unsupported note and explain why. Quote the original literally. "
-            "Report any remaining defects in unresolved_issues." + instruction,
+            "Note OCR/transcription artifacts, missing facsimiles, or incomplete source excerpts in assessment when"
+            " the notes accurately reflect the supplied text; do not list such source limitations in unresolved_issues."
+            " Report only remaining defects in the notes or unsupported claims in unresolved_issues." + instruction,
             "output_schema": schema}
 
 
@@ -343,7 +349,8 @@ def review_reading(engine: SemanticReader, reviewed: list[tuple[dict[str, object
     findings = []
     reader.phase("reviewing", 73)
     fill_grouped_reviews(engine, worker, reviewer, cases)
-    for case in cases:
+    for index, case in enumerate(cases):
+        reader.phase("reviewing", 73 + round(10 * index / max(1, len(cases))))
         saved = results.get(case.receipt, results.get(passage_key(case.primary), {}))
         prior = pending.get(case.occurrence, {})
         outstanding = saved_findings(prior or saved)

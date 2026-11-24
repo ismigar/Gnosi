@@ -284,3 +284,32 @@ it('renders rich paragraphs and live views within serialized BlockNote columns',
   expect(container.querySelector('.vault-preview-column td[data-title-cell]')?.textContent).toContain('Record');
   expect(container.querySelector('pre')).toBeNull();
 });
+
+it('renders comment-defined views inside their columns and omits formula bar in embeds', async () => {
+  const board = page('board', 'Board', { is_dashboard: true });
+  const content = [
+    ':::column-list',
+    ':::column {width=1}',
+    '# Left View',
+    '<!-- gnosi-view:def {"view_id":"v-left"} -->',
+    '<!-- gnosi-view:result view_id=v-left -->',
+    '| Old | Snapshot |',
+    '<!-- /gnosi-view:result -->',
+    ':::',
+    ':::column {width=1}',
+    '# Right View',
+    '<!-- gnosi-view:def {"view_id":"v-right"} -->',
+    ':::',
+    ':::',
+  ].join('\n');
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: [board], complete: true });
+  vi.mocked(fetchVaultPage).mockResolvedValue({ ...board, content, etag: 'test' });
+  vi.mocked(fetchVaultPagesByTable).mockResolvedValue([page('r1', 'Left Item')]);
+  const { container } = mount('board');
+  await settle();
+  const columns = container.querySelectorAll('.vault-preview-column');
+  expect(columns).toHaveLength(2);
+  expect(columns[0]?.textContent).toContain('Left View');
+  expect(columns[1]?.textContent).toContain('Right View');
+  expect(container.querySelector('.table-formula-bar')).toBeNull();
+});

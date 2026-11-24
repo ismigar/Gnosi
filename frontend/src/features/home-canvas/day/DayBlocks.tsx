@@ -115,5 +115,5 @@ export default function DayBlocks({ block }: HomeBlockProps) {
     const context = useRequestContext();
     if (!context.vaultId) return <p className="home-block__state">{t('home_canvas.day.select_vault')}</p>;
     const scope = JSON.stringify(context);
-    return block.kind === 'agenda' ? <Agenda key={scope} compact={false} /> : <DailyAudio key={scope} />;
+    return block.kind === 'agenda' ? <Agenda key={scope} compact={block.width === 1} /> : <DailyAudio key={scope} />;
 }

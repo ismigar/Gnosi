@@ -10,10 +10,46 @@
 .home-knowledge-action, .home-knowledge-source, .home-knowledge-view a { color: var(--gnosi-link); }
 .home-knowledge-source { width: fit-content; max-width: 100%; overflow-wrap: anywhere; font-weight: 600; }
 .home-knowledge-block a:hover, .home-knowledge-action:hover { text-decoration: underline; }
-.home-knowledge-sections { max-height: 24rem; overflow: auto; overscroll-behavior: contain; min-width: 0; }
-.home-knowledge-sections .gnosi-view-embed-container { min-width: 0; }
-.home-knowledge-sections .vault-view-toolbar { display: none; }
-.home-knowledge-sections [data-vault-table-scroll] { overflow-x: auto; min-width: 0; }
+.home-knowledge-sections { max-height: 24rem; overflow: auto; overscroll-behavior: contain; }
+.home-knowledge-sections .vault-preview-columns {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  width: 100%;
+}
+.home-knowledge-sections .vault-preview-column {
+  min-width: 0;
+  width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+.home-knowledge-sections .gnosi-view-embed-container {
+  margin-bottom: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.home-knowledge-sections .gnosi-view-embed-container [data-vault-table-scroll] {
+  max-height: 18rem;
+}
+.home-knowledge-sections h1 {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin: 0.35rem 0 0.2rem;
+  font-weight: 700;
+}
+.home-knowledge-sections h2 {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  margin: 0.3rem 0 0.15rem;
+  font-weight: 600;
+}
+.home-knowledge-sections h3 {
+  font-size: 0.95rem;
+  line-height: 1.3;
+  margin: 0.25rem 0 0.1rem;
+  font-weight: 600;
+}
 .home-knowledge-view h4 { margin: .25rem 0; font-size: .87rem; color: var(--text-primary); }
 .home-knowledge-table-wrap { min-width: 0; overflow: auto; }
 .home-knowledge-view table { border-collapse: collapse; width: 100%; font-size: .8rem; }

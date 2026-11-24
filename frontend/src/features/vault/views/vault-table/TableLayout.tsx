@@ -71,7 +71,7 @@ export function TableLayout({ model }: { model: TableController; }) {
           />
         )}
 
-        {!isListView && <TableFormulaBar model={model} />}
+        {!isListView && !isEmbedded && <TableFormulaBar model={model} />}
 
         {/* `maxHeight`: adaptive mode (embed). The scroller takes the height
                     of the content and only scrolls once it exceeds the maximum —
@@ -104,7 +104,7 @@ export function TableLayout({ model }: { model: TableController; }) {
             onDragCancel={suppressNextHeaderClick}
           >
             <SortableContext items={columnSortableIds} strategy={horizontalListSortingStrategy}>
-              <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
+              <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: isEmbedded ? '100%' : 'max-content', minWidth: '100%' }}>
                 {!isListView && (
                   <TableHeader model={model} />
                 )}

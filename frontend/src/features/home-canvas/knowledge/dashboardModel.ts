@@ -15,6 +15,8 @@ function readFence(content: string): View {
   } catch { return {}; }
 }
 
+const DEF_COMMENT_RE = /<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->(?:\s*<!--\s*gnosi-view:result[\s\S]*?<!--\s*\/gnosi-view:result\s*-->)?/gu;
+
 function boardParts(markdown: string, sections: readonly View[], includeLegacySections: boolean): BoardPart[] {
   const result: BoardPart[] = [];
   const occurrences = new Map<string, number>();
@@ -32,23 +34,50 @@ function boardParts(markdown: string, sections: readonly View[], includeLegacySe
     occurrences.set(binding, count + 1);
     result.push({ kind: 'view', key: `view:${JSON.stringify([binding, count])}`, label, view });
   };
+
+  interface ViewToken {
+    from: number;
+    to: number;
+    payload: View;
+  }
+  const tokens: ViewToken[] = [];
+
   commonmarkLanguage.parser.parse(markdown).iterate({
     enter(node) {
       if (node.name !== 'FencedCode') return;
       const info = node.node.getChild('CodeInfo');
       if (!info || markdown.slice(info.from, info.to).trim() !== 'gnosi-view') return false;
-      addText(node.from);
       const code = node.node.getChild('CodeText');
       const fence = readFence(code ? markdown.slice(code.from, code.to) : '');
-      const bound = (fence.section_id && sections.find(section => section.section_id === fence.section_id))
-        || (fence.view_id && sections.find(section => section.view_id === fence.view_id && section.heading === fence.heading))
-        || (fence.view_id && sections.find(section => section.view_id === fence.view_id))
-        || (!fence.view_id && fence.heading && sections.find(section => !section.view_id && section.heading === fence.heading));
-      addView({ ...(typeof bound === 'object' && bound ? bound : {}), ...fence });
-      offset = node.to;
+      tokens.push({ from: node.from, to: node.to, payload: fence });
       return false;
     },
   });
+
+  DEF_COMMENT_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = DEF_COMMENT_RE.exec(markdown)) !== null) {
+    tokens.push({
+      from: match.index,
+      to: match.index + match[0].length,
+      payload: readFence(match[1] ?? ''),
+    });
+  }
+
+  tokens.sort((a, b) => a.from - b.from);
+
+  for (const token of tokens) {
+    if (token.from < offset) continue;
+    addText(token.from);
+    const fence = token.payload;
+    const bound = (fence.section_id && sections.find(section => section.section_id === fence.section_id))
+      || (fence.view_id && sections.find(section => section.view_id === fence.view_id && section.heading === fence.heading))
+      || (fence.view_id && sections.find(section => section.view_id === fence.view_id))
+      || (!fence.view_id && fence.heading && sections.find(section => !section.view_id && section.heading === fence.heading));
+    addView({ ...(typeof bound === 'object' && bound ? bound : {}), ...fence });
+    offset = token.to;
+  }
+
   addText(markdown.length);
   // Older dashboards store their entire view layout under registry.pages.
   if (!occurrences.size && includeLegacySections) sections.forEach(addView);
