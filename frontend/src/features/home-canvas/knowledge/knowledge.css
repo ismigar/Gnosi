@@ -1,5 +1,5 @@
 .home-knowledge-block, .home-knowledge-sections, .home-knowledge-field,
-.home-knowledge-field label { display: grid; gap: .55rem; min-width: 0; }
+.home-knowledge-field label { display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; min-width: 0; }
 .home-knowledge-block { align-content: start; }
 .home-knowledge-field, .home-knowledge-field label { gap: .25rem; }
 .home-knowledge-field { color: var(--text-secondary); font-size: .8rem; }

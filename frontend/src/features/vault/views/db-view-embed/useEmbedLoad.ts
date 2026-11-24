@@ -83,13 +83,28 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
             if (!view) setLoading(true);
             try {
                 let section: EmbedView | null | undefined = null;
+                let inlineSection: EmbedView | null = null;
+                if (inlineSectionStr) {
+                    try {
+                        inlineSection = decodeView(JSON.parse(inlineSectionStr));
+                    } catch {
+                        inlineSection = null;
+                    }
+                }
                 if (viewId) {
-                    const viewsData = await fetchPageViews(pageId);
-                    const sections = viewsData.sections;
+                    let sections: EmbedView[] = [];
+                    try {
+                        const viewsData = await fetchPageViews(pageId);
+                        sections = viewsData.sections;
+                    } catch (err) {
+                        const detail = apiErrorDetail(err, '');
+                        if (!inlineSection && !detail.includes('MetadataUnavailable')) throw err;
+                    }
                     const sectionId = block?.props?.section_id;
                     section = (sectionId && sections.find(s => s.section_id === sectionId && s.view_id === viewId))
                         || sections.find(s => s.view_id === viewId)
-                        || (headingProp ? sections.find(s => s.heading === headingProp) : null);
+                        || (headingProp ? sections.find(s => s.heading === headingProp) : null)
+                        || inlineSection;
                     // Fallback: if this block has no registered section (e.g. because
                     // the PER HEADING section upsert has collided with another
                     // it's an embed without a heading on the same page), but the view DOES
@@ -125,12 +140,8 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                             };
                         }
                     }
-                } else if (inlineSectionStr) {
-                    try {
-                        section = decodeView(JSON.parse(inlineSectionStr));
-                    } catch {
-                        section = null;
-                    }
+                } else if (inlineSection) {
+                    section = inlineSection;
                 }
                 if (isCancelled()) return;
                 if (!section) {
