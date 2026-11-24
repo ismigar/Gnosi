@@ -10,7 +10,10 @@
 .home-knowledge-action, .home-knowledge-source, .home-knowledge-view a { color: var(--gnosi-link); }
 .home-knowledge-source { width: fit-content; max-width: 100%; overflow-wrap: anywhere; font-weight: 600; }
 .home-knowledge-block a:hover, .home-knowledge-action:hover { text-decoration: underline; }
-.home-knowledge-sections { max-height: 24rem; overflow: auto; overscroll-behavior: contain; }
+.home-knowledge-sections { max-height: 24rem; overflow: auto; overscroll-behavior: contain; min-width: 0; }
+.home-knowledge-sections .gnosi-view-embed-container { min-width: 0; }
+.home-knowledge-sections .vault-view-toolbar { display: none; }
+.home-knowledge-sections [data-vault-table-scroll] { overflow-x: auto; min-width: 0; }
 .home-knowledge-view h4 { margin: .25rem 0; font-size: .87rem; color: var(--text-primary); }
 .home-knowledge-table-wrap { min-width: 0; overflow: auto; }
 .home-knowledge-view table { border-collapse: collapse; width: 100%; font-size: .8rem; }
