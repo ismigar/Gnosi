@@ -80,9 +80,17 @@ def test_display_answer_before_collecting_usage(team_runtime, tmp_path, monkeypa
         async def check_history():
             try:
                 assert await asyncio.to_thread(entered.wait, 2)
+                deadline = time.monotonic() + 2.0
+                ai_messages: list[str] = []
                 async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
-                    history = await graph.compile(checkpointer=saver).aget_state(config)
-                assert [m.content for m in history.values["messages"] if m.type == "ai"] == [answer]
+                    compiled = graph.compile(checkpointer=saver)
+                    while True:
+                        history = await compiled.aget_state(config)
+                        ai_messages = [m.content for m in (history.values or {}).get("messages", []) if m.type == "ai"]
+                        if ai_messages or time.monotonic() >= deadline:
+                            break
+                        await asyncio.sleep(0.02)
+                assert ai_messages == [answer]
             finally:
                 release.set()
 
