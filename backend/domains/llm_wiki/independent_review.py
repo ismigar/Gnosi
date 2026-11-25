@@ -149,9 +149,7 @@ def audit_payload(primary: dict[str, object], drafts: list[dict[str, object]], s
             "instruction": "Verify these drafts against this original. Return only justified corrections. "
             "Use position 0 for a missing substantive idea or the one-based position to replace a draft. "
             "Return a null replacement only to exclude an unsupported note and explain why. Quote the original literally. "
-            "Note OCR/transcription artifacts, missing facsimiles, or incomplete source excerpts in assessment when"
-            " the notes accurately reflect the supplied text; do not list such source limitations in unresolved_issues."
-            " Report only remaining defects in the notes or unsupported claims in unresolved_issues." + instruction,
+            "Report any remaining defects in unresolved_issues." + instruction,
             "output_schema": schema}
 
 

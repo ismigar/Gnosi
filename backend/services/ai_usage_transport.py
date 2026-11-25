@@ -239,7 +239,7 @@ class UsageCallback(BaseCallbackHandler):
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
                 metadata=state["attribution"], generation_id=generation_id, settle_budget=not defer_budget,
-                pricing_details=pricing, refine_budget=self.provider == 'openai' and state.get('reading_budget_active', False))
+                pricing_details=pricing, refine_budget=self.provider != "openrouter" and state.get("reading_budget_active", False))
             funding_confirmed = False
             if added and defer_budget and self.provider == 'openrouter':
                 from backend.services.ai_usage_openrouter import budget_cost
