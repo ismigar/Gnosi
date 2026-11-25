@@ -1,8 +1,7 @@
 import { lazy, Suspense, useId, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { DbViewEmbed } from '../../vault/views/DbViewEmbed';
-import type { EmbedBlock } from '../../vault/views/db-view-embed/types';
+import { DbViewEmbed, type EmbedBlock } from '../../vault';
 import { VaultEditorContext, type VaultEditorContextValue } from '../../../shared/editor/VaultEditorContext';
 import type { VaultSidebarPageSummary } from '../../../shared/api/vaults';
 import type { RequestContext } from '../../../shared/api/request-context';

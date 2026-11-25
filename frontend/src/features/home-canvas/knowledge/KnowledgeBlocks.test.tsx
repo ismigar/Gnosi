@@ -12,28 +12,16 @@ import { activateVault } from '../../../shared/routing/vaultRouting';
 import { recordPersonalNoteEdit } from '../../../shared/records/personalNoteEdits';
 import KnowledgeBlocks from './KnowledgeBlocks';
 
-vi.mock('../../vault/views/vault-table/useTableVirtualizer', () => ({
-  useTableVirtualizer: (options: { count: number; getItemKey?: (index: number) => unknown }) => {
-    const virtualRows = Array.from({ length: options.count }, (_, index) => ({
-      index,
-      key: options.getItemKey?.(index) ?? index,
-      start: index * 56,
-      end: (index + 1) * 56,
-      size: 56,
-      lane: 0,
-    }));
-    return {
-      rowVirtualizer: {
-        scrollToIndex: vi.fn(),
-        measureElement: vi.fn(),
-        getVirtualItems: () => virtualRows,
-        getTotalSize: () => options.count * 56,
-      },
-      virtualRows,
-      virtTotalSize: options.count * 56,
-    };
-  },
-}));
+vi.mock('@tanstack/react-virtual', async importOriginal => {
+  const actual = await importOriginal<typeof import('@tanstack/react-virtual')>();
+  return {
+    ...actual,
+    observeElementRect: (_instance: unknown, cb: (rect: { width: number; height: number }) => void) => {
+      cb({ width: 800, height: 600 });
+      return () => undefined;
+    },
+  };
+});
 vi.mock('../../../shared/auth/auth-context', () => ({ useAuth: () => ({ user: { name: 'Fixture' } }) }));
 vi.mock('react-i18next', async importOriginal => ({
   ...await importOriginal<typeof import('react-i18next')>(),
