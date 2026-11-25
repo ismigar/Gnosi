@@ -54,4 +54,9 @@ describe('VaultMarkdown', () => {
         expect(html).not.toContain('| CV');
         expect(html).toContain('Tag</span> Adjacent text');
     });
+    it('renders heading subtitles after background-highlighted spans without <br> as a paragraph below', () => {
+        const md = '# <span style="background-color: rgb(251, 243, 219);">📦 Recursos</span>Recursos pendents de processar';
+        const html = renderToStaticMarkup(<VaultMarkdown md={md} />);
+        expect(html).toMatch(/<h1[^>]*>.*📦 Recursos.*<\/h1>\s*<p>Recursos pendents de processar<\/p>/);
+    });
 });

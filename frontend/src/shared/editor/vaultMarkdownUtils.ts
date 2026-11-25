@@ -185,6 +185,9 @@ export const convertInlineHtmlToMd = (md?: string | null): string | null | undef
     // Normalize trailing <br> before closing inline markers (</span>, **) to prevent line breaks inside style links or bold runs
     out = out.replace(/((?:<br\s*\/?>\s*)+)<\/span>/gi, '</span>$1');
     out = out.replace(/(\*\*[^\n*]+?)((?:<br\s*\/?>\s*)+)\*\*/gi, '$1**$2');
+    // Heading with a background-highlighted span immediately followed by a capitalized subtitle (no space/break)
+    // splits into a heading + paragraph below it, matching soft-broken heading subtitles.
+    out = out.replace(/^([ \t]{0,3}#{1,6}[ \t]+<span\b[^>]*background-color[^>]*>[^\n<]*<\/span>)([A-ZÀ-Ü])/gmu, '$1\n\n$2');
     // Soft breaks (`<br>` / `<br>\n`) → hard line break (two spaces + newline).
     out = out.replace(/<br\s*\/?>(?:\r?\n)?/gi, '  \n');
     // Ensure separating whitespace when </span> is directly followed by a word character
