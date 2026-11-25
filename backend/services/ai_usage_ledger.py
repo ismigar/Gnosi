@@ -142,11 +142,14 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
             settle(db, identifier, cost)
         if cursor.rowcount and pricing_details is not None:
             db.execute("INSERT INTO usage_pricing VALUES (?,?)", (identifier, json.dumps(pricing_details)))
-            if (refine_budget or (settle_budget and cost_source == "estimated")) and status == "completed" and generation_id:
-                from backend.services.reading_budget import refine_reservation
+        if cursor.rowcount and status == "completed" and (refine_budget or (settle_budget and cost_source == "estimated")):
+            from backend.services.reading_budget import refine_reservation
+            if pricing_details is not None and generation_id:
                 bound = decimal_cost(pricing_details.get("reservation_bound_usd"))
                 if bound is not None:
                     refine_reservation(db, identifier, max(bound, cost or Decimal(0)))
+            elif pricing_details is None and provider != "openrouter" and cost is not None and cost_source == "estimated":
+                refine_reservation(db, identifier, cost * Decimal("1.10"))
         return bool(cursor.rowcount)
 
 

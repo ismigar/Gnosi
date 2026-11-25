@@ -404,3 +404,25 @@ def test_operator_grant_limits_old_and_new_book_budgets_across_retries_and_settl
         assert db.execute("SELECT count(*) FROM reading_book_grant_baseline").fetchone()[0] == 2
     with pytest.raises(budget.ReadingBudgetError):
         reserve(restarted, "cannot-refill-from-old-settlement", 1)
+
+
+def test_direct_providers_refine_estimated_reservation_on_completion():
+    identifier = budget.configure(1.0)
+    with budget.session(identifier):
+        budget.reserve("anthropic-ok", "passage", {"max_tokens": 16384}, {"cost_in": 3, "cost_out": 15}, "anthropic", "claude")
+        budget.reserve("google-fail", "passage", {"max_tokens": 16384}, {"cost_in": 1, "cost_out": 5}, "google", "gemini")
+    before = budget.status(identifier)["reserved_usd"]
+    ledger.write_call(call_id="anthropic-ok", provider="anthropic", model_id="claude",
+                      input_tokens=1000, output_tokens=200, cost_usd="0.006", cost_source="estimated",
+                      status="completed", refine_budget=True)
+    ledger.write_call(call_id="google-fail", provider="google", model_id="gemini",
+                      input_tokens=1000, output_tokens=0, cost_usd="0.001", cost_source="estimated",
+                      status="failed", refine_budget=True)
+    after = budget.status(identifier)
+    assert after["spent_usd"] == 0
+    assert after["reserved_usd"] < before
+    # anthropic-ok refined to 0.006 * 1.10 = 0.0066; google-fail kept its initial reservation.
+    with ledger.connect() as db:
+        rows = dict(db.execute("SELECT call_id, reserved_usd FROM reading_reservations WHERE budget_id=?", (identifier,)).fetchall())
+    assert Decimal(rows["anthropic-ok"]) == Decimal("0.00660")
+    assert Decimal(rows["google-fail"]) > Decimal("0.01")
