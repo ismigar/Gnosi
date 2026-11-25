@@ -24,7 +24,7 @@ L’application de bureau adaptée à votre système et un dossier accessible en
 
 Vous disposez d’un Vault sélectionné, de deux pages enregistrées et d’un lien fonctionnel. Ajoutez ensuite une source et une note de lecture.
 
-## Personnaliser l’accueil {#personal-home}
+### Personnaliser l’accueil
 
 Cliquez sur le **G** dans la barre latérale. **Modifier l’accueil → Ajouter un bloc** affiche les blocs disponibles pour les extensions actives du Vault. Choisissez une largeur d’une, deux ou trois colonnes. Faites glisser un bloc ou déplacez-le avec les flèches. Cliquez sur **Enregistrer** pour conserver la disposition de votre compte dans ce Vault.
 

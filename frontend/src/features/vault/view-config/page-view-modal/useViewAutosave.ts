@@ -8,12 +8,14 @@ import type { useViewSnapshotResult } from './useViewSnapshot';
 
 export function useViewAutosave({
     sourceTableId, visibleProperties, viewLoadStatus, formSnapshot, formBaselineSnapshot,
-    isTableMode, editingView, editingBlock, persistView, onSave, onClose, setError, setActiveTab, t,
+    isTableMode, editingView, editingBlock, persistView, onSave, onClose, setError, setActiveTab,
+    setSourceTableId, setSelectedExistingViewId, t,
 }: Pick<ModalInput & useViewPersistenceResult & useViewStateResult & useViewSnapshotResult,
     'sourceTableId' | 'visibleProperties' | 'viewLoadStatus' | 'formSnapshot' | 'formBaselineSnapshot'
-    | 'isTableMode' | 'editingView' | 'editingBlock' | 'persistView' | 'onSave' | 'onClose' | 'setError' | 'setActiveTab' | 't'>) {
+    | 'isTableMode' | 'editingView' | 'editingBlock' | 'persistView' | 'onSave' | 'onClose' | 'setError' | 'setActiveTab'
+    | 'setSourceTableId' | 'setSelectedExistingViewId' | 't'>) {
     const saved = useRef<SavedView | null>(null);
-    const closing = useRef(false);
+    const flushingRef = useRef(false);
     const [flushing, setFlushing] = useState(false);
     const ready = viewLoadStatus === 'ready' && Boolean(formBaselineSnapshot);
     const valid = ready && Boolean(sourceTableId) && visibleProperties.length > 0;
@@ -31,16 +33,36 @@ export function useViewAutosave({
             throw error;
         }
     };
-    const { flush, status } = useDraftAutosave(draft, valid, save);
+    const { flush, status, dirty } = useDraftAutosave(draft, valid, save);
+    const switchSelection = async (select: () => void) => {
+        if (flushingRef.current) return;
+        if (status !== 'saving' && !(valid && dirty)) {
+            select();
+            return;
+        }
+        flushingRef.current = true;
+        setFlushing(true);
+        try {
+            if (await flush()) select();
+        } finally {
+            flushingRef.current = false;
+            setFlushing(false);
+        }
+    };
+    const selectExistingView = (id: string) => switchSelection(() => { setSelectedExistingViewId(id); });
+    const selectSourceTable = (id: string) => switchSelection(() => {
+        setSourceTableId(id);
+        setSelectedExistingViewId('');
+    });
     const closeWithFlush = async () => {
-        if (closing.current) return;
+        if (flushingRef.current) return;
         if (!ready || (!sourceTableId && (isNewEmbed || (isTableMode && !editingView?.id)) && !saved.current)) { onClose(false); return; }
         if (!valid) {
             setError(sourceTableId ? t('view.error_no_fields', 'At least one visible field is required') : t('view.error_no_table', 'You must select a source table'));
             setActiveTab(sourceTableId ? 'properties' : 'general');
             return;
         }
-        closing.current = true;
+        flushingRef.current = true;
         setFlushing(true);
         try {
             const acceptDefault = !saved.current && (isNewEmbed || (isTableMode && !editingView?.id));
@@ -50,10 +72,10 @@ export function useViewAutosave({
         } catch {
             // Keep the draft and error visible for retry.
         } finally {
-            closing.current = false;
+            flushingRef.current = false;
             setFlushing(false);
         }
     };
-    return { autosaveStatus: status, flushing, closeWithFlush, requestClose: () => { void closeWithFlush(); } };
+    return { autosaveStatus: status, flushing, selectExistingView, selectSourceTable, closeWithFlush, requestClose: () => { void closeWithFlush(); } };
 }
 export type useViewAutosaveResult = ReturnType<typeof useViewAutosave>;

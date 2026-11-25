@@ -24,7 +24,7 @@ L’app d’escriptori del teu sistema i una carpeta on puguis escriure. Si util
 
 Tens un Vault seleccionat, dues pàgines desades i un enllaç funcional. El pas següent és afegir una font i una nota de lectura.
 
-## Personalitza l’inici {#personal-home}
+### Personalitza l’inici
 
 Clica la **G** de la barra lateral. A **Edita l’inici → Afegeix un bloc** veuràs els blocs disponibles per als complements actius del Vault. Tria una amplada d’una, dues o tres columnes. Pots arrossegar un bloc o moure’l amb les fletxes. Prem **Desa** per guardar la disposició al teu compte en aquest Vault.
 

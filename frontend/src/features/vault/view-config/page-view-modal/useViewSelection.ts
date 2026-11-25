@@ -3,11 +3,13 @@ import { useEffect, useEffectEvent } from 'react';
 import { treeFromSource } from './filter-tree';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
-import type { useViewSessionResult } from './useViewSession';
+import { viewSelectionKey, type useViewSessionResult } from './useViewSession';
 import type { useViewAppearanceResult } from './useViewAppearance';
+import type { ViewConfig } from './types';
 
 export function useViewSelection({
-    selectedExistingViewId, setViewUsage, setEditScope, existingViews,
+    selectedExistingViewId, sourceTableId, isTableMode, editingBlock, formBaselineRevision, viewLoadStatus,
+    savedSelections, inlineSourceRef, setViewUsage, setEditScope, existingViews,
     setViewName, setVisibleProperties, setJoins, setViewType,
     setFilterTree, setResultSnapshot, setResultSnapshotLimit, applyTypeOptions,
     setSorts, appliedSelectionRef, updatedViewsRef, setSaveToTableViews,
@@ -15,6 +17,13 @@ export function useViewSelection({
 }: Pick<
     useViewStateResult & useViewAppearanceResult & useViewSessionResult & ModalInput,
     'selectedExistingViewId'
+    | 'sourceTableId'
+    | 'isTableMode'
+    | 'editingBlock'
+    | 'formBaselineRevision'
+    | 'viewLoadStatus'
+    | 'savedSelections'
+    | 'inlineSourceRef'
     | 'setViewUsage'
     | 'setEditScope'
     | 'existingViews'
@@ -35,17 +44,23 @@ export function useViewSelection({
     | 'setModalPinnedViewIds'
 >) {
     const hydrate1 = useEffectEvent(() => {
-        if (!selectedExistingViewId) {
-            appliedSelectionRef.current = '';
-            setViewUsage({ count: 0, pages: [] });
-            setEditScope('shared');
+        if (isTableMode || !sourceTableId || !formBaselineRevision || viewLoadStatus !== 'ready') return;
+        const key = viewSelectionKey(sourceTableId, selectedExistingViewId);
+        if (!selectedExistingViewId && appliedSelectionRef.current === null) {
+            // The initial local draft was already populated when the dialog opened.
+            appliedSelectionRef.current = key;
             return;
         }
-        const v = updatedViewsRef.current.get(selectedExistingViewId) || existingViews.find(x => x.id === selectedExistingViewId);
+        const saved = savedSelections.get(key);
+        const local = inlineSourceRef.current;
+        const localDefaults: ViewConfig = local && (local.table_id || local.source_table_id) === sourceTableId ? local : {};
+        const registered = saved?.registryId ? updatedViewsRef.current.get(saved.registryId) : undefined;
+        const v = registered || saved?.view || updatedViewsRef.current.get(selectedExistingViewId)
+            || (selectedExistingViewId ? existingViews.find(x => x.id === selectedExistingViewId) : localDefaults);
         if (!v) return;
-        if (appliedSelectionRef.current !== selectedExistingViewId) {
-            appliedSelectionRef.current = selectedExistingViewId;
-            setModalPinnedViewIds(readPinnedViews(pageId, selectedExistingViewId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
+        if (appliedSelectionRef.current !== key) {
+            appliedSelectionRef.current = key;
+            setModalPinnedViewIds(saved?.pins || readPinnedViews(pageId, selectedExistingViewId, Array.isArray(v.tabs) ? v.tabs.map(String) : []));
             setViewName(v.name || '');
             setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
             setJoins(Array.isArray(v.joins) ? v.joins : []);
@@ -62,14 +77,14 @@ export function useViewSelection({
             } else {
                 setSorts([]);
             }
-            setSaveToTableViews(selectedExistingViewId === 'default' || v.is_main === true);
-            setEditScope('shared');
+            setSaveToTableViews(saved?.saveToTableViews ?? (selectedExistingViewId ? selectedExistingViewId === 'default' || v.is_main === true : !editingBlock));
+            setEditScope(saved?.editScope || 'shared');
             setViewUsage({ count: 0, pages: [] });
         }
         // The virtual "Main Table" has no entry in the registry; we show it
         // as a "starting point" but we enable saving (it will be created as a
         // genuinely new view). The usage also doesn't make sense for 'default'.
-        if (selectedExistingViewId === 'default' || v.is_main) {
+        if (!selectedExistingViewId || selectedExistingViewId === 'default' || v.is_main) {
             return;
         }
 
@@ -93,7 +108,7 @@ export function useViewSelection({
         let release: (() => void) | undefined;
         queueMicrotask(() => { if (active) release = hydrate1(); });
         return () => { active = false; release?.(); };
-    }, [selectedExistingViewId, existingViews, api]);
+    }, [formBaselineRevision, viewLoadStatus, sourceTableId, selectedExistingViewId, existingViews, api]);
     return {};
 }
 export type useViewSelectionResult = ReturnType<typeof useViewSelection>;

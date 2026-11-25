@@ -1,22 +1,25 @@
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 import type { useViewOptionsResult } from './useViewOptions';
+import type { useViewAutosaveResult } from './useViewAutosave';
 import { isProtectedMainView } from '../../views/viewConstants';
 
 export function ViewExistingPicker({
     isTableMode, sourceTableId, t, selectedExistingViewId,
-    setSelectedExistingViewId, isLoadingExistingViews, existingViews, viewName,
+    selectExistingView, flushing, isLoadingExistingViews, pickerViews, viewName, localViewName,
     existingViewsLoadError, setExistingViewsReloadKey
 }: Pick<
-    ModalInput & useViewStateResult & useViewOptionsResult,
+    ModalInput & useViewStateResult & useViewOptionsResult & useViewAutosaveResult,
     'isTableMode'
     | 'sourceTableId'
     | 't'
     | 'selectedExistingViewId'
-    | 'setSelectedExistingViewId'
+    | 'selectExistingView'
+    | 'flushing'
     | 'isLoadingExistingViews'
-    | 'existingViews'
+    | 'pickerViews'
     | 'viewName'
+    | 'localViewName'
     | 'existingViewsLoadError'
     | 'setExistingViewsReloadKey'
 >) {
@@ -28,15 +31,15 @@ export function ViewExistingPicker({
             <select
                 className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                 value={selectedExistingViewId}
-                onChange={e => { setSelectedExistingViewId(e.target.value); }}
-                disabled={isLoadingExistingViews}
+                onChange={e => { void selectExistingView(e.target.value); }}
+                disabled={isLoadingExistingViews || flushing}
             >
                 <option value="">
                     {isLoadingExistingViews
                         ? t('view.loading_views', "Loading views…")
-                        : t('view.create_new_view', "— Create new view —")}
+                        : localViewName || t('view.create_new_view', "— Create new view —")}
                 </option>
-                {existingViews.map(v => {
+                {pickerViews.map(v => {
                     const displayedName = v.id === selectedExistingViewId
                         ? viewName
                         : v.name;
@@ -63,7 +66,7 @@ export function ViewExistingPicker({
             )}
             {selectedExistingViewId && (
                 <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)] leading-tight">
-                    {isProtectedMainView(existingViews.find(view => view.id === selectedExistingViewId))
+                    {isProtectedMainView(pickerViews.find(view => view.id === selectedExistingViewId))
                         ? t('view.protected_embed_hint', 'Changes are saved in a separate view for this page.')
                         : t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
                 </p>
