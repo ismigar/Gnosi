@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_metadata_text
-
+import asyncio
 import hashlib
 import json
 import re
@@ -12,6 +11,10 @@ import threading
 import unicodedata
 import uuid
 import weakref
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import ExitStack
+from contextvars import copy_context
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -22,6 +25,8 @@ from backend.models.agent_skills import (
     OriginType,
     SkillDescriptor,
 )
+from backend.utils import metadata_io
+from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_metadata_text
 from backend.utils.safe_io import safe_write_text
 
 
@@ -93,7 +98,7 @@ class UserSkillStore:
         return self.root / normalized
 
     @staticmethod
-    def _read_limited(path: Path, maximum: int) -> str:
+    def _read_limited(path: Path, maximum: int, read_text: Callable[[Path], str]) -> str:
         try:
             size = path.stat().st_size
         except OSError as exc:
@@ -101,11 +106,13 @@ class UserSkillStore:
         if size > maximum:
             raise UserSkillStoreError(f"{path.name} exceeds the size limit")
         try:
-            return read_metadata_text(path, encoding="utf-8")
+            return read_text(path)
         except OSError as exc:
             raise UserSkillStoreError(f"could not read {path.name}: {exc}") from exc
 
-    def _load_package(self, package: Path) -> SkillDescriptor:
+    def _load_package(
+        self, package: Path, read_text: Callable[[Path], str] = read_metadata_text,
+    ) -> SkillDescriptor:
         if package.is_symlink():
             raise UserSkillStoreError("symlinked skill packages are not allowed")
         descriptor_path = package / "skill.yaml"
@@ -114,7 +121,7 @@ class UserSkillStore:
             raise UserSkillStoreError("skill.yaml is required and cannot be a symlink")
         if not instructions_path.is_file() or instructions_path.is_symlink():
             raise UserSkillStoreError("SKILL.md is required and cannot be a symlink")
-        raw_text = self._read_limited(descriptor_path, MAX_DESCRIPTOR_BYTES)
+        raw_text = self._read_limited(descriptor_path, MAX_DESCRIPTOR_BYTES, read_text)
         try:
             raw = yaml.safe_load(raw_text) or {}
         except yaml.YAMLError as exc:
@@ -122,7 +129,7 @@ class UserSkillStore:
         if not isinstance(raw, dict):
             raise UserSkillStoreError("skill.yaml must contain an object")
         raw["instructions"] = self._read_limited(
-            instructions_path, MAX_INSTRUCTIONS_BYTES
+            instructions_path, MAX_INSTRUCTIONS_BYTES, read_text
         )
         # Ownership is derived from the storage boundary. A copied package
         # cannot impersonate core or plugin content by editing its YAML.
@@ -148,6 +155,30 @@ class UserSkillStore:
                 raise UserSkillNotFoundError(f"skill not found: {skill_id}")
             return self._load_package(package)
 
+    def _can_group_cloud_reads(self) -> bool:
+        if not metadata_io.is_native_vault_file(self.root):
+            return False
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return True
+        # Synchronous event-loop callers keep their nonblocking metadata handoff.
+        return False
+
+    def _assigned_cloud_reads(
+        self, pending: list[str], cleanup: ExitStack,
+    ) -> dict[str, Future[SkillDescriptor]]:
+        assigned = dict.fromkeys(
+            identifier for identifier in reversed(pending) if USER_SKILL_ID_RE.fullmatch(identifier)
+        )
+        if len(assigned) < 2 or not self._can_group_cloud_reads():
+            return {}
+        # The native coordinator has two foreground workers. Read independent
+        # assignments together, keeping each package's validation and lock.
+        pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="gnosi-skill-read")
+        cleanup.callback(pool.shutdown, wait=True, cancel_futures=True)
+        return {key: pool.submit(copy_context().run, self.load, key) for key in assigned}
+
     def load_referenced(
         self, skill_ids: Iterable[str], registered: Mapping[str, SkillDescriptor],
     ) -> List[SkillDescriptor]:
@@ -157,22 +188,25 @@ class UserSkillStore:
         visited: set[str] = set()
         if self.root.is_symlink():
             return []
-        while pending:
-            identifier = pending.pop()
-            if identifier in visited:
-                continue
-            visited.add(identifier)
-            descriptor = registered.get(identifier)
-            if USER_SKILL_ID_RE.fullmatch(identifier):
-                try:
-                    descriptor = self.load(identifier)
-                except (UserSkillStoreError, UnicodeError):
+        with ExitStack() as cleanup:
+            scheduled = self._assigned_cloud_reads(pending, cleanup)
+            while pending:
+                identifier = pending.pop()
+                if identifier in visited:
                     continue
-                personal.append(descriptor)
-            if descriptor is not None:
-                parent = descriptor.metadata.get("derived_from")
-                if isinstance(parent, dict) and isinstance(parent.get("id"), str):
-                    pending.append(parent["id"])
+                visited.add(identifier)
+                descriptor = registered.get(identifier)
+                if USER_SKILL_ID_RE.fullmatch(identifier):
+                    try:
+                        future = scheduled.get(identifier)
+                        descriptor = future.result() if future is not None else self.load(identifier)
+                    except (UserSkillStoreError, UnicodeError):
+                        continue
+                    personal.append(descriptor)
+                if descriptor is not None:
+                    parent = descriptor.metadata.get("derived_from")
+                    if isinstance(parent, dict) and isinstance(parent.get("id"), str):
+                        pending.append(parent["id"])
         return personal
 
     def load_all(self) -> Tuple[List[SkillDescriptor], List[Dict[str, str]]]:

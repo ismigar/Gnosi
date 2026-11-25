@@ -158,13 +158,21 @@ class _Briefing:
         if output_repair is None and request.operation == 'podcast.coverage.digest':
             from backend.services.podcast_feedback_repair import guidance_repair
             output_repair = guidance_repair(self, request, validate)
+        retained = False
+
+        def retain_validated(text: str) -> str:
+            nonlocal retained
+            checked(text)
+            if parent and not retained:
+                # A transient permission-file read after validation must not discard a paid response.
+                work_checkpoint(self.snapshot.scope, parent, key, {"result": json.loads(text)})
+                retained = True
+            return text
+
         response = run_sync(request, snapshot=_write_snapshot(self.snapshot, request),
-                            output_validator=checked, output_repair=output_repair)
-        checked(response.result)
-        result: dict[str, Any] = json.loads(response.result)
+                            output_validator=retain_validated, output_repair=output_repair)
+        result: dict[str, Any] = json.loads(retain_validated(response.result))
         self.check_active()
-        if parent:
-            work_checkpoint(self.snapshot.scope, parent, key, {"result": result})
         return result
 
     def batches(self, parts: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:

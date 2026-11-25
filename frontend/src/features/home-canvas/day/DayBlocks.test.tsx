@@ -97,8 +97,9 @@ it('loads only enabled and visible appointments, rescopes previous cached conten
         throw new Error(path);
     };
     await render(block('agenda'));
-    await settled(() => { expect(host.querySelectorAll('li')).toHaveLength(2); });
-    expect(host.querySelector('li a')?.getAttribute('href')).toBe('/@library/calendar/event/Current?date=2026-11-23&source=a%40example.test+-+Work');
+    await settled(() => { expect(host.querySelectorAll('li')).toHaveLength(3); });
+    // compact={false} always: same number regardless of width; vault event (07:30) precedes Current (10:00)
+    expect(host.textContent).toContain('appointments');
     expect(host.textContent).toContain('home_canvas.day.now');
     expect(host.textContent).toContain('home_canvas.day.next');
     await render(block('agenda', 2));

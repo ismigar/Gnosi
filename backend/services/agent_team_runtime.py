@@ -5,9 +5,12 @@ import asyncio
 import copy
 import hashlib
 import json
+import time
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from functools import cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,6 +19,7 @@ from langgraph.graph import END, START, StateGraph
 
 from backend.services.agent_behavior import resource, revision
 from backend.services.agent_behavior_bindings import canonical_id, runtime_skill_ids
+from backend.services.agent_catalog_snapshot import capture_roster_sources, team_metadata_catalog
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, ExecutionScope
 from backend.services.agent_team_models import TEAM_SKILL, AgentTeam, TeamPlan, TeamTask, TemporaryAgentSpec
 from backend.services.agent_team_policy import select_executor, team_for
@@ -30,11 +34,19 @@ def _config() -> dict[str, Any]:
     return dict(load_params(strict_env=False).ai)
 
 
-def _profile(identifier: str) -> dict[str, Any]:
-    profile = next((p for p in _config().get("agents", []) if p.get("id") == identifier), None)
+def _profile(identifier: str, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    ai = _config() if config is None else config
+    profile = next((p for p in ai.get("agents", []) if p.get("id") == identifier), None)
     if not profile or not profile.get("enabled", True) or profile.get("plugin_suspended"):
         raise PermissionError("agent_team_profile_unavailable")
     return copy.deepcopy(profile)
+
+
+def _current_team(owner: dict[str, Any]) -> AgentTeam:
+    configured = team_for(owner)
+    if team_for(_profile(owner["id"])) != configured:
+        raise PermissionError("agent_team_configuration_changed")
+    return configured
 
 
 def _runtime(profile: dict[str, Any], scope: ExecutionScope, skill_ids: list[str] | None = None) -> Any:
@@ -73,17 +85,18 @@ def validate_temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], scope: E
         raise PermissionError("agent_team_local_boundary")
 
 
-def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
+def execution_profile(snapshot: AgentExecutionSnapshot, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Revalidate the originating grant as well as the child, including revocation."""
     from backend.services import agent_execution_store as runs
     metadata = snapshot.profile.get("_team_execution")
     if not metadata:
-        return _profile(snapshot.agent_id)
+        return _profile(snapshot.agent_id, config=config)
     root_id, owner_id = metadata["root_id"], metadata["owner_id"]
     root = runs.read(snapshot.scope, root_id)
     if runs.cancelled(snapshot.scope, root_id) or root.status in {"cancelled", "failed", "interrupted", "completed", "resumed"}:
         raise PermissionError("agent_team_parent_unavailable")
-    owner = _profile(owner_id)
+    current_config = _config() if config is None else config
+    owner = _profile(owner_id, config=current_config)
     team = team_for(owner)
     if not team.enabled:
         raise PermissionError("agent_team_revoked")
@@ -95,36 +108,59 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
     allowed = {owner["id"], team.director_id, *(m.agent_id for m in team.members)}
     if snapshot.agent_id not in allowed:
         raise PermissionError("agent_team_member_revoked")
-    current = _profile(snapshot.agent_id)
+    current = _profile(snapshot.agent_id, config=current_config)
     if any(snapshot.profile.get(field) is not None and current.get(field) != snapshot.profile.get(field) for field in ("provider", "model")):
         raise PermissionError("agent_team_executor_changed")
     return current
 
 
-def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False, allow_owner: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
-    ids = [identifier for identifier in ids if allow_owner or identifier != owner["id"]]
-    from backend.agent.model_router import load_registry
+@dataclass
+class CandidateInputs:
+    profiles: list[dict[str, Any]]
+    registry: list[dict[str, Any]]
+    usage: dict[str, int]
+    blocked: bool
+    provider_available: Callable[[str], bool]
+
+
+def candidate_inputs(ai: dict[str, Any]) -> CandidateInputs:
+    """Read common selection inputs once per decision; execution rechecks its own limits."""
+    from backend.agent.model_router import budget_status, load_registry
     from backend.domains.agent.llm import _provider_is_available
-    from backend.agent.model_router import UsageStore, budget_status
     status = budget_status()
-    if status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"):
+    blocked = bool(status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"))
+
+    @cache
+    def available(provider: str) -> bool:
+        return _provider_is_available(provider, ai.get("providers", {}).get(provider, {}))
+
+    rows = [] if blocked else status.get("per_model", [])
+    usage = {f"{row['provider']}:{row['model_id']}": row["in"] + row["out"] for row in rows}
+    return CandidateInputs(ai.get("agents", []), [] if blocked else load_registry(), usage, blocked, available)
+
+
+def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *,
+               preferred: str = "", tools: bool = False, allow_owner: bool = False,
+               inputs: CandidateInputs | None = None, catalog_assignments_available: bool | None = None
+               ) -> tuple[dict[str, Any] | None, str, float | None]:
+    ids = [identifier for identifier in ids if allow_owner or identifier != owner["id"]]
+    inputs = inputs or candidate_inputs(_config())
+    if inputs.blocked:
         return None, "budget_exceeded", None
-    usage = UsageStore().usage_for(status["period"]) if status.get("period") else {}
-    ai = _config()
-    registry = load_registry()
-    models = {(r.get("provider"), r.get("model_id")): r for r in registry}
+    models = {(r.get("provider"), r.get("model_id")): r for r in inputs.registry}
     def ready(profile: dict[str, Any], requested: list[str]) -> bool:
+        if catalog_assignments_available is not None and not requested and not tools:
+            return catalog_assignments_available
         runtime = _runtime(profile, scope, requested)
         model = models.get((profile.get("provider"), profile.get("model")), {})
         if tools and runtime.tools and "tools" not in (model.get("tags") or []) and model.get("supports_tools") is not True:
             return False
         return runtime_skill_ids(runtime, requested).issubset(runtime.active_skill_ids) and not runtime.missing_skill_ids and not runtime.unavailable_tool_ids
     # UTF-8 byte count is a conservative upper bound, including profile instructions.
-    overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in ai.get("agents", []) if p.get("id") in ids), default=0)
-    return select_executor(ai.get("agents", []), registry, allowed_ids=ids,
+    overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in inputs.profiles if p.get("id") in ids), default=0)
+    return select_executor(inputs.profiles, inputs.registry, allowed_ids=ids,
         skill_ids=skills, input_tokens=len(text.encode()) + overhead, source_provider=str(owner.get("provider") or ""),
-        runtime_check=ready, preferred_id=preferred, require_tools=False, usage=usage,
-        is_available=lambda provider: _provider_is_available(provider, ai.get("providers", {}).get(provider, {})))
+        runtime_check=ready, preferred_id=preferred, require_tools=False, usage=inputs.usage, is_available=inputs.provider_available)
 
 
 def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scope: ExecutionScope, skills: list[str], refs: list[dict[str, Any]], *, read_only: bool = False, temporary: bool = False, extra_instructions: tuple[str, ...] = ()) -> tuple[AgentExecutionSnapshot, Any]:
@@ -223,7 +259,7 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
             options={"economical_planning": allow_response and operation == "team.plan" and economical_planning(planning_data)},
-            output_schema=schema, max_model_calls=2 if plan_validator or (operation == "team.synthesis" and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
+            output_schema=schema, max_model_calls=2 if plan_validator or (operation in {"team.greeting", "team.synthesis"} and schema is not None) else 1, parent_run_id=root_id, origin=snapshot.origin,
             timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)
         return result.result
@@ -357,14 +393,8 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
                 and owner["id"] == (await asyncio.to_thread(_config)).get("active_agent_id"))
     if own_task:
         ids = [*ids, owner["id"]]
-    original_data = json.loads(original) if operation_mode else {"input": original}
-    text = json.dumps({"original_request": original, "assignment": task.objective,
-        **({"original_input": original_data.get("input", original), "original_data": original_data.get("data", {})} if operation_mode else {}),
-        "expected_result": task.expected_result, "acceptance": task.acceptance,
-        **({"output_schema": output_schema} if output_schema is not None else {}),
-        "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}],
-        "completed_evidence": state.get("team_completed_evidence", []),
-        "previous_results": {k: results[k]["result"] for k in task.depends_on}}, ensure_ascii=False)
+    from backend.services.agent_team_routing import executor_input
+    text = executor_input(task, original, state, results, operation_mode=operation_mode, output_schema=output_schema)
     selected, reason, cost = await asyncio.to_thread(
         _candidate, owner, scope, ids, task.skill_ids, text, preferred=task.agent_id if allowed_ids is None else "",
         tools=not operation_mode, allow_owner=own_task,
@@ -453,10 +483,7 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     scope, root_id = current_scope(), _run.get()
     if not root_id:
         raise RuntimeError("agent_team_execution_required")
-    live = await asyncio.to_thread(_profile, owner["id"])
-    if team_for(live) != team_for(owner):
-        raise PermissionError("agent_team_configuration_changed")
-    team = team_for(owner)
+    team = await asyncio.to_thread(_current_team, owner)
     request_data: dict[str, Any] = json.loads(original) if operation_mode else {}
     from backend.services.agent_team_contracts import output_schema as plan_output_schema, required_operation, task_route_ids
     from backend.services.agent_team_output import TeamOutputContractError
@@ -484,7 +511,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
     if not saved:
         artifacts.put(scope, root_id, "plan", "plan", {"plan": plan.model_dump(), "original": original,
             "operation_mode": operation_mode, "state": {"turn_authorized_tool_names": state.get("turn_authorized_tool_names", []),
-                "current_user_role": scope.role, **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
+                "current_user_role": scope.role, **({"greeting_reply": True} if state.get("greeting_reply") else {}),
+                **({'title_edit': state['title_edit']} if state.get('title_edit') else {})},
             "messages": messages_to_dict(state.get("messages", []))}, create_only=True)
     if plan.response:
         record("team.response", {"executor": team.director_id, "mode": "direct_response"})
@@ -492,6 +520,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
         answer, metadata = await review_direct_response(owner=owner, root_id=root_id, scope=scope,
             quality=quality, original=original, state=state, candidate=plan.response,
             output_schema=result_schema, available=root_snapshot is not None)
+        if state.get("greeting_reply"):
+            metadata = {**metadata, "gnosi_greeting_reply": True}
         return {"messages": [AIMessage(content=answer, additional_kwargs=metadata)]}
     results: dict[str, Any] = {}
     pending = list(plan.tasks)
@@ -586,38 +616,61 @@ async def repair_output(root_id: str, scope: ExecutionScope, text: str, error: s
 def build_team_workflow(profile: Any, *, operation_mode: bool, original: str) -> tuple[Any, dict[str, Any]] | None:
     if delegating.get() or profile.agent_data.get("_team_execution") or not team_for(profile.agent_data).enabled:
         return None
-    from backend.domains.agent.policy import AgentState
+    from backend.domains.agent.policy import TeamState
     from backend.services.agent_execution import snapshot_from_runtime
     from backend.services.agent_execution_scope import current_scope
     owner = copy.deepcopy(profile.agent_data)
-    async def execute(state: AgentState) -> dict[str, Any]:
+    async def prepare_reply(state: TeamState) -> dict[str, Any]:
         current = state.get("user_request") or next((str(m.content) for m in reversed(state["messages"]) if m.type == "human"), original)
         result = await coordinate(owner, dict(state), operation_mode=operation_mode, original=current)
+        if started := state.get("chat_request_started_at"):
+            response_ms = max(0, int((time.monotonic() - started) * 1000))
+            for message in result["messages"]:
+                message.id = message.id or uuid.uuid4().hex
+                message.additional_kwargs["gnosi_timings"] = {"response_ms": response_ms}
+            # Persist the approved answer before accounting. The final node
+            # enriches the same message IDs, so replay and history see one reply.
+            return {"messages": result["messages"], "pending_team_messages": result["messages"]}
+        return {"pending_team_messages": result["messages"]}
+
+    async def finish_reply(state: TeamState) -> dict[str, Any]:
         from backend.services.agent_execution import _run
-        from backend.services.agent_team_usage import team_usage
-        from backend.services.agent_execution_trace import record
-        usage = team_usage(current_scope(), _run.get())
-        artifacts.put(current_scope(), _run.get(), "usage", "usage", usage)
-        record("team.usage", usage)
-        for message in result["messages"]:
-            message.additional_kwargs["gnosi_team_usage"] = usage
-        return result
-    graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)
-    graph.add_node("team", execute)
-    graph.add_edge(START, "team")
+        from backend.services.agent_team_usage import attach_team_usage
+        pending = state.get("pending_team_messages")
+        if pending is None:
+            # A pre-upgrade checkpoint may already be scheduled at the old team node.
+            pending = (await prepare_reply(state))["pending_team_messages"]
+        messages = await attach_team_usage(pending, current_scope(), _run.get(), state.get("chat_request_started_at"))
+        return {"messages": messages, "pending_team_messages": []}
+
+    graph: StateGraph[Any, None, Any, Any] = StateGraph(TeamState)
+    graph.add_node("team_reply", prepare_reply)
+    graph.add_node("team", finish_reply)
+    graph.add_edge(START, "team_reply")
+    graph.add_edge("team_reply", "team")
     graph.add_edge("team", END)
-    setattr(graph, "_execution_snapshot", snapshot_from_runtime(current_scope(), owner, profile.resolved_runtime))
+    scope = current_scope()
+    setattr(graph, "_execution_snapshot", snapshot_from_runtime(scope, owner, profile.resolved_runtime))
     from backend.domains.agent.runtime_tools import _runtime_tool_metadata
     metadata = {}
-    for member in team_for(owner).members:
-        try:
-            member_profile = _profile(member.agent_id)
-        except PermissionError:
-            continue
-        runtime = _runtime(member_profile, current_scope())
-        entries, _ = _runtime_tool_metadata(runtime)
-        for item in entries:
-            metadata[item["name"]] = {k: v for k, v in item.items() if not k.startswith("_")}
+    members = team_for(owner).members
+    with team_metadata_catalog():
+        config = getattr(profile, "ai_cfg", None)
+        if members and (config is None or "agents" not in config):
+            config = _config()
+        eligible = []
+        for member in members:
+            try:
+                eligible.append(_profile(member.agent_id, config=config))
+            except PermissionError:
+                continue
+        if eligible:
+            capture_roster_sources(Path(scope.vault_path), eligible)
+        for member_profile in eligible:
+            runtime = _runtime(member_profile, scope)
+            entries, _ = _runtime_tool_metadata(runtime)
+            for item in entries:
+                metadata[item["name"]] = {k: v for k, v in item.items() if not k.startswith("_")}
     return graph, {"provider": owner.get("provider", ""), "model": owner.get("model", ""), "mode": "team", "supports_tools": True,
         "tool_count": len(metadata),
         "active_skill_ids": list(profile.resolved_runtime.active_skill_ids), "tools": list(metadata.values()),

@@ -21,6 +21,7 @@ def runtime(monkeypatch, tmp_path):
         "provider": "test", "model": "fake"}, skill_ids=["core.gnosi-operation-writing"], instructions=["Use the assigned procedure"], catalog_revision="1", revision="v1")
     monkeypatch.setattr(store, "resolve_data_dir", lambda **kwargs: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda scope: None)
+    monkeypatch.setattr(execution, "revalidate_scope_async", lambda scope: asyncio.to_thread(execution.revalidate_scope, scope))
     from backend.config import app_config
     monkeypatch.setattr(app_config, "load_params", lambda **kwargs: SimpleNamespace(ai={"agents": [snapshot.profile]}, paths={}))
     from backend.services import agent_skill_catalog
@@ -605,6 +606,60 @@ def test_real_operation_graph_uses_policy_and_complete_instructions(runtime, mon
         row = asyncio.run(execution.execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="test", output_schema={"type":"object","required":["answer"]}), snapshot=snapshot))
     assert row.status == "completed"
     assert row.model_calls == 1
+
+
+def test_chat_and_operation_wait_for_cloud_scope_checks(runtime, monkeypatch):
+    scope, snapshot = runtime
+    checked = []
+
+    def check_scope(actual):
+        # A coordinated vault read must be able to wait for its native snapshot.
+        with pytest.raises(RuntimeError, match="no running event loop"):
+            asyncio.get_running_loop()
+        assert actual == execution.current_scope() == scope
+        checked.append(execution._run.get())
+
+    class Chat:
+        async def astream(self, inputs, **kwargs):
+            yield {"brain": {"messages": [AIMessage(content="Hola!")]}}
+
+    async def run():
+        with execution_scope(scope):
+            events = [event async for event in execution.stream_workflow(
+                Chat(), {"trace_id": "cloud-greeting"}, config={}, origin="chat", snapshot=snapshot,
+            )]
+            result = await execution.execute_operation(AgentOperation(
+                skill_id=snapshot.skill_ids[0], operation="writing", input="Hola",
+            ), snapshot=snapshot)
+            assert events and result.status == "completed"
+            assert "" in checked and result.run_id in checked
+
+    monkeypatch.setattr(execution, "revalidate_scope", check_scope)
+    install_workflow(monkeypatch, ["Hola!"])
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("cancel_parent", [False, True])
+def test_cancellation_committed_before_result_prevents_publication(runtime, monkeypatch, cancel_parent):
+    from backend.services.agent_cancellation import AgentTurnCancelled
+
+    scope, snapshot = runtime
+    install_workflow(monkeypatch, ["result"])
+    save = store.update
+
+    def cancel_before_save(scope, run_id, **changes):
+        if changes.get("status") == "completed":
+            store.cancel(scope, "parent" if cancel_parent else run_id)
+        return save(scope, run_id, **changes)
+
+    monkeypatch.setattr(store, "update", cancel_before_save)
+    with execution_scope(scope):
+        child = execution.create_job_run(snapshot, "parent", "test")
+        request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="test")
+        with pytest.raises(AgentTurnCancelled):
+            asyncio.run(execution.execute_operation(request, snapshot=child))
+    completed = [r for r in store.list_runs(scope) if r.parent_run_id == "parent"]
+    assert len(completed) == 1 and completed[0].status == "cancelled" and not completed[0].result
 
 
 def test_revoked_permission_prevents_all_model_calls(runtime, monkeypatch):
@@ -1440,6 +1495,34 @@ def test_provider_response_recovery_respects_actual_operation_and_sdk_limits(
         assert sent[0 if primary_retry or first_server or connection_retry else 1].content == sent[-1].content
     assert waits == ([5.0] if primary_retry or connection_retry or mode == 'actual_operation_raw_server_retry' else [])
     assert request.max_model_calls == 2 and request.timeout_seconds == 300
+
+
+def test_specialized_engines_consume_the_authorized_download(tmp_path, monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from backend.platform.files.snapshots import VaultFileSnapshot
+    from backend.services import agent_execution_scope, agent_specialized_tools, handwriting, transcription
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    original = vault / "attachment"
+    original.touch()
+    available = tmp_path / "download"
+    available.write_bytes(b"coordinated bytes")
+    reads = []
+
+    def snapshot(path, *, root):
+        assert root == vault and path == original
+        reads.append(path)
+        return VaultFileSnapshot(available, original.stat())
+
+    monkeypatch.setattr(agent_execution_scope, "current_scope", lambda: SimpleNamespace(vault_path=str(vault)))
+    monkeypatch.setattr(agent_specialized_tools, "vault_file_snapshot", snapshot)
+    monkeypatch.setattr(handwriting, "recognize", lambda data, **_: {"text": data.decode()})
+    monkeypatch.setattr(transcription, "transcribe", lambda path, **_: {"text": Path(path).read_text()})
+    assert agent_specialized_tools.recognize_asset(original.name)["text"] == "coordinated bytes"
+    assert agent_specialized_tools.transcribe_asset(original.name)["text"] == "coordinated bytes"
+    assert reads == [original, original]
 
 
 @pytest.mark.parametrize("actual,allowed", [

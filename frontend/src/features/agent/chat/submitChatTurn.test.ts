@@ -43,10 +43,38 @@ describe('typed chat submission', () => {
   });
   it('uses the durable turn identity and advances only after a successful terminal response', async () => {
     const onOutcome = vi.fn();
-    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', onOutcome });
+    const profile = { id: 'research', name: 'My researcher' };
+    const f = chatTurnFixture(locale.t, { queuedTurnId: 'queued-turn', profile, onOutcome });
     api.start.mockResolvedValueOnce(streamResponse(done)); await submitChatTurn(f.context);
     expect(api.start.mock.calls[0]?.[0].turn_id).toBe('queued-turn');
+    expect(api.start.mock.calls[0]?.[0].profile_id).toBe('research');
+    expect(f.messages()[1]?.assistant_profile).toEqual(profile);
     expect(onOutcome).toHaveBeenCalledWith(true);
+  });
+  it('attributes slash-command replies only when the server identifies the effective profile', async () => {
+    const selected = { id: 'original', name: 'Original' };
+    const routed = { id: 'research', name: 'My researcher' };
+    for (const serverProfile of [undefined, routed]) {
+      const f = chatTurnFixture(locale.t, { inputValue: ' /research check', profile: selected });
+      api.start.mockResolvedValueOnce(streamResponse([{ type: 'stream_open', stream_id: 'stream', assistant_profile: serverProfile }, ...done]));
+      await submitChatTurn(f.context);
+      expect(f.messages()[1]?.assistant_profile).toEqual(serverProfile);
+      expect(api.start.mock.calls.at(-1)?.[0].profile_id).toBe(selected.id);
+    }
+  });
+  it('retains preparation timings on the failed response when admission is unavailable', async () => {
+    const f = chatTurnFixture(locale.t);
+    const stages = { worker_queue: 50, vault_context: 400 };
+    api.start.mockResolvedValue(streamResponse([
+      { type: 'error', code: 'metadata_unavailable', retryable: true, content: 'Synthetic read unavailable' },
+      { type: 'turn_metrics', setup_ms: 450, setup_breakdown_ms: stages, model_ms: 0, total_ms: 452 },
+      { type: 'done', has_response: false, message_count: 0 },
+    ]));
+    await submitChatTurn(f.context);
+    expect(f.messages()[1]).toMatchObject({
+      errorCode: 'metadata_unavailable', retryable: true,
+      timings: { setup_ms: 450, setup_breakdown_ms: stages, model_ms: 0, total_ms: 452 },
+    });
   });
   it('pauses the queue on an uncertain or failed delivery', async () => {
     const onOutcome = vi.fn();
@@ -67,7 +95,9 @@ describe('typed chat submission', () => {
     expect(request?.context_refs).not.toBe(f.context.contextRefs);
     expect(request?.context_refs).toEqual(f.context.contextRefs);
     expect(typeof request?.turn_id).toBe('string');
-    expect(request).toEqual({ message: 'ask @Page ', agent_id: 'agent', session_id: 'session', llm_mode: 'agent_default', notebook_id: 'notebook', turn_id: request?.turn_id, mentions: [{ id: 'p', type: 'page', label: 'Page' }], context_refs: [{ id: 'p', ref: 'page:p', type: 'page' }], attachments: [{ name: 'document.txt', size: 4, type: 'text/plain', path: null, url: '/fixture/file' }] });
+    expect(request).toEqual({ message: 'ask @Page ', agent_id: 'agent', session_id: 'session', llm_mode: 'agent_default', notebook_id: 'notebook', turn_id: request?.turn_id, cancel_id: request?.cancel_id, mentions: [{ id: 'p', type: 'page', label: 'Page' }], context_refs: [{ id: 'p', ref: 'page:p', type: 'page' }], attachments: [{ name: 'document.txt', size: 4, type: 'text/plain', path: null, url: '/fixture/file' }] });
+    expect(typeof request?.cancel_id).toBe('string');
+    expect(request?.cancel_id).not.toBe(request?.turn_id);
     expect(f.messages()[0]).toMatchObject({ content: 'ask @Page ', role: 'user', turnId: request?.turn_id, mentions: request?.mentions, attachments: request?.attachments });
     expect(f.messages()[1]).toMatchObject({ role: 'assistant', content: 'answer' });
     expect(typeof f.messages()[1]?.processingMs).toBe('number');

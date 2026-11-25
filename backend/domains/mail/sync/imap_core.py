@@ -17,6 +17,8 @@ from typing import Any, Optional
 import yaml
 
 from backend.config.app_config import load_params
+from backend.domains.mail.repositories.vault import resident_messages
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.mail.sync.imap_protocol import (
     _decode_str,
     _detect_category,
@@ -282,7 +284,7 @@ class ImapMailSyncCore:
         if not self.mail_folder:
             return set()
         uids = set()
-        for file_path in self.mail_folder.glob("*.md"):
+        for file_path in resident_messages(self.mail_folder):
             try:
                 content = file_path.read_text(encoding="utf-8")
                 meta = self._parse_meta(content)
@@ -324,7 +326,7 @@ class ImapMailSyncCore:
         if not uid_flags:
             return
 
-        for file_path in self.mail_folder.glob("*.md"):
+        for file_path in resident_messages(self.mail_folder):
             try:
                 content = file_path.read_text(encoding="utf-8")
                 meta = self._parse_meta(content)
@@ -463,7 +465,7 @@ class ImapMailSyncCore:
         if email_account is None:
             return files[0] if files else None
         for file_path in files:
-            meta = self._parse_meta(file_path.read_text(encoding="utf-8"))
+            meta = self._parse_meta(read_vault_text(file_path, root=self.mail_folder.parent))
             if str(meta.get("account", "")).casefold() != email_account.casefold():
                 continue
             if meta.get("id") and meta["id"] != message_id:
@@ -489,7 +491,7 @@ class ImapMailSyncCore:
         return {}
 
     def _update_vault_file(self: Any, file_path: Path, updates: dict[str, Any]) -> Any:
-        content = file_path.read_text(encoding="utf-8")
+        content = read_vault_text(file_path, root=self.mail_folder.parent)
         meta = self._parse_meta(content)
         body_parts = content.split("---\n", 2)
         body = body_parts[-1] if len(body_parts) >= 3 else ""

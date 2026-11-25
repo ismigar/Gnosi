@@ -54,7 +54,7 @@ def test_scheduler_routes_validate_manager_payloads(monkeypatch) -> None:
     monkeypatch.setattr(
         scheduler_routes.scheduler_manager,
         "get_tasks",
-        lambda: [TASK],
+        lambda scope: [TASK],
     )
     monkeypatch.setattr(
         scheduler_routes.scheduler_manager,

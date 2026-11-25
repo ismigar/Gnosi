@@ -24,6 +24,18 @@ def test_same_bytes_reuse_exact_ocr_across_independent_reads(tmp_path):
     assert extract_cached_pdf(path, root, lambda: pytest.fail('Repeated OCR')) == SEGMENTS
 
 
+def test_two_downloads_of_the_same_source_share_the_ocr_cache(tmp_path):
+    first, root = source(tmp_path)
+    second = tmp_path / 'new-lease' / first.name
+    second.parent.mkdir()
+    second.write_bytes(first.read_bytes())
+    original = tmp_path / 'vault' / 'book.pdf'
+    assert extract_cached_pdf(first, root, lambda: SEGMENTS, source_path=original) == SEGMENTS
+    first.unlink()
+    result = extract_cached_pdf(second, root, lambda: pytest.fail('Repeated OCR'), source_path=original)
+    assert result == SEGMENTS
+
+
 def test_same_size_and_timestamp_do_not_hide_modified_file(tmp_path):
     path, root = source(tmp_path)
     extract_cached_pdf(path, root, lambda: SEGMENTS)

@@ -296,6 +296,8 @@ def test_adaptive_routing_is_recomputed_for_each_turn(monkeypatch, agent, mode, 
     monkeypatch.setattr("backend.services.mcp_tool_contributions.refresh_mcp_tool_contributions", lambda *_: None)
     monkeypatch.setattr(workflow, "prepare_agent_runtime", lambda *_, **__: ({}, agent, None))
     builds = []
+    revisions = []
+    monkeypatch.setattr(workflow, "_ai_runtime_revision", lambda cfg: revisions.append(cfg) or "revision")
 
     async def create(*_, **kwargs):
         builds.append(kwargs["user_message"])
@@ -309,6 +311,7 @@ def test_adaptive_routing_is_recomputed_for_each_turn(monkeypatch, agent, mode, 
 
     asyncio.run(run())
     assert len(builds) == expected_builds
+    assert len(revisions) == (2 if mode == "pinned" else 0)
 
 
 def test_decision_call_budget_reserves_capacity_for_the_answer(monkeypatch):

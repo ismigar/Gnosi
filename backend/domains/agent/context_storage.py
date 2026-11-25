@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text, vault_file_snapshot
 from backend.domains.agent.context_matching import (
     INVENTORY_TYPE_ALIASES,
     _normalized_phrase,
@@ -38,6 +39,8 @@ def _registry() -> Dict[str, Any]:
     try:
         typed_load_registry = cast(Callable[[], Dict[str, Any]], load_registry)
         return typed_load_registry() or {}
+    except MetadataUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001
         log.warning("Could not load the vault registry for agent context: %s", exc)
         return {}
@@ -49,6 +52,8 @@ def _table_pages(table_id: str) -> List[Any]:
     try:
         list_pages = cast(Callable[[str], List[Any]], _get_pages_for_table)
         return list_pages(table_id) or []
+    except MetadataUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001
         log.warning("Could not list the pages of table %s: %s", table_id, exc)
         return []
@@ -60,7 +65,9 @@ def _page_body(page: Any) -> str:
     if not path:
         return ""
     try:
-        raw = Path(path).read_text(encoding="utf-8")
+        raw = read_vault_text(Path(path), encoding="utf-8")
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return ""
     return raw.split("---", 2)[2] if raw.startswith("---") else raw
@@ -89,8 +96,10 @@ def _read_file_source(rel_path: str) -> str:
 
         return cast(str, read_pdf.invoke({"path": rel_path, "max_chars": MAX_SOURCE_CHARS}))
     try:
-        with target.open("r", encoding="utf-8", errors="replace") as handle:
+        with vault_file_snapshot(target, root=root) as snapshot, snapshot.path.open("r", encoding="utf-8", errors="replace") as handle:
             return handle.read(MAX_SOURCE_CHARS)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001
         return f"Error reading file {rel_path}: {exc}"
 

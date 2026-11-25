@@ -15,7 +15,8 @@ collab_ws_bypasses_fetch_block).
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, vault_file_snapshot
 
 from backend.services.agent_behavior import task_input
 
@@ -52,10 +53,11 @@ def clear_wiki_search_cache(brain_id: str | None = None) -> None:
                 _WIKI_CACHE.pop(key, None)
 
 
-def _read_text_prefix(path: Path, max_chars: int) -> tuple[str, bool]:
+def _read_text_prefix(path: Path, max_chars: int, vault: Path) -> tuple[str, bool]:
     """Read at most one character beyond a server-owned text ceiling."""
-    with metadata_path(path).open("r", encoding="utf-8", errors="replace") as handle:
-        text = handle.read(max_chars + 1)
+    with vault_file_snapshot(path, root=vault) as snapshot:
+        with snapshot.path.open("r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read(max_chars + 1)
     return text[:max_chars], len(text) > max_chars
 
 
@@ -179,12 +181,19 @@ def _resolve_page_path(page_id_or_title: str) -> Path | None:
     indexed = path_resolver.find_path(needle, vault)
     if indexed:
         return indexed
-    # Resolve titles over the shared cached file inventory.
-    for p in path_resolver.list_all_files(vault):
+    # Search names before consulting any bodies. Inventory discovery must not
+    # download unrelated placeholders to resolve a selected title.
+    files = path_resolver.list_all_files(vault)
+    for p in files:
+        if p.stem.casefold() == needle.casefold():
+            return p
+    root = vault.resolve()
+    for p in files:
         try:
-            if p.stem.casefold() == needle.casefold():
-                return p
-            head, _truncated = _read_text_prefix(p, 2_000)
+            if not p.resolve().is_relative_to(root) or is_cloud_placeholder(p, p.stat()):
+                continue
+            with p.open("r", encoding="utf-8", errors="replace") as handle:
+                head = handle.read(2_000)
         except MetadataUnavailable:
             raise
         except Exception:
@@ -197,11 +206,14 @@ def _resolve_page_path(page_id_or_title: str) -> Path | None:
 @tool
 def read_page(page_id_or_title: str) -> str:
     """Reads a server-bounded prefix of a Vault page by id or title."""
+    from backend.services.context_vars import get_active_vault_path
+
     p = _resolve_page_path(page_id_or_title)
-    if not p:
+    vault = get_active_vault_path()
+    if not p or not vault:
         return f"No page was found for '{page_id_or_title}'."
     try:
-        bounded, truncated = _read_text_prefix(p, MAX_PAGE_READ_CHARS)
+        bounded, truncated = _read_text_prefix(p, MAX_PAGE_READ_CHARS, vault)
         if truncated:
             bounded += "\n\n[Page content truncated by Gnosi.]"
         return bounded
@@ -235,16 +247,17 @@ def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
     try:
         from pypdf import PdfReader  # dep present in the backend
 
-        reader = PdfReader(str(target))
         requested_chars = max(1, min(int(max_chars or DEFAULT_PDF_READ_CHARS), MAX_PDF_READ_CHARS))
         chunks = []
         extracted = 0
-        for page in reader.pages:
-            if extracted >= requested_chars:
-                break
-            chunk = page.extract_text() or ""
-            chunks.append(chunk[: requested_chars - extracted])
-            extracted += len(chunks[-1])
+        with vault_file_snapshot(target, root=vault_root) as snapshot:
+            with snapshot.path.open("rb") as source:
+                for page in PdfReader(source).pages:
+                    if extracted >= requested_chars:
+                        break
+                    chunk = page.extract_text() or ""
+                    chunks.append(chunk[: requested_chars - extracted])
+                    extracted += len(chunks[-1])
         text = "\n".join(chunks)
         return (
             text[:requested_chars]

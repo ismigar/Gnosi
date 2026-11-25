@@ -122,3 +122,20 @@ def test_canonical_write_guard_serializes_opposing_parent_updates(monkeypatch: p
         a = pool.submit(save, "ab", "a", "b")
         b = pool.submit(save, "ba", "b", "a")
         assert sorted([a.result(), b.result()]) == [False, True]
+
+
+def test_unavailable_network_record_preserves_the_original_write(tmp_path, monkeypatch):
+    from backend.domains.genograms import storage
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    path = tmp_path / "record.md"
+    path.write_text("original")
+
+    def offline(source):
+        raise MetadataUnavailable(path=source, reason="offline")
+
+    monkeypatch.setattr(storage, "read_vault_text", offline)
+    with pytest.raises(MetadataUnavailable):
+        with storage.write_guard(path, {}):
+            pytest.fail("An unavailable original cannot be replaced")
+    assert path.read_text() == "original"

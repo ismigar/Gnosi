@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-11-20
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
   - backend/platform/notifications.py
+  - backend/services/podcast_episode.py
+  - backend/services/podcast_briefing.py
   - backend/scheduler/task_handlers.py
   - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
@@ -18,6 +20,7 @@ source_paths:
 tests:
   - frontend/src/features/automations/SchedulerPage.test.tsx
   - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
+  - backend/tests/test_podcast_episode_recovery.py
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_scheduler_maintenance_scope.py
@@ -106,8 +109,8 @@ exécution rejoue la stratégie versionnée, enregistre activité et erreurs
 partielles par source et n'ajoute que les candidats ayant une identité nouvelle
 pour cette revue. La prochaine exécution est enregistrée avec sa configuration.
 
-La file exige une racine `LOCAL_DATA` explicite et échoue avant d'ouvrir SQLite
-si la configuration manque. Les adaptateurs valident les payloads avant leur
+La file ouvre SQLite dans le répertoire `LOCAL_DATA` de l’appareil même si
+la configuration du Vault est en attente de téléchargement. Les adaptateurs valident les payloads avant leur
 répartition et refusent les inscriptions sans fonction exécutable. La
 synchronisation des contacts transmet explicitement base de données, workspace
 et intégration pour ne pas confondre les arguments.
@@ -155,6 +158,19 @@ Le service de podcast du Reader utilise des contrats typés pour choisir modèle
 et langue, limite les travailleurs TTS par phrase et remplace le MP3 atomiquement.
 Il capture le Vault sélectionné avant de commencer et refuse de démarrer sans
 Vault actif, afin que la sortie ne puisse pas aboutir à un chemin local ambigu.
+
+Le planificateur, **Exécuter maintenant** et le Reader partagent un épisode
+quotidien par Vault et périmètre autorisé. Gnosi enregistre sur l’appareil
+l’épisode et la fin de la fenêtre de 24 heures avant de charger les fichiers
+cloud. Un fichier en attente suspend l’épisode. Le planificateur recherche les
+travaux à reprendre au démarrage et à chaque cycle. Le tableau de bord et le
+Reader peuvent afficher le fichier, le fournisseur, la cause et l’heure de la
+prochaine tentative.
+
+À la reprise, l’épisode réutilise les entrées, les résumés partiels, le script
+et l’enregistrement déjà sauvegardés. Avant de publier le MP3 daté, Gnosi
+consigne l’intention de publication et l’empreinte du contenu. Si le processus
+redémarre après le renommage, il vérifie le MP3 et termine le même épisode.
 
 ## Invariants
 

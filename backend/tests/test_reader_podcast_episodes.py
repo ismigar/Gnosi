@@ -77,7 +77,7 @@ def test_newer_episode_leaves_retained_audio_and_its_http_ranges_playable(librar
 @pytest.mark.parametrize("atomic", [True, False])
 def test_same_name_size_and_modification_time_never_play_replacement_bytes(library, atomic):
     client, folders = library
-    target = folders["one"] / "daily.mp3"
+    target = folders["one"] / "daily_podcast_2026_11_20.mp3"
     target.write_bytes(b"AAA")
     stamp = target.stat().st_mtime_ns
     first = client.get(_url("one", "info")).json()
@@ -103,7 +103,7 @@ def test_same_name_size_and_modification_time_never_play_replacement_bytes(libra
 
 def test_metadata_skips_audio_content_and_range_reads_are_bounded(library, monkeypatch):
     client, folders = library
-    target = folders["one"] / "daily.mp3"
+    target = folders["one"] / "daily_podcast_2026_11_20.mp3"
     with target.open("wb") as audio:
         audio.write(b"HEAD")
         audio.seek(2 ** 24)
@@ -158,21 +158,22 @@ def test_metadata_skips_audio_content_and_range_reads_are_bounded(library, monke
 def test_unpublished_files_and_directory_or_leaf_links_are_excluded(library):
     client, folders = library
     directory = folders["one"]
-    other = folders["two"] / "daily.mp3"
+    other = folders["two"] / "daily_podcast_2026_11_20.mp3"
     other.write_bytes(b"private")
     (directory / ".generated").mkdir()
     (directory / ".generated" / "unpublished.mp3").write_bytes(b"cancelled")
     (directory / ".unpublished.mp3").write_bytes(b"hidden")
-    (directory / "directory.mp3").mkdir()
+    (directory / "unfinished.mp3").write_bytes(b"not a published episode")
+    (directory / "daily_podcast_2026_11_25.mp3").mkdir()
     assert client.get(_url("one", "info")).json() == {"exists": False}
     try:
-        (directory / "latest.mp3").symlink_to(other)
+        (directory / "daily_podcast_2026_11_26.mp3").symlink_to(other)
     except OSError as error:
         if os.name == "nt":
             pytest.skip(f"Test account lacks symlink privilege: {error}")
         raise
     assert client.get(_url("one", "info")).json() == {"exists": False}
-    (directory / "valid.mp3").write_bytes(b"self")
+    (directory / "daily_podcast_2026_11_21.mp3").write_bytes(b"self")
     old = client.get(_url("one", "info")).json()["episode_id"]
     directory.rename(directory.with_name("archive"))
     directory.symlink_to(folders["two"], target_is_directory=True)
@@ -182,7 +183,7 @@ def test_unpublished_files_and_directory_or_leaf_links_are_excluded(library):
 
 def test_replacement_after_open_is_never_sent_as_the_previous_revision(library, monkeypatch):
     client, folders = library
-    path = folders["one"] / "daily.mp3"
+    path = folders["one"] / "daily_podcast_2026_11_20.mp3"
     path.write_bytes(b"original")
     pinned = _url("one", "episodes/" + client.get(_url("one", "info")).json()["episode_id"])
     original = podcast_routes.open_episode
@@ -202,7 +203,7 @@ def test_replacement_after_open_is_never_sent_as_the_previous_revision(library, 
 def test_stream_discards_a_chunk_changed_during_the_read(tmp_path):
     directory = tmp_path / "vault" / "data" / "podcasts"
     directory.mkdir(parents=True)
-    path = directory / "daily.mp3"
+    path = directory / "daily_podcast_2026_11_20.mp3"
     path.write_bytes(b"old bytes")
     episode = media.latest_episode(directory)
     current, audio = media.open_episode(directory, episode.episode_id)
@@ -225,7 +226,7 @@ def test_stream_discards_a_chunk_changed_during_the_read(tmp_path):
 def test_windows_metadata_and_read_handles_share_the_verified_revision(tmp_path, monkeypatch):
     directory = tmp_path / "vault" / "data" / "podcasts"
     directory.mkdir(parents=True)
-    path = directory / "daily.mp3"
+    path = directory / "daily_podcast_2026_11_20.mp3"
     path.write_bytes(b"old")
     requests = []
     stamp = 1
@@ -259,7 +260,7 @@ def test_windows_final_handle_path_rejects_reparse_escape(final, expected, match
 
 
 def test_windows_native_handle_validates_target_and_uses_attributes_for_preview(tmp_path, monkeypatch):
-    path = tmp_path / "vault" / "data" / "podcasts" / "daily.mp3"
+    path = tmp_path / "vault" / "data" / "podcasts" / "daily_podcast_2026_11_20.mp3"
     path.parent.mkdir(parents=True)
     path.write_bytes(b"fixture")
     final = str(path)
@@ -305,7 +306,7 @@ def test_windows_native_handle_validates_target_and_uses_attributes_for_preview(
 
 def test_temporarily_unavailable_storage_has_a_retryable_response(library, monkeypatch):
     client, folders = library
-    path = folders["one"] / "daily.mp3"
+    path = folders["one"] / "daily_podcast_2026_11_20.mp3"
     path.write_bytes(b"published")
     episode = client.get(_url("one", "info")).json()
     def unavailable(*_args):

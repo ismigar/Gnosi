@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from backend.domains.vault.citations.authors import find_structured_authors
 from backend.domains.vault.citations.state import CitationIndexState
+from backend.platform.files.coordinated import is_cloud_placeholder
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,8 @@ def enrich_cite_entry(entry: dict[str, object]) -> dict[str, object]:
     if not path.exists():
         return result
     try:
+        if is_cloud_placeholder(path, path.stat()):
+            return result
         with path.open("r", encoding="utf-8") as source:
             head = source.read(4096)
         if not head.startswith("---"):
@@ -221,6 +224,8 @@ def _file_citation_entry(
     if not path.exists():
         return None
     try:
+        if is_cloud_placeholder(path, path.stat()):
+            return None
         with path.open("r", encoding="utf-8") as source:
             head = source.read(4096)
         if not head.startswith("---"):

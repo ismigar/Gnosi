@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import json
 import logging
@@ -9,6 +8,7 @@ from fastapi import HTTPException, Request
 
 from backend.agent.factory import create_agent_workflow, prepare_agent_runtime
 from backend.domains.agent.routes.checkpoints import _ai_runtime_revision
+from backend.services.agent_chat_preparation import preparation_stage, preparation_worker
 from backend.services.agent_model_strategy import normalize_model_strategy
 
 log = logging.getLogger(__name__)
@@ -40,23 +40,24 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
 
     mcp_client = getattr(request.app.state, "mcp_client", None)
     tools_list: list[Any] = []
-    if mcp_client is not None:
-        tools_list = getattr(request.app.state, "tools_list", [])
-        if not tools_list:
-            tools_list = await mcp_client.get_all_tools()
-            request.app.state.tools_list = tools_list
-    else:
-        # Degrade gracefully while MCP initializes: chat still works without MCP tools.
-        log.warning("MCP client not ready, creating workflow without MCP tools")
-        use_cache = False
+    with preparation_stage("connectors"):
+        if mcp_client is not None:
+            tools_list = getattr(request.app.state, "tools_list", [])
+            if not tools_list:
+                tools_list = await mcp_client.get_all_tools()
+                request.app.state.tools_list = tools_list
+        else:
+            # Degrade gracefully while MCP initializes: chat still works without MCP tools.
+            log.warning("MCP client not ready, creating workflow without MCP tools")
+            use_cache = False
 
-    from backend.services.mcp_tool_contributions import (
-        refresh_mcp_tool_contributions,
-    )
+        from backend.services.mcp_tool_contributions import (
+            refresh_mcp_tool_contributions,
+        )
 
-    refresh_mcp_tool_contributions(tools_list, mcp_client)
-    ai_cfg, agent_data, runtime_capabilities = await asyncio.to_thread(
-        prepare_agent_runtime,
+        refresh_mcp_tool_contributions(tools_list, mcp_client)
+    ai_cfg, agent_data, runtime_capabilities = await preparation_worker(
+        "capabilities", prepare_agent_runtime,
         agent_id,
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
@@ -90,35 +91,15 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
         use_cache = False
         from backend.domains.agent.title_context import title_context_refs
         agent_data = dict(agent_data or {})
-        agent_data["context_refs"] = await asyncio.to_thread(
-            title_context_refs, user_message, agent_data.get("context_refs") or [])
+        agent_data["context_refs"] = await preparation_worker(
+            "vault_context", title_context_refs, user_message, agent_data.get("context_refs") or [])
     runtime_active_ids = list(getattr(runtime_capabilities, "active_skill_ids", ()) or ())
-    catalog_revision = str(getattr(runtime_capabilities, "catalog_revision", "") or "")
-    agent_revision = hashlib.sha256(
-        json.dumps(
-            agent_data or {},
-            sort_keys=True,
-            separators=(",", ":"),
-            default=str,
-        ).encode("utf-8")
-    ).hexdigest()[:16]
-    runtime_revision = hashlib.sha256(
-        json.dumps(
-            {
-                "active_skill_ids": runtime_active_ids,
-                "catalog_revision": catalog_revision,
-                "ai_runtime_revision": _ai_runtime_revision(ai_cfg),
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    ).hexdigest()[:16]
     reviewed_memory_rows: list[dict[str, Any]] = []
     if memory_user_id:
         from backend.services.agent_personal_memory import search_memories
 
-        reviewed_memory_rows = await asyncio.to_thread(
-            search_memories,
+        reviewed_memory_rows = await preparation_worker(
+            "vault_context", search_memories,
             vault_path,
             agent_id,
             user_message,
@@ -127,24 +108,45 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
             project_id=memory_project_id,
             skill_ids=tuple(runtime_active_ids),
         )
-    memory_revision = hashlib.sha256(
-        json.dumps(
-            [
-                {"memory_id": item.get("memory_id"), "revision": item.get("revision")}
-                for item in reviewed_memory_rows
-            ],
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    ).hexdigest()[:16]
-    memory_principal = hashlib.sha256(str(memory_user_id or "").encode("utf-8")).hexdigest()[:12]
-    cache_key = (
-        f"{vault_scope}:{memory_principal}:{agent_id}:{agent_revision}:"
-        f"{runtime_revision}:{memory_revision}"
-    )
-    if use_cache and cache_key in request.app.state.agent_cache:
-        cached = request.app.state.agent_cache[cache_key]
-        return cached["workflow"], cast(Dict[str, Any], cached.get("llm_selection", {}))
+    if use_cache:
+        catalog_revision = str(getattr(runtime_capabilities, "catalog_revision", "") or "")
+        agent_revision = hashlib.sha256(
+            json.dumps(
+                agent_data or {},
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        runtime_revision = hashlib.sha256(
+            json.dumps(
+                {
+                    "active_skill_ids": runtime_active_ids,
+                    "catalog_revision": catalog_revision,
+                    "ai_runtime_revision": _ai_runtime_revision(ai_cfg),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        memory_revision = hashlib.sha256(
+            json.dumps(
+                [
+                    {"memory_id": item.get("memory_id"), "revision": item.get("revision")}
+                    for item in reviewed_memory_rows
+                ],
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        memory_principal = hashlib.sha256(str(memory_user_id or "").encode("utf-8")).hexdigest()[:12]
+        cache_key = (
+            f"{vault_scope}:{memory_principal}:{agent_id}:{agent_revision}:"
+            f"{runtime_revision}:{memory_revision}"
+        )
+        if cache_key in request.app.state.agent_cache:
+            cached = request.app.state.agent_cache[cache_key]
+            return cached["workflow"], cast(Dict[str, Any], cached.get("llm_selection", {}))
 
     workflow, llm_selection = await create_agent_workflow(
         tools_list,

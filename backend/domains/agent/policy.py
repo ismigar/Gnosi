@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import operator
 import time
-from typing import Annotated, Any, Sequence, TypedDict
+from contextvars import ContextVar
+from threading import Event
+from typing import Annotated, Any, NotRequired, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import ensure_config
+from langgraph.graph.message import add_messages
 from langgraph.managed import RemainingSteps
+from langgraph.prebuilt import ToolNode
 from openai import LengthFinishReasonError
 
 from backend.agent.action_confirmations import (
@@ -17,6 +24,7 @@ from backend.agent.action_confirmations import (
 )
 from backend.security.secret_redaction import redact_secrets
 from backend.services.agent_cancellation import invoke_cancellable, is_cancelled
+from backend.services.agent_chat_timing import chat_wait
 from backend.services.agent_capability_health import (
     record_capability_failure,
     record_capability_success,
@@ -26,11 +34,36 @@ from backend.services.capability_audit import record_capability_event
 from backend.services.tool_runtime import execute_contract, validate_arguments
 
 log = logging.getLogger(__name__)
+_tool_batch_cancelled: ContextVar[Event | None] = ContextVar("tool_batch_cancelled", default=None)
 
 
-class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], operator.add]
+class TimedToolNode(ToolNode):
+    def invoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
+        with chat_wait("tools"):
+            return super().invoke(input, config, **kwargs)
+
+    async def ainvoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
+        with chat_wait("tools"):
+            return await super().ainvoke(input, config, **kwargs)
+
+
+class GovernedToolNode(TimedToolNode):
+    async def ainvoke(self, input: Any, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
+        """Run synchronous permission checks and tools off the event loop, in call order."""
+        worker_config = ensure_config(config)
+        worker_config["max_concurrency"] = 1
+        cancelled = Event()
+        token = _tool_batch_cancelled.set(cancelled)
+        try:
+            return await asyncio.to_thread(self.invoke, input, worker_config, **kwargs)
+        finally:
+            cancelled.set()
+            _tool_batch_cancelled.reset(token)
+
+
+class _AgentFields(TypedDict):
     user_request: str
+    supplied_operation: NotRequired[str]
     title_edit: dict[str, Any]
     next: str
     turn_authorized_tool_names: Sequence[str]
@@ -44,8 +77,21 @@ class AgentState(TypedDict):
     team_help_allowed: bool
 
 
+class AgentState(_AgentFields):
+    messages: Annotated[Sequence[BaseMessage], operator.add]
+
+
+class TeamState(_AgentFields, total=False):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    pending_team_messages: Sequence[BaseMessage]
+    chat_request_started_at: float
+
+
 def _turn_is_cancelled(state: Any) -> bool:
     """Read the request cancellation signal without capturing it in a graph."""
+    batch = _tool_batch_cancelled.get()
+    if batch is not None and batch.is_set():
+        return True
     token = (
         state.get("cancel_token", "")
         if isinstance(state, dict)
@@ -81,7 +127,8 @@ def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
         attributes={"model": getattr(model, "model_name", "") or getattr(model, "model", "")},
     ):
         try:
-            response = invoke_cancellable(model, prompt, str(token or ""))
+            with chat_wait("model"):
+                response = invoke_cancellable(model, prompt, str(token or ""))
         except BaseException as error:
             details: dict[str, Any] = {"type": type(error).__name__, "message": str(error)}
             if isinstance(error, LengthFinishReasonError):
@@ -174,6 +221,10 @@ def _record_policy_audit(
         log.exception("Failed to write capability audit metadata.")
 
 
+def _cancelled_tool_message(tool_call: dict[str, Any], tool_name: str) -> ToolMessage:
+    return _policy_message(tool_call, tool_name, "Tool execution cancelled because the client disconnected.")
+
+
 def _authorization_denial(
     policy: dict[str, Any],
     tool_call: dict[str, Any],
@@ -216,6 +267,12 @@ def _execute_policy_tool(
             tool_id=str(getattr(descriptor, "id", "") or ""),
             dynamic_context=bool(getattr(descriptor, "metadata", {}).get("dynamic_context")),
         )
+        def execute_if_active(ready_request: Any) -> Any:
+            # The caller may cancel while the worker waits for the live skill files.
+            if _turn_is_cancelled(state):
+                return _cancelled_tool_message(tool_call, tool_name)
+            return execute(ready_request)
+
         with observability_span(
             "agent.tool",
             trace_id=str(state.get("trace_id") or ""),
@@ -223,7 +280,7 @@ def _execute_policy_tool(
         ):
             result = execute_contract(
                 request,
-                execute,
+                execute_if_active,
                 descriptor=policy.get("_descriptor"),
                 timeout_seconds=policy.get("timeout_seconds", 120),
             )
@@ -364,11 +421,7 @@ def _tool_policy_wrapper(tool_policies: Any) -> Any:
             )
             return _policy_message(tool_call, tool_name, f"Tool execution rejected: {error}")
         if _turn_is_cancelled(state):
-            return _policy_message(
-                tool_call,
-                tool_name,
-                "Tool execution cancelled because the client disconnected.",
-            )
+            return _cancelled_tool_message(tool_call, tool_name)
         current_role = str(state.get("current_user_role") or "viewer").lower()
         required_role = str(policy.get("minimum_role") or "viewer").lower()
         role_weights = {"viewer": 0, "editor": 1, "admin": 2, "owner": 3}

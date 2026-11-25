@@ -86,6 +86,18 @@ afterEach(async () => {
     removeStorage(WORKSPACE_ID_STORAGE_KEY); removeStorage(USER_ROLE_STORAGE_KEY);
 });
 describe('Dashboard behavior', () => {
+    it('shows the storage reason and next retry only for a waiting run', async () => {
+        const retryAt = '2026-11-20T20:05:00Z';
+        vi.mocked(scheduler.fetchScheduledTasks).mockResolvedValue([
+            { ...mocks.task, status: 'waiting', wait_reason: 'pending', waiting_file: 'params.yaml', waiting_provider: 'OneDrive', retry_at: retryAt },
+            { ...mocks.task, name: 'another_task', status: 'error', wait_reason: 'no_space', retry_at: null },
+        ]);
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Dashboard/></MemoryRouter>);});
+        expect(container.textContent).toContain('dashboard.cloud_files.pending');
+        expect(container.textContent).toContain('dashboard.cloud_files.no_space');
+        expect([...container.querySelectorAll('time')].map(time => time.dateTime)).toEqual([retryAt]);
+    });
+
     it('opens the selected service from history and can show all services again', async () => {
         vi.mocked(scheduler.fetchScheduledTasks).mockResolvedValue([mocks.task, { ...mocks.task, name: 'other_task', description: 'Other service' }]);
         await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?tab=schedulers&kind=system&task=fixture_task']}><Dashboard/></MemoryRouter>);});

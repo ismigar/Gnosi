@@ -76,6 +76,15 @@ describe('typed chat composer', () => {
     await render(p); expect(button('button[type="submit"]').disabled).toBe(false); expect(container.textContent).toContain('Research context');
     await click('Remove attachment a.txt'); expect(p.removeAttachment).toHaveBeenCalledExactlyOnceWith('a');
   });
+  it('resizes quoted or retried draft text inserted from another control and shrinks when it clears', async () => {
+    const p = props({ inputValue: '' }); await render(p);
+    const textarea = element('textarea');
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 72 });
+    await render({ ...p, inputValue: 'A restored request\nwith another line' });
+    expect(textarea.style.height).toBe('72px');
+    await render(p);
+    expect(textarea.style.height).toBe('auto');
+  });
   it('forwards form submission and plain Enter once, with native submission prevented', async () => {
     const p = props(); await render(p);
     const submit = new Event('submit', { bubbles: true, cancelable: true }); await dispatch(element('form'), submit);

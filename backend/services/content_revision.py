@@ -5,12 +5,14 @@ import hashlib
 from pathlib import Path
 from typing import Iterable, Tuple
 
+from backend.utils.metadata_io import vault_file_snapshot
+
 
 _READ_CHUNK_BYTES = 1024 * 1024
 
 
 def _update_file_digest(digest: "hashlib._Hash", path: Path) -> None:
-    with path.open("rb") as handle:
+    with vault_file_snapshot(path) as snapshot, snapshot.path.open("rb") as handle:
         while chunk := handle.read(_READ_CHUNK_BYTES):
             digest.update(chunk)
 

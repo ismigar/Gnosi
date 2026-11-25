@@ -18,9 +18,9 @@ export function startChatStream(body: ChatStreamRequest, signal: AbortSignal): P
   return streamFetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
 }
 
-export async function readChatStreamReplay(identity: ChatStreamIdentity, afterSequence: number): Promise<readonly NdjsonRecord[] | null> {
+export async function readChatStreamReplay(identity: ChatStreamIdentity, afterSequence: number, signal?: AbortSignal): Promise<readonly NdjsonRecord[] | null> {
   const result = await apiClient.GET('/api/chat/streams/{stream_id}', {
-    params: { path: { stream_id: identity.streamId }, query: { agent_id: identity.agentId, session_id: identity.sessionId, after_sequence: afterSequence } }, parseAs: 'text',
+    params: { path: { stream_id: identity.streamId }, query: { agent_id: identity.agentId, session_id: identity.sessionId, after_sequence: afterSequence } }, parseAs: 'text', signal,
   });
   if (!result.response.ok) return null;
   return (result.data ?? '').split('\n').filter(Boolean).map((line) => {

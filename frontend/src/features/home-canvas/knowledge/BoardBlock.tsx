@@ -1,55 +1,26 @@
 import { lazy, Suspense, useId, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { readOnlyDashboardView } from '../../vault';
-import { fetchVaultPagesByTable, type VaultSidebarPageSummary } from '../../../shared/api/vaults';
+import { DbViewEmbed, type EmbedBlock } from '../../vault';
+import { VaultEditorContext, type VaultEditorContextValue } from '../../../shared/editor/VaultEditorContext';
+import type { VaultSidebarPageSummary } from '../../../shared/api/vaults';
 import type { RequestContext } from '../../../shared/api/request-context';
 import { isDashboardPage } from '../../../shared/records/model/pageKind';
 import { readablePageTitle } from '../../../shared/records/pageReferenceTitle';
 import { knowledgeDocumentPath } from '../../../shared/routing/vaultRouting';
 import type { HomeBlockProps } from '../model';
-import type { BoardView } from './dashboardModel';
 import { KnowledgePicker, KnowledgeStatus } from './KnowledgeFields';
 import { readDashboard, useKnowledgeQuery } from './knowledgeQueries';
 
 const VaultMarkdown = lazy(() => import('../../../shared/editor/VaultMarkdown'));
-interface Props extends HomeBlockProps { readonly scope: RequestContext; readonly pages: readonly VaultSidebarPageSummary[]; readonly catalogComplete: boolean }
-
-function LiveView({ part, registered, boardId, scope, catalogComplete }: {
-  readonly part: BoardView; readonly registered?: Readonly<Record<string, unknown>>;
-  readonly boardId: string; readonly scope: RequestContext; readonly catalogComplete: boolean;
-}) {
-  const { t, i18n } = useTranslation();
-  const projection = useKnowledgeQuery(scope, ['view', i18n.resolvedLanguage, catalogComplete, boardId, part.key, part.view, registered], signal =>
-    readOnlyDashboardView(boardId, part.view, registered, tableId => fetchVaultPagesByTable(tableId, {}, signal, scope), i18n.resolvedLanguage));
-  const result = projection.data;
-  const registeredTitle = typeof registered?.displayTitle === 'string' ? registered.displayTitle.trim() : '';
-  const registeredName = typeof registered?.name === 'string' ? registered.name.trim() : '';
-  const title = registeredTitle || part.label || registeredName || t('home_canvas.knowledge.view');
-  return <section className="home-knowledge-view">
-    <h4>{title}</h4>
-    {projection.isError ? <KnowledgeStatus state="failed" retry={() => { void projection.refetch(); }} />
-      : projection.isPending ? <KnowledgeStatus state="loading" />
-      : !result ? <p className="home-knowledge-status">{t('home_canvas.knowledge.unavailable')}</p>
-      : <>
-        {result.records.length > 0 && <div className="home-knowledge-table-wrap"><table><thead><tr>
-          <th scope="col">{t('home_canvas.knowledge.record')}</th>
-          {result.columns.map((column, index) => <th key={index} scope="col">{column}</th>)}
-        </tr></thead><tbody>
-          {result.records.map((record, index) => <tr key={`${record.id}-${String(index)}`}>
-            <td><Link to={knowledgeDocumentPath(record.id)}>{readablePageTitle(record.title)}</Link></td>
-            {record.cells.map((cell, column) => <td key={column}>{cell}</td>)}
-          </tr>)}
-        </tbody></table></div>}
-        {!catalogComplete ? <p className="home-knowledge-status">{t('home_canvas.knowledge.partialView')}</p>
-          : !result.total ? <p className="home-knowledge-status">{t('home_canvas.knowledge.noMatches')}</p>
-          : result.total > result.records.length && <p className="home-knowledge-status">
-            {t('home_canvas.knowledge.showing', { shown: result.records.length, total: result.total })}</p>}
-      </>}
-  </section>;
+interface Props extends HomeBlockProps {
+  readonly scope: RequestContext;
+  readonly pages: readonly VaultSidebarPageSummary[];
+  readonly catalogComplete: boolean;
+  readonly refreshCount?: number;
 }
 
-export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogComplete }: Props) {
+export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogComplete, refreshCount = 0 }: Props) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const boards = useMemo(() => pages.filter(isDashboardPage).sort((a, b) =>
@@ -65,6 +36,25 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogC
   const markdown = parts?.map((part, index) => part.kind === 'text' ? part.markdown
     : ['```gnosi-home-view', slot + String(index), '```'].join('\n')).join('\n\n') ?? '';
   const titles = useMemo(() => Object.fromEntries(pages.map(page => [page.id, page.title])), [pages]);
+  const editorContext = useMemo<VaultEditorContextValue>(() => ({
+    pageId: boardId,
+    idToTitle: titles,
+    allTables: [],
+    onCreateRecord: null,
+    onDeletePage: null,
+    onEditSchema: null,
+    onOpenParallel: null,
+    onOpenPage: (id: unknown) => { if (typeof id === 'string') void navigate(knowledgeDocumentPath(id)); },
+    onOpenInCurrentTab: (id: unknown) => { if (typeof id === 'string') void navigate(knowledgeDocumentPath(id)); },
+    onOpenInNewTab: (id: unknown) => { if (typeof id === 'string') void navigate(knowledgeDocumentPath(id)); },
+    isEditable: false,
+    registry: {
+      databases: [],
+      tables: [],
+      views: dashboard?.registered ?? [],
+    },
+  }), [boardId, titles, navigate, dashboard?.registered]);
+
   return <div className="home-knowledge-block">
     {editing && <KnowledgePicker catalogComplete={catalogComplete} label={t('home_canvas.knowledge.board')} placeholder={t('home_canvas.knowledge.firstBoard')}
       value={configuredBoard} choices={boards} onChange={id => { onConfigure({ ...block.settings, boardId: id, section: '' }); }} />}
@@ -83,13 +73,26 @@ export function BoardBlock({ block, editing, onConfigure, pages, scope, catalogC
       : !parts ? <p className="home-knowledge-status">{t('home_canvas.knowledge.missingSection')}</p>
       : !parts.length ? <p className="home-knowledge-status">{t('home_canvas.knowledge.emptyBoard')}</p>
       : <div className="home-knowledge-sections"><Suspense fallback={<KnowledgeStatus state="loading" />}>
-        <VaultMarkdown md={markdown} idToTitle={titles} vaultId={scope.vaultId} sourcePageId={boardId} allowVaultQueries
-          onOpenInCurrentTab={id => { void navigate(knowledgeDocumentPath(id)); }}
-          renderFence={(language, token) => {
-            if (language !== 'gnosi-home-view' || !token.startsWith(slot)) return null;
-            const part = parts[Number(token.slice(slot.length))];
-            return part?.kind === 'view' ? <LiveView part={part} registered={dashboard.registered.find(view => view.id === part.view.view_id)}
-              boardId={boardId} scope={scope} catalogComplete={catalogComplete} /> : null;
-          }} /></Suspense></div>}
+        <VaultEditorContext.Provider value={editorContext}>
+          <VaultMarkdown md={markdown} idToTitle={titles} vaultId={scope.vaultId} sourcePageId={boardId} allowVaultQueries
+            onOpenInCurrentTab={id => { void navigate(knowledgeDocumentPath(id)); }}
+            renderFence={(language, token) => {
+              if (language !== 'gnosi-home-view' || !token.startsWith(slot)) return null;
+              const part = parts[Number(token.slice(slot.length))];
+              if (part?.kind !== 'view') return null;
+              const viewBlock: EmbedBlock = {
+                id: part.key,
+                props: {
+                  section_id: typeof part.view.section_id === 'string' ? part.view.section_id : undefined,
+                  view_id: typeof part.view.view_id === 'string' ? part.view.view_id : undefined,
+                  heading: typeof part.view.heading === 'string' ? part.view.heading : undefined,
+                  heading_level: typeof part.view.heading_level === 'number' || typeof part.view.heading_level === 'string' ? part.view.heading_level : undefined,
+                  section: JSON.stringify(part.view),
+                },
+              };
+              return <DbViewEmbed key={`${part.key}-${String(refreshCount)}-${String(catalogComplete)}`} block={viewBlock} />;
+            }} />
+        </VaultEditorContext.Provider>
+      </Suspense></div>}
   </div>;
 }

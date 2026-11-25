@@ -21,6 +21,7 @@ from typing import Any
 
 from fastapi import BackgroundTasks
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.social import vault_ports
 
 log = logging.getLogger(__name__)
@@ -192,7 +193,9 @@ async def list_publications(status: str | None = None) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for md in folder.glob("*.md"):
             try:
-                meta, _ = vault_ports.parse_frontmatter(md.read_text(encoding="utf-8"), md)
+                meta, _ = vault_ports.parse_frontmatter(read_vault_text(md, encoding="utf-8"), md)
+            except MetadataUnavailable:
+                raise
             except Exception:
                 continue
             if not meta or meta.get("database_table_id") != SOCIAL_TABLE_ID:

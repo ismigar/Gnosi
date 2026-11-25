@@ -22,12 +22,14 @@ from backend.domains.agent.routes.attachments import (
     _consume_attachment_context,
 )
 from backend.domains.agent.routes.chat_stream import stream_agent_events
+from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.responses import _response_language
 from backend.domains.agent.routes.chat_error_messages import failure_message
 from backend.domains.agent.routes.checkpoints import (
     _chat_thread_id,
     _checkpoint_key,
     _thread_lock,
+    public_assistant_profile,
 )
 from backend.domains.agent.routes.contracts import (
     TURN_TIMEOUT_SECONDS,
@@ -38,14 +40,19 @@ from backend.domains.agent.routes.shared import (
     _validated_identifier,
     _validated_skill_ids,
     _vault_scope,
+    chat_stream_scope,
 )
 from backend.domains.agent.routes.state import cfg
 from backend.domains.agent.routes.workflow import get_agent_workflow
+from backend.services.agent_chat_preparation import ChatPreparation, current_preparation, preparation_worker
+from backend.services.agent_team_skill_sources import bind_chat_skill_sources
 from backend.services.agent_cancellation import (
     bind_stream as bind_agent_stream,
 )
 from backend.services.agent_cancellation import (
+    cancel as cancel_agent_turn,
     create_cancel_token,
+    is_cancelled,
 )
 from backend.services.agent_cancellation import (
     release as release_agent_turn,
@@ -82,8 +89,8 @@ async def _resolve_notebook_turn(
     from backend.services import notebook_service
 
     primary_notebook_id = str(chat_req.notebook_id or notebook_refs[0].ref).strip()
-    notebook_turn = await asyncio.to_thread(
-        notebook_service.resolve_chat_contexts,
+    notebook_turn = await preparation_worker(
+        "vault_context", notebook_service.resolve_chat_contexts,
         primary_notebook_id,
         [item.model_dump(mode="python") for item in notebook_refs],
         workspace_context,
@@ -185,6 +192,7 @@ async def _finish_failed_turn(
     agent_id: str,
     session_id: str,
 ) -> None:
+    cancelled = is_cancelled(cancel_token)
     if cancel_token:
         release_agent_turn(cancel_token)
     if turn_claimed and chat_req.turn_id:
@@ -196,31 +204,55 @@ async def _finish_failed_turn(
             agent_id=agent_id,
             session_id=session_id,
             turn_id=chat_req.turn_id,
-            state="failed",
+            state="cancelled" if cancelled else "failed",
         )
 
 
-def _unavailable_response(
-    error: HTTPException | MetadataUnavailable,
+def _require_active_turn(token: str) -> None:
+    if is_cancelled(token):
+        raise HTTPException(status_code=409, detail="Agent turn cancelled.")
+
+
+def _bind_submission(token: str, chat_req: ChatRequest, scope: dict[str, str]) -> None:
+    if chat_req.cancel_id and not bind_agent_stream(token, f"request-{chat_req.cancel_id}", scope):
+        raise HTTPException(status_code=409, detail="Submission attempt already active.")
+    _require_active_turn(token)
+
+
+async def _accept_chat_stream(request: Request, token: str, stream_id: str, scope: dict[str, str]) -> None:
+    # A legacy client can only abort its HTTP request before the opening frame.
+    if await request.is_disconnected():
+        cancel_agent_turn(token)
+    _require_active_turn(token)
+    bind_agent_stream(token, stream_id, scope)
+
+
+def _setup_error_response(
+    error: Exception | asyncio.CancelledError,
     *,
     request: Request,
-    trace_id: str,
+    timing_state: AgentStreamState,
     chat_req: ChatRequest,
     workspace_context: WorkspaceContext,
     agent_id: str,
     session_id: str,
+    assistant_profile: dict[str, str] | None = None,
 ) -> StreamingResponse:
+    if isinstance(error, asyncio.CancelledError):
+        raise error
+    if not isinstance(error, (HTTPException, MetadataUnavailable)):
+        raise HTTPException(status_code=500, detail=safe_error_detail(error, context="POST /api/agent/chat")) from error
     language = _response_language(chat_req.message)
     if isinstance(error, MetadataUnavailable):
         error_code = "metadata_unavailable"
-        language, message = metadata_unavailable_detail(request.headers.get("Accept-Language") or language)
+        language, message = metadata_unavailable_detail(request.headers.get("Accept-Language") or language, error.reason)
     else:
         if error.status_code != 503:
             raise error
         error_code = str(error.detail.get("code")) if isinstance(error.detail, dict) else "service_unavailable"
         message_key = "agent_model_unavailable" if error_code == "agent_model_unavailable" else "service_unavailable"
         message = failure_message(language, message_key)
-    recovery = recovery_metadata(error_code)
+    recovery = recovery_metadata(error_code, retryable=error.retryable if isinstance(error, MetadataUnavailable) else None)
 
     async def unavailable_generator() -> AsyncIterator[str]:
         yield json.dumps({
@@ -228,20 +260,17 @@ def _unavailable_response(
             "content": message, "content_language": language,
             "retryable": recovery["retryable"], "recovery": recovery,
         }) + "\n"
+        yield json.dumps(timing_state.metrics_payload()) + "\n"
         yield json.dumps({"type": "done", "has_response": False, "message_count": 0}) + "\n"
 
     return StreamingResponse(
         protocolize_stream(
             unavailable_generator(),
-            stream_id=trace_id,
-            trace_id=trace_id,
+            stream_id=timing_state.trace_id,
+            trace_id=timing_state.trace_id,
             turn_id=chat_req.turn_id or "",
-            journal_scope={
-                "workspace_id": workspace_context.workspace_id,
-                "user_id": workspace_context.user_id,
-                "agent_id": agent_id,
-                "session_id": session_id,
-            },
+            journal_scope=chat_stream_scope(workspace_context, agent_id, session_id),
+            assistant_profile=assistant_profile,
         ),
         media_type="application/x-ndjson",
         status_code=200,
@@ -249,7 +278,7 @@ def _unavailable_response(
 
 
 # The endpoint's public contract is an incremental NDJSON stream, not one JSON body.
-@router.post("/chat", response_model=None)
+@router.post("/chat", response_model=None, dependencies=[Depends(bind_chat_skill_sources, scope="request")])
 async def chat_endpoint(
     request: Request,
     chat_req: ChatRequest,
@@ -260,7 +289,10 @@ async def chat_endpoint(
     """
     original_message = chat_req.message
     command_selected = False
+    assistant_profile = None
     request_started_at = time.monotonic()
+    preparation = ChatPreparation(request_started_at)
+    preparation_token = current_preparation.set(preparation)
     cancel_token = ""
     trace_id = uuid.uuid4().hex
     turn_claimed = False
@@ -272,10 +304,16 @@ async def chat_endpoint(
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
+        # Transport identity uses the submitted conversation, even when a
+        # notebook resolves to a different internal checkpoint principal.
+        stream_scope = chat_stream_scope(workspace_context, agent_id, session_id)
+        cancel_token = create_cancel_token(owner=asyncio.current_task())
+        _bind_submission(cancel_token, chat_req, stream_scope)
         # Checkpoint identity stays stable when the conversation changes profile.
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
-        profiles = (await asyncio.to_thread(ensure_migrated)).get("agents", [])
+        conversation_ai = await preparation_worker("configuration", ensure_migrated)
+        profiles = conversation_ai.get("agents", [])
         from backend.services.agent_commands import resolve_command
         try:
             command = resolve_command(chat_req.message, profiles)
@@ -285,37 +323,40 @@ async def chat_endpoint(
             profile_id, message = command
             command_selected = True
             chat_req = chat_req.model_copy(update={"profile_id": profile_id, "message": message, "active_skill_ids": None})
-        if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
-                   and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
+        addressed_profile = next((p for p in profiles if isinstance(p, dict) and p.get("id") == profile_id
+                                  and p.get("enabled", True) and not p.get("plugin_suspended")
+                                  and p.get("managed_by") != "llm-wiki"), None)
+        assistant_profile = public_assistant_profile(addressed_profile)
+        if not assistant_profile:
             raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
-        vault, vault_scope = _vault_scope()
+        with preparation.stage("vault_context"):
+            vault, vault_scope = _vault_scope()
         notebook_turn, chat_principal, session_id = await _resolve_notebook_turn(
             chat_req,
             workspace_context,
             session_id,
         )
         if chat_req.turn_id:
-            turn_claimed = claim_turn(
-                vault_scope=vault_scope,
-                workspace_id=workspace_context.workspace_id,
-                user_id=chat_principal,
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=chat_req.turn_id,
-                trace_id=trace_id,
-            )
+            with preparation.stage("session"):
+                turn_claimed = claim_turn(
+                    vault_scope=vault_scope,
+                    workspace_id=workspace_context.workspace_id,
+                    user_id=chat_principal,
+                    agent_id=agent_id,
+                    session_id=session_id,
+                    turn_id=chat_req.turn_id,
+                    trace_id=trace_id,
+                )
             if not turn_claimed:
                 raise HTTPException(
                     status_code=409,
                     detail="This turn has already been accepted or is still running.",
                 )
 
-        # 1. Build bounded attachment context and delete the temporary files
-        # before provider selection. This cleanup therefore also covers model
-        # configuration and workflow-construction failures.
-        user_content, untrusted_context_flags = _chat_user_content(
-            chat_req,
+        # Attachments can require a coordinated file download before model selection.
+        user_content, untrusted_context_flags = await preparation_worker(
+            "vault_context", _chat_user_content, chat_req,
             vault=vault,
             vault_scope=vault_scope,
             workspace_context=workspace_context,
@@ -329,9 +370,9 @@ async def chat_endpoint(
         if not notebook_turn:
             from backend.domains.agent.routes.learning_context import prepare_learning_context
 
-            project_text, project_refs, learning_project_id, learning_memory = await asyncio.to_thread(
-                prepare_learning_context, workspace_context, agent_id, session_id,
-                chat_req.turn_id or "", chat_req.message,
+            project_text, project_refs, learning_project_id, learning_memory = await preparation_worker(
+                "vault_context", prepare_learning_context, workspace_context, agent_id, session_id,
+                chat_req.turn_id or "", chat_req.message, target_profile_id=profile_id,
             )
             user_content += project_text
 
@@ -349,30 +390,27 @@ async def chat_endpoint(
             **({"direct_agent": True} if command_selected else {}),
             **({"memory_project_id": learning_project_id} if learning_project_id else {}),
         }
-        workflow, llm_selection = await get_agent_workflow(
-            request,
-            profile_id,
-            llm_mode="agent_default",
-            user_message=chat_req.message,
-            vault_scope=vault_scope,
-            vault_path=vault,
-            active_skill_ids=requested_skill_ids,
-            turn_context_refs=turn_context_refs,
-            memory_user_id=workspace_context.user_id,
-            **workflow_options,
-        )
+        _require_active_turn(cancel_token)
+        from backend.services.agent_catalog_snapshot import team_metadata_catalog
+
+        # Share discovery between the principal and its roster only while preparing this request.
+        team = (addressed_profile or {}).get("team") or {}
+        principal_team = team.get("enabled") and profile_id == conversation_ai.get("active_agent_id") and not command_selected
+        with preparation.stage("workflow"), team_metadata_catalog(personal_phase="capture" if principal_team else None):
+            workflow, llm_selection = await get_agent_workflow(
+                request,
+                profile_id,
+                llm_mode="agent_default",
+                user_message=chat_req.message,
+                vault_scope=vault_scope,
+                vault_path=vault,
+                active_skill_ids=requested_skill_ids,
+                turn_context_refs=turn_context_refs,
+                memory_user_id=workspace_context.user_id,
+                **workflow_options,
+            )
         workflow_ready_at = time.monotonic()
-        cancel_token = create_cancel_token()
-        bind_agent_stream(
-            cancel_token,
-            trace_id,
-            {
-                "workspace_id": workspace_context.workspace_id,
-                "user_id": workspace_context.user_id,
-                "agent_id": agent_id,
-                "session_id": session_id,
-            },
-        )
+        setup_breakdown_ms = preparation.finish(workflow_ready_at)
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -381,12 +419,18 @@ async def chat_endpoint(
         authorized_tool_names.update(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
         )
+        plain_input = (user_content == original_message and chat_req.active_skill_ids is None
+                       and not (command_selected or notebook_turn or turn_context_refs or chat_req.mentions
+                                or chat_req.attachments or learning_project_id))
+        from backend.domains.agent.supplied_tasks import supplied_chat_operation
+        supplied = supplied_chat_operation(original_message) if plain_input and not authorized_tool_names else ""
         turn_plan = build_agent_turn_plan(
             chat_req.message,
             context_refs=(llm_selection or {}).get("context_refs") or [],
             tool_metadata=(llm_selection or {}).get("tools") or [],
             authorized_tool_names=authorized_tool_names,
             provider=str((llm_selection or {}).get("provider") or ""),
+            supplied_input=bool(supplied),
         )
         interpretation = turn_plan.get("interpretation") or {}
         await asyncio.to_thread(
@@ -428,7 +472,14 @@ async def chat_endpoint(
             trace_id=trace_id,
         )
 
-        inputs["messages"][0].additional_kwargs["gnosi_visible_content"] = original_message
+        inputs["messages"][0].additional_kwargs.update(
+            gnosi_visible_content=original_message, gnosi_assistant_profile=assistant_profile,
+        )
+        # Each turn replaces this value, including a contextual follow-up on the same checkpoint.
+        inputs["supplied_operation"] = supplied
+        from backend.services.agent_team_contracts import is_greeting
+        if plain_input and is_greeting(original_message):
+            inputs["messages"][0].additional_kwargs["gnosi_plain_greeting"] = True
 
         # 3. Configure memory thread (per agent + session)
         thread_id = _chat_thread_id(
@@ -459,8 +510,10 @@ async def chat_endpoint(
                 yield json.dumps({"type": "memory_saved", "memory_id": learning_memory["memory_id"]}) + "\n"
             async for event in stream_agent_events(
                 preferred_language=request.headers.get("Accept-Language", ""),
+                assistant_profile=assistant_profile,
                 request_started_at=request_started_at,
                 workflow_ready_at=workflow_ready_at,
+                setup_breakdown_ms=setup_breakdown_ms,
                 llm_selection=llm_selection,
                 turn_plan=turn_plan,
                 trace_id=trace_id,
@@ -482,23 +535,23 @@ async def chat_endpoint(
             ):
                 yield event
 
+        await _accept_chat_stream(request, cancel_token, trace_id, stream_scope)
         return StreamingResponse(
             protocolize_stream(
                 event_generator(),
                 stream_id=trace_id,
                 trace_id=trace_id,
                 turn_id=chat_req.turn_id or "",
-                journal_scope={
-                    "workspace_id": workspace_context.workspace_id,
-                    "user_id": workspace_context.user_id,
-                    "agent_id": agent_id,
-                    "session_id": session_id,
-                },
+                journal_scope=stream_scope,
+                assistant_profile=assistant_profile,
             ),
             media_type="application/x-ndjson",
         )
 
-    except (HTTPException, MetadataUnavailable) as error:
+    except (Exception, asyncio.CancelledError) as error:
+        setup_breakdown_ms = preparation.finish(time.monotonic())
+        if isinstance(error, asyncio.CancelledError):
+            cancel_agent_turn(cancel_token)
         await _finish_failed_turn(
             cancel_token=cancel_token,
             turn_claimed=turn_claimed,
@@ -509,27 +562,18 @@ async def chat_endpoint(
             agent_id=agent_id,
             session_id=session_id,
         )
-        return _unavailable_response(
+        return _setup_error_response(
             error,
             request=request,
-            trace_id=trace_id,
+            timing_state=AgentStreamState(
+                request_started_at=request_started_at, workflow_ready_at=preparation.finished_at,
+                llm_selection={}, turn_plan={}, trace_id=trace_id, setup_breakdown_ms=setup_breakdown_ms,
+            ),
             chat_req=chat_req,
             workspace_context=workspace_context,
             agent_id=agent_id,
-            session_id=session_id,
+            session_id=chat_req.session_id.strip(),
+            assistant_profile=assistant_profile,
         )
-    except Exception as error:
-        await _finish_failed_turn(
-            cancel_token=cancel_token,
-            turn_claimed=turn_claimed,
-            chat_req=chat_req,
-            vault_scope=vault_scope,
-            workspace_context=workspace_context,
-            chat_principal=chat_principal,
-            agent_id=agent_id,
-            session_id=session_id,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(error, context="POST /api/agent/chat"),
-        )
+    finally:
+        current_preparation.reset(preparation_token)

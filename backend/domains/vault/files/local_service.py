@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import os
 import re
+import stat
 import urllib.parse
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -20,9 +21,10 @@ from backend.domains.vault.files.property_service import (
     MAX_NUMBERED_ATTEMPTS,
     numbered_candidate,
 )
-from backend.domains.vault.files.serving import probe_readable
+from backend.domains.vault.files.serving import probe_readable, serve_snapshot
 from backend.domains.vault.files.state import LocalLinkStore
 from backend.platform.files.base import FilesProvider
+from backend.utils.metadata_io import MetadataUnavailable, is_native_vault_file
 
 log = logging.getLogger(__name__)
 
@@ -101,25 +103,35 @@ async def serve_local_file(
     if not absolute_path:
         raise HTTPException(status_code=404, detail="Local file token not found")
     path = Path(absolute_path)
-    if not path.exists() or not path.is_file():
-        raise HTTPException(
-            status_code=410,
-            detail=f"Local file no longer available: {path.name}",
-        )
-
-    resolved = path.resolve()
+    resolved = await asyncio.to_thread(path.resolve)
     allowed_roots = [Path(os.environ.get("HOME_HOST_PATH") or str(Path.home())).resolve()]
     try:
-        allowed_roots.append(dependencies.get_path("VAULT").resolve())
+        allowed_roots.insert(0, dependencies.get_path("VAULT").resolve())
     except Exception:
         pass
-    if not any(resolved.is_relative_to(root) for root in allowed_roots):
+    root = next((root for root in allowed_roots if resolved.is_relative_to(root)), None)
+    if root is None:
         log.warning("Blocked local-file access outside allowed roots: %s", resolved)
         raise HTTPException(status_code=403, detail="File is outside the allowed roots")
 
     try:
-        provider = dependencies.provider()
-        stat_result = path.stat()
+        stat_result = await asyncio.to_thread(resolved.stat)
+    except (FileNotFoundError, NotADirectoryError):
+        stat_result = None
+    except OSError as exc:
+        raise HTTPException(
+            status_code=503, detail="Local file temporarily unavailable",
+            headers={"Cache-Control": "no-store, must-revalidate"},
+        ) from exc
+    if stat_result is None or not stat.S_ISREG(stat_result.st_mode):
+        raise HTTPException(
+            status_code=410,
+            detail=f"Local file no longer available: {path.name}",
+        )
+    provider = dependencies.provider()
+    if is_native_vault_file(resolved, stat_result, provider=provider):
+        return await serve_snapshot(resolved, root)
+    try:
         if provider.is_online_only(path, stat_result):
             await provider.materialize(path)
             try:
@@ -138,7 +150,7 @@ async def serve_local_file(
                     detail="Local file warmup pending; try again",
                     headers={"Cache-Control": "no-store, must-revalidate"},
                 )
-    except HTTPException:
+    except (HTTPException, MetadataUnavailable):
         raise
     except Exception as exc:
         log.debug("Proactive warmup failed for %s: %s", path, exc)

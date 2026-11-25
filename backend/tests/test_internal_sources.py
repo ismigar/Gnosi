@@ -683,11 +683,7 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
     local_data = tmp_path / "local-data"
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
-    monkeypatch.setattr(
-        reader_analysis_storage,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
-    )
+    monkeypatch.setattr(reader_analysis_storage, "resolve_data_dir", lambda: local_data)
     rows = [
         {
             "id": str(index),
@@ -798,11 +794,7 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
     local_data = tmp_path / "local-data"
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
-    monkeypatch.setattr(
-        reader_analysis_storage,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
-    )
+    monkeypatch.setattr(reader_analysis_storage, "resolve_data_dir", lambda: local_data)
     rows = [{
         "id": "1",
         "title": "Recoverable article",
@@ -851,11 +843,7 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
     local_data = tmp_path / "local-data"
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
-    monkeypatch.setattr(
-        reader_analysis_storage,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
-    )
+    monkeypatch.setattr(reader_analysis_storage, "resolve_data_dir", lambda: local_data)
     monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: [{
         "id": "1",
         "title": "Recoverable article",
@@ -928,11 +916,7 @@ def test_reader_analysis_does_not_retry_past_attempt_budget(tmp_path, monkeypatc
     local_data = tmp_path / "local-data"
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
-    monkeypatch.setattr(
-        reader_analysis_storage,
-        "load_params",
-        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
-    )
+    monkeypatch.setattr(reader_analysis_storage, "resolve_data_dir", lambda: local_data)
     monkeypatch.setattr(reader_analysis_service, "_snapshot_articles", lambda _vault, _scope: [{
         "id": "1", "title": "Article", "source": "Example",
         "category": "Research", "published_at": None, "url": "", "content": "Evidence",

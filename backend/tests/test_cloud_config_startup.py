@@ -22,7 +22,10 @@ def test_import_time_cloud_failure_has_a_private_desktop_error(tmp_path):
 import runpy
 from backend.utils import metadata_io
 metadata_io.is_cloud_placeholder = lambda path, stat: path.name == 'params.yaml' and '.gnosi' in path.parts
-metadata_io._download = lambda path: False
+metadata_io.is_native_vault_file = lambda path, info: metadata_io.is_cloud_placeholder(path, info)
+async def unavailable(path, *_):
+    raise metadata_io.MetadataUnavailable(path=path)
+metadata_io.snapshots.copy_coordinated = unavailable
 runpy.run_module('backend.server', run_name='__main__')
 """
     environment = {key: value for key, value in os.environ.items()
@@ -62,10 +65,10 @@ def test_config_recovers_without_cached_defaults_or_changes(tmp_path, monkeypatc
     original = path.read_bytes()
     def unavailable(_path):
         raise MetadataUnavailable("Synthetic provider unavailable")
-    monkeypatch.setattr(yaml_cache, "ensure_metadata_local", unavailable)
-    with pytest.raises(MetadataUnavailable):
-        app_config._merge_user_params({}, tmp_path / "base", path)
-    monkeypatch.setattr(yaml_cache, "ensure_metadata_local", lambda _path: None)
+    with monkeypatch.context() as patch:
+        patch.setattr(yaml_cache, "vault_file_snapshot", unavailable)
+        with pytest.raises(MetadataUnavailable):
+            app_config._merge_user_params({}, tmp_path / "base", path)
     recovered, selected = app_config._merge_user_params({}, tmp_path / "base", path)
     assert selected == path
     assert recovered["settings"] == {"language": "fr", "custom": "retained"}

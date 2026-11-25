@@ -42,3 +42,17 @@ def test_graph_reuses_config_path_for_every_node_and_reads_current_vault(tmp_pat
         assert data["title"] == ("Managed title" if node_id == "one" else "Portable title")
     assert len(cache) == 2
     assert llm_wiki_storage.merge_page_metadata({}, "", state_directory=pages) == {}
+
+
+def test_graph_discovery_does_not_download_an_online_only_note(tmp_path, monkeypatch):
+    import pytest
+    from backend.domains.graph import nodes
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    path = tmp_path / "remote.md"
+    path.touch()
+    monkeypatch.setattr(nodes, "is_cloud_placeholder", lambda *_: True)
+    monkeypatch.setattr(nodes, "read_vault_text", lambda *_: pytest.fail("Graph requested a download"))
+    with pytest.raises(MetadataUnavailable) as pending:
+        nodes.load_page_data(path, path.name, path.stat().st_mtime, None, {})
+    assert pending.value.reason == "pending"

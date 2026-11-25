@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.domains.configuration.agent.governance_routes import _require_configured_agent
+from backend.domains.configuration.agent.governance_routes import _configured_agents, _require_configured_agent
 from backend.services import agent_learning_projects as projects
 from backend.services.agent_learning_models import (
     LearningProject, LearningWorkspace, ProjectBinding, ProjectDraft,
@@ -50,9 +50,11 @@ def remove_learning_project(
     agent_id: str, project_id: str,
     context: WorkspaceContext = Depends(require_role("editor")),
 ) -> LearningWorkspace:
-    _require_configured_agent(agent_id)
+    profiles = _configured_agents()
+    if agent_id not in profiles:
+        raise HTTPException(404, detail="Agent not found.")
     try:
-        projects.delete_project(context, agent_id, project_id)
+        projects.delete_project(context, agent_id, project_id, profile_ids=tuple(profiles))
     except LookupError as exc:
         raise HTTPException(404, detail=str(exc)) from exc
     return projects.workspace(context, agent_id)

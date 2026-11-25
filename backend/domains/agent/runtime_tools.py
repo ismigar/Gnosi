@@ -221,7 +221,7 @@ def _model_supports_tools(
         match = next(
             (
                 row
-                for row in load_registry(with_catalog_prices=False)
+                for row in load_registry(with_catalog_prices=False, route=(provider_name, model_name))
                 if row.get("provider") == provider_name and row.get("model_id") == model_name
             ),
             None,
@@ -231,8 +231,11 @@ def _model_supports_tools(
     except Exception:
         pass
     try:
-        from backend.agent.model_catalog import catalog_provider
+        from backend.agent.model_catalog import catalog_provider, published_cloud_model
 
+        published = published_cloud_model(provider_name, model_name)
+        if published is not None:
+            return "tools" in set(published.get("tags") or [])
         provider = catalog_provider(provider_name)
         match = next(
             (row for row in (provider or {}).get("models", []) if row.get("id") == model_name),
@@ -255,15 +258,18 @@ def _model_context_window(provider_name: str, model_name: Optional[str]) -> int:
         match = next(
             (
                 row
-                for row in load_registry(with_catalog_prices=False)
+                for row in load_registry(with_catalog_prices=False, route=(provider_name, model_name))
                 if row.get("provider") == provider_name and row.get("model_id") == model_name
             ),
             None,
         )
         if match:
             return max(2_048, int(match.get("context_window") or 0))
-        from backend.agent.model_catalog import catalog_model_metadata_index
+        from backend.agent.model_catalog import catalog_model_metadata_index, published_cloud_model
 
+        published = published_cloud_model(provider_name, model_name)
+        if published is not None:
+            return max(2_048, int(published.get("context_window") or 8192))
         metadata = catalog_model_metadata_index().get(f"{provider_name}:{model_name}")
         if metadata:
             return max(2_048, int(metadata.get("context_window") or DEFAULT_CONTEXT_WINDOW_TOKENS))
@@ -332,7 +338,9 @@ def prepare_agent_runtime(
 ) -> tuple[dict[str, Any], dict[str, Any] | None, Any]:
     """Load current AI config, selected profile, and resolved capabilities."""
     from backend.services.principal_agent_migration import ensure_migrated
-    ai_cfg = ensure_migrated()
+    from backend.services.agent_chat_preparation import preparation_stage
+    with preparation_stage("configuration"):
+        ai_cfg = ensure_migrated()
     agent_data = _select_agent_profile(ai_cfg, agent_id)
     runtime = (
         _resolve_runtime_capabilities(

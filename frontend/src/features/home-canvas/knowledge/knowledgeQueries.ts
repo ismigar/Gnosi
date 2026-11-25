@@ -32,7 +32,7 @@ export function useKnowledgeCatalog(scope: RequestContext) {
 }
 
 function registryFallback<T>(error: unknown, fallback: T): T {
-  if (error instanceof GnosiApiError && error.status === 404) return fallback;
+  if (error instanceof GnosiApiError && (error.status === 404 || error.status === 503 || error.message.includes('MetadataUnavailable'))) return fallback;
   throw error;
 }
 

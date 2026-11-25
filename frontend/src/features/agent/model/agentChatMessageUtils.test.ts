@@ -470,6 +470,7 @@ describe('assistant message presentation metadata', () => {
     it('resolves effective timing from alias fields', () => {
         expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
         expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
+        expect(effectiveMessageTimingMs({ timings: { response_ms: 820, total_ms: 2400 } })).toBe(820);
         expect(effectiveMessageTimingMs({ turn_metrics: { total_ms: 900 } })).toBe(900);
         expect(effectiveMessageTimingMs({ totalDurationMs: 1_200 })).toBe(1_200);
         expect(effectiveMessageTimingMs({ processingDurationSec: 1.25 })).toBe(1_250);

@@ -17,6 +17,7 @@ from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.chat_stream_updates import iter_workflow_events
 from backend.domains.agent.routes.contracts import ChatRequest
 from backend.domains.agent.routes.shared import _prepare_index_title_replacements
+from backend.services.agent_cancellation import is_cancelled
 from backend.services.workspace_service import WorkspaceContext
 
 
@@ -116,6 +117,8 @@ async def _opening_events(
         )
     )
     if should_clarify:
+        state.mark_response()
+        state.answer_count += 1
         content = clarification_message(
             interpretation,
             state.turn_plan.get("language", "ca"),
@@ -138,23 +141,13 @@ async def _opening_events(
                         "role": "ai",
                         "content": content,
                         "node": "semantic_interpreter",
+                        "timings": {"response_ms": state.response_ms},
                     },
                     ensure_ascii=False,
                 )
                 + "\n",
-                json.dumps(state.metrics_payload()) + "\n",
-                json.dumps(
-                    {
-                        "type": "done",
-                        "trace_id": state.trace_id,
-                        "has_response": True,
-                        "message_count": 1,
-                    }
-                )
-                + "\n",
             ]
         )
-        state.metrics_emitted = True
         return events, True
 
     deterministic_confirmation = None if coordinated else await asyncio.to_thread(
@@ -162,23 +155,9 @@ async def _opening_events(
         chat_req.message,
     )
     if deterministic_confirmation:
+        state.mark_response()
         state.answer_count += 1
-        events.extend(
-            [
-                json.dumps(deterministic_confirmation, ensure_ascii=False) + "\n",
-                json.dumps(state.metrics_payload()) + "\n",
-                json.dumps(
-                    {
-                        "type": "done",
-                        "trace_id": state.trace_id,
-                        "has_response": True,
-                        "message_count": state.answer_count,
-                    }
-                )
-                + "\n",
-            ]
-        )
-        state.metrics_emitted = True
+        events.append(json.dumps(deterministic_confirmation, ensure_ascii=False) + "\n")
         return events, True
 
     events.extend(
@@ -214,10 +193,13 @@ async def stream_agent_events(
     turn_claimed: bool,
     chat_principal: str,
     preferred_language: str = "",
+    setup_breakdown_ms: dict[str, int] | None = None,
+    assistant_profile: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     state = AgentStreamState(
         request_started_at=request_started_at,
         workflow_ready_at=workflow_ready_at,
+        setup_breakdown_ms=setup_breakdown_ms,
         llm_selection=llm_selection,
         turn_plan=turn_plan,
         trace_id=trace_id,
@@ -230,31 +212,33 @@ async def stream_agent_events(
         agent_id=agent_id,
         profile_id=chat_req.profile_id or agent_id,
         session_id=session_id,
+        **{f"conversation_profile_{key}": value for key, value in (assistant_profile or {}).items()},
     )
     try:
-        opening_events, terminal = await _opening_events(
-            state,
-            chat_req=chat_req,
-            untrusted_context_flags=untrusted_context_flags,
-        )
-        for event in opening_events:
-            yield event
-        if terminal:
-            return
-
-        async for event in iter_workflow_events(
-            state=state,
-            turn_timeout_seconds=turn_timeout_seconds,
-            untrusted_context_flags=untrusted_context_flags,
-            turn_lock=turn_lock,
-            db_path=db_path,
-            workflow=workflow,
-            inputs=inputs,
-            config=config,
-        ):
-            yield event
-        state.usage_recorded = True  # Recorded at the shared model boundary.
-        yield json.dumps(state.metrics_payload()) + "\n"
+        terminal = is_cancelled(cancel_token)
+        if not terminal:
+            opening_events, terminal = await _opening_events(
+                state,
+                chat_req=chat_req,
+                untrusted_context_flags=untrusted_context_flags,
+            )
+            for event in opening_events:
+                yield event
+        if not terminal and not is_cancelled(cancel_token):
+            async for event in iter_workflow_events(
+                state=state,
+                turn_timeout_seconds=turn_timeout_seconds,
+                untrusted_context_flags=untrusted_context_flags,
+                turn_lock=turn_lock,
+                db_path=db_path,
+                workflow=workflow,
+                inputs=inputs,
+                config=config,
+            ):
+                yield event
+            state.usage_recorded = True  # Recorded at the shared model boundary.
+        metrics = await asyncio.to_thread(state.metrics_payload)
+        yield json.dumps(metrics) + "\n"
         state.metrics_emitted = True
         yield (
             json.dumps(

@@ -14,6 +14,7 @@ from typing import cast
 from fastapi import HTTPException
 from pydantic import JsonValue
 
+from backend.utils.metadata_io import read_vault_text
 from backend.config.data_dir import resolve_data_dir
 from backend.services.workspace_service import WorkspaceContext
 from backend.utils.safe_io import safe_write_json
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id 
             if path.is_symlink() or "conflict" in path.name.lower():
                 raise HTTPException(409, "Resolve the synchronized website configuration conflict")
             try:
-                site = SiteConfig.model_validate_json(path.read_text())
+                site = SiteConfig.model_validate_json(read_vault_text(path, root=self.vault))
             except (ValueError, OSError):
                 raise HTTPException(409, "Website configuration cannot be read") from None
             if path.stem != site.id:
@@ -114,7 +115,7 @@ CREATE TABLE IF NOT EXISTS newsletter_reviews (site_id TEXT NOT NULL, target_id 
         if path.is_symlink():
             raise HTTPException(409, "Invalid website configuration")
         try:
-            result = SiteConfig.model_validate_json(path.read_text())
+            result = SiteConfig.model_validate_json(read_vault_text(path, root=self.vault))
         except FileNotFoundError:
             raise HTTPException(404, "Website not found") from None
         except (OSError, ValueError):

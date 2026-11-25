@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path as cloud_metadata_path
+from backend.utils.metadata_io import metadata_path as cloud_metadata_path, read_metadata_text
 
 import json
 import logging
@@ -60,12 +60,13 @@ def ensure_user_metadata_loaded(
             return
         path = metadata_path()
         loaded: UserMetadataStore = {"version": 1, "items": {}}
-        if path and path.exists():
+        if path is not None:
             try:
-                with cloud_metadata_path(path).open("r", encoding="utf-8") as handle:
-                    raw = cast(object, json.load(handle))
+                raw = cast(object, json.loads(read_metadata_text(path)))
                 if isinstance(raw, dict) and isinstance(raw.get("items"), dict):
                     loaded = cast(UserMetadataStore, raw)
+            except FileNotFoundError:
+                pass
             except (OSError, json.JSONDecodeError) as error:
                 logger.warning(f"media_metadata.json corrupte ({path}): {error} — reinicialitzant")
         service._user_metadata = loaded

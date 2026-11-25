@@ -164,7 +164,7 @@ def test_inflight_shares_one_result_or_error_and_cleans_owner(
             return result
 
         def store(page_id: str, mtime: float, short: object, full: object) -> None:
-            assert not facade._preview_inflight[page_id].done()
+            assert not next(iter(facade._preview_inflight.values())).done()
             assert short is result[0] and full is result[1]
             events.append("store")
 
@@ -188,7 +188,7 @@ def test_inflight_shares_one_result_or_error_and_cleans_owner(
     assert events == (["compute"] if failure else ["compute", "store"])
 
 
-def test_preview_owner_cancellation_keeps_existing_future_behavior(
+def test_preview_owner_cancellation_resolves_waiters(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     path = tmp_path / "Synthetic.md"
@@ -205,13 +205,12 @@ def test_preview_owner_cancellation_keeps_existing_future_behavior(
         monkeypatch.setattr(previews, "_compute_preview", compute)
         owner = asyncio.create_task(previews._fetch_preview_with_cache(path, "synthetic"))
         await asyncio.wait_for(started.wait(), 2)
-        future = facade._preview_inflight["synthetic"]
+        future = next(iter(facade._preview_inflight.values()))
         owner.cancel()
         with pytest.raises(asyncio.CancelledError):
             await owner
         assert facade._preview_inflight == {}
-        assert not future.done()  # Characterize; changing cancellation is a separate behavior fix.
-        future.cancel()
+        assert future.cancelled()
 
     asyncio.run(scenario())
 
@@ -233,6 +232,58 @@ def test_cached_preview_reads_short_then_full(
     monkeypatch.setattr(facade, "_preview_cache_get", lookup)
     result = asyncio.run(previews._fetch_preview_with_cache(path, "synthetic"))
     assert result[0] is short and result[1] is full and events == [False, True]
+
+
+def test_cancelled_owner_allows_joined_request_to_finish(monkeypatch, tmp_path):
+    path = tmp_path / "page.md"
+    path.touch()
+
+    async def scenario():
+        owner_started, waiter_joined = asyncio.Event(), asyncio.Event()
+        attempts = lookups = 0
+
+        async def compute(_path, _id):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                owner_started.set()
+                await asyncio.Future()
+            return ({"id": "page"}, {"body_md": "ready"}, 1.0)
+
+        def miss(*_args, **_kwargs):
+            nonlocal lookups
+            lookups += 1
+            if lookups == 4:
+                waiter_joined.set()
+
+        monkeypatch.setattr(previews, "_compute_preview", compute)
+        monkeypatch.setattr(facade, "_preview_cache_get", miss)
+        first = asyncio.create_task(previews._fetch_preview_with_cache(path, "page"))
+        await owner_started.wait()
+        second = asyncio.create_task(previews._fetch_preview_with_cache(path, "page"))
+        await waiter_joined.wait()
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        assert (await asyncio.wait_for(second, 2))[1]["body_md"] == "ready"
+        assert attempts == 2 and facade._preview_inflight == {}
+
+    asyncio.run(scenario())
+
+
+def test_preview_cache_separates_matching_page_ids_and_revisions_across_vaults(tmp_path):
+    first, second = tmp_path / "A", tmp_path / "B"
+    original = context_vars.active_vault_path.set(first)
+    try:
+        cache.set_cached_preview("same", 100, {"title": "First"}, {})
+        context_vars.active_vault_path.set(second)
+        assert cache.get_cached_preview("same", 100, False) is None
+        cache.set_cached_preview("same", 100, {"title": "Second"}, {})
+        cache.invalidate_cached_preview("same")
+        context_vars.active_vault_path.set(first)
+        assert cache.get_cached_preview("same", 100, False) == {"title": "First"}
+    finally:
+        context_vars.active_vault_path.reset(original)
 
 
 def test_title_match_precedes_first_alias(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

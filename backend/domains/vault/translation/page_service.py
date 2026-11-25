@@ -21,6 +21,8 @@ from backend.domains.vault.translation.types import (
     TranslateMarkdown,
     TranslateTitle,
 )
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import read_vault_text_async
 
 
 PageTranslatorBundle = tuple[TranslateMarkdown, TranslateTitle, DetectLanguage]
@@ -158,7 +160,7 @@ async def translate_page(
     file_path = await asyncio.to_thread(dependencies.find_page, page_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail=f"Page not found (ID: {page_id})")
-    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    raw_content = await read_vault_text_async(file_path, root=active_vault_path.get())
     metadata, body = dependencies.parse_frontmatter(raw_content, file_path)
     parent_title = str(metadata.get("title") or "")
     source_language = dependencies.detect_record_source_lang(metadata)

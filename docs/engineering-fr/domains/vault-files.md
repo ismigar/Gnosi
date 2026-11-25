@@ -20,6 +20,8 @@ source_paths:
   - backend/domains/vault/media/routes.py
   - backend/domains/media
   - backend/platform/files
+  - backend/utils/metadata_io.py
+  - desktop/native/file-access.m
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -121,6 +123,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_coordinated_consumers.py
   - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
@@ -712,17 +715,22 @@ substitution, l'hydratation, la disponibilité et la correspondance des chemins.
 Définissez explicitement `GNOSI_FILES_PROVIDER` lorsque la détection automatique
 du chemin est ambiguë.
 
-Le fonctionnement des fichiers à la demande est indépendant du fournisseur.
-Sur macOS, un auxiliaire en lecture seule fondé sur `NSFileCoordinator` est utilisé
-par défaut, compilé et signé dans `Contents/Resources/native/gnosi-file-access`.
-Chaque appel demande un fichier, lit au maximum 64 KiB et ne renvoie aucun contenu
-du document. Deux téléchargements simultanés au maximum et la fusion des demandes
-par chemin limitent la charge ; une expiration ou une annulation termine le
-processus auxiliaire. Ce mode ne lance aucune application graphique, ne fixe pas
-de fichiers sur disque, ne télécharge pas récursivement et ne redémarre aucun
-client cloud. Docker conserve l'auxiliaire configuré sur l'hôte. Les anciens modes
-`open` et `direct` nécessitent un choix explicite ; seul l'ancien adaptateur
-OneDrive peut activer une récupération propre au fournisseur.
+Sur macOS, Gnosi lit les fichiers cloud sélectionnés avec l’auxiliaire signé
+`Contents/Resources/native/gnosi-file-access`. Une lecture coordonnée par
+`NSFileCoordinator` fournit les octets et la révision à partir du même
+descripteur ouvert. Les consommateurs conservent une copie locale privée pendant
+le décodage, l’extraction de texte ou le service de plages HTTP. Les demandes
+simultanées d’une même révision partagent le téléchargement. La file réserve de
+la capacité aux lectures actives lorsque des aperçus ou préchargements sont en
+attente. Chaque lecture sélectionne un fichier et respecte les choix de
+conservation du Vault. Docker conserve l’auxiliaire de l’hôte. Les modes `open`
+et `direct` restent des options explicites.
+
+La réponse HTTP indique la cause d’indisponibilité. Les téléchargements en
+attente et les déconnexions renvoient 503 avec un délai. Un défaut de permission
+renvoie 403 et un disque plein renvoie 507. L’interface peut retenter une lecture
+dans la limite de son délai. Chaque tâche persistante gère ses nouvelles
+tentatives et ses points de reprise.
 
 La découverte de l'index utilise les indicateurs de fichiers sans données pour
 conserver des références accessibles sans ouvrir tous les documents cloud.
@@ -731,8 +739,7 @@ matérialisation n'a pas besoin de modifier le mtime pour actualiser une référ
 Une analyse initiale échouée n'est pas marquée comme initialisée. La navigation
 latérale et la table demandée obtiennent les métadonnées nécessaires, tandis que
 les lectures de pages et de pièces jointes matérialisent le fichier sélectionné.
-Les fichiers indisponibles renvoient 503 avec Retry-After plutôt qu'une lecture
-vide réussie. Le préchargement massif de l'arbre critique est désactivé par défaut
+Le préchargement massif de l'arbre critique est désactivé par défaut
 pour l'accès coordonné natif.
 
 La validation du code du 14 septembre comprend des tests synthétiques d'échec,

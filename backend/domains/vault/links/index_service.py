@@ -22,6 +22,8 @@ from backend.domains.vault.links.parsing import (
 )
 from backend.domains.vault.links.state import LinkIndexState, LinkIndexView
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import read_vault_text
 
 
 log = logging.getLogger(__name__)
@@ -573,7 +575,7 @@ def rewrite_wikilinks_on_title_change(
         if not path.exists():
             continue
         try:
-            raw = path.read_text(encoding="utf-8")
+            raw = read_vault_text(path, root=active_vault_path.get())
             updated, replacements = pattern.subn(replace, raw)
             if replacements == 0 or updated == raw:
                 continue

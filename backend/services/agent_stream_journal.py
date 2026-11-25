@@ -21,7 +21,7 @@ _LOCK = threading.RLock()
 
 
 def scope_digest(scope: Mapping[str, Any]) -> str:
-    values = [str(scope.get(key) or "") for key in ("workspace_id", "user_id", "agent_id", "session_id")]
+    values = [str(scope.get(key) or "") for key in ("workspace_id", "user_id", "vault_path", "agent_id", "session_id")]
     return hashlib.sha256("\0".join(values).encode("utf-8")).hexdigest()
 
 

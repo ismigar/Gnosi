@@ -84,6 +84,29 @@ async function submit(text: string): Promise<void> {
 }
 
 describe('AgentChat shared transport integration', () => {
+  it('sends explicit Cancel for its submission before any response headers arrive', async () => {
+    mocks.stream.mockImplementationOnce((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => { reject(new DOMException('Aborted', 'AbortError')); });
+    }));
+    await render(<AgentChat embedded forcedSessionId="cancel-session" forcedAgentId="gnosy" />);
+    await submit('Cancel while the workflow is loading');
+    const body = mocks.stream.mock.calls[0]?.[1]?.body;
+    if (typeof body !== 'string') throw new Error('Missing chat request');
+    const request = JSON.parse(body) as { turn_id: string; cancel_id: string };
+    expect(request.cancel_id).toMatch(/^[a-f0-9-]{36}$/);
+    expect(request.cancel_id).not.toBe(request.turn_id);
+    const cancel = [...container.querySelectorAll('button')].find(button => button.textContent === 'Cancel');
+    if (!cancel) throw new Error('Missing Cancel control');
+    await act(async () => { cancel.click(); await Promise.resolve(); });
+    const cancellation = mocks.transport.mock.calls.filter(([input]) => requestPath(input).includes('/cancel?'));
+    expect(cancellation).toHaveLength(1);
+    const input = cancellation[0]?.[0];
+    if (!(input instanceof Request)) throw new Error('Missing HTTP cancellation request');
+    expect(input.method).toBe('POST');
+    expect(requestPath(input)).toBe(`/api/chat/streams/request-${request.cancel_id}/cancel?agent_id=gnosy&session_id=cancel-session`);
+    expect(mocks.stream.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(mocks.stream).toHaveBeenCalledOnce();
+  });
   it('defers closed floating-chat catalogs and loads them once when opened under StrictMode', async () => {
     await render(<StrictMode><AgentChat /></StrictMode>);
     expect(mocks.configuration).not.toHaveBeenCalled();
@@ -159,9 +182,17 @@ describe('AgentChat shared transport integration', () => {
     expect(stored).toContain('Reunió 🧠');
   });
 
-  it('resumes a disconnected stream without sending the request or action twice', async () => {
+  it.each([
+    { label: 'memory', event: { type: 'message', content: 'Recovered answer', memory_provenance: [
+      { memory_id: 'm', agent_id: 'gnosy', text: 'Keep answers short', revision: 3 },
+    ] }, expected: 'Keep answers short' },
+    { label: 'retry', event: { type: 'error', code: 'agent_turn_timeout', content: 'Fixture timeout',
+      content_language: 'en', retryable: true, recovery: { action: 'retry_message', automatic: false, max_attempts: 1 } },
+      expected: 'Fixture timeout' },
+  ])('resumes a disconnected stream with its $label controls and only one chat POST', async ({ label, event, expected }) => {
+    const replay = [{ ...event, sequence: 2 }, { type: 'done', sequence: 3 }].map(row => JSON.stringify(row)).join('\n');
     mocks.transport.mockImplementation((input) => Promise.resolve(requestPath(input).startsWith('/api/chat/streams/')
-      ? new Response('{"type":"message","sequence":2,"content":"Recovered answer"}\n{"type":"done","sequence":3}\n')
+      ? new Response(replay)
       : Response.json({ confirmations: [] })));
     mocks.stream.mockImplementation(() => {
       let first = true;
@@ -174,7 +205,9 @@ describe('AgentChat shared transport integration', () => {
     });
     await render(<AgentChat embedded />);
     await submit('Recover this');
-    expect(container.textContent).toContain('Recovered answer');
+    expect(container.textContent).toContain(expected);
+    if (label === 'retry') expect(container.querySelector('button[aria-label="Retry response"]')).not.toBeNull();
+    else expect(container.textContent).toContain('Memories selected for this response');
     expect(mocks.stream).toHaveBeenCalledOnce();
     expect(mocks.transport.mock.calls.some(([input]) => requestPath(input).includes('/api/chat/streams/resume-fixture?') && requestPath(input).includes('after_sequence=1'))).toBe(true);
   });

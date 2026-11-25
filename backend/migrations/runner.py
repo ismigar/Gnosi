@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
-
-from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+from backend.utils.metadata_io import metadata_path, read_metadata_text, vault_file_snapshot
 
 import hashlib
 import importlib
@@ -160,7 +158,7 @@ def _checkpoint(path: Path) -> None:
 
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with metadata_path(path).open("rb") as handle:
+    with vault_file_snapshot(path) as lease, lease.path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()

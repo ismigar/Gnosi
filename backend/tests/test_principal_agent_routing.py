@@ -13,7 +13,8 @@ from backend.services.agent_team_models import TeamPlan, TeamTask
 from backend.services.agent_team_policy import select_executor
 
 
-def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, raw_request=None):
+def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, raw_request=None, message_metadata=None,
+             supplied_operation=""):
     from backend.agent.factory import create_agent_workflow
     from backend.services.agent_execution import stream_workflow
     from backend.services.agent_execution_scope import execution_scope
@@ -28,8 +29,9 @@ def run_chat(fixture, message, *, history=(), grants=(), refs=(), profile=None, 
         graph, selection = await create_agent_workflow([], None, agent_id=profile["id"],
             user_message=raw_request or message, prepared_ai_cfg=config, prepared_agent_data=profile,
             runtime_capabilities=teams._runtime(profile, scope), vault_path=scope.vault_path)
-        state = {"messages": [*history, HumanMessage(content=message)],
+        state = {"messages": [*history, HumanMessage(content=message, additional_kwargs=message_metadata or {})],
                  "user_request": raw_request or message,
+                 "supplied_operation": supplied_operation,
                  "active_skill_ids": snapshot.skill_ids, "turn_authorized_tool_names": list(grants),
                  "current_user_role": scope.role}
         messages = []
@@ -345,3 +347,32 @@ def test_catalog_describes_personal_capabilities_and_unavailable_models(team_run
     assert catalog[0]["available"] is True
     monkeypatch.setattr(model_router, "load_registry", lambda: [])
     assert planning_catalog(snapshot.profile, scope, "Revisa aquest paràgraf")[0]["available"] is False
+
+
+def test_planning_reuses_provider_and_budget_only_within_one_decision(team_runtime, monkeypatch):
+    from backend.agent import model_router
+    from backend.domains.agent import llm
+    from backend.services.agent_team_routing import planning_catalog
+
+    scope, snapshot, _, config = team_runtime
+    config["agents"][0]["model"] = "cheap"
+    lookups = []
+    budgets = []
+    connected = True
+
+    def available(provider, _settings):
+        lookups.append(provider)
+        return connected
+
+    def budget():
+        budgets.append(True)
+        return {"over_cap": False}
+
+    monkeypatch.setattr(llm, "_provider_is_available", available)
+    monkeypatch.setattr(model_router, "budget_status", budget)
+    members = planning_catalog(snapshot.profile, scope, "Hola", include_owner=True)
+    assert {m["id"] for m in members if m["available"]} == {"director", "worker"}
+    connected = False
+    members = planning_catalog(snapshot.profile, scope, "Hola", include_owner=True)
+    assert all(not m["available"] for m in members)
+    assert lookups == ["local", "local"] and len(budgets) == 2

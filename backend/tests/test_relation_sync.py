@@ -60,8 +60,9 @@ TABLES_AMBIG = {
 
 
 @pytest.fixture()
-def vault(tmp_path: Path) -> Path:
+def vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (tmp_path / ".gnosi").mkdir()
+    monkeypatch.setattr(vr, "get_active_vault_path", lambda: tmp_path)
     return tmp_path
 
 

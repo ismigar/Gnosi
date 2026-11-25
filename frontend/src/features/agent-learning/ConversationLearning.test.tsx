@@ -8,7 +8,7 @@ import { ConversationLearning } from './ConversationLearning';
 const api = vi.hoisted(() => ({ draft: vi.fn() }));
 vi.mock('../../shared/api/agent-learning', () => ({ prepareLearningDraft: api.draft }));
 vi.mock('./LearningProjectPanel', () => ({ LearningProjectPanel: () => null }));
-vi.mock('./LearnedSkillEditor', () => ({ LearnedSkillEditor: () => <p>Draft ready</p> }));
+vi.mock('./LearnedSkillEditor', () => ({ LearnedSkillEditor: ({ agentId }: { agentId: string }) => <p>Draft for {agentId}</p> }));
 
 it('turns an explicit chat request into one draft even under StrictMode', async () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -20,12 +20,15 @@ it('turns an explicit chat request into one draft even under StrictMode', async 
     const root = createRoot(container);
     const consumed = vi.fn();
     try {
-        await act(async () => { root.render(<StrictMode><I18nextProvider i18n={locale}><ConversationLearning agentId="helper" sessionId="session" contextRefs={[]} hasConversation initialGoal="Crea una habilitat per resumir" onRequestConsumed={consumed} onClose={() => undefined} /></I18nextProvider></StrictMode>); await Promise.resolve(); });
+        await act(async () => { root.render(<StrictMode><I18nextProvider i18n={locale}><ConversationLearning agentId="helper" profileId="specialist" sessionId="session" contextRefs={[]} hasConversation initialGoal="Crea una habilitat per resumir" onRequestConsumed={consumed} onClose={() => undefined} /></I18nextProvider></StrictMode>); await Promise.resolve(); });
         await act(async () => { await vi.runOnlyPendingTimersAsync(); });
         expect(api.draft).toHaveBeenCalledTimes(1);
         expect(consumed).toHaveBeenCalledTimes(1);
-        expect(api.draft).toHaveBeenCalledWith(expect.objectContaining({ goal: 'Crea una habilitat per resumir', language: 'ca' }), expect.any(AbortSignal));
-        expect(container.textContent).toContain('Draft ready');
+        expect(api.draft).toHaveBeenCalledWith(expect.objectContaining({ agent_id: 'helper', profile_id: 'specialist', session_id: 'session', goal: 'Crea una habilitat per resumir', language: 'ca' }), expect.any(AbortSignal));
+        act(() => {
+            root.render(<StrictMode><I18nextProvider i18n={locale}><ConversationLearning agentId="helper" profileId="other" sessionId="session" contextRefs={[]} hasConversation onClose={() => undefined} /></I18nextProvider></StrictMode>);
+        });
+        expect(container.textContent).toContain('Draft for specialist');
     } finally {
         await act(async () => { root.unmount(); await Promise.resolve(); });
         vi.useRealTimers();

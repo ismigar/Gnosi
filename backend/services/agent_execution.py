@@ -22,7 +22,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from backend.services import agent_execution_store as store
 from backend.services.agent_run_middleware import report_run
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin, ExecutionScope
-from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
+from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope, revalidate_scope_async
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
 from backend.services.agent_output_repair import OutputRepair, RepairBuilder
@@ -266,7 +266,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
             yield event
         return
     scope = current_scope()
-    revalidate_scope(scope)
+    await revalidate_scope_async(scope)
     execution_snapshot = snapshot if snapshot is not None else await asyncio.to_thread(
         prepare_snapshot, "", active_skill_ids=inputs.get("active_skill_ids"),
     )
@@ -299,7 +299,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
                         result = str(message.content)
             yield event
         status = store.read(scope, run_id).status
-        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed", result=result)
+        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed",
+                     check_cancellation=True, result=result)
     except BaseException as error:
         from backend.services.agent_cancellation import AgentTurnCancelled
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
@@ -353,10 +354,11 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     if snapshot.scope != current_scope() or request.skill_id not in snapshot.skill_ids:
         raise PermissionError("agent_execution_scope_or_skill_mismatch")
     ai = dict(load_params(strict_env=False).ai)
-    current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
     if snapshot.profile.get("_team_execution"):
         from backend.services.agent_team_runtime import execution_profile
-        current = execution_profile(snapshot)
+        current: dict[str, Any] | None = execution_profile(snapshot, config=ai)
+    else:
+        current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
     if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
         raise RuntimeError("agent_execution_profile_unavailable")
     allowed = resolve_agent_runtime(current, vault_path=Path(snapshot.scope.vault_path), active_skill_ids=snapshot.skill_ids)
@@ -366,8 +368,8 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     return snapshot, ai, runtime
 
 
-def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
-    revalidate_scope(scope)
+async def _require_active(scope: ExecutionScope, run_id: str, parent_id: str = "") -> None:
+    await revalidate_scope_async(scope)
     _check_cancelled(scope, run_id, parent_id)
 
 
@@ -412,7 +414,7 @@ async def _checked_checkpoint(schema: dict[str, Any] | None, snapshot: AgentExec
             _validate_output(cached.result, schema)
             await validate(cached.result)
         finally:
-            _require_active(snapshot.scope, cached.run_id, parent_id)
+            await _require_active(snapshot.scope, cached.run_id, parent_id)
         report_run(cached.run_id)
     return cached
 
@@ -470,7 +472,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # The durable reader owns the book loop. Each phase asks its frozen
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
-        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
+        operation_team_help=request.operation not in {"knowledge.process-source.phase", "writing.correct.repair", "team.view_edit", "team.greeting", "podcast.coverage.briefs", "podcast.coverage.narration", "podcast.coverage.segment", "podcast.coverage.plan", "podcast.coverage.digest", "podcast.coverage.concise", "podcast.coverage.write", "podcast.coverage.audit"} and not classifying_notes,
         # Reading returns one bounded action, never the whole book. Avoid a
         # provider-default reservation of 65,536 output tokens for each step.
         operation_max_output_tokens=((8192 if request.options.get("reading_prose") else review_output)
@@ -486,7 +488,8 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         operation_default_reasoning_effort=(None if snapshot.profile.get("reasoning_effort") else
             "off_if_optional" if request.operation in {"podcast.coverage.briefs", "podcast.coverage.plan", "podcast.coverage.write", "podcast.coverage.digest", "podcast.coverage.audit"} else
             "low" if request.operation in {"knowledge.process-source.phase", "team.view_edit"} else
-            "one_step_lower" if request.operation == "team.plan" and request.options.get("economical_planning")
+            "one_step_lower" if (request.operation == "team.greeting" or
+                                 request.operation == "team.plan" and request.options.get("economical_planning"))
             and not validation_retry else None),
         output_schema=request.output_schema,
         operation_reading_performance=(request.operation == "knowledge.process-source.phase"
@@ -515,7 +518,7 @@ async def _operation_output(text: str, request: AgentOperation, validator: Calla
 
 
 async def _build_output_repair(request: AgentOperation, builder: RepairBuilder | None, text: str,
-                               error: Exception, require_active: Callable[[], None]) -> OutputRepair | None:
+                               error: Exception, require_active: Callable[[], Awaitable[None]]) -> OutputRepair | None:
     if builder is None:
         return None
     if request.operation != "knowledge.process-source.phase":
@@ -523,7 +526,7 @@ async def _build_output_repair(request: AgentOperation, builder: RepairBuilder |
     try:
         return await asyncio.to_thread(builder, text, error)
     finally:
-        require_active()
+        await require_active()
 
 
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None, private_result: bool = False, draft_schema: dict[str, Any] | None = None, observe_model_output: Callable[[str, bool], None] | None = None) -> AgentRun:
@@ -606,15 +609,16 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             # Reading persists those observations before a schema, amendment or
             # retry budget can reject the response. Other operations omit the hook.
             if observe_model_output is not None:
-                require_active()
+                await require_active()
                 await asyncio.to_thread(observe_model_output, text, partial_repair is not None)
             try:
                 try:
                     text = _validate_output(text, response_schema)
                     text = await _operation_output(text, request, output_validator, partial_repair)
                 finally:
-                    require_active()
-                completed = store.update(snapshot.scope, run_id, status="completed", result="" if private_result else text)
+                    await require_active()
+                completed = store.update(snapshot.scope, run_id, status="completed", check_cancellation=True,
+                                         result="" if private_result else text)
                 # Independent review text can contain private source evidence and
                 # criticism. Return it only to the in-process coordinator; the
                 # run record and its public API keep it ephemeral.
@@ -728,8 +732,8 @@ def cancel_run(run_id: str) -> AgentRun:
 async def resume_run(run_id: str) -> AgentRun:
     """Retry only a tool-free operation; retain the frozen procedure and lineage."""
     scope = current_scope()
-    revalidate_scope(scope)
-    request_data, snapshot_data = store.resume_data(scope, run_id)
+    await revalidate_scope_async(scope)
+    request_data, snapshot_data, episode = store.resume_activity_data(scope, run_id)
     from backend.services import agent_team_store as team_artifacts
     if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):
         from backend.services.agent_team_resume import resume_team
@@ -748,7 +752,7 @@ async def resume_run(run_id: str) -> AgentRun:
             elif operation == "podcast":
                 from backend.services.audio_summarizer import resume_podcast
                 resumed_snapshot = AgentExecutionSnapshot.model_validate(snapshot_data).model_copy(update={"parent_run_id": run_id})
-                resume_podcast(resumed_snapshot)
+                resume_podcast(resumed_snapshot, episode=episode)
             else:
                 raise ValueError("use_job_resume")
         except BaseException as error:

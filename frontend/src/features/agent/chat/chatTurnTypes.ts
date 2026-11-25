@@ -3,13 +3,14 @@ import type { AgentChatProps } from './agentChatTypes';
 import type { AgentChatMention } from '../model/agentChatMentionUtils';
 import type { ChatAttachment } from './composerModel';
 import type { StreamEventContext } from './streamEventModel';
+import type { AssistantProfileSnapshot } from '../model/agentChatAuthor';
 
 export interface ChatTurnContext extends Omit<StreamEventContext, 'requestScope' | 'agentId' | 'turnId'> {
   readonly queuedTurnId?: string;
   readonly onOutcome?: (success: boolean) => void | Promise<void>;
   readonly browserStorageScope: string;
   readonly selectedAgentId: string;
-  readonly profileId?: string;
+  readonly profile?: AssistantProfileSnapshot;
   readonly notebookId: string;
   readonly contextRefs: NonNullable<AgentChatProps['contextRefs']>;
   readonly inputValue: string;

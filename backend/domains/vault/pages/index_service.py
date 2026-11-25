@@ -169,7 +169,9 @@ def _read_refresh_target(
         return page, file_path, None
 
 
-def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
+def refresh_table_pages_metadata(
+    pages: list[PageInfo], *, read_selected: Callable[[Path], PageCacheEntry] | None = None,
+) -> None:
     """Hydrate metadata stubs concurrently and update their cached entries."""
     dependencies = _deps()
     vault_path = dependencies.active_vault_path()
@@ -186,8 +188,13 @@ def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
     if not targets:
         return
 
-    with ThreadPoolExecutor(max_workers=min(16, len(targets))) as executor:
-        results = list(executor.map(_read_refresh_target, targets))
+    results: list[tuple[PageInfo, Path, PageCacheEntry | None]]
+    if read_selected is not None:
+        # Selected cloud pages are already bound to the requesting vault's worker.
+        results = [(page, path, read_selected(path)) for page, path in targets]
+    else:
+        with ThreadPoolExecutor(max_workers=min(16, len(targets))) as executor:
+            results = list(executor.map(_read_refresh_target, targets))
 
     for page, file_path, entry in results:
         if entry is None or entry.pop("_parse_failed", False):

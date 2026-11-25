@@ -29,7 +29,7 @@ def test_chat_http_outage_preserves_language_and_failed_outcome(monkeypatch, tmp
     })
     monkeypatch.setattr(chat_route, "_vault_scope", lambda: (tmp_path, "synthetic-vault"))
     monkeypatch.setattr(chat_route, "_chat_user_content", lambda request, **_: (request.message, []))
-    monkeypatch.setattr(learning_context, "prepare_learning_context", lambda *_: ("", [], "", None))
+    monkeypatch.setattr(learning_context, "prepare_learning_context", lambda *args, **kwargs: ("", [], "", None))
     calls = []
 
     async def unavailable(*args, **kwargs):
@@ -54,6 +54,12 @@ def test_chat_http_outage_preserves_language_and_failed_outcome(monkeypatch, tmp
     events = [json.loads(line) for line in response.text.splitlines() if line]
     errors = [event for event in events if event["type"] == "error"]
     assert len(errors) == 1
+    assert [event["type"] for event in events] == ["stream_open", "error", "turn_metrics", "done"]
+    metrics = events[-2]
+    assert "vault_context" in metrics["setup_breakdown_ms"]
+    assert metrics["setup_ms"] == sum(metrics["setup_breakdown_ms"].values())
+    assert metrics["total_ms"] == metrics["setup_ms"] + metrics["other_ms"]
+    assert metrics["model_ms"] == metrics["model_calls"] == metrics["tool_calls"] == 0
     code = "service_unavailable" if failure == "private_detail" else failure
     error = errors[0]
     assert error["code"] == code
@@ -70,3 +76,31 @@ def test_chat_http_outage_preserves_language_and_failed_outcome(monkeypatch, tmp
     assert len(done) == 1
     assert done[0]["has_response"] is False and done[0]["message_count"] == 0
     assert calls == [True]
+
+
+@pytest.mark.parametrize(("reason", "status", "retry_after", "detail"), [
+    ("pending", 503, "2", "encara"),
+    ("offline", 503, "30", "connexió"),
+    ("permission", 403, None, "permís"),
+    ("no_space", 507, None, "espai"),
+    ("unavailable", 503, "30", "servei"),
+])
+def test_file_errors_report_the_cause_without_disclosing_private_paths(reason, status, retry_after, detail):
+    from pathlib import Path
+    from backend.app.errors import register_error_handlers
+
+    app = FastAPI()
+    register_error_handlers(app)
+
+    @app.get("/document")
+    def unavailable():
+        raise MetadataUnavailable("private data", path=Path("/private/file.pdf"), reason=reason)
+
+    with TestClient(app) as client:
+        response = client.get("/document", headers={"Accept-Language": "ca-ES,ca;q=0.9"})
+    assert response.status_code == status
+    assert response.headers.get("Retry-After") == retry_after
+    assert response.headers["X-Gnosi-File-Availability"] == reason
+    assert response.json()["retryable"] is (retry_after is not None)
+    assert detail in response.json()["detail"]
+    assert "private" not in response.text

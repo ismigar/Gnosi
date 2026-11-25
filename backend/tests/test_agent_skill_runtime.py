@@ -122,6 +122,57 @@ def test_tool_policy_reads_authorization_from_each_current_state():
     assert calls == ["write_tool"]
 
 
+def test_cancelling_stream_during_skill_read_skips_tool_execution(monkeypatch):
+    from threading import Event
+    from langgraph.graph import END, START, StateGraph
+    from backend.domains.agent.policy import AgentState, GovernedToolNode
+    from backend.services import agent_execution
+
+    reading, release, finished = Event(), Event(), Event()
+    calls = []
+
+    @tool
+    def inspect_count() -> int:
+        """Read a count for this turn."""
+        calls.append(True)
+        return 4
+
+    def wait_for_file(*args, **kwargs):
+        reading.set()
+        assert release.wait(5)
+
+    node = GovernedToolNode([inspect_count], wrap_tool_call=factory._tool_policy_wrapper({}))
+    invoke = node.invoke
+
+    def observe_exit(*args, **kwargs):
+        try:
+            return invoke(*args, **kwargs)
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(agent_execution, "before_tool_call", wait_for_file)
+    monkeypatch.setattr(node, "invoke", observe_exit)
+    graph = StateGraph(AgentState)
+    graph.add_node("tools", node)
+    graph.add_edge(START, "tools")
+    graph.add_edge("tools", END)
+    msg = AIMessage(content="", tool_calls=[{"id": "inspect", "name": "inspect_count", "args": {}}])
+
+    async def cancel():
+        turn = asyncio.create_task(graph.compile().ainvoke({"messages": [msg]}))
+        try:
+            assert await asyncio.to_thread(reading.wait, 5)
+            turn.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await turn
+        finally:
+            release.set()
+        assert await asyncio.to_thread(finished.wait, 5)
+
+    asyncio.run(cancel())
+    assert not calls
+
+
 def test_notebook_policy_omissions_are_not_reported_as_unavailable_tools():
     metadata = [
         {"id": "core.global.search", "name": "search_vault"},
@@ -774,6 +825,8 @@ def test_authored_resources_route_once_then_formats_without_model(monkeypatch):
 @pytest.mark.parametrize("frozen", [False, True])
 def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch, frozen, request):
     from backend.services.agent_behavior import frozen_resources
+    from backend.services import agent_execution
+    from backend.utils.metadata_io import _on_event_loop
 
     # The production executor freezes behavior resources for every request.
     # Exercise that path as well as the standalone workflow used by callers.
@@ -781,6 +834,15 @@ def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch, f
         token = frozen_resources.set({"snapshot": "test"})
         request.addfinalizer(lambda: frozen_resources.reset(token))
     calls = []
+    revalidated = []
+    before_tool = agent_execution.before_tool_call
+
+    def check_live_skills(name, **kwargs):
+        assert not _on_event_loop(), "Cloud-backed permission checks require a worker"
+        before_tool(name, **kwargs)
+        revalidated.append(name)
+
+    monkeypatch.setattr(agent_execution, "before_tool_call", check_live_skills)
 
     @tool
     def inventory_context(
@@ -820,16 +882,19 @@ def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch, f
         llm,
     )
 
-    result = workflow.compile().invoke({
+    state = {
         "messages": [HumanMessage(content=(
             "Busca quines fonts i notes tinc relacionades amb coaching"
         ))],
         "turn_authorized_tool_names": [],
         "active_skill_ids": [],
         "current_user_role": "owner",
-    })
+    }
+    graph = workflow.compile()
+    result = asyncio.run(graph.ainvoke(state)) if frozen else graph.invoke(state)
 
     assert calls == [("coaching", ["source", "note"], True, 0, 100)]
+    assert revalidated == ["inventory_context"]
     assert "He trobat 1 registre" in result["messages"][-1].content
     assert "Coaching practice" in result["messages"][-1].content
     assert llm.system_prompts == []

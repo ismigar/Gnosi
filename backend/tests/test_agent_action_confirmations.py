@@ -98,6 +98,24 @@ def test_scope_mismatch_fails_without_consuming_action():
     )["action"] == "empty_trash"
 
 
+def test_reloaded_status_distinguishes_addressed_assistant_and_tool_executor():
+    legacy = _prepare()
+    with confirmation_context(**_scope(profile_id="worker", team_run_id="one",
+                                       conversation_profile_id="director", conversation_profile_name="Director")):
+        pending = json.loads(request_confirmation("empty_trash", {}, title_key="title", summary_key="summary"))
+    status = get_confirmation_status(pending["confirmation_id"], _scope())
+    assert status["assistant_profile"] == {"id": "director", "name": "Director"}
+    assert status["details"]["executor"] == "worker"
+    statuses = {row["confirmation_id"]: row for row in list_confirmations(_scope())}
+    assert statuses[pending["confirmation_id"]]["assistant_profile"] == status["assistant_profile"]
+    assert list_confirmations(_scope(user_id="other")) == []
+    assert "assistant_profile" not in get_confirmation_status(legacy["confirmation_id"], _scope())
+    assert cancel_confirmation(pending["confirmation_id"], _scope())
+    cancelled = get_confirmation_status(pending["confirmation_id"], _scope())
+    assert cancelled["assistant_profile"] == status["assistant_profile"]
+    assert cancelled["details"] == {}
+
+
 def test_workspace_queue_exposes_only_routing_metadata_for_current_user():
     pending = _prepare()
     with confirmation_context(**_scope(session_id="automation:daily:run-1")):

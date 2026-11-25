@@ -157,6 +157,7 @@ if TYPE_CHECKING:
         language_field_assignment as language_field_assignment,
     )
     from backend.domains.vault.pages.state import PreviewDocument as _typed_PreviewDocument
+    from backend.domains.vault.pages.state import PreviewFlightKey as _typed_PreviewFlightKey
     from backend.domains.vault.api import pages_commands as _typed_page_commands
     from backend.domains.vault.pages import save_helpers as _typed_save_helpers
     from backend.domains.vault.pages import save_service as _typed_save_service
@@ -413,7 +414,7 @@ if TYPE_CHECKING:
     )
     _preview_cache_get = _typed_page_cache.get_cached_preview
     _preview_cache_set = _typed_page_cache.set_cached_preview
-    _preview_inflight: dict[str, _typed_Future[_typed_PreviewDocument]] = page_state.preview_inflight
+    _preview_inflight: dict[_typed_PreviewFlightKey, _typed_Future[_typed_PreviewDocument]] = page_state.preview_inflight
     _preview_inflight_lock: _typed_LockType = page_state.preview_inflight_lock
     _pages_cache_invalidate_all: _typed_Callable[[], None] = _typed_page_cache.invalidate_page_responses
     _refresh_page_index_entry: _typed_Callable[[_typed_Path, _typed_PageMetadata, str], None] = (

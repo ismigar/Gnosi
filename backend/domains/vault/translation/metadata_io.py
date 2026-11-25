@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.domains.vault.translation.types import Metadata
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 
 @dataclass(frozen=True)
@@ -27,8 +29,10 @@ def _read_page(
     dependencies: TranslationMetadataDependencies,
 ) -> tuple[Metadata, str] | None:
     try:
-        raw = file_path.read_text(encoding="utf-8")
+        raw = read_vault_text(file_path, root=active_vault_path.get())
         return dependencies.parse_frontmatter(raw, file_path)
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         dependencies.logger.warning(
             "%s read failed for %s: %s",

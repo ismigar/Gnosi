@@ -6,6 +6,7 @@ from typing import Any, Callable, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
+from backend.utils.metadata_io import read_vault_text_async
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.social.configuration import (
     configured_networks as _configured_networks,
@@ -399,7 +400,7 @@ async def _load_source_row(
     fp = await asyncio.to_thread(find_page_path, sid)
     if not fp or not fp.exists():
         return None, None
-    raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
+    raw = await read_vault_text_async(fp)
     parse_frontmatter = vr.parse_frontmatter
     metadata, _body = parse_frontmatter(raw, fp)
     get_table_id = vr.get_table_id

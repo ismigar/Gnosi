@@ -15,6 +15,7 @@ from backend.domains.vault.registry.records import is_record
 from backend.services.field_resolver import get_meta_value, set_meta_value
 from backend.services.plugin_fields import bind, bindings, role_property
 from backend.utils.open_values import get_value, iterable_values
+from backend.utils.metadata_io import read_vault_text
 
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
@@ -421,7 +422,7 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
     path = _legacy.find_page_path(page_id)
     if not path or not path.exists():
         return False
-    raw = path.read_text(encoding="utf-8")
+    raw = read_vault_text(path, root=_legacy.get_active_vault_path())
     metadata, body = _legacy.parse_frontmatter(raw, path)
     table_id = str(metadata.get("table_id") or "")
     ensure_llm_wiki_column(table_id)

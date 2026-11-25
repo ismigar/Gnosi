@@ -1,4 +1,6 @@
 import type { ChatFeedback } from '../../../shared/api/chat-message-actions';
+import { getTurnId } from '../model/agentChatTurnIdentity';
+import { isRecord } from '../model/agentChatMessageTypes';
 import { effectiveMessageTimingMs } from '../model/agentChatTiming';
 import type { StoredChatMessage } from './sessionModel';
 
@@ -15,6 +17,21 @@ export function previousPrompt(messages: readonly StoredChatMessage[], index: nu
     if (message?.role === 'user' && message.content) return message.content;
   }
   return '';
+}
+
+/** Rewinding starts at the preceding user prompt, including when an older reply alone carries the turn ID. */
+export function turnRewindRows(messages: readonly StoredChatMessage[]): Set<number> {
+  const rows = new Set<number>();
+  let offered = false;
+  messages.forEach((message, index) => {
+    if (message.role === 'user') offered = false;
+    if (offered || (message.role !== 'user' && message.role !== 'assistant')) return;
+    const undo = isRecord(message.undo) ? message.undo : undefined;
+    if ((!getTurnId(message) && !undo?.available) || typeof undo?.run === 'function') return;
+    rows.add(index);
+    offered = true;
+  });
+  return rows;
 }
 
 /** Only bounded operational metadata is sent, never the prompt, response or attachments. */

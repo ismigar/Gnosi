@@ -20,6 +20,8 @@ import requests
 
 from backend.agent.model_catalog import load_catalog
 from backend.services.model_billing import route_billing
+from backend.services.model_profile_index import published_profiles
+from backend.utils.safe_io import safe_write_json
 
 
 ARTIFICIAL_ANALYSIS_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
@@ -73,14 +75,24 @@ def _read_cache() -> Optional[Dict[str, Any]]:
     return payload if isinstance(payload, dict) and payload.get("models") else None
 
 
+def published_route_profile(provider: str, model_id: str) -> str | None:
+    path = _cache_path()
+    if path:
+        try:
+            return published_profiles(path).get(provider, {}).get(model_id)
+        except (OSError, ValueError, KeyError, AttributeError, TypeError, RecursionError):
+            pass
+    return None
+
+
 def _write_cache(payload: Dict[str, Any]) -> None:
     path = _cache_path()
-    if not path:
-        return
-    try:
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        return
+    if path:
+        try:
+            safe_write_json(path, payload, indent=None)
+            published_profiles(path)
+        except (OSError, ValueError, KeyError, AttributeError, TypeError, RecursionError):
+            pass
 
 
 def _cache_is_fresh(

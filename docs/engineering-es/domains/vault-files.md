@@ -20,6 +20,8 @@ source_paths:
   - backend/domains/vault/media/routes.py
   - backend/domains/media
   - backend/platform/files
+  - backend/utils/metadata_io.py
+  - desktop/native/file-access.m
   - backend/services/media_service.py
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
@@ -121,6 +123,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_coordinated_consumers.py
   - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
@@ -696,17 +699,21 @@ adaptador añade detección de marcadores de posición, hidratación, disponibil
 y correspondencia de rutas. Configurar `GNOSI_FILES_PROVIDER` explícitamente
 cuando la detección automática de rutas sea ambigua.
 
-El entorno de archivos bajo demanda es independiente del proveedor. En macOS se
-utiliza por defecto un auxiliar de solo lectura basado en `NSFileCoordinator`,
-compilado y firmado en `Contents/Resources/native/gnosi-file-access`. Cada llamada
-solicita un archivo, lee como máximo 64 KiB y no devuelve contenido del documento.
-El límite de dos descargas simultáneas y la unificación de peticiones por ruta
-acotan la carga; el tiempo límite o la cancelación terminan el proceso auxiliar.
-Este modo no abre aplicaciones gráficas, fija archivos al disco, descarga
-recursivamente ni reinicia clientes de nube. Docker conserva el auxiliar
-configurado en el host. Los modos antiguos `open` y `direct` requieren una
-selección explícita; solo el adaptador antiguo de OneDrive puede activar una
-recuperación específica del proveedor.
+En macOS, Gnosi abre los archivos seleccionados en la nube con el auxiliar
+firmado `Contents/Resources/native/gnosi-file-access`. Obtiene los bytes y la
+revisión del mismo descriptor abierto dentro de una lectura con `NSFileCoordinator`.
+Los consumidores conservan una copia local privada mientras decodifican el
+documento, extraen texto o sirven rangos HTTP. Las solicitudes simultáneas de
+una misma revisión comparten una descarga. La cola reserva capacidad para las
+lecturas activas cuando hay vistas previas o precargas pendientes. Cada lectura
+selecciona un archivo y respeta la política de conservación del Vault. Docker
+conserva el auxiliar del host. Los modos `open` y `direct` son opciones explícitas.
+
+La respuesta HTTP distingue las descargas pendientes y las desconexiones,
+que devuelven 503 con el plazo de reintento, de la falta de permiso (403)
+y del disco lleno (507). La interfaz puede reintentar una lectura pendiente
+dentro de su plazo. Cada trabajo persistente gestiona sus reintentos y
+puntos de recuperación.
 
 La detección del índice utiliza indicadores de archivos sin datos para conservar
 marcadores accesibles sin abrir todos los documentos de la nube. Las entradas
@@ -714,8 +721,7 @@ existentes más completas se conservan si un archivo no se puede leer; la descar
 no necesita cambiar el mtime para actualizar un marcador. Una exploración inicial
 fallida no se marca como inicializada. La navegación lateral y la tabla solicitada
 obtienen los metadatos necesarios, mientras que las lecturas de páginas y adjuntos
-materializan el archivo seleccionado. Los archivos no disponibles devuelven 503
-con Retry-After en lugar de una lectura vacía correcta. El precalentamiento masivo
+materializan el archivo seleccionado. El precalentamiento masivo
 del árbol crítico está desactivado por defecto con el acceso coordinado nativo.
 
 La validación del código del 14 de septiembre incluye pruebas sintéticas de fallo,

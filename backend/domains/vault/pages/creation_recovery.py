@@ -15,6 +15,7 @@ from backend.domains.vault.pages.creation_steps import CreationSteps, OperationT
 from backend.domains.vault.pages.create_service import CreatePageDependencies
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import PageSaveRequest
+from backend.utils.metadata_io import read_vault_text
 
 
 class RecoveryContext(Protocol):
@@ -61,7 +62,7 @@ def _recovery_page(row: dict[str, object], root: Path,
         raise HTTPException(403, "Creation recovery page is outside the selected vault")
     initial_revision = revision(path)
     try:
-        metadata, body = dependencies.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+        metadata, body = dependencies.parse_frontmatter(read_vault_text(path, root=root), path)
     except (OSError, UnicodeError, ValueError) as exc:
         raise HTTPException(409, "The saved page is unavailable or invalid") from exc
     if dependencies.canonicalize_id(metadata.get("id")) != dependencies.canonicalize_id(row["page_id"]):
@@ -167,12 +168,12 @@ def _validate_index_inputs(uncertain_index: bool, inputs: CreationInputs,
             raise HTTPException(409, "The saved index verification inputs do not match the page")
 
 
-def _finish_recovery(ledger: CreationRequests, scope: str, key: str, path: Path,
+def _finish_recovery(ledger: CreationRequests, scope: str, key: str, root: Path, path: Path,
                      row: dict[str, object], request: PageSaveRequest,
                      dependencies: CreatePageDependencies) -> dict[str, object]:
     if any(item["state"] != "completed" for item in _checkpoints(ledger, scope, key)):
         raise HTTPException(409, "Creation recovery has unfinished steps")
-    metadata, body = dependencies.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    metadata, body = dependencies.parse_frontmatter(read_vault_text(path, root=root), path)
     if dependencies.canonicalize_id(metadata.get("id")) != dependencies.canonicalize_id(row["page_id"]):
         raise HTTPException(409, "The saved page identity changed during recovery")
     folder, table_id = dependencies.resolve_page_context(metadata, path)
@@ -241,7 +242,7 @@ def recover_creation(ledger: CreationRequests, scope: str, key: str, vault_path:
         _run_recovery_steps(dependencies, steps, recorded, pending, planning, prepared,
                             operation_tasks, checked, checked_callback, validate)
         validate()
-        return _finish_recovery(ledger, scope, key, path, row, request, dependencies)
+        return _finish_recovery(ledger, scope, key, root, path, row, request, dependencies)
     except (OSError, UnicodeError) as exc:
         ledger.finish(scope, key, None)
         raise HTTPException(503, "Creation recovery storage is unavailable") from exc

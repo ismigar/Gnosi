@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.llm_wiki.brain_fields import role_id
 from backend.domains.llm_wiki.field_catalogs import catalog_value
 from backend.domains.vault.pages.foundation_values import PageMetadata
@@ -205,9 +206,11 @@ def _source_titles(
             if path and path.exists() and not metadata:
                 try:
                     metadata, _body = dependencies.parse_frontmatter(
-                        path.read_text(encoding="utf-8"),
+                        read_vault_text(path, encoding="utf-8"),
                         path,
                     )
+                except MetadataUnavailable:
+                    raise
                 except Exception as error:
                     dependencies.logger.warning(
                         "Could not read source title from %s: %s",
@@ -235,7 +238,7 @@ def _normalize_managed_page(
     if not path or not path.exists():
         return False
     raw_metadata, body = dependencies.parse_frontmatter(
-        path.read_text(encoding="utf-8"),
+        read_vault_text(path, encoding="utf-8"),
         path,
     )
     page_id = str(page.id or raw_metadata.get("id") or "")

@@ -13,6 +13,7 @@ from fastapi import HTTPException
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.utils.metadata_io import read_vault_text_async
 
 
 class SchemaWriter(Protocol):
@@ -60,11 +61,11 @@ async def get_schema(
     dependencies: SchemaDependencies,
 ) -> RegistryData:
     schema_path = resolve_subpath_within_vault(folder, "schema.json", dependencies=dependencies)
-    if not schema_path.exists():
-        return {}
     try:
-        raw: object = json.loads(schema_path.read_text(encoding="utf-8"))
+        raw: object = json.loads(await read_vault_text_async(schema_path, root=dependencies.vault_root()))
         return raw if is_record(raw) else {}
+    except FileNotFoundError:
+        return {}
     except (json.JSONDecodeError, OSError) as error:
         dependencies.logger.warning("Schema %s corrupte o no llegible: %s", schema_path, error)
         return {}

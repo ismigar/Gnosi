@@ -515,6 +515,16 @@
             "title": "Action",
             "type": "string"
           },
+          "assistant_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentProfileIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confirmation_id": {
             "title": "Confirmation Id",
             "type": "string"
@@ -596,6 +606,42 @@
           "deleted"
         ],
         "title": "AgentDeleteResponse",
+        "type": "object"
+      },
+      "AgentProfileIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AgentProfileIdentity",
         "type": "object"
       },
       "AgentQualityDashboardResponse": {
@@ -890,6 +936,16 @@
       "AgentSessionMessageResponse": {
         "additionalProperties": false,
         "properties": {
+          "assistant_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentProfileIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "author_user_id": {
             "anyOf": [
               {
@@ -985,6 +1041,20 @@
               }
             ]
           },
+          "llm": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm"
+          },
           "memory_provenance": {
             "anyOf": [
               {
@@ -1060,6 +1130,17 @@
               }
             ],
             "title": "Turn Id"
+          },
+          "turn_id_is_legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id Is Legacy"
           },
           "verification": {
             "anyOf": [
@@ -7788,6 +7869,19 @@
             "maxItems": 8,
             "title": "Attachments",
             "type": "array"
+          },
+          "cancel_id": {
+            "anyOf": [
+              {
+                "format": "uuid4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fresh cancellation handle for this submission attempt.",
+            "title": "Cancel Id"
           },
           "context_refs": {
             "items": {
@@ -16009,6 +16103,19 @@
             ],
             "title": "Language",
             "type": "string"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
           },
           "session_id": {
             "maxLength": 128,
@@ -34950,9 +35057,53 @@
             ],
             "title": "Next Run"
           },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "wait_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Reason"
+          },
+          "waiting_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting File"
+          },
+          "waiting_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Provider"
           }
         },
         "required": [
@@ -82661,7 +82812,7 @@
     },
     "/api/reader/podcast/latest": {
       "get": {
-        "description": "Download/Stream the most recent podcast",
+        "description": "Stream the latest published episode through the coordinated Vault reader.",
         "operationId": "get_latest_podcast_api_reader_podcast_latest_get",
         "parameters": [
           {

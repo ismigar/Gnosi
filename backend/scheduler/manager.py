@@ -6,17 +6,20 @@ import threading
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from functools import partial
 from typing import Any, Callable, TextIO, cast
 
-from backend.utils.metadata_io import metadata_path
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+from backend.services import podcast_episode as episodes
 from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session
 from backend.models.scheduler import TaskExecutionHistory
 from backend.scheduler import task_handlers as scheduler_task_handlers
 from backend.scheduler.bounded_executor import SchedulerExecutionRuntime
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
-from backend.scheduler.notifications import notify
+from backend.scheduler import execution
 from backend.scheduler.startup_policy import wait_before_automatic_dispatch
+from backend.services.agent_execution_models import ExecutionScope
 from backend.services.agent_execution_scope import run_personal_schedule
 from backend.utils.open_values import get_value, iterable_values
 
@@ -126,11 +129,20 @@ class SchedulerManager:
         "run_capability_automations": ("automations", "ai-platform"),
     }
     def __init__(self) -> None:
-        cfg = load_params(strict_env=False)
-        self.config_path = cfg.paths.get("SCHEDULER")
+        try:
+            cfg = load_params(strict_env=False)
+            paths = cfg.paths
+            self._language = getattr(cfg, "settings", {}).get("language", "en")
+        except MetadataUnavailable as error:
+            self._language = "en"
+            from backend.config.paths_config import get_paths
+            vault = error.path.parent.parent if error.path and error.path.parent.name == ".gnosi" else None
+            paths = get_paths({"vault": str(vault)} if vault else None)
+        self.config_path = paths.get("SCHEDULER")
+        self._podcast_vault = paths.get("VAULT")
 
         # The local mirror remains readable when a cloud-backed vault is dataless.
-        local_data = cfg.paths.get("LOCAL_DATA")
+        local_data = paths.get("LOCAL_DATA")
         self.local_mirror_path = (
             local_data / "system" / "scheduler_config.local.json" if local_data else None
         )
@@ -169,10 +181,11 @@ class SchedulerManager:
 
         for attempt in range(3):
             try:
-                with open(metadata_path(path)) as f:
-                    data = json.load(f)
+                data = json.loads(read_metadata_text(path))
                 tasks = data.get("tasks", {})
                 return tasks or None  # Valid JSON but no tasks -> empty
+            except MetadataUnavailable:
+                return None
             except Exception:
                 _time.sleep(0.5 * (attempt + 1))  # short backoff for dataless
         return None
@@ -221,6 +234,8 @@ class SchedulerManager:
             source = "mirror local"
 
         if tasks is not None:
+            if source == "mirror local" and self.config_path and self.config_path.exists():
+                self._degraded = True
             for name, task_data in tasks.items():
                 try:
                     self._tasks[name] = ScheduledTask(**task_data)
@@ -304,14 +319,23 @@ class SchedulerManager:
                 f"Failed to save scheduler mirror to {self.local_mirror_path}: {e}"
             )
 
-    def get_tasks(self) -> list[dict[str, Any]]:
+    def get_tasks(self, scope: ExecutionScope | None = None) -> list[dict[str, Any]]:
         """Get all scheduled tasks."""
-        return [asdict(task) for task in self._tasks.values()]
+        return [self._public_task(task, scope) for task in self._tasks.values()]
 
-    def get_task(self, name: str) -> dict[str, Any] | None:
+    def get_task(self, name: str, scope: ExecutionScope | None = None) -> dict[str, Any] | None:
         """Get a specific task."""
         task = self._tasks.get(name)
-        return asdict(task) if task else None
+        return self._public_task(task, scope) if task else None
+
+    def _public_task(self, task: ScheduledTask, scope: ExecutionScope | None = None) -> dict[str, Any]:
+        data = asdict(task)
+        if task.name == "generate_podcast":
+            episode = episodes.for_scope(scope)
+            if episode and (episode.status in {"waiting", "running"} or task.status != "idle"
+                            or (episode.status == "error" and episode.wait_reason)):
+                data.update(episode.public_status())
+        return data
 
     def start(self) -> None:
         """Start the background scheduler thread."""
@@ -381,25 +405,19 @@ class SchedulerManager:
 
         log = get_logger(__name__)
         if wait_before_automatic_dispatch(self._stop_event): return
+        execution.recover_podcast_history()
         while self._running:
             try:
                 now = datetime.now()
-                for name, task in self._tasks.items():
-                    if not task.enabled:
+                for reader_episode in episodes.recoverable_reader_episodes(datetime.now(timezone.utc)):
+                    if self._podcast_vault and reader_episode.vault_path == str(self._podcast_vault.resolve()):
                         continue
-
-                    should_run = False
-                    if not task.last_run:
-                        should_run = True
-                    else:
-                        last_run_dt = datetime.fromisoformat(task.last_run)
-                        elapsed = (now - last_run_dt).total_seconds() / 60
-                        if elapsed >= task.interval_minutes:
-                            should_run = True
-
-                    if should_run:
+                    self._execution.submit("reader-podcast-" + reader_episode.run_id,
+                        partial(self._run_reader_recovery, reader_episode), max_workers=2, max_queue_size=8)
+                for name, task in self._tasks.items():
+                    if self._is_due(task, now):
                         log.info(f"⏰ Scheduler: Triggering task '{name}'")
-                        if not self.submit_task(name):
+                        if not self.submit_task(name, automatic=True):
                             log.info(
                                 "Scheduler task '%s' is already pending or capacity is full",
                                 name,
@@ -410,7 +428,22 @@ class SchedulerManager:
 
             self._stop_event.wait(60)  # Check every minute or stop promptly.
 
-    def submit_task(self, name: str) -> bool:
+    def _is_due(self, task: ScheduledTask, now: datetime) -> bool:
+        if task.name == "generate_podcast" and self._podcast_vault:
+            episode = episodes.current(self._podcast_vault)
+            if episode and episode.status in {"waiting", "running"}:
+                if not task.enabled and episode.source == "scheduler":
+                    return False
+                return episode.due(now.astimezone(timezone.utc))
+            if task.enabled and task.status == "running" and episode is None:
+                return True  # An interrupted pre-occurrence scheduler installation.
+        if not task.enabled:
+            return False
+        return not task.last_run or (
+            now.timestamp() - datetime.fromisoformat(task.last_run).timestamp() >= 60 * task.interval_minutes
+        )
+
+    def submit_task(self, name: str, *, automatic: bool = False) -> bool:
         """Submit a task to the scheduler-owned bounded executor."""
         if name not in self._tasks:
             raise ValueError(f"Task '{name}' not found")
@@ -418,7 +451,7 @@ class SchedulerManager:
         queue_size = max(workers, int(os.getenv("GNOSI_SCHEDULER_QUEUE_SIZE", "8")))
         return self._execution.submit(
             name,
-            lambda: self.run_task_now(name),
+            (lambda: self.run_task_now(name, automatic=True)) if automatic else (lambda: self.run_task_now(name)),
             max_workers=workers,
             max_queue_size=queue_size,
         )
@@ -451,7 +484,7 @@ class SchedulerManager:
 
         self._save_config()
 
-        return {"success": True, "task": asdict(task)}
+        return {"success": True, "task": self._public_task(task)}
 
     def clear_all_history(self) -> dict[str, Any]:
         """Clear the execution history of all tasks."""
@@ -472,144 +505,72 @@ class SchedulerManager:
 
         return {"success": True, "message": "Scheduler history cleared"}
 
-    def run_task_now(self, name: str) -> dict[str, Any]:
+    def run_task_now(self, name: str, *, automatic: bool = False) -> dict[str, Any]:
         """Run a task immediately."""
         if name not in self._tasks:
             raise ValueError(f"Task '{name}' not found")
 
         task = self._tasks[name]
-        task.status = "running"
-        task.last_run = datetime.now().isoformat()
-
-        # "quiet" tasks (e.g. meeting_reminders, every minute) do NOT emit the
-        # start/end notifications: they would flood macOS with bubbles. Their alerts
-        # own alerts (if any) are handled by the service itself.
-        task_spec = self.AVAILABLE_TASKS.get(name)
-        quiet = bool(task_spec and task_spec.get("quiet"))
-
-        if not quiet:
-            notify(
-                f"Task started: {name.replace('_', ' ').title()}",
-                f"Started the {task.description.lower()} process.",
-                level="INFO",
-            )
-
-        self._save_config()
-
-        execution_id = None
-        try:
-            with get_mgmt_session() as db:
-                history = TaskExecutionHistory(
-                    task_name=name, description=task.description, status="running"
-                )
-                db.add(history)
-                db.commit()
-                db.refresh(history)
-                execution_id = history.id
-        except Exception as e:
-            from backend.config.logger_config import get_logger
-
-            get_logger(__name__).error(f"Failed to create task history record: {e}")
+        if name != "generate_podcast" or not self._podcast_vault:
+            return self._run_task(task)
+        from backend.services.audio_summarizer import _episode
 
         try:
-            start_time = datetime.now()
-            result = self._execute_task(name)
-            self._raise_for_task_failure(result)
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-
-            task.status = "success"
-
-            msg = result.get("message") or f"Task {name} completed successfully."
-            if "details" in result and isinstance(result["details"], list):
-                success_count = sum(1 for d in result["details"] if d.get("success"))
-                total_count = len(result["details"])
-                if total_count > 0:
-                    msg = f"Completed: {success_count}/{total_count} subtasks succeeded."
-
-            if execution_id:
-                try:
-                    with get_mgmt_session() as db:
-                        stored_history = (
-                            db.query(TaskExecutionHistory)
-                            .filter(TaskExecutionHistory.id == execution_id)
-                            .first()
-                        )
-                        if stored_history:
-                            setattr(stored_history, "status", "success")
-                            setattr(stored_history, "message", msg)
-                            setattr(
-                                stored_history,
-                                "finished_at",
-                                datetime.now(timezone.utc),
-                            )
-                            setattr(stored_history, "duration_seconds", duration)
-                            db.commit()
-                except Exception as _e:
-                    # Don't crash the scheduler over a bookkeeping error,
-                    # but log so a corrupt task_history DB shows up in logs.
-                    from backend.config.logger_config import get_logger
-
-                    get_logger(__name__).warning(f"Could not persist task history for {name}: {_e}")
-
-            if not quiet:
-                notify(f"Tasca Finalitzada: {name.replace('_', ' ').title()}", msg, level="SUCCESS")
-
+            episode = episodes.claim(self._podcast_vault, source="scheduler" if automatic else "control", retry_terminal=not automatic,
+                legacy_started_at=task.last_run if task.status == "running" else None)
+        except episodes.EpisodeBusy:
+            return {"success": True, "result": {"status": "running"}}
+        if episode.status in {"success", "error"}:
+            # A retry after the parent closed (or another daily trigger) cannot publish again.
+            task.status = episode.status
+            task.last_run = datetime.now().isoformat()
             self._save_config()
-            return {"success": True, "result": result}
-        except Exception as e:
-            from backend.config.logger_config import get_logger
+            return {"success": episode.status == "success", "result": {"status": episode.status}}
+        token = _episode.set(episode)
+        try:
+            return self._run_task(task, episode)
+        except MetadataUnavailable as error:
+            # Setup may need a cloud file before a history entry can even be created.
+            episodes.cloud_failure(episode, error)
+            return {"success": False, "status": episode.status, "error": f"cloud_file_{error.reason}"}
+        except BaseException:
+            if episode.worker:
+                episodes.finish(episode, "running")
+            raise
+        finally:
+            _episode.reset(token)
 
-            log = get_logger(__name__)
-            error_msg = str(e)
-            log.error(f"❌ Error executing task {name}: {error_msg}")
+    def _run_reader_recovery(self, pending: episodes.Episode) -> None:
+        from backend.services.agent_execution_models import ExecutionScope
+        from backend.services.agent_execution_scope import execution_scope
+        from backend.services.audio_summarizer import _episode
 
-            if execution_id:
-                try:
-                    with get_mgmt_session() as db:
-                        stored_history = (
-                            db.query(TaskExecutionHistory)
-                            .filter(TaskExecutionHistory.id == execution_id)
-                            .first()
-                        )
-                        if stored_history:
-                            setattr(stored_history, "status", "error")
-                            setattr(stored_history, "message", error_msg)
-                            setattr(
-                                stored_history,
-                                "finished_at",
-                                datetime.now(timezone.utc),
-                            )
-                            db.commit()
-                except Exception as _e:
-                    # Don't crash the scheduler over a bookkeeping error,
-                    # but log so a corrupt task_history DB shows up in logs.
-                    from backend.config.logger_config import get_logger
-
-                    get_logger(__name__).warning(f"Could not persist task history for {name}: {_e}")
-
-            if not quiet:
-                notify(
-                    f"Task error: {name.replace('_', ' ').title()}",
-                    f"An execution error occurred: {error_msg}",
-                    level="ERROR",
-                )
-
-            task.status = "error"
-            self._save_config()
-            return {"success": False, "error": error_msg}
-
-    @staticmethod
-    def _raise_for_task_failure(result: Any) -> None:
-        """Turn structured task failures into scheduler execution failures."""
-
-        if not isinstance(result, dict):
+        try:
+            episode = episodes.claim(pending.vault_path, source="reader",
+                                     scope=ExecutionScope.model_validate(pending.scope), recover_only=pending.run_id)
+        except episodes.EpisodeBusy:
             return
-        error = result.get("error")
-        failed = result.get("success") is False
-        if failed or error:
-            detail = error or result.get("message") or "Task returned an unsuccessful result"
-            raise RuntimeError(str(detail))
+        token = _episode.set(episode)
+        try:
+            with execution_scope(ExecutionScope.model_validate(episode.scope), origin="button"):
+                result = self._execute_task("generate_podcast")
+                self._raise_for_task_failure(result)
+                episodes.finish(episode, "error" if result.get("skipped") else "success")
+        except MetadataUnavailable as error:
+            episodes.cloud_failure(episode, error)
+        except episodes.EpisodeBusy:
+            episodes.finish(episode, "running")
+        except Exception:
+            episodes.finish(episode, "error")
+        finally:
+            _episode.reset(token)
+
+    def _run_task(self, task: ScheduledTask, episode: episodes.Episode | None = None) -> dict[str, Any]:
+        task_spec = self.AVAILABLE_TASKS.get(task.name)
+        return execution.run_task(task, episode, execute=self._execute_task, save_config=self._save_config,
+                                  quiet=bool(task_spec and task_spec.get("quiet")), language=self._language)
+
+    _raise_for_task_failure = staticmethod(execution.raise_for_task_failure)
 
     def _task_publish_scheduled_social(self) -> dict[str, Any]:
         """Publishes scheduled social posts that are already due.

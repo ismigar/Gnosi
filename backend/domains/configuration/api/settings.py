@@ -9,6 +9,7 @@ from typing import Any, cast
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from backend.utils.metadata_io import read_vault_text
 from backend.config.app_config import load_params
 from backend.domains.configuration.config_response_cache import configuration_response_cache
 from backend.domains.configuration.settings_schemas import (
@@ -218,7 +219,7 @@ def _load_current_config(params_path: Path) -> dict[str, Any]:
     """Load persisted YAML as an object before applying a partial update."""
     if not params_path.exists():
         return {}
-    loaded: object = yaml.safe_load(params_path.read_text(encoding="utf-8")) or {}
+    loaded: object = yaml.safe_load(read_vault_text(params_path, encoding="utf-8")) or {}
     if not isinstance(loaded, dict):
         raise TypeError("Persisted configuration must be a YAML object")
     return {str(key): value for key, value in loaded.items()}

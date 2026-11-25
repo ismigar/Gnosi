@@ -100,6 +100,26 @@ def test_same_named_attachments_do_not_share_structure_identity(tmp_path: Path) 
     assert note["source_section_path"][-1]["title"] == "Chapter"
 
 
+def test_pending_attachment_keeps_ingestion_open_even_with_readable_body(tmp_path, monkeypatch):
+    from backend.services import llm_wiki_extractors as extractors
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    source = tmp_path / "source.md"
+    source.touch()
+
+    def pending(path, *, root):
+        raise MetadataUnavailable(path=path, reason="pending")
+
+    monkeypatch.setattr(extractors, "vault_file_snapshot", pending)
+    with pytest.raises(MetadataUnavailable) as caught:
+        extractors.extract_resource_sources(
+            {"Files": ["source.md"]}, "Body available on the device", tmp_path,
+            {"properties": [{"id": "files", "name": "Files", "type": "files"}]},
+            {"attachment_property_ids": ["files"], "include_body": True},
+        )
+    assert caught.value.path == source
+
+
 def test_pdf_uses_native_bookmarks_and_leaves_ambiguous_pages_unassigned(tmp_path: Path) -> None:
     from pypdf import PdfReader, PdfWriter
     path = tmp_path / "book.pdf"

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.agent.sources.scopes import (
     MAX_EXCERPT_CHARS,
     MAX_RECORD_CHARS,
@@ -47,7 +48,7 @@ def _reference_page_body(page: Any) -> str:
     except ValueError as error:
         raise PermissionError("Reference record path is outside the active Vault.") from error
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = read_vault_text(path, encoding="utf-8", root=root)
     except OSError:
         return ""
     return raw.split("---", 2)[2] if raw.startswith("---") else raw

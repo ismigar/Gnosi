@@ -36,12 +36,15 @@ def get(scope: ExecutionScope, run_id: str, identifier: str) -> dict[str, Any]:
 
 
 def list_artifacts(scope: ExecutionScope, kind: str, run_id: str = "") -> list[dict[str, Any]]:
+    query = """SELECT a.payload FROM agent_team_artifacts a JOIN agent_runs r ON r.run_id=a.run_id
+        WHERE r.user_id=? AND r.workspace_id=? AND r.vault_path=? AND a.kind=?"""
+    parameters = [scope.user_id, scope.workspace_id, scope.vault_path, kind]
+    if run_id != "":
+        query += " AND a.run_id=?"
+        parameters.append(run_id)
     with runs.connect() as db:
         _schema(db)
-        rows = db.execute("""SELECT a.payload FROM agent_team_artifacts a JOIN agent_runs r ON r.run_id=a.run_id
-            WHERE r.user_id=? AND r.workspace_id=? AND r.vault_path=? AND a.kind=?
-            AND (?='' OR a.run_id=?) ORDER BY r.rowid DESC LIMIT 200""",
-            (scope.user_id, scope.workspace_id, scope.vault_path, kind, run_id, run_id)).fetchall()
+        rows = db.execute(query + " ORDER BY r.rowid DESC LIMIT 200", parameters).fetchall()
         return [json.loads(row[0]) for row in rows]
 
 

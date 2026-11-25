@@ -1,4 +1,5 @@
 import { boundedMemoryProvenance } from './memoryProvenance';
+import { boundedTurnMetrics } from '../model/agentChatTiming';
 import type { TFunction } from 'i18next';
 import { boundedTransparencyMetadata, isRetryableErrorCode } from '../model/agentChatTransparency';
 import { isRecord, type LooseRecord } from '../model/agentChatMessageTypes';
@@ -18,12 +19,21 @@ function streamError(data: LooseRecord, t: TFunction): string {
   return `❌ ${t('chat.error_prefix', 'Error')}: ${content}`;
 }
 
-export function streamResponseMessage(previous: readonly StoredChatMessage[], data: LooseRecord, state: ChatStreamState, context: Pick<StreamEventContext, 'turnId' | 't'>, addAssistant: boolean): readonly StoredChatMessage[] {
+export function streamResponseMessage(previous: readonly StoredChatMessage[], data: LooseRecord, state: ChatStreamState, context: Pick<StreamEventContext, 'turnId' | 't'>): readonly StoredChatMessage[] {
   const { t, turnId } = context;
-  const messages = [...previous];
-  if (addAssistant) messages.push({ role: 'assistant', content: '', llm: state.model, turnId, ...definedTransparency(state.transparency) });
-  const index = messages.length - 1;
-  let message: StoredChatMessage = messages[index] ?? { content: '' };
+  let insertAt: number | undefined;
+  let replaceAt: number | undefined;
+  for (let index = previous.length - 1; index >= 0; index -= 1) {
+    const row = previous[index];
+    if (row?.turnId !== turnId) continue;
+    insertAt ??= index + 1;
+    if (row.role === 'assistant' && !row.confirmation) {
+      replaceAt = index;
+      break;
+    }
+  }
+  let message: StoredChatMessage = (replaceAt === undefined ? undefined : previous[replaceAt])
+    ?? { role: 'assistant', content: '', llm: state.model, turnId, ...definedTransparency(state.transparency) };
   if (data.type === 'tool_start') {
     message = { ...message, content: t('chat.tool_start', '🛠️ *Calling tool: {{tool}}...*', { tool: data.tool }) };
   } else if (data.type === 'tool_end') {
@@ -31,6 +41,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       ? t('chat.tool_pending_confirmation', '🟡 *Tool {{tool}} is awaiting confirmation.*', { tool: data.tool })
       : t('chat.tool_end', '✅ *Tool {{tool}} finished.*', { tool: data.tool }) };
   } else if (data.type === 'message' || data.type === 'thought') {
+    const responseMs = boundedTurnMetrics(data.timings)?.response_ms;
     const metadata = boundedTransparencyMetadata({
       plan: data.plan || message.plan || state.transparency.plan,
       privacy: data.privacy || message.privacy || state.transparency.privacy,
@@ -40,6 +51,7 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
     });
     message = { ...message, ...(data.memory_provenance !== undefined ? { memory_provenance: boundedMemoryProvenance(data.memory_provenance) } : {}), ...(typeof data.content === 'string' && data.content ? { content: data.content } : {}), ...definedTransparency(metadata),
       ...(data.gauntlet !== undefined ? { gauntlet: metadata.gauntlet } : {}),
+      ...(typeof responseMs === 'number' ? { processingMs: responseMs } : {}),
     };
   } else if (data.type === 'error') {
     const errorCode = typeof data.code === 'string' && data.code ? data.code : 'agent_error';
@@ -48,7 +60,9 @@ export function streamResponseMessage(previous: readonly StoredChatMessage[], da
       ...(data.recovery !== null && typeof data.recovery === 'object' ? { recovery: data.recovery } : {}),
     };
   }
-  if (index >= 0) messages[index] = message;
+  const messages = [...previous];
+  if (state.assistantProfile) message = { ...message, assistant_profile: state.assistantProfile };
+  messages.splice(replaceAt ?? insertAt ?? previous.length, replaceAt === undefined ? 0 : 1, message);
   return messages;
 }
 

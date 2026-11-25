@@ -6,6 +6,7 @@ import asyncio
 import time
 from backend.domains.vault.pages.state import PreviewPayload, page_state
 from backend.domains.vault.schemas.pages import PageInfo
+from backend.services.context_vars import active_vault_path
 
 # Page snapshots are versioned by the page index and explicitly invalidated by
 # every Gnosi write.  Keep the derived value through the background-sync
@@ -94,12 +95,18 @@ def get_indexer_status(vault_key: str) -> dict[str, object]:
         )
 
 
+def _preview_key(page_id: str) -> str:
+    vault = active_vault_path.get()
+    return f"{vault}\0{page_id}" if vault is not None else page_id
+
+
 def get_cached_preview(
     page_id: str,
     mtime: float,
     full: bool,
 ) -> PreviewPayload | None:
     """Return a matching short or full preview and refresh its LRU position."""
+    page_id = _preview_key(page_id)
     with page_state.preview_cache_lock:
         cached = page_state.preview_cache.get(page_id)
         if not cached or cached.get("mtime") != mtime:
@@ -118,6 +125,7 @@ def set_cached_preview(
     full: PreviewPayload,
 ) -> None:
     """Store both preview variants and enforce the LRU size limit."""
+    page_id = _preview_key(page_id)
     with page_state.preview_cache_lock:
         if page_id in page_state.preview_cache:
             page_state.preview_cache.move_to_end(page_id)
@@ -132,6 +140,7 @@ def set_cached_preview(
 
 def invalidate_cached_preview(page_id: str) -> None:
     """Drop one page preview after a mutation."""
+    page_id = _preview_key(page_id)
     with page_state.preview_cache_lock:
         page_state.preview_cache.pop(page_id, None)
 

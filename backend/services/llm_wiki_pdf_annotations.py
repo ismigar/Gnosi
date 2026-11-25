@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import json
 import threading
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Callable, Optional, Protocol, TypedDict
 
@@ -15,6 +16,7 @@ from backend.config.logger_config import get_logger
 from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, vault_file_snapshot
 from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki.pdf_quote_matching import PageTextIndex, index_page, reconcile_unknown_characters
 from backend.domains.llm_wiki.pdf_highlight_selection import (
@@ -200,12 +202,13 @@ def _original_page_reader(pdf_path: Path) -> Callable[[int], str]:
 def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, object]]:
     """Resolve one citation to Zotero-compatible PDF coordinates."""
     pypdfium2 = _load_pdfium()
-    document = pypdfium2.open_document(str(pdf_path))
-    try:
-        return _find_quote_position_in_document(document, page_number, quote,
-                                                original_page_text=_original_page_reader(pdf_path))
-    finally:
-        document.close()
+    with vault_file_snapshot(pdf_path, root=pdf_path.parent) as source:
+        document = pypdfium2.open_document(str(source.path))
+        try:
+            return _find_quote_position_in_document(document, page_number, quote,
+                                                    original_page_text=_original_page_reader(source.path))
+        finally:
+            document.close()
 
 
 def _citation_candidates(
@@ -298,6 +301,7 @@ def _resolve_annotation_candidates(
     documents: dict[str, _PdfDocument] = {}
     indexes: dict[str, dict[int, PageTextIndex]] = {}
     original_readers: dict[str, Callable[[int], str]] = {}
+    sources = ExitStack()
     resolver: PositionResolver
     if position_resolver is None:
         pypdfium2 = _load_pdfium()
@@ -308,9 +312,11 @@ def _resolve_annotation_candidates(
             path_key = str(pdf_path)
             document = documents.get(path_key)
             if document is None:
-                document = pypdfium2.open_document(path_key)
+                source = sources.enter_context(vault_file_snapshot(pdf_path, root=pdf_path.parent))
+                document = pypdfium2.open_document(str(source.path))
+                sources.callback(document.close)
                 documents[path_key] = document
-                original_readers[path_key] = _original_page_reader(pdf_path)
+                original_readers[path_key] = _original_page_reader(source.path)
             return _find_quote_position_in_document(document, page_number, quote, candidate["context"],
                                                     indexes.setdefault(path_key, {}), original_readers[path_key])
 
@@ -330,6 +336,8 @@ def _resolve_annotation_candidates(
                 continue
             try:
                 position = resolver(pdf_path, candidate["page"], candidate["quote"])
+            except MetadataUnavailable:
+                raise
             except Exception as exc:  # noqa: BLE001
                 logger.warning("llm_wiki PDF citation geometry failed: %s", exc)
                 position = None
@@ -344,8 +352,7 @@ def _resolve_annotation_candidates(
                     f"{candidate['quote'][:80]}"
                 )
     finally:
-        for document in documents.values():
-            document.close()
+        sources.close()
     return resolved, warnings, confirmed_misses
 
 

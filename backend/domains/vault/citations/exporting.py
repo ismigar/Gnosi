@@ -15,6 +15,8 @@ from typing import Any, Protocol
 from fastapi import HTTPException
 from fastapi.responses import Response
 
+from backend.utils.metadata_io import read_vault_text_async
+
 
 BIBLIOGRAPHY_MARKER_RE = r"\{\{bibliography(?::[a-z][a-z0-9-]*)?(?::[a-zA-Z-]+)?\}\}"
 EXTENSIONS = {
@@ -111,7 +113,7 @@ async def _load_csl_items(
             )
             if not page_path:
                 continue
-            raw_page = page_path.read_text(encoding="utf-8")
+            raw_page = await read_vault_text_async(page_path, root=Path(vault_path))
             metadata, _body = dependencies.parse_frontmatter(raw_page, page_path)
             item = dependencies.metadata_to_csl(str(entry.get("title") or ""), metadata)
             if item:
@@ -199,7 +201,9 @@ async def export_page(
     file_path = await asyncio.to_thread(dependencies.find_page, page_id)
     if not file_path:
         raise HTTPException(status_code=404, detail="Page not found")
-    body = strip_frontmatter(file_path.read_text(encoding="utf-8"))
+    vault_path = dependencies.active_vault_path()
+    raw = await read_vault_text_async(file_path, root=Path(vault_path) if vault_path else None)
+    body = strip_frontmatter(raw)
     csl_items = await _load_csl_items(citation_keys(body), dependencies)
     csl_path = dependencies.resolve_csl_path(csl)
     output_name = f"output.{EXTENSIONS[format]}"

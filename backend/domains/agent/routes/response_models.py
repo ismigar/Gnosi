@@ -27,7 +27,16 @@ class AgentStreamCancellationResponse(_AgentResponseModel):
     status: Literal["cancellation_requested"]
 
 
+class AgentProfileIdentity(_AgentResponseModel):
+    id: str
+    name: str | None = None
+    managed_by: str | None = None
+
+
 class AgentSessionMessageResponse(_AgentResponseModel):
+    turn_id_is_legacy: bool | None = None
+    assistant_profile: AgentProfileIdentity | None = None
+    llm: dict[str, str] | None = None
     role: Literal["user", "assistant"]
     content: str
     author_user_id: str | None = None
@@ -53,6 +62,7 @@ class AgentSessionMessagesResponse(_AgentResponseModel):
 
 
 class AgentConfirmationRecordResponse(_AgentResponseModel):
+    assistant_profile: AgentProfileIdentity | None = None
     type: Literal["confirmation_required"]
     confirmation_id: str
     action: str

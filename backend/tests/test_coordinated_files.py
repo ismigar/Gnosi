@@ -92,33 +92,37 @@ def test_helper_timeout_and_cancellation_reap_the_owned_child(monkeypatch):
     asyncio.run(scenario(True))
 
 
-def test_provider_coalesces_and_limits_downloads_without_vendor_restart(monkeypatch):
-    import backend.platform.files.on_demand as module
-    provider = OnDemandFilesProvider(max_concurrent_warmups=2)
+@pytest.mark.parametrize("workers", [1, 2])
+def test_provider_coalesces_and_limits_downloads_without_vendor_restart(tmp_path, monkeypatch, workers):
+    from backend.platform.files import snapshots
+    provider = OnDemandFilesProvider(max_concurrent_warmups=workers)
     provider.warmup_mode = 'coordinated'
     provider._recover_after_failed_warmup = AsyncMock(side_effect=AssertionError('no restart'))
     calls = []
     running = 0
     peak = 0
 
-    async def materialize(path, timeout):
+    async def materialize(path, target, timeout):
         nonlocal running, peak
         calls.append(path)
         running += 1
         peak = max(peak, running)
         await asyncio.sleep(0.01)
         running -= 1
-        return True
+        target.write(path.read_bytes())
+        return path.stat()
 
-    monkeypatch.setattr(module, 'materialize_coordinated', materialize)
+    monkeypatch.setattr(snapshots, 'copy_coordinated', materialize)
 
     async def scenario():
-        paths = [Path('/tmp/a')] * 3 + [Path('/tmp/b'), Path('/tmp/c')]
+        paths = [tmp_path / 'a'] * 3 + [tmp_path / 'b', tmp_path / 'c']
+        for path in set(paths):
+            path.write_bytes(b'selected')
         assert all(await asyncio.gather(*(provider.materialize(path) for path in paths)))
 
     asyncio.run(scenario())
     assert len(calls) == 3
-    assert peak == 2
+    assert peak == workers
     assert not provider._inflight
 
 
@@ -147,3 +151,56 @@ def test_compiled_helper_is_read_only_and_rejects_directory_and_symlink(tmp_path
     link.symlink_to(path)
     for target in (tmp_path, link, tmp_path / 'missing.md'):
         assert subprocess.run([str(helper), str(target)], capture_output=True, timeout=10).returncode == 66
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS native contract")
+def test_compiled_snapshot_returns_full_bytes_and_source_revision(tmp_path):
+    helper = coordinated.helper_path()
+    if not helper.is_file():
+        pytest.skip("Build desktop/scripts/file-access-build.cjs first")
+    path = tmp_path / "résumé.pdf"
+    source = bytes(range(256)) * 2_000 + b"end"
+    path.write_bytes(source)
+    before = path.stat()
+    target = tmp_path / "snapshot"
+    with target.open("xb") as handle:
+        copied = asyncio.run(coordinated.copy_coordinated(path, handle, 5))
+    assert target.read_bytes() == source
+    assert (copied.st_dev, copied.st_ino, copied.st_size, copied.st_mtime_ns, copied.st_ctime_ns) == (
+        before.st_dev, before.st_ino, len(source), before.st_mtime_ns, before.st_ctime_ns,
+    )
+    inside = tmp_path / "inside"
+    inside.mkdir()
+    alias = inside / "alias"
+    alias.symlink_to(tmp_path, target_is_directory=True)
+    blocked = subprocess.run([str(helper), str(alias / path.name), "--snapshot"], capture_output=True, timeout=5)
+    assert blocked.returncode == 77 and not blocked.stdout
+
+
+@pytest.mark.parametrize(("status", "reason", "retryable"), [
+    (69, "offline", True), (73, "no_space", False), (75, "pending", True),
+    (77, "permission", False), (74, "unavailable", True),
+])
+def test_helper_failure_is_typed_without_publishing_a_partial_snapshot(tmp_path, monkeypatch, status, reason, retryable):
+    from backend.platform.files import snapshots
+    from backend.utils.metadata_io import MetadataUnavailable
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"Original")
+    child = AsyncMock()
+    child.returncode = status
+    child.communicate.return_value = (None, b"")
+    partials = []
+
+    async def launch(*_args, stdout, **_kwargs):
+        stdout.write(b"Incomplete")
+        partials.append(Path(stdout.name))
+        return child
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", launch)
+    with pytest.raises(MetadataUnavailable) as error:
+        snapshots._copy(source, 2)
+    assert (error.value.path, error.value.reason, error.value.retryable) == (source, reason, retryable)
+    assert len(partials) == 1 and not partials[0].exists()
+    assert source.read_bytes() == b"Original"

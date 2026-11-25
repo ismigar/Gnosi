@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from .base import FilesProvider
-from .coordinated import is_placeholder, materialize_coordinated
+from . import snapshots
+from .availability import MetadataUnavailable
+from .coordinated import is_placeholder
 
 log = logging.getLogger(__name__)
 
@@ -359,21 +361,18 @@ class OnDemandFilesProvider(FilesProvider):
             self._inflight.pop(key, None)
 
     async def _materialize_coordinated(self, container_path: Path) -> bool:
-        key = str(container_path)
-        inflight = self._inflight.get(key)
-        if inflight is not None:
-            return await asyncio.shield(inflight)
-        result: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
-        self._inflight[key] = result
+        # Compatibility consumers share the same native operation as a selected
+        # note, attachment or task, including across Python event loops.
         try:
-            async with self._get_semaphore():
-                ok = await materialize_coordinated(container_path, self.warmup_timeout_s)
-            result.set_result(ok)
-            return ok
-        finally:
-            if not result.done():
-                result.set_result(False)
-            self._inflight.pop(key, None)
+            info = await asyncio.to_thread(container_path.stat)
+            job = snapshots.reads.request(
+                container_path, info, timeout=self.warmup_timeout_s, handoff=info.st_size <= 1_048_576,
+                provider=self, provider_limit=self._max_concurrent_warmups,
+            )
+            with await snapshots.await_snapshot(job):
+                return True
+        except (MetadataUnavailable, OSError):
+            return False
 
     async def materialize(self, container_path: Path) -> bool:
         """Materialize one file using the runtime's configured provider adapter."""

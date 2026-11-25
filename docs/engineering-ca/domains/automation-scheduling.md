@@ -1,12 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-11-20
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/scheduler/contracts.py
   - backend/scheduler/notifications.py
   - backend/platform/notifications.py
+  - backend/services/podcast_episode.py
+  - backend/services/podcast_briefing.py
   - backend/scheduler/task_handlers.py
   - backend/scheduler/literature_tasks.py
   - backend/models/scheduler.py
@@ -18,6 +20,7 @@ source_paths:
 tests:
   - frontend/src/features/automations/SchedulerPage.test.tsx
   - frontend/src/features/control-center/dashboard/Dashboard.test.tsx
+  - backend/tests/test_podcast_episode_recovery.py
   - backend/tests/test_audio_summarizer.py
   - backend/tests/test_scheduler_task_handlers_domain_contract.py
   - backend/tests/test_scheduler_maintenance_scope.py
@@ -106,8 +109,8 @@ reprodueix l'estratègia versionada, registra activitat i errors parcials per fo
 i afegeix només candidats amb una identitat nova per a aquella revisió. La
 propera execució es desa amb la configuració de la revisió.
 
-La cua exigeix una arrel `LOCAL_DATA` explícita i falla abans d'obrir SQLite si
-falta configuració. Els adaptadors validen els payloads abans de despatxar-los i
+La cua obre SQLite al directori local `LOCAL_DATA` del dispositiu encara que
+la configuració del Vault estigui pendent de descàrrega. Els adaptadors validen els payloads abans de despatxar-los i
 rebutgen registres sense una funció executable. La sincronització de contactes
 passa explícitament base de dades, workspace i integració per evitar confondre
 els arguments.
@@ -153,6 +156,18 @@ El servei de pòdcast del Reader selecciona model i idioma amb contractes tipats
 limita els treballadors TTS per frase i substitueix l'MP3 atòmicament. Captura el
 Vault seleccionat abans de començar i rebutja l'arrencada sense Vault actiu,
 per evitar escriure la sortida en una ruta local ambigua.
+
+El planificador, **Executa ara** i el Reader comparteixen un episodi diari per
+Vault i àmbit autoritzat. Gnosi desa al dispositiu l’episodi i el límit de la
+finestra de 24 hores abans de carregar els fitxers del núvol. Si en falta un,
+l’episodi queda en espera. El planificador comprova les feines recuperables en
+arrencar i a cada cicle. El tauler i el Reader poden mostrar el fitxer, el
+proveïdor, el motiu i l’hora del proper intent.
+
+En reprendre’s, l’episodi aprofita les entrades, els resums parcials, el guió i
+l’enregistrament que ja s’han desat. Abans de publicar l’MP3 amb la data,
+Gnosi registra la intenció de publicar i l’empremta del contingut. Si es reinicia
+després de canviar el nom del fitxer, comprova l’MP3 i tanca el mateix episodi.
 
 ## Invariants
 

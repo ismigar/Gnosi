@@ -1,6 +1,7 @@
 import type { AgentConfirmation } from './confirmationModel';
 import type { StoredChatMessage } from './sessionModel';
 import type { useChatMessageActions } from './useChatMessageActions';
+import type { AssistantProfileSnapshot } from '../model/agentChatAuthor';
 
 export interface ChatMessageRowProps extends ReturnType<typeof useChatMessageActions> {
   readonly message: StoredChatMessage;
@@ -9,9 +10,10 @@ export interface ChatMessageRowProps extends ReturnType<typeof useChatMessageAct
   readonly readOnly: boolean;
   readonly conversationMode: string;
   readonly storageIdentity: string;
-  readonly agentName: string;
+  readonly profiles: readonly AssistantProfileSnapshot[];
   readonly isLoading: boolean;
   readonly isRewinding: boolean;
+  readonly showTurnRewind: boolean;
   readonly detailsMessageIndex: number | null;
   readonly confirmationTitle: (confirmation: AgentConfirmation) => string;
   readonly setPendingConfirmation: (confirmation: AgentConfirmation) => void;

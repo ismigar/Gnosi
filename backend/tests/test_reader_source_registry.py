@@ -243,14 +243,16 @@ def test_concurrent_stale_writers_are_serialized(setup):
 def test_unavailable_cloud_metadata_fails_closed(setup, monkeypatch):
     vault, sessions = setup
     def unavailable(*args, **kwargs):
-        raise registry.MetadataUnavailable('Synthetic cloud placeholder')
+        raise registry.MetadataUnavailable('Synthetic cloud placeholder', reason='offline')
     monkeypatch.setattr(registry, 'read_metadata_text', unavailable)
     with sessions() as db:
         add(db)
         db.commit()
-        with pytest.raises(registry.SourceRegistryError):
+        with pytest.raises(registry.SourceRegistryError) as failure:
             with registry.source_transaction(db, vault):
                 pass
+        assert isinstance(failure.value, registry.MetadataUnavailable)
+        assert failure.value.reason == 'offline' and failure.value.path == file(vault)
         assert db.query(FeedSource).count() == 1
         assert not file(vault).exists()
 

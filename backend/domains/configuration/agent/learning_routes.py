@@ -34,7 +34,7 @@ async def create_learning_draft(
     context: WorkspaceContext = Depends(require_role("editor")),
 ) -> LearnedSkill:
     """Extract an editable draft from the caller's canonical private conversation."""
-    agent = _require_configured_agent(payload.agent_id)
+    agent = _require_configured_agent(payload.profile_id or payload.agent_id)
     history = await get_chat_session(
         payload.agent_id, payload.session_id, workspace_context=context, notebook_id=None,
     )

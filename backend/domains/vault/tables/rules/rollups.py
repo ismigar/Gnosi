@@ -18,6 +18,7 @@ from backend.domains.vault.tables.rules.types import (
     RuleEngineDependencies,
 )
 from backend.utils.open_values import float_value
+from backend.utils.metadata_io import MetadataUnavailable
 
 
 def _passes_filter(
@@ -31,6 +32,8 @@ def _passes_filter(
     try:
         evaluator = dependencies.scoped_evaluator(metadata, functions)
         return bool(evaluator.eval(str(expression)))
+    except MetadataUnavailable:
+        raise
     except Exception:
         return False
 

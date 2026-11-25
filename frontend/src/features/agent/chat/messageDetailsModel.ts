@@ -15,4 +15,12 @@ export interface MessageDetailsData extends Partial<ReturnType<typeof boundedTra
   readonly attachments?: readonly unknown[];
 }
 
+export function hasMessageDetails(msg: MessageDetailsData): boolean {
+  const plan = msg.plan;
+  return Boolean(msg.timings || msg.llm?.model || msg.llm?.strategy?.mode || msg.llm?.strategy?.decision?.engine === 'jev'
+    || msg.explanation || plan?.budgets || plan?.interpretation || plan?.capability_broker || plan?.deadline || plan?.memory?.checkpointed
+    || msg.errorCode || msg.privacy || msg.verification || msg.quality || msg.gauntlet || msg.evidenceSecurity?.status === 'tainted'
+    || msg.conflicts?.count || msg.freshness || msg.job || msg.confirmation || msg.attachments?.length);
+}
+
 export type MessageJobAction = 'resume' | 'cancel';

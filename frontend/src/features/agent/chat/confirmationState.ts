@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { StoredChatMessage } from './sessionModel';
 import type { ConfirmationPayload, ConfirmationRequestScope } from '../../../shared/api/chat-confirmations';
 import { confirmationScope, type AgentConfirmation } from './confirmationModel';
+import { assistantProfileSnapshot } from '../model/agentChatAuthor';
 
 export type ConfirmationConversation = readonly StoredChatMessage[];
 export interface ConfirmationControllerScope {
@@ -42,13 +43,17 @@ export function mergeLiveConfirmationRecords(messages: ConfirmationConversation,
     const id = message.confirmation?.confirmation_id || legacyConfirmationId(message, byId);
     if (!id) { updated.push(message); continue; }
     const current = byId.get(id);
-    const next = current ? { ...message, content: summary(current), confirmation: { ...message.confirmation, ...current } } : message;
+    const profile = assistantProfileSnapshot(current?.assistant_profile, message.assistant_profile);
+    const next = current ? { ...message, ...(profile && { assistant_profile: profile }), content: summary(current), confirmation: { ...message.confirmation, ...current } } : message;
     const earlier = existingIds.get(id);
     if (earlier !== undefined) updated[earlier] = { ...next, ...updated[earlier] };
     else { existingIds.set(id, updated.length); updated.push(next); }
   }
   for (const record of records) {
-    if (!existingIds.has(record.confirmation_id)) updated.push({ role: 'assistant', content: summary(record), confirmation: record });
+    if (!existingIds.has(record.confirmation_id)) {
+      const profile = assistantProfileSnapshot(record.assistant_profile);
+      updated.push({ role: 'assistant', ...(profile && { assistant_profile: profile }), content: summary(record), confirmation: record });
+    }
   }
   return updated;
 }

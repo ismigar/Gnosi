@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import errno
 from hashlib import sha256
 import os
+import re
 from pathlib import Path
 from secrets import token_hex
 import stat
@@ -78,7 +79,7 @@ def _publication_directory(directory: Path) -> Iterator[Path | int]:
 
 def _published_names(directory: Path | int) -> Iterator[str]:
     return (name for name in os.listdir(directory)
-            if name.endswith(".mp3") and not name.startswith("."))
+            if re.fullmatch(r"daily_podcast_[0-9]{4}_[0-9]{2}_[0-9]{2}\.mp3", name))
 
 
 def _inspect(directory: Path | int, path: Path) -> PodcastEpisode | None:
@@ -104,6 +105,21 @@ def latest_episode(directory: Path) -> PodcastEpisode | None:
                     continue
                 if episode:
                     return episode
+    except OSError as error:
+        if error.errno not in _ABSENT:
+            raise
+    return None
+
+
+def find_episode(directory: Path, episode_id: str) -> PodcastEpisode | None:
+    """Inspect the requested published revision without opening its audio bytes."""
+    try:
+        with _publication_directory(directory) as handle:
+            for name in _published_names(handle):
+                path = directory / name
+                if _name_id(path) == episode_id[:32]:
+                    episode = _inspect(handle, path)
+                    return episode if episode and episode.episode_id == episode_id else None
     except OSError as error:
         if error.errno not in _ABSENT:
             raise

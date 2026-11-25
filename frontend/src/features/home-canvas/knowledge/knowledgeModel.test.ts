@@ -29,6 +29,36 @@ it('accepts empty, legacy registry-only and BlockNote JSON dashboard bodies', ()
   expect(dashboardLayout(JSON.stringify(blocks), []).partsFor('')).toMatchObject([{ kind: 'view', label: 'Weekly', view: { source_table_id: 'tasks' } }]);
 });
 
+it('recognizes HTML comment view definitions and skips snapshot result tables', () => {
+  const registered = [{ view_id: 'view-inbox', name: 'Inbox' }, { view_id: 'view-actions', name: 'Actions' }];
+  const md = [
+    ':::column-list',
+    ':::column',
+    '# Inbox',
+    '<!-- gnosi-view:def {"view_id":"view-inbox"} -->',
+    '',
+    '<!-- gnosi-view:result view_id=view-inbox -->',
+    '| Old | Snapshot | Table |',
+    '| --- | --- | --- |',
+    '| Task 1 | Open | 2026-11-24 |',
+    '<!-- /gnosi-view:result -->',
+    ':::',
+    ':::column',
+    '# Actions',
+    '<!-- gnosi-view:def {"view_id":"view-actions"} -->',
+    ':::',
+    ':::',
+  ].join('\n');
+  const board = dashboardLayout(md, registered);
+  const parts = board.partsFor('');
+  expect(parts).toHaveLength(5);
+  expect(parts?.[0]).toMatchObject({ kind: 'text', markdown: ':::column-list\n:::column\n# Inbox' });
+  expect(parts?.[1]).toMatchObject({ kind: 'view', label: 'Inbox', view: { view_id: 'view-inbox' } });
+  expect(parts?.[2]).toMatchObject({ kind: 'text', markdown: ':::\n:::column\n# Actions' });
+  expect(parts?.[3]).toMatchObject({ kind: 'view', label: 'Actions', view: { view_id: 'view-actions' } });
+  expect(parts?.[4]).toMatchObject({ kind: 'text', markdown: ':::\n:::' });
+});
+
 it('uses registered nested filters, the host board, joined values and numeric multi-sort before limiting visible records', async () => {
   const host = 'board-id';
   const makeTask = (index: number, metadata: Record<string, unknown> = {}) => row(`task-${String(index)}`, `Title ${String(index)}`,

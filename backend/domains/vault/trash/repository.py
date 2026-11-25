@@ -13,6 +13,7 @@ from typing import Protocol
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
+from backend.utils.metadata_io import read_vault_text
 
 FrontmatterParser = Callable[[str, Path | None], tuple[PageMetadata, str]]
 TrashMetadata = dict[object, object]
@@ -80,31 +81,29 @@ class TrashRepository:
         return self.root() / normalized
 
     def move_page(self, page_id: str, file_path: Path) -> TrashMetadata:
+        try:
+            original_path = str(file_path.relative_to(self.vault_root))
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Page file {file_path} is outside the Vault root {self.vault_root}"
+            ) from exc
+
         entry_dir = self.entry_dir(page_id)
         sidecar_path = entry_dir / "_trash.json"
-        if sidecar_path.exists():
-            if not file_path.exists():
-                try:
-                    data: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
-                    if is_record(data):
-                        return data
-                except (OSError, json.JSONDecodeError):
-                    pass
-            else:
-                log.warning(
-                    "Trash slot %s already occupied while trashing %s; "
-                    "overwriting the stale entry.",
-                    page_id,
-                    file_path,
-                )
-                shutil.rmtree(entry_dir, ignore_errors=True)
-
+        occupied = sidecar_path.exists()
+        if occupied and not file_path.exists():
+            try:
+                data: object = json.loads(read_vault_text(sidecar_path, root=self.vault_root))
+                if is_record(data):
+                    return data
+            except (OSError, json.JSONDecodeError):
+                pass
         entry_dir.mkdir(parents=True, exist_ok=True)
         title = ""
         table_id: object = None
         original_parent_id: object = None
         try:
-            raw_content = file_path.read_text(encoding="utf-8")
+            raw_content = read_vault_text(file_path, root=self.vault_root)
             metadata, _ = self.parse_frontmatter(raw_content, file_path)
             title = str(metadata.get("title") or "")
             table_id = metadata.get("table_id") or metadata.get("database_table_id")
@@ -113,17 +112,18 @@ class TrashRepository:
             log.warning("Could not read frontmatter for %s: %s", page_id, exc)
 
         try:
-            original_path = str(file_path.relative_to(self.vault_root))
-        except ValueError as exc:
-            raise RuntimeError(
-                f"Page file {file_path} is outside the Vault root {self.vault_root}"
-            ) from exc
-
-        try:
             size_bytes = file_path.stat().st_size
         except OSError:
             size_bytes = 0
 
+        if occupied and file_path.exists():
+            log.warning(
+                "Trash slot %s already occupied while trashing %s; overwriting the stale entry.",
+                page_id,
+                file_path,
+            )
+            shutil.rmtree(entry_dir, ignore_errors=True)
+            entry_dir.mkdir(parents=True, exist_ok=True)
         shutil.move(str(file_path), str(entry_dir / "page.md"))
         sidecar: TrashMetadata = {
             "id": page_id,
@@ -142,10 +142,10 @@ class TrashRepository:
         vault_root_resolved = self.vault_root.resolve()
         entry_dir = self.entry_dir(page_id)
         sidecar_path = entry_dir / "_trash.json"
-        if not sidecar_path.exists():
-            raise FileNotFoundError(f"No trash entry for {page_id}")
-
-        loaded: object = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        try:
+            loaded: object = json.loads(read_vault_text(sidecar_path, root=self.vault_root))
+        except FileNotFoundError as error:
+            raise FileNotFoundError(f"No trash entry for {page_id}") from error
         if not is_record(loaded):
             raise ValueError(f"Invalid trash sidecar for {page_id}")
         sidecar = dict(loaded)

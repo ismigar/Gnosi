@@ -9,6 +9,7 @@ from typing import TypeVar
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from backend.utils.metadata_io import MetadataUnavailable, guard_missing_file, read_vault_text, read_vault_text_with_stat
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from .contracts import GenogramIssue, GenogramPerson, GenogramRelation, GenogramSetupResponse, GenogramSetupStatus
@@ -88,22 +89,26 @@ def read_network(registry: RegistryData, metadata_by_id: dict[str, RegistryData]
     people: list[GenogramPerson] = []
     relations: list[GenogramRelation] = []
     issues: list[GenogramIssue] = []
+    vault_root = vault.get_p("VAULT")
+    physical_root = vault_root.resolve()
     for kind, table in network_tables(registry).items():
         folder = _table_vault_dir(table, registry)
         if folder is None or not folder.exists():
             continue
+        if not folder.resolve().is_relative_to(physical_root):
+            raise MetadataUnavailable("Genogram folder is outside the vault", path=folder, reason="permission")
         for path in sorted(folder.rglob("*.md")):
             if any(part.startswith(".") for part in path.relative_to(folder).parts) or path.is_symlink():
                 continue
             try:
-                raw = path.read_text(encoding="utf-8")
+                raw, info = read_vault_text_with_stat(path, root=vault_root)
                 metadata, _ = vault.parse_frontmatter(raw, path)
                 if metadata.get("is_template") is True:
                     continue
                 if metadata_by_id is not None:
                     from backend.services.field_resolver import expand_metadata_for_response
                     metadata_by_id[str(metadata.get("id") or "")] = expand_metadata_for_response(metadata, table)
-                etag = vault.file_etag(path) or ""
+                etag = f"{info.st_mtime_ns}-{info.st_size}"
                 if kind == "people":
                     people.append(normalize(metadata, table, kind, GenogramPerson, etag))
                 else:
@@ -193,9 +198,11 @@ def write_guard(path: Path, metadata: RegistryData | None) -> Iterator[None]:
     table_id = str((metadata or {}).get("table_id") or (metadata or {}).get("database_table_id") or "")
     old: RegistryData = {}
     if path.exists():
-        old, _ = vault.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+        old, _ = vault.parse_frontmatter(read_vault_text(path), path)
         if metadata is None:
             table_id = str(old.get("table_id") or old.get("database_table_id") or "")
+    else:
+        guard_missing_file(path)
     old_table_id = str(old.get("table_id") or old.get("database_table_id") or "")
     if old_table_id in (stable_id("people"), stable_id("relations")) and metadata is not None and (table_id != old_table_id or metadata.get("id") != old.get("id")):
         raise HTTPException(409, detail={"code": "genogram_identity_immutable"})
@@ -213,7 +220,7 @@ def write_guard(path: Path, metadata: RegistryData | None) -> Iterator[None]:
             raise HTTPException(409, detail={"code": "genogram_unreadable", "issues": [i.model_dump() for i in unreadable]})
         existing_id = str((metadata or {}).get("id") or "")
         if metadata is None:
-            old, _ = vault.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            old, _ = vault.parse_frontmatter(read_vault_text(path), path)
             existing_id = str(old.get("id") or "")
             references = [r.id for r in relations if existing_id in (r.source, r.target, r.union_id)]
             if references:

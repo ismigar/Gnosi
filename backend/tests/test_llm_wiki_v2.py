@@ -230,6 +230,7 @@ def test_brain_source_relation_merges_and_removes_plural_field(monkeypatch, tmp_
     note_path = tmp_path / "note.md"
     note_path.write_text("placeholder", encoding="utf-8")
     saved_page: dict = {}
+    monkeypatch.setattr(vault_routes, "get_active_vault_path", lambda: tmp_path)
     monkeypatch.setattr(vault_routes, "load_registry", lambda: registry)
     monkeypatch.setattr(vault_routes, "save_registry", lambda _registry: None)
     monkeypatch.setattr(

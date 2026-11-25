@@ -7,6 +7,13 @@ import {
 
 type TurnId = LooseValue;
 
+/** Session and trace aliases can be shared by several turns. */
+export function explicitTurnId(message: unknown): string | undefined {
+    if (!isRecord(message) || message.turn_id_is_legacy === true) return undefined;
+    const id = message.turn_id ?? message.turnId;
+    return typeof id === 'string' && id ? id : undefined;
+}
+
 const normalizeTurnIdCandidateKey = (value: unknown): string => {
     if (typeof value !== 'string') return '';
     const normalized = value.trim().toLowerCase();

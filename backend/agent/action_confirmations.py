@@ -30,6 +30,8 @@ SCRUBBED_PREVIEW_JSON = (
     '"summary_key":"chat.confirmations.summary",'
     '"details":{},"destructive":false}'
 )
+# A terminal row keeps its display identity while its private action data is erased.
+SCRUBBED_PREVIEW_SQL = "json_patch(?, json_object('assistant_profile', json_extract(preview_json, '$.assistant_profile')))"
 TERMINAL_STATUSES = frozenset({
     "cancelled",
     "completed",
@@ -114,19 +116,19 @@ def _restrict_database_permissions(path: Path) -> None:
 def _maintain_rows(connection: sqlite3.Connection, now: float) -> None:
     """Scrub expired/stale rows and delete bounded terminal audit history."""
     connection.execute(
-        """
+        f"""
         UPDATE pending_agent_actions
-        SET status = 'expired', arguments_json = '{}',
-            preview_json = ?, completed_at = ?
+        SET status = 'expired', arguments_json = '{{}}',
+            preview_json = {SCRUBBED_PREVIEW_SQL}, completed_at = ?
         WHERE status = 'pending' AND expires_at <= ?
         """,
         (SCRUBBED_PREVIEW_JSON, now, now),
     )
     connection.execute(
-        """
+        f"""
         UPDATE pending_agent_actions
-        SET status = 'outcome_unknown', arguments_json = '{}',
-            preview_json = ?, error = 'execution_outcome_unknown',
+        SET status = 'outcome_unknown', arguments_json = '{{}}',
+            preview_json = {SCRUBBED_PREVIEW_SQL}, error = 'execution_outcome_unknown',
             completed_at = ?
         WHERE status = 'executing'
           AND COALESCE(claimed_at, created_at) <= ?
@@ -194,9 +196,8 @@ def _normalized_scope(scope: Dict[str, Any]) -> Dict[str, str]:
     if missing:
         raise RuntimeError(f"Missing confirmation scope: {', '.join(missing)}")
     normalized = {key: str(scope[key]) for key in required}
-    if scope.get("profile_id"):
-        normalized["profile_id"] = str(scope["profile_id"])
-    for key in ("team_run_id", "team_owner_id", "team_task_key"):
+    for key in ("profile_id", "team_run_id", "team_owner_id", "team_task_key",
+                "conversation_profile_id", "conversation_profile_name", "conversation_profile_managed_by"):
         if scope.get(key):
             normalized[key] = str(scope[key])
     return normalized
@@ -340,6 +341,13 @@ def request_confirmation(
     encoded_event = _encoded_json(event)
     if len(encoded_event.encode("utf-8")) > MAX_CONFIRMATION_EVENT_BYTES:
         raise ValueError("The pending action preview exceeds the safety limit.")
+    # The live stream stamps the addressed assistant on its envelope. A status
+    # record may be the only surviving row after a reload or reconnection.
+    if scope.get("conversation_profile_id"):
+        preview["assistant_profile"] = {
+            key: scope[f"conversation_profile_{key}"]
+            for key in ("id", "name", "managed_by") if f"conversation_profile_{key}" in scope
+        }
     encoded_preview = _encoded_json(preview)
 
     with _database_connection() as connection:
@@ -627,10 +635,10 @@ def claim_confirmation(
             raise RuntimeError("The pending action is no longer available.")
         if float(row["expires_at"]) <= now:
             connection.execute(
-                """
+                f"""
                 UPDATE pending_agent_actions
-                SET status = 'expired', arguments_json = '{}',
-                    preview_json = ?, completed_at = ?
+                SET status = 'expired', arguments_json = '{{}}',
+                    preview_json = {SCRUBBED_PREVIEW_SQL}, completed_at = ?
                 WHERE id = ?
                 """,
                 (SCRUBBED_PREVIEW_JSON, now, action_id),
@@ -690,9 +698,9 @@ def finish_confirmation(
         })
     with _database_connection() as connection:
         updated = connection.execute(
-            """
+            f"""
             UPDATE pending_agent_actions
-            SET status = ?, arguments_json = '{}', preview_json = ?,
+            SET status = ?, arguments_json = '{{}}', preview_json = {SCRUBBED_PREVIEW_SQL},
                 result_json = ?, error = ?, completed_at = ?
             WHERE id = ? AND status = 'executing'
             """,
@@ -739,10 +747,10 @@ def cancel_confirmation(action_id: str, scope: Dict[str, str]) -> bool:
         if row["status"] != "pending":
             return False
         updated = connection.execute(
-            """
+            f"""
             UPDATE pending_agent_actions
-            SET status = 'cancelled', arguments_json = '{}',
-                preview_json = ?, completed_at = ?
+            SET status = 'cancelled', arguments_json = '{{}}',
+                preview_json = {SCRUBBED_PREVIEW_SQL}, completed_at = ?
             WHERE id = ? AND status = 'pending'
             """,
             (SCRUBBED_PREVIEW_JSON, now, action_id),
@@ -754,10 +762,10 @@ def cancel_scope_confirmations(scope: Dict[str, str]) -> int:
     """Cancel and scrub every pending action for a deleted chat session."""
     with _database_connection() as connection:
         updated = connection.execute(
-            """
+            f"""
             UPDATE pending_agent_actions
-            SET status = 'cancelled', arguments_json = '{}',
-                preview_json = ?, completed_at = ?
+            SET status = 'cancelled', arguments_json = '{{}}',
+                preview_json = {SCRUBBED_PREVIEW_SQL}, completed_at = ?
             WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
               AND agent_id = ? AND session_id = ?
               AND status = 'pending'

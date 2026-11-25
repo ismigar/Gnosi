@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.mail.repositories.vault import (
     _find_message_files,
     get_mail_vault_path,
@@ -29,9 +30,11 @@ def _resolve_gmail_id(message_id: str) -> str:
     files = _find_message_files(mail_path, message_id)
     if files:
         try:
-            content = files[0].read_text(encoding="utf-8")
+            content = read_vault_text(files[0], root=mail_path.parent)
             meta, _ = parse_frontmatter(content, files[0])
             return meta.get("thread_id") or message_id
+        except MetadataUnavailable:
+            raise
         except Exception:
             pass
     return message_id

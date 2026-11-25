@@ -4,6 +4,9 @@ import type { AgentConfirmation } from './confirmationModel';
 import type { MessageDetailsData } from './messageDetailsModel';
 import type { StoredChatMessage } from './sessionModel';
 import { selectedStreamModel } from './streamResponseMessage';
+import type { TFunction } from 'i18next';
+import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
+import { assistantProfileSnapshot, type AssistantProfileSnapshot } from '../model/agentChatAuthor';
 
 interface MessageAttachment { readonly name?: string; readonly url?: string }
 interface MessageUndo { readonly available: boolean; readonly run?: () => unknown }
@@ -17,6 +20,19 @@ export interface ChatMessageView extends StoredChatMessage, MessageDetailsData {
   readonly feedback?: string;
   readonly author_user_id?: string;
   readonly errorCode?: string;
+}
+
+export function messageAuthor(message: ChatMessageView, profiles: readonly AssistantProfileSnapshot[], viewer: string, t: TFunction) {
+  if (message.role === 'user') {
+    return message.author_user_id && message.author_user_id !== viewer
+      ? t('notebooks.member_message', 'Member {{member}}', { member: message.author_user_id })
+      : t('chat.you', 'You');
+  }
+  if (message.role !== 'assistant') return t('chat.system_author', 'System');
+  const snapshot = message.assistant_profile;
+  if (!snapshot) return undefined;
+  const profile = snapshot.name ? snapshot : assistantProfileSnapshot(profiles.find(item => item.id === snapshot.id));
+  return profile ? profileDisplayName(profile, t) || undefined : undefined;
 }
 
 function attachmentViews(value: unknown): MessageAttachment[] {

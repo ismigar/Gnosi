@@ -43,7 +43,7 @@ def test_chat_uses_selected_profile_but_keeps_attachment_session_identity(monkey
     async def notebook(*args):
         return None, "user", "session"
     monkeypatch.setattr(chat_route, "_resolve_notebook_turn", notebook)
-    monkeypatch.setattr("backend.domains.agent.routes.learning_context.prepare_learning_context", lambda *args: ("", [], "", None))
+    monkeypatch.setattr("backend.domains.agent.routes.learning_context.prepare_learning_context", lambda *args, **kwargs: ("", [], "", None))
     captured = {}
     def content(req, **kwargs):
         captured.update(kwargs)

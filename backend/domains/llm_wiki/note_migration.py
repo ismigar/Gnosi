@@ -13,6 +13,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend.utils.metadata_io import read_vault_bytes
 from backend.domains.llm_wiki import classification_repair
 from backend.domains.llm_wiki import migration_files as files
 from backend.domains.llm_wiki.field_catalogs import catalog_value
@@ -107,7 +108,7 @@ def inventory(vault: Path) -> dict[str, object]:
             "id": identifier,
             "path": str(path.relative_to(vault)),
             "sha256": files.digest(text.encode()),
-            "sidecar_sha256": files.digest(sidecar.read_bytes()) if sidecar.exists() else None,
+            "sidecar_sha256": files.digest(read_vault_bytes(sidecar)) if sidecar.exists() else None,
             "created_fallback": datetime.fromtimestamp(
                 getattr(path.stat(), "st_birthtime", 0) or path.stat().st_ctime, timezone.utc
             ).isoformat(),
@@ -154,8 +155,8 @@ def inventory(vault: Path) -> dict[str, object]:
         "rows": rows,
         "notes": notes,
         "resources": dict(resources),
-        "config_sha256": files.digest(config_path.read_bytes()),
-        "registry_sha256": files.digest(registry_path.read_bytes()),
+        "config_sha256": files.digest(read_vault_bytes(config_path)),
+        "registry_sha256": files.digest(read_vault_bytes(registry_path)),
     }
 
 
@@ -179,13 +180,13 @@ def _check_inventory(vault: Path, data: dict[str, object]) -> None:
         (".gnosi/llm_wiki.json", "config_sha256"),
         ("BD/vault_db_registry.json", "registry_sha256"),
     ):
-        if files.digest((vault / relative).read_bytes()) != data[key]:
+        if files.digest(read_vault_bytes(vault / relative)) != data[key]:
             raise ValueError("Brain configuration changed after preview")
     for row in _rows(data, "rows"):
-        if files.digest((vault / str(row["path"])).read_bytes()) != row["sha256"]:
+        if files.digest(read_vault_bytes(vault / str(row["path"]))) != row["sha256"]:
             raise ValueError(f"Note changed after preview: {row['id']}")
         side = vault / ".gnosi/llm_wiki/pages" / f"{row['id']}.json"
-        actual = files.digest(side.read_bytes()) if side.exists() else None
+        actual = files.digest(read_vault_bytes(side)) if side.exists() else None
         if actual != row["sidecar_sha256"]:
             raise ValueError("Managed note state changed after preview")
 

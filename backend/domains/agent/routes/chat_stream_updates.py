@@ -15,6 +15,8 @@ from backend.agent.model_router import usage_from_message
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import _acquire_turn_lock, _public_gauntlet_metadata
 from backend.domains.agent.routes.shared import _message_text, _tool_stream_event
+from backend.services.agent_cancellation import is_cancelled
+from backend.services.agent_chat_timing import track_chat
 
 
 def _deadline_event(
@@ -48,17 +50,24 @@ def _update_phase(
     state: AgentStreamState,
     *,
     node_name: str,
-    update_elapsed_ms: float,
+    started: float,
+    ended: float,
     update_usages: list[Any],
 ) -> str:
+    elapsed = max(0.0, (ended - started) * 1000)
+    waits = state.chat_timing.waits(started, ended) if state.chat_timing else {"model": 0.0, "tools": 0.0}
     if node_name in {"brain_tools", "coder_tools"}:
-        phase = "tools"
-    elif any(update_usages):
-        phase = "model"
-    else:
-        phase = "routing"
-    state.phase_ms[phase] += update_elapsed_ms
-    return phase
+        waits["tools"] = max(0.0, elapsed - waits["model"])
+    elif not any(waits.values()) and any(update_usages):
+        # Retain timing for external graph nodes that report provider usage
+        # without passing through Gnosi's instrumented model boundary.
+        waits["model"] = elapsed
+    for phase, duration in waits.items():
+        state.phase_ms[phase] += duration
+    state.phase_ms["routing"] += max(0.0, elapsed - sum(waits.values()))
+    if waits["model"]:
+        return "model"
+    return "tools" if waits["tools"] else "routing"
 
 
 def _assistant_metadata(
@@ -70,8 +79,9 @@ def _assistant_metadata(
     metadata = getattr(message, "additional_kwargs", {})
     if not isinstance(metadata, dict):
         metadata = {}
-    timings = state.metrics_payload()
-    metadata["gnosi_timings"] = timings
+    timings = state.metrics_payload() if state.team_usage is not None else {"response_ms": state.response_ms}
+    if state.chat_timing is None or state.chat_timing.direct_reply_ms is None:
+        metadata["gnosi_timings"] = timings
     if untrusted_context_flags:
         evidence_security = dict(metadata.get("gnosi_evidence_security") or {})
         categories = list(evidence_security.get("categories") or [])
@@ -157,11 +167,7 @@ def _message_events(
     events: list[str] = []
     team_usage = getattr(message, "additional_kwargs", {}).get("gnosi_team_usage")
     if node_name == "team" and isinstance(team_usage, dict):
-        state.total_in_tok = int(team_usage["input_tokens"])
-        state.total_out_tok = int(team_usage["output_tokens"])
-        state.model_calls = int(team_usage["model_calls"])
-        state.tool_calls_count = int(team_usage["tool_calls"])
-        state.team_usage = team_usage
+        state.apply_team_usage(team_usage)
     if turn_usage:
         state.total_in_tok += int(turn_usage[0])
         state.total_out_tok += int(turn_usage[1])
@@ -191,6 +197,7 @@ def _message_events(
     if node_name == 'team' and message.type == 'ai' and isinstance(native_confirmation, dict):
         pending = confirmation_event(json.dumps(native_confirmation, ensure_ascii=False))
         if pending:
+            state.mark_response()
             state.answer_count += 1
             gauntlet = _public_gauntlet_metadata(getattr(message, 'additional_kwargs', {}).get('gnosi_gauntlet'))
             if gauntlet is not None:
@@ -214,6 +221,7 @@ def _message_events(
             state.answer_count += 1
             events.append(json.dumps(pending_confirmation, ensure_ascii=False) + "\n")
     elif message.type == "ai" and content:
+        state.mark_response()
         state.answer_count += 1
         events.append(
             _assistant_event(
@@ -238,18 +246,19 @@ def _node_events(
     untrusted_context_flags: list[str],
 ) -> tuple[list[str], float]:
     events = _deadline_event(state, turn_timeout_seconds=turn_timeout_seconds)
-    phase_event = state.phase_event(state.phase_for_node(node_name))
-    if phase_event:
-        events.append(phase_event)
     update_at = time.monotonic()
     update_messages = state_update.get("messages", [])
     update_usages = [usage_from_message(message) for message in update_messages]
     phase = _update_phase(
         state,
         node_name=node_name,
-        update_elapsed_ms=max(0.0, (update_at - previous_update_at) * 1000),
+        started=previous_update_at,
+        ended=update_at,
         update_usages=update_usages,
     )
+    phase_event = state.phase_event(phase)
+    if phase_event:
+        events.append(phase_event)
     events.append(
         json.dumps(
             {
@@ -298,17 +307,41 @@ async def iter_workflow_events(
         if item.get("name")
     }
     async with _acquire_turn_lock(turn_lock):
-        async with asyncio.timeout(turn_timeout_seconds):
-            async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
-                agent_app = workflow.compile(checkpointer=saver)
-                previous_update_at = time.monotonic()
+        if is_cancelled(inputs.get("cancel_token", "")):
+            return
+        async with (
+            asyncio.timeout(turn_timeout_seconds) as execution_deadline,
+            AsyncSqliteSaver.from_conn_string(str(db_path)) as saver,
+        ):
+            agent_app = workflow.compile(checkpointer=saver)
+            previous_update_at = time.monotonic()
+            with track_chat(state.trace_id, state.request_started_at, state.workflow_ready_at, previous_update_at,
+                            state.setup_breakdown_ms) as timing:
+                state.chat_timing = timing
                 from backend.services.agent_execution import stream_workflow
+                if state.llm_selection.get("mode") == "team":
+                    inputs = {**inputs, "chat_request_started_at": state.request_started_at}
                 async for event in stream_workflow(
                     agent_app, inputs, origin="chat", selection=state.llm_selection, snapshot=getattr(workflow, "_execution_snapshot", None),
                     config=config,
                     stream_mode="updates",
                 ):
                     for node_name, state_update in event.items():
+                        if node_name == "team_reply":
+                            # All model work, actions and required reviews have finished.
+                            # Optional accounting must not time out an accepted answer.
+                            execution_deadline.reschedule(None)
+                            state.team_reply_streamed = True
+                            node_name = "team"
+                            if state_update["messages"]:
+                                timings = state_update["messages"][0].additional_kwargs.get("gnosi_timings", {})
+                                state.response_ms = timings.get("response_ms")
+                        elif node_name == "team" and state.team_reply_streamed:
+                            # The approved messages have already reached the client. The
+                            # final graph update retains them in history with their usage.
+                            for message in state_update["messages"]:
+                                state.apply_team_usage(message.additional_kwargs["gnosi_team_usage"])
+                            continue
                         events, previous_update_at = _node_events(
                             node_name,
                             state_update,

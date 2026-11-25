@@ -83,28 +83,43 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
             if (!view) setLoading(true);
             try {
                 let section: EmbedView | null | undefined = null;
+                let inlineSection: EmbedView | null = null;
+                if (inlineSectionStr) {
+                    try {
+                        inlineSection = decodeView(JSON.parse(inlineSectionStr));
+                    } catch {
+                        inlineSection = null;
+                    }
+                }
                 if (viewId) {
-                    const viewsData = await fetchPageViews(pageId);
-                    const sections = viewsData.sections;
+                    let sections: EmbedView[] = [];
+                    try {
+                        const viewsData = await fetchPageViews(pageId);
+                        sections = viewsData.sections;
+                    } catch (err) {
+                        const detail = apiErrorDetail(err, '');
+                        if (!inlineSection && !detail.includes('MetadataUnavailable')) throw err;
+                    }
                     const sectionId = block?.props?.section_id;
                     section = (sectionId && sections.find(s => s.section_id === sectionId && s.view_id === viewId))
                         || sections.find(s => s.view_id === viewId)
-                        || (headingProp ? sections.find(s => s.heading === headingProp) : null);
+                        || (headingProp ? sections.find(s => s.heading === headingProp) : null)
+                        || inlineSection;
                     // Fallback: if this block has no registered section (e.g. because
                     // the PER HEADING section upsert has collided with another
                     // it's an embed without a heading on the same page), but the view DOES
                     // exist in the registry, we build the section from the view.
                     // The fence's `view_id` is the source of truth: this way the block
                     // renders even if the page section has been lost.
-                    if (!section) {
-                        let regView = ctx.registry.views.find(v => String(v.id) === viewId);
-                        if (!regView) {
-                            try {
-                                const allViews = await fetchVaultViews();
-                                regView = allViews.find(v => String(v.id) === viewId);
-                            } catch { /* registry inaccessible: it will fall to the error below */ }
-                        }
-                        if (regView) {
+                    let regView = ctx.registry.views.find(v => String(v.id) === viewId);
+                    if (!regView && (!section || !section.joins || !section.filters || !section.sorts)) {
+                        try {
+                            const allViews = await fetchVaultViews();
+                            regView = allViews.find(v => String(v.id) === viewId);
+                        } catch { /* registry inaccessible: it will fall to the error below */ }
+                    }
+                    if (regView) {
+                        if (!section) {
                             section = {
                                 view_id: regView.id || undefined,
                                 heading: headingProp || '',
@@ -113,15 +128,20 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                                 filters: regView.filters || [],
                                 sorts: regView.sorts || (regView.sort ? [regView.sort] : []),
                                 visible_properties: regView.visibleProperties || regView.visible_properties || ['title'],
+                                joins: regView.joins,
+                            };
+                        } else {
+                            section = {
+                                ...section,
+                                source_table_id: section.source_table_id || regView.table_id || undefined,
+                                joins: section.joins ?? regView.joins,
+                                filters: section.filters ?? regView.filters,
+                                sorts: section.sorts ?? (regView.sorts || (regView.sort ? [regView.sort] : [])),
                             };
                         }
                     }
-                } else if (inlineSectionStr) {
-                    try {
-                        section = decodeView(JSON.parse(inlineSectionStr));
-                    } catch {
-                        section = null;
-                    }
+                } else if (inlineSection) {
+                    section = inlineSection;
                 }
                 if (isCancelled()) return;
                 if (!section) {

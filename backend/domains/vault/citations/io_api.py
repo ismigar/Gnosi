@@ -20,8 +20,10 @@ from backend.domains.vault.citations.export_contracts import (
     ReferenceTable,
 )
 from backend.domains.vault.citations.keys import generate_citation_key
+from backend.domains.vault.citations.state import citation_index_state
 from backend.domains.vault.schemas.pages import PageSaveRequest
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 log = logging.getLogger(__name__)
 
@@ -103,23 +105,60 @@ class ReferencesIoDependencies:
     save_uploaded_style: Callable[[bytes, str], Mapping[str, object]]
 
 
+def _read_reference(
+    page_id: str, indexed_path: object, root: Path | None, dependencies: ReferencesIoDependencies,
+) -> Metadata | None:
+    path = dependencies.find_page(page_id)
+    if path is None and isinstance(indexed_path, (str, Path)) and indexed_path:
+        path = Path(indexed_path)
+    if path is None:
+        return None
+    return _read_reference_path(path, root, dependencies)
+
+
+def _read_reference_path(
+    path: Path, root: Path | None, dependencies: ReferencesIoDependencies,
+) -> Metadata | None:
+    try:
+        raw = read_vault_text(path, root=root)
+        metadata, _body = dependencies.parse_frontmatter(raw, path)
+        return metadata
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise MetadataUnavailable.from_oserror(path, error) from error
+
+
 def build_dedup_indexes(
     vault_key: str,
     dependencies: ReferencesIoDependencies,
+    *,
+    table_id: str | None = None,
+    existing_keys: set[str] | None = None,
 ) -> dict[str, dict[str, str]]:
     index = dependencies.resolve_ensure_index()(vault_key)
+    references = [(key, entry) for key, entry in index.items()]
+    if table_id:
+        # A cold citation index cannot contain a key that has never been read.
+        indexed = {str(entry.get("id") or "") for _, entry in references}
+        for page in dependencies.page_snapshot():
+            page_id = str(getattr(page, "id", "") or "")
+            if page_id and page_id not in indexed and getattr(page, "resolved_table_id", None) == table_id:
+                references.append(("", {"id": page_id, "path": getattr(page, "path", None),
+                                        "title": getattr(page, "title", "")}))
     doi_index: dict[str, str] = {}
     isbn_index: dict[str, str] = {}
     title_index: dict[str, str] = {}
-    for citation_key, entry in index.items():
+    for indexed_key, entry in references:
         try:
-            page_path = dependencies.find_page(str(entry.get("id") or ""))
-            if not page_path:
+            metadata = _read_reference(str(entry.get("id") or ""), entry.get("path"), Path(vault_key), dependencies)
+            if metadata is None:
                 continue
-            metadata, _body = dependencies.parse_frontmatter(
-                page_path.read_text(encoding="utf-8"),
-                page_path,
-            )
+            citation_key = str(metadata.get("Citation Key") or indexed_key).strip()
+            if not citation_key:
+                continue
+            if existing_keys is not None:
+                existing_keys.add(citation_key)
             doi = str(metadata.get("DOI") or "").strip()
             if doi:
                 normalized_doi = dependencies.normalize_doi(doi)
@@ -135,9 +174,99 @@ def build_dedup_indexes(
             )
             if normalized_title:
                 title_index.setdefault(normalized_title, citation_key)
-        except (OSError, AttributeError):
+        except AttributeError:
             continue
     return {"doi": doi_index, "isbn": isbn_index, "title": title_index}
+
+
+def _read_export_page(
+    page: object, root: Path | None, table_id: str, dependencies: ReferencesIoDependencies,
+) -> Metadata | None:
+    source = getattr(page, "path", None)
+    snapshot_path = Path(source) if isinstance(source, (str, Path)) and source else None
+    if snapshot_path is not None and root is not None:
+        snapshot_path = root / snapshot_path
+    metadata = _read_reference_path(snapshot_path, root, dependencies) if snapshot_path else None
+    if metadata is not None:
+        stored_table = metadata.get("database_table_id") or metadata.get("table_id")
+        return metadata if not stored_table or str(stored_table) == table_id else None
+    resolved = dependencies.find_page(str(getattr(page, "id", "") or ""))
+    if resolved is None:
+        return None
+    if root is not None:
+        resolved = root / resolved
+    if resolved == snapshot_path:
+        return None
+    metadata = _read_reference_path(resolved, root, dependencies)
+    if metadata is None:
+        return None
+    from backend.domains.vault.tables.rows import build_table_folder_index, resolve_table_id_from_context
+
+    folder_index = build_table_folder_index({key: value for key, value in dependencies.load_registry().items()})
+    relative_folder = str(resolved.parent.relative_to(root)) if root and resolved.is_relative_to(root) else ""
+    current_table = resolve_table_id_from_context({key: value for key, value in metadata.items()}, relative_folder, folder_index)
+    return metadata if current_table == table_id else None
+
+
+def _export_index_entries(
+    root: Path | None, wanted: set[str], missing: set[str], dependencies: ReferencesIoDependencies,
+) -> list[Metadata]:
+    if root is None:
+        return []
+    vault_key = str(root)
+    if missing:
+        try:
+            index = dependencies.resolve_ensure_index()(vault_key)
+            return [index[key] for key in wanted if key in index]
+        except (MetadataUnavailable, OSError):
+            pass  # The scoped table pages can still establish the keys.
+    # A complete local selection can include a previously indexed duplicate.
+    # Consult existing hints without opening other files to rebuild the index.
+    with citation_index_state.lock:
+        cached = citation_index_state.indexes.get(vault_key, {})
+        return [cached[key] for key in wanted if key in cached]
+
+
+def _indexed_export_pages(
+    cold: list[tuple[int, object]], entries: list[Metadata],
+) -> tuple[list[tuple[int, object]], list[tuple[int, object]]]:
+    ids = {str(entry["id"]) for entry in entries if entry.get("id")}
+    paths = {str(entry["path"]) for entry in entries if entry.get("path")}
+    indexed: list[tuple[int, object]] = []
+    unknown: list[tuple[int, object]] = []
+    for position, page in cold:
+        page_id = str(getattr(page, "id", "") or "")
+        path = str(getattr(page, "path", "") or "")
+        group = indexed if page_id in ids or path in paths else unknown
+        group.append((position, page))
+    return indexed, unknown
+
+
+def _fill_selected_exports(
+    cold: list[tuple[int, object]], wanted: set[str], missing: set[str],
+    matches: dict[int, Metadata], root: Path | None, table_id: str,
+    dependencies: ReferencesIoDependencies,
+) -> None:
+    entries = _export_index_entries(root, wanted, missing, dependencies)
+    indexed, unknown = _indexed_export_pages(cold, entries)
+    failure: MetadataUnavailable | None = None
+    for group in (indexed, unknown):
+        for position, page in group:
+            if group is unknown and not missing:
+                break
+            try:
+                metadata = _read_export_page(page, root, table_id, dependencies)
+            except MetadataUnavailable as error:
+                # The unavailable page may be unrelated. Another candidate can establish the key.
+                if failure is None:
+                    failure = error
+                continue
+            key = metadata.get("Citation Key") if metadata is not None else None
+            if metadata is not None and isinstance(key, str) and key in wanted:
+                matches[position] = metadata
+                missing.discard(key)
+    if missing and failure is not None:
+        raise failure
 
 
 def collect_table_reference_metas(
@@ -145,31 +274,33 @@ def collect_table_reference_metas(
     wanted: set[str] | None,
     dependencies: ReferencesIoDependencies,
 ) -> list[Metadata]:
-    result: list[Metadata] = []
-    for page in dependencies.page_snapshot():
+    vault_path = dependencies.active_vault_path()
+    root = Path(vault_path) if vault_path else None
+    matches: dict[int, Metadata] = {}
+    cold: list[tuple[int, object]] = []
+    missing = set(wanted or ())
+    for position, page in enumerate(dependencies.page_snapshot()):
         if getattr(page, "resolved_table_id", None) != table_id:
             continue
-        metadata = getattr(page, "metadata", {}) or {}
-        if not isinstance(metadata, dict):
-            metadata = {}
-        if not metadata.get("Citation Key"):
-            page_path = dependencies.find_page(str(getattr(page, "id", "") or ""))
-            if not page_path:
+        metadata = getattr(page, "metadata", None)
+        if not isinstance(metadata, dict) or not metadata.get("Citation Key"):
+            if wanted is not None:
+                cold.append((position, page))
                 continue
-            try:
-                metadata, _body = dependencies.parse_frontmatter(
-                    page_path.read_text(encoding="utf-8"),
-                    page_path,
-                )
-            except OSError:
-                continue
-        citation_key = metadata.get("Citation Key")
-        if not citation_key:
+            page_id = str(getattr(page, "id", "") or "")
+            metadata = _read_reference(page_id, getattr(page, "path", None), root, dependencies)
+        if metadata is None:
             continue
-        if wanted is not None and citation_key not in wanted:
-            continue
-        result.append(metadata)
-    return result
+        key = metadata.get("Citation Key")
+        if key and (wanted is None or key in wanted):
+            matches[position] = metadata
+            if isinstance(key, str):
+                missing.discard(key)
+
+    if wanted and cold:
+        _fill_selected_exports(cold, wanted, missing, matches, root, table_id, dependencies)
+        return [matches[position] for position in sorted(matches)]
+    return list(matches.values())
 
 
 async def _create_imported_page(
@@ -245,7 +376,7 @@ def register_import_route(
                 "format": detected,
                 "message": "No references were found in the file",
             }
-        registry = dependencies.load_registry()
+        registry = await asyncio.to_thread(dependencies.load_registry)
         table = next(
             (
                 item
@@ -257,10 +388,11 @@ def register_import_route(
         if not table:
             raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
         item_type_catalog = dependencies.item_type_catalog_names(table, registry)
-        vault_keys = dependencies.resolve_existing_keys()()
+        vault_keys = await asyncio.to_thread(dependencies.resolve_existing_keys())
         vault_path = dependencies.active_vault_path()
         dedup: DedupIndexes = (
-            build_dedup_indexes(str(vault_path), dependencies)
+            await asyncio.to_thread(build_dedup_indexes, str(vault_path), dependencies,
+                                    table_id=table_id, existing_keys=vault_keys)
             if vault_path
             else {"doi": {}, "isbn": {}, "title": {}}
         )

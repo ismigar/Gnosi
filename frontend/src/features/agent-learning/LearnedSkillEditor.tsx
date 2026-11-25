@@ -11,12 +11,13 @@ import { InstructionMarkdownEditor } from '../../shared/editor/InstructionMarkdo
 interface Props {
     readonly initialSkill: LearnedSkill;
     readonly agentId: string;
+    readonly agentName?: string;
     readonly sessionId?: string;
     readonly onSaved?: () => void;
     readonly onClose?: () => void;
 }
 
-export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSaved, onClose }: Props) {
+export function LearnedSkillEditor({ initialSkill, agentId, agentName, sessionId = '', onSaved, onClose }: Props) {
     const { t } = useTranslation();
     const [skill, setSkill] = useState(initialSkill);
     const [criteria, setCriteria] = useState(initialSkill.criteria.join('\n'));
@@ -56,6 +57,7 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
     const close = async () => {
         if (await autosave.flush()) { setClosed(true); onClose?.(); }
     };
+    const assignLabel = agentName ? t('learning.assign_to_profile', { name: agentName }) : t('learning.assign');
     if (closed) return null;
     return <div className="agent-learning" aria-busy={busy}>
         <div className="flex items-center gap-2"><p className="agent-learning__muted">{t('learning.review_help')}</p>
@@ -85,7 +87,7 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
                 <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={(skill.examples || []).length >= 8 || testInput.length > 8000 || trial.output.length > 8000} onClick={() => { change({ examples: [...(skill.examples || []), { name: t('learning.validated_example'), input: testInput, expected: trial.output }] }); }}>{t('learning.keep_example')}</button>
             </>}
         </section>
-        <div className="agent-learning__toggle"><GnosiToggle active={assign} label={t('learning.assign')} disabled={busy} onChange={() => { setAssign(value => !value); }} /><span>{t('learning.assign')}</span></div>
+        <div className="agent-learning__toggle"><GnosiToggle active={assign} label={assignLabel} disabled={busy} onChange={() => { setAssign(value => !value); }} /><span>{assignLabel}</span></div>
         {error && <p role="alert" className="agent-learning__error">{error}</p>}
         {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
         <button className="btn-gnosi btn-gnosi-primary" type="button" disabled={busy || autosave.status === 'saving'} onClick={() => { void close(); }}>{t('common.close')}</button>

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+from backend.services.agent_chat_preparation import preparation_stage, preparation_worker
+
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 from backend.services.agent_behavior import resource as behavior_resource
 
-import asyncio
 import logging
 import json
 from dataclasses import dataclass, replace
@@ -122,8 +123,8 @@ async def prepare_profile(
 ) -> ProfileSetup | None:
     """Resolve one current profile without retaining import-time configuration."""
     if prepared_ai_cfg is None:
-        ai_cfg, selected_agent, resolved_runtime = await asyncio.to_thread(
-            dependencies.prepare_agent_runtime, agent_id,
+        ai_cfg, selected_agent, resolved_runtime = await preparation_worker(
+            "capabilities", dependencies.prepare_agent_runtime, agent_id,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )
@@ -137,7 +138,8 @@ async def prepare_profile(
     connector_health: list[Any] = []
     if callable(getattr(mcp_client, "health_snapshot", None)):
         try:
-            connector_health = list(await mcp_client.health_snapshot())
+            with preparation_stage("connectors"):
+                connector_health = list(await mcp_client.health_snapshot())
         except MetadataUnavailable:
             raise
         except Exception as error:  # noqa: BLE001
@@ -151,8 +153,8 @@ async def prepare_profile(
     agent_data["model_strategy"] = {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}
     target_id = str(agent_data.get("id") or "")
     if resolved_runtime is None:
-        resolved_runtime = await asyncio.to_thread(
-            dependencies.resolve_runtime_capabilities, agent_data,
+        resolved_runtime = await preparation_worker(
+            "capabilities", dependencies.resolve_runtime_capabilities, agent_data,
             vault_path=vault_path,
             active_skill_ids=active_skill_ids,
         )
@@ -197,11 +199,11 @@ def _select_model_route(
     if llm_mode != "agent_default" or not provider_name or not model_name:
         return provider_name, model_name, strategy
 
-    registry = load_registry()
     configured_strategy = normalize_model_strategy(profile.agent_data)
     if configured_strategy["mode"] == "pinned":
         return provider_name, model_name, strategy
-    usage, budget = ({}, {}) if configured_strategy["mode"] == "pinned" else current_routing_limits()
+    registry = load_registry()
+    usage, budget = current_routing_limits()
     strategy = choose_agent_model(
         user_message,
         profile.agent_data,
@@ -305,11 +307,10 @@ def resolve_model(
 def _detailed_persona(instructions_dir: Path, target_id: str) -> str:
     """Read the bounded profile Markdown without making startup fragile."""
     persona_file = instructions_dir / f"{target_id}.md"
-    if not persona_file.exists():
-        return ""
     try:
-        with metadata_path(persona_file).open("r", encoding="utf-8", errors="replace") as handle:
-            return handle.read()
+        return read_vault_text(persona_file, errors="replace", root=instructions_dir)
+    except FileNotFoundError:
+        return ""
     except MetadataUnavailable:
         raise
     except Exception as error:  # noqa: BLE001

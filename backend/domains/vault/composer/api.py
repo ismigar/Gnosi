@@ -1,5 +1,6 @@
 """Editor-authorized Note Composer routes with a mandatory preview contract."""
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,12 +9,12 @@ from backend.domains.vault.registry.state import RegistryData
 from backend.services.workspace_service import WorkspaceContext, require_role
 
 from .schemas import ComposerApplyRequest, ComposerPreview, ComposerRequest, ComposerResult
-from .service import ComposerDependencies, apply_plan, build_plan
+from .service import ComposerDependencies, apply_plan, build_plan, inventory_bytes
 
 
 def dependencies(context: WorkspaceContext) -> ComposerDependencies:
     from backend.domains.vault.api.core_composition import vault
-    from backend.domains.vault.pages.foundation import _read_dashboard_file
+    from backend.domains.vault.pages.foundation import _parse_dashboard_text
     from backend.domains.vault.pages.cache import invalidate_cached_preview
     from backend.domains.vault.pages.creation_recovery import recovery_access_guard
     from backend.domains.vault.pages.index_service import refresh_page_index_entry
@@ -51,7 +52,10 @@ def dependencies(context: WorkspaceContext) -> ComposerDependencies:
         paths = list(folder.rglob("*.json")) if folder.exists() else []
         if any(not path.resolve().is_relative_to(context.vault_path.resolve()) for path in paths):
             raise HTTPException(409, "Dashboard storage must remain inside the selected vault")
-        return [_read_dashboard_file(path)[1] for path in paths]
+        return [
+            _parse_dashboard_text(inventory_bytes(path, context.vault_path, False).decode("utf-8"), path)[1]
+            for path in paths
+        ]
 
     def refresh(path: Path, metadata: RegistryData, body: str) -> None:
         refresh_page_index_entry(path, metadata, body)
@@ -61,7 +65,7 @@ def dependencies(context: WorkspaceContext) -> ComposerDependencies:
         invalidate_cached_preview(str(metadata.get("id") or path.stem))
 
     return ComposerDependencies(
-        parse=vault.parse_frontmatter, save=vault.save_page_md, refresh=refresh,
+        parse=lambda text, _path: vault.parse_frontmatter(text), save=vault.save_page_md, refresh=refresh,
         unsupported_bodies=dashboards,
         validate_access=recovery_access_guard(context),
         validate_pages=validate_pages,
@@ -72,7 +76,8 @@ def dependencies(context: WorkspaceContext) -> ComposerDependencies:
 
 
 async def preview_composer(request: ComposerRequest, context: WorkspaceContext = Depends(require_role("editor"))) -> ComposerPreview:
-    return build_plan(context.vault_path, request, dependencies(context)).preview
+    plan = await asyncio.to_thread(build_plan, context.vault_path, request, dependencies(context))
+    return plan.preview
 
 
 async def apply_composer(request: ComposerApplyRequest, context: WorkspaceContext = Depends(require_role("editor"))) -> ComposerResult:

@@ -6,9 +6,10 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
+from backend.config.env_config import load_env
 from backend.domains.reader.state import (
     _LOCK,
     DEFAULT_MAX_ATTEMPTS,
@@ -30,9 +31,9 @@ def _vault_key(vault_path: Path) -> str:
 
 
 def _root(vault_path: Path) -> Path:
-    configured = cast(str | Path, load_params(strict_env=False).paths["LOCAL_DATA"])
-    local_data = Path(configured)
-    root = local_data / "reader_analysis" / _vault_key(vault_path)
+    # Checkpoints and reports must remain accessible while a vault file waits.
+    load_env()
+    root = resolve_data_dir() / "reader_analysis" / _vault_key(vault_path)
     root.mkdir(parents=True, exist_ok=True)
     return root
 

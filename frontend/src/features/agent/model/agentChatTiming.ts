@@ -11,12 +11,17 @@ import {
 
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
 const TURN_TIMING_MS_FIELDS = [
-    'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
+    'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms', 'response_ms',
 ] as const;
+const SETUP_STAGES = [
+    'worker_queue', 'event_loop', 'configuration', 'session', 'vault_context',
+    'connectors', 'capabilities', 'team', 'workflow', 'other',
+] as const;
+type SetupBreakdown = Partial<Record<typeof SETUP_STAGES[number], number>>;
 const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
 ] as const;
-export type TurnMetrics = LooseRecord & TeamUsageMetrics & Partial<Record<
+export type TurnMetrics = LooseRecord & TeamUsageMetrics & { setup_breakdown_ms?: SetupBreakdown } & Partial<Record<
     typeof TURN_TIMING_MS_FIELDS[number] | typeof TURN_TIMING_COUNT_FIELDS[number]
     | 'estimated_cost_usd', number
 >>;
@@ -258,6 +263,17 @@ export const boundedTurnMetrics = (value: LooseValue): TurnMetrics | null => {
         const bounded = boundedProcessingMs(value[field]);
         if (bounded !== null) metrics[field] = bounded;
     });
+    const rawSetup = value.setup_breakdown_ms;
+    if (metrics.setup_ms !== undefined && isRecord(rawSetup)) {
+        const breakdown: SetupBreakdown = {};
+        for (const stage of SETUP_STAGES) {
+            const duration = rawSetup[stage];
+            if (typeof duration === 'number' && Number.isSafeInteger(duration) && duration >= 0 && duration <= metrics.setup_ms) {
+                breakdown[stage] = duration;
+            }
+        }
+        if (Object.keys(breakdown).length) metrics.setup_breakdown_ms = breakdown;
+    }
     TURN_TIMING_COUNT_FIELDS.forEach((field) => {
         const numeric = Number(value[field]);
         if (Number.isFinite(numeric) && numeric >= 0) {
@@ -375,6 +391,7 @@ export const processingSeconds = (processingMs: LooseValue): number | null => {
 
 export const effectiveMessageTimingMs = (message: unknown): number | null => {
     const timings = timedPayloadFromMessage(message);
+    if (timings && typeof timings.response_ms === 'number') return timings.response_ms;
     if (timings && typeof timings.total_ms === 'number') return timings.total_ms;
     return boundedProcessingMs(
         recordValue(message, 'processingMs')

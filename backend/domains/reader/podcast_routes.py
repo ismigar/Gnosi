@@ -1,12 +1,13 @@
 """Reader podcast generation and download HTTP routes."""
 
+import asyncio
 from datetime import datetime
 from typing import Annotated, Callable, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import FileResponse, Response
 
-from backend.domains.reader.podcast_media import EpisodeResponse, PodcastEpisode, latest_episode, open_episode
+from backend.domains.reader.podcast_media import EpisodeResponse, PodcastEpisode, find_episode, latest_episode, open_episode
 
 from backend.domains.reader.routing import RouteReturn, require_active_vault
 from backend.domains.reader.schemas import (
@@ -37,7 +38,12 @@ def trigger_podcast_generation() -> RouteReturn:
     launch = cast(Callable[..., bool], start_generation_async)
     started = launch(vault_path=require_active_vault())
     if not started:
-        raise HTTPException(status_code=409, detail="Generation already in progress.")
+        from backend.services import podcast_episode
+        from backend.services.agent_execution_scope import current_scope
+        episode = podcast_episode.for_scope(current_scope())
+        if episode and episode.status == "success":
+            return {"status": "completed", "message": "Today's podcast run has finished."}
+        return {"status": "already_running", "message": "A podcast is already being generated."}
     return {"status": "started", "message": "Generation started in the background."}
 
 
@@ -82,15 +88,20 @@ def get_podcast_info(context: OptionalPodcastContext = None) -> RouteReturn:
     }
 
 
-def get_latest_podcast(context: OptionalPodcastContext = None) -> RouteReturn:
-    """Download/Stream the most recent podcast"""
-    episode = _latest_for_context(context)
+async def get_latest_podcast(context: OptionalPodcastContext = None) -> FileResponse:
+    """Stream the latest published episode through the coordinated Vault reader."""
+    from backend.domains.vault.files.serving import serve_snapshot
+
+    episode = await asyncio.to_thread(_latest_for_context, context)
     if episode is None:
         raise HTTPException(status_code=404, detail="No podcasts available")
-    return FileResponse(episode.path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
+    root = context.vault_path if context else episode.path.parents[2]
+    return await serve_snapshot(
+        episode.path, root, headers={"Content-Disposition": 'attachment; filename="gnosi_daily.mp3"'}
+    )
 
 
-def get_podcast_episode(
+async def get_podcast_episode(
     episode_id: Annotated[str, Path(pattern=r"^[a-f0-9]{64}$")], context: PodcastContext
 ) -> Response:
     """Stream the requested published file revision in the authenticated Vault.
@@ -101,8 +112,20 @@ def get_podcast_episode(
     """
     from backend.services.audio_summarizer import get_podcast_output_dir
 
+    from backend.domains.vault.files.serving import serve_snapshot
+    from backend.utils.metadata_io import is_native_vault_file
+
+    directory = get_podcast_output_dir(context.vault_path)
     try:
-        opened = open_episode(get_podcast_output_dir(context.vault_path), episode_id)
+        episode = await asyncio.to_thread(find_episode, directory, episode_id)
+        if episode is None:
+            raise HTTPException(status_code=404, detail="Podcast episode is unavailable")
+        if await asyncio.to_thread(is_native_vault_file, episode.path, episode.metadata):
+            return await serve_snapshot(
+                episode.path, context.vault_path, expected_stat=episode.metadata,
+                headers={"etag": f'"{episode.episode_id}"', "cache-control": "private, no-cache"},
+            )
+        opened = await asyncio.to_thread(open_episode, directory, episode_id)
     except OSError as error:
         raise HTTPException(status_code=503, detail="Podcast storage is temporarily unavailable") from error
     if opened is None:

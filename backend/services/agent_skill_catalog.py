@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Tuple, Union
@@ -23,6 +21,14 @@ from backend.services.agent_capability_contract import validate_versioned_capabi
 from backend.services.agent_catalog_models import (
     AgentRuntimeCapabilities as AgentRuntimeCapabilities,
     ToolRegistration as ToolRegistration,
+)
+from backend.services.agent_catalog_snapshot import (
+    RuntimeCatalogSnapshot,
+    entries_revision,
+    is_runtime_handler as _is_runtime_handler,
+    read_runtime_catalog,
+    skill_entry,
+    tool_revision,
 )
 
 
@@ -47,27 +53,8 @@ ToolProvider = Callable[
 ]
 
 
-def _stable_hash(value: Any) -> str:
-    encoded = json.dumps(
-        value,
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
 def _plugin_origin(plugin_id: str) -> CatalogOrigin:
     return CatalogOrigin(type=OriginType.PLUGIN, id=plugin_id)
-
-
-def _is_runtime_handler(handler: Any) -> bool:
-    return bool(
-        callable(handler)
-        or callable(getattr(handler, "invoke", None))
-        or callable(getattr(handler, "ainvoke", None))
-    )
 
 
 def _normalize_plugin_id(plugin_id: str) -> str:
@@ -312,13 +299,7 @@ class ToolCatalog:
 
     @property
     def revision(self) -> str:
-        snapshot = self.snapshot()
-        return _stable_hash(
-            [
-                registration.descriptor.model_dump(mode="json")
-                for _, registration in sorted(snapshot.items())
-            ]
-        )
+        return tool_revision(self.snapshot())
 
     def reset_for_tests(self) -> None:
         """Clear dynamic state. Intended only for isolated unit tests."""
@@ -410,36 +391,11 @@ class SkillCatalog:
         self, vault_path: Optional[Path] = None, *, profile_skill_ids: Optional[Iterable[str]] = None,
     ) -> Tuple[SkillCatalogEntry, ...]:
         tools = self._tool_catalog.snapshot()
-        entries = []
         descriptors = self.descriptors(vault_path, profile_skill_ids=profile_skill_ids)
-        for _, descriptor in sorted(descriptors.items()):
-            missing = []
-            effects = set()
-            for tool_id in descriptor.tool_ids:
-                registration = tools.get(tool_id)
-                if (
-                    registration is None
-                    or registration.descriptor.status != CatalogStatus.AVAILABLE
-                    or not _is_runtime_handler(registration.handler)
-                ):
-                    missing.append(tool_id)
-                    continue
-                effects.update(registration.descriptor.effects)
-            available = (
-                descriptor.status == CatalogStatus.AVAILABLE and not missing
-            )
-            entries.append(
-                SkillCatalogEntry(
-                    descriptor=descriptor,
-                    available=available,
-                    missing_tool_ids=missing,
-                    effects=sorted(effects, key=lambda effect: effect.value),
-                    editable=descriptor.origin.type == OriginType.USER,
-                    deletable=descriptor.origin.type == OriginType.USER,
-                    revision=_stable_hash(descriptor.model_dump(mode="json")),
-                )
-            )
-        return tuple(entries)
+        return tuple(skill_entry(descriptor, tools) for _, descriptor in sorted(descriptors.items()))
+
+    def runtime_snapshot(self, vault_path: Optional[Path]) -> RuntimeCatalogSnapshot:
+        return RuntimeCatalogSnapshot(self._tool_catalog.snapshot(), self.descriptors(), vault_path)
 
     def get_entry(
         self, skill_id: str, vault_path: Optional[Path] = None
@@ -455,12 +411,7 @@ class SkillCatalog:
 
     def entries_revision(self, entries: Iterable[SkillCatalogEntry]) -> str:
         """Bind the revision to the entries actually used by this reader."""
-        return _stable_hash(
-            {
-                "skills": [entry.model_dump(mode="json") for entry in entries],
-                "tools": self._tool_catalog.revision,
-            }
-        )
+        return entries_revision(entries, self._tool_catalog.revision)
 
     def reset_for_tests(self) -> None:
         """Clear dynamic state. Intended only for isolated unit tests."""
@@ -712,9 +663,8 @@ def resolve_agent_runtime(
             if str(value or "").strip()
         )
     )
-    catalog = get_skill_catalog()
-    entries = catalog.list_entries(vault_path, profile_skill_ids=assigned)
-    entries_by_id = {entry.descriptor.id: entry for entry in entries}
+    catalog = read_runtime_catalog(get_skill_catalog(), vault_path)
+    entries_by_id, revision = catalog.entries_for(assigned)
     from backend.services.agent_behavior_bindings import effective_entries
     resolved_ids, entries_by_id, aliases = effective_entries({**agent_profile, "skill_ids": assigned}, entries_by_id)
     assigned = tuple(resolved_ids)
@@ -754,7 +704,6 @@ def resolve_agent_runtime(
             continue
         active_entries.append(entry)
 
-    tool_snapshot = get_tool_catalog().snapshot()
     tool_descriptors = []
     tools = []
     unavailable = []
@@ -764,7 +713,7 @@ def resolve_agent_runtime(
             if tool_id in seen_tools:
                 continue
             seen_tools.add(tool_id)
-            registration = tool_snapshot.get(tool_id)
+            registration = catalog.tools.get(tool_id)
             if (
                 registration is None
                 or registration.descriptor.status != CatalogStatus.AVAILABLE
@@ -794,5 +743,5 @@ def resolve_agent_runtime(
         skills=found,
         missing_skill_ids=missing_skills,
         unavailable_tool_ids=tuple(dict.fromkeys(unavailable)),
-        catalog_revision=catalog.entries_revision(entries),
+        catalog_revision=revision,
     )

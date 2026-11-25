@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from backend.config.data_dir import resolve_data_dir
+from backend.utils.metadata_io import MetadataUnavailable
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_session
 from backend.services.model_parameters import refresh_parameters
@@ -72,6 +73,8 @@ def execute_task(
         try:
             state = load_plugin_state()
         except Exception as error:
+            if name == "generate_podcast" and isinstance(error, MetadataUnavailable):
+                raise
             return {
                 "success": True,
                 "skipped": True,

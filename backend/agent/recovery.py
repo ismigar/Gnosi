@@ -38,9 +38,10 @@ def is_retryable_error_code(code: object) -> bool:
     return normalized in RETRYABLE_ERROR_CODES
 
 
-def recovery_metadata(code: object) -> RecoveryMetadata:
+def recovery_metadata(code: object, *, retryable: bool | None = None) -> RecoveryMetadata:
     """Return bounded UI metadata without exposing exception internals."""
-    retryable = is_retryable_error_code(code)
+    if retryable is None:
+        retryable = is_retryable_error_code(code)
     return {
         "retryable": retryable,
         "action": "retry_message" if retryable else "edit_request",

@@ -319,9 +319,7 @@ def build_cache_entry_from_memory(
         md["date"] = md["data"]
 
     file_id = str(md.get("id") or file_path.stem)
-    rel_folder = str(file_path.parent.relative_to(dependencies.vault_root())).replace("\\", "/")
-    if rel_folder == ".":
-        rel_folder = ""
+    rel_folder = _relative_folder(file_path, dependencies.vault_root())
 
     title = _resolved_entry_title(md, file_path)
 

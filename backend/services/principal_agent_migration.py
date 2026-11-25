@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from backend.utils.metadata_io import read_vault_text
 from backend.services.agent_operation_catalog import OPERATIONS, skill_id
 from backend.utils.safe_io import file_etag, safe_write_text
 
@@ -91,7 +92,7 @@ def ensure_migrated() -> dict[str, Any]:
             original_etag = file_etag(path)
             backup = path.with_name(path.name + ".before-principal-v1")
             if not backup.exists():
-                safe_write_text(backup, path.read_text() if path.exists() else yaml.safe_dump(cfg.params))
+                safe_write_text(backup, read_vault_text(path) if path.exists() else yaml.safe_dump(cfg.params))
             legacy_text = str(migrated["ai"].get("knowledge_legacy_instructions") or "")
             if legacy_text:
                 from backend.services.context_vars import get_active_vault_path

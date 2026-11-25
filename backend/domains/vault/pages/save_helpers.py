@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 Metadata = PageMetadata
 PageIdPaths = dict[str, dict[object, str]]
@@ -187,9 +188,11 @@ def read_save_page(
         return {}, ""
     try:
         return dependencies.parse_frontmatter(
-            file_path.read_text(encoding="utf-8"),
-            file_path,
+            read_vault_text(file_path, root=dependencies.active_vault_path()), file_path
         )
+    except MetadataUnavailable:
+        # The previous revision must be readable before it can be saved over.
+        raise
     except Exception:
         return {}, ""
 

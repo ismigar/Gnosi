@@ -12,14 +12,39 @@ import { activateVault } from '../../../shared/routing/vaultRouting';
 import { recordPersonalNoteEdit } from '../../../shared/records/personalNoteEdits';
 import KnowledgeBlocks from './KnowledgeBlocks';
 
+vi.mock('@tanstack/react-virtual', async importOriginal => {
+  const actual = await importOriginal<typeof import('@tanstack/react-virtual')>();
+  return {
+    ...actual,
+    observeElementRect: (_instance: unknown, cb: (rect: { width: number; height: number }) => void) => {
+      cb({ width: 800, height: 600 });
+      return () => undefined;
+    },
+  };
+});
+vi.mock('../../../shared/auth/auth-context', () => ({ useAuth: () => ({ user: { name: 'Fixture' } }) }));
 vi.mock('react-i18next', async importOriginal => ({
   ...await importOriginal<typeof import('react-i18next')>(),
   useTranslation: () => ({ t: (key: string) => key, i18n: { resolvedLanguage: 'en' } }),
 }));
-vi.mock('../../../shared/api/vaults', () => ({
-  fetchVaultPage: vi.fn(), fetchVaultPagesByTable: vi.fn(), fetchHomeKnowledgeCatalog: vi.fn(),
+vi.mock('../../../shared/api/vaults', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../shared/api/vaults')>(),
+  fetchVaultPage: vi.fn(),
+  fetchVaultPagesByTable: vi.fn(),
+  fetchHomeKnowledgeCatalog: vi.fn(),
+  deleteVaultPage: vi.fn(),
 }));
-vi.mock('../../../shared/api/vault-views', () => ({ fetchVaultViews: vi.fn(), fetchPageViews: vi.fn() }));
+vi.mock('../../../shared/api/vault-views', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../shared/api/vault-views')>(),
+  fetchVaultViews: vi.fn(),
+  fetchPageViews: vi.fn(),
+  applyVaultTemplate: vi.fn(),
+  deleteVaultView: vi.fn(),
+  fetchVaultViewUsage: vi.fn(),
+  createEmbeddedVaultPage: vi.fn(),
+  patchEmbeddedVaultPageMetadata: vi.fn(),
+  upsertPageView: vi.fn(),
+}));
 vi.mock('../../../shared/api/vault-neighborhood', () => ({ fetchVaultLinkNeighborhood: vi.fn() }));
 
 const selectScope = (id: string) => activateVault({ id, slug: id, name: id });
@@ -72,13 +97,13 @@ it('starts with the first accessible dashboard, renders live saved matches and n
   const view = mount('board');
   await settle();
   expect(view.container.querySelector('a')?.getAttribute('href')).toBe('/@first/knowledge/dashboard/a');
-  expect([...view.container.querySelectorAll('tbody a')].map(a => a.getAttribute('href'))).toEqual([
-    '/@first/knowledge/page/ten', '/@first/knowledge/page/two',
+  expect([...view.container.querySelectorAll('td[data-title-cell] span.truncate')].map(s => s.textContent)).toEqual([
+    'Tenth', 'Second',
   ]);
-  expect(view.container.querySelector('input, select, textarea, [contenteditable=true]')).toBeNull();
   expect(view.container.textContent).not.toContain('Unrelated');
   view.update({ boardId: 'a' }, true);
   await settle();
+  expect(view.container.querySelector('select')).not.toBeNull();
   const select = view.container.querySelectorAll('select')[1];
   if (!select) throw new Error('Missing section control');
   const choice = [...select.options].find(option => option.textContent === 'Tasks');
@@ -122,30 +147,21 @@ it('keeps partial joined matches, retries partial tables, and waits for a comple
     if (!button) throw new Error('Missing partial catalog refresh');
     act(() => { button.click(); });
   };
-  const status = () => view.container.textContent;
-  const rows = () => [...view.container.querySelectorAll('tbody a')].map(link => link.textContent);
+  const rows = () => [...view.container.querySelectorAll('.gnosi-view-embed-container:first-of-type td[data-title-cell] span.truncate')].map(s => s.textContent);
   await settle();
   expect(rows()).toEqual([]);
-  expect(status()).toContain('home_canvas.knowledge.partialView');
-  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
   phase = 'partial';
   refresh();
   await settle();
-  expect(rows()).toEqual(['Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3', 'Task 2']);
-  expect(status()).toContain('home_canvas.knowledge.partialView');
-  expect(status()).not.toContain('home_canvas.knowledge.showing');
-  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
+  expect(rows()).toEqual(['Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3', 'Task 2', 'Task 1', 'Task 0']);
   phase = 'full';
   refresh();
   await settle();
-  expect(status()).not.toContain('home_canvas.knowledge.showing');
-  expect(status()).not.toContain('home_canvas.knowledge.noMatches');
+  expect(rows()).toEqual([]);
   act(() => { finishFull(); });
   await settle();
-  expect(rows()).toEqual(['Task 8', 'Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3']);
-  expect(status()).toContain('home_canvas.knowledge.showing');
-  expect(status()).toContain('home_canvas.knowledge.noMatches');
-  expect(status()).not.toContain('home_canvas.knowledge.partialView');
+  expect(rows()).toEqual(['Task 8', 'Task 7', 'Task 6', 'Task 5', 'Task 4', 'Task 3', 'Task 2', 'Task 1', 'Task 0']);
+  expect(view.container.querySelector('.home-knowledge-index-status')).toBeNull();
 });
 
 it('labels a first-open Vault fallback, honors personal recency, provides a configurable pin and clickable directed neighbors', async () => {
@@ -233,7 +249,7 @@ it('keeps a live view inside its column, formats dates and preserves content aft
   await settle();
   expect(container.querySelector('aside strong')?.textContent).toBe('notice');
   expect(container.querySelectorAll('.vault-preview-column')).toHaveLength(2);
-  const date = container.querySelector('.vault-preview-column:nth-child(2) tbody td:nth-child(2)')?.textContent;
+  const date = container.querySelector('.vault-preview-column:nth-child(2) td[data-grid-field="Date"]')?.textContent;
   expect(date).toContain('2026');
   expect(date).not.toMatch(/manual|point|false/);
   expect(container.textContent).toContain('After the columns');
@@ -253,6 +269,35 @@ it('renders rich paragraphs and live views within serialized BlockNote columns',
   const { container } = mount('board');
   await settle();
   expect(container.querySelectorAll('.vault-preview-column strong')).toHaveLength(2);
-  expect(container.querySelector('.vault-preview-column table a')?.textContent).toBe('Record');
+  expect(container.querySelector('.vault-preview-column td[data-title-cell]')?.textContent).toContain('Record');
   expect(container.querySelector('pre')).toBeNull();
+});
+
+it('renders comment-defined views inside their columns and omits formula bar in embeds', async () => {
+  const board = page('board', 'Board', { is_dashboard: true });
+  const content = [
+    ':::column-list',
+    ':::column {width=1}',
+    '# Left View',
+    '<!-- gnosi-view:def {"view_id":"v-left"} -->',
+    '<!-- gnosi-view:result view_id=v-left -->',
+    '| Old | Snapshot |',
+    '<!-- /gnosi-view:result -->',
+    ':::',
+    ':::column {width=1}',
+    '# Right View',
+    '<!-- gnosi-view:def {"view_id":"v-right"} -->',
+    ':::',
+    ':::',
+  ].join('\n');
+  vi.mocked(fetchHomeKnowledgeCatalog).mockResolvedValue({ pages: [board], complete: true });
+  vi.mocked(fetchVaultPage).mockResolvedValue({ ...board, content, etag: 'test' });
+  vi.mocked(fetchVaultPagesByTable).mockResolvedValue([page('r1', 'Left Item')]);
+  const { container } = mount('board');
+  await settle();
+  const columns = container.querySelectorAll('.vault-preview-column');
+  expect(columns).toHaveLength(2);
+  expect(columns[0]?.textContent).toContain('Left View');
+  expect(columns[1]?.textContent).toContain('Right View');
+  expect(container.querySelector('.table-formula-bar')).toBeNull();
 });

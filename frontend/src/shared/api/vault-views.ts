@@ -1,7 +1,7 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { requestContextHeaders, type RequestContext } from './request-context';
-import { unwrapApiResult, type ApiResult } from './errors';
+import { GnosiApiError, unwrapApiResult, type ApiResult } from './errors';
 
 
 export type JsonRecord = components['schemas']['RegistryRecord'];
@@ -79,30 +79,54 @@ export async function patchEmbeddedVaultPageMetadata(
 }
 
 
+function isRetryableMetadataError(error: unknown): boolean {
+  return error instanceof GnosiApiError && (
+    error.status === 503 || error.message.includes('MetadataUnavailable')
+  );
+}
+
+async function waitRetry(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return;
+  await new Promise<void>(resolve => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
 export async function fetchPageViews(
   pageId: string,
   signal?: AbortSignal,
   context?: RequestContext,
 ): Promise<PageViewsResponse> {
-  const payload = unwrapJsonRecord(
-    await apiClient.GET('/api/pages/{page_id}/views', {
-      params: { path: { page_id: pageId } },
-      signal,
-      headers: requestContextHeaders(context),
-    }),
-    'page views',
-  );
-  if (typeof payload.page_id !== 'string') {
-    throw new TypeError('The page views API returned an invalid page ID');
+  let lastError: unknown;
+  for (const delay of [0, 120, 250]) {
+    if (delay > 0) await waitRetry(delay, signal);
+    try {
+      const payload = unwrapJsonRecord(
+        await apiClient.GET('/api/pages/{page_id}/views', {
+          params: { path: { page_id: pageId } },
+          signal,
+          headers: requestContextHeaders(context),
+        }),
+        'page views',
+      );
+      if (typeof payload.page_id !== 'string') {
+        throw new TypeError('The page views API returned an invalid page ID');
+      }
+      if (!Array.isArray(payload.sections) || !payload.sections.every(isJsonRecord)) {
+        throw new TypeError('The page views API returned invalid sections');
+      }
+      return {
+        ...payload,
+        page_id: payload.page_id,
+        sections: payload.sections,
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableMetadataError(error) || signal?.aborted) throw error;
+    }
   }
-  if (!Array.isArray(payload.sections) || !payload.sections.every(isJsonRecord)) {
-    throw new TypeError('The page views API returned invalid sections');
-  }
-  return {
-    ...payload,
-    page_id: payload.page_id,
-    sections: payload.sections,
-  };
+  throw lastError;
 }
 
 

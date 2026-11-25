@@ -77,6 +77,7 @@ class LearnedSkill(LearningModel):
 
 class LearnRequest(LearningModel):
     agent_id: str = Field(min_length=1, max_length=128)
+    profile_id: str | None = Field(default=None, min_length=1, max_length=128)
     session_id: str = Field(min_length=1, max_length=128)
     language: Literal["ca", "en", "es", "fr"] = "en"
     goal: str = Field(default="", max_length=2_000)

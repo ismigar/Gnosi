@@ -1,6 +1,7 @@
 import {Play, Clock, Loader2} from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type {DashboardState} from './useDashboard';
+import {ScheduledFileStatus} from '../../../shared/ui/loading/ScheduledFileStatus';
 
 export function SchedulerPanel({state}: {state: DashboardState}) {
 const {isAdmin, schedulerError, fetchSchedulers, schedulers, schedulerLoading, executingTasks, updateScheduler, runSchedulerNow, t, automationsEnabled, selectedControlTab, formatFrequency, getTaskTitle, getTaskDescription} = state;
@@ -42,6 +43,7 @@ return <>{automationsEnabled && selectedControlTab === 'schedulers' && (
                                                     {t('dashboard.last_run')}: {new Date(task.last_run).toLocaleString()}
                                                 </p>
                                             )}
+                                            <ScheduledFileStatus task={task} className="mt-2 text-xs text-[var(--text-secondary)]" />
                                         </div>
 
                                         <div className="mt-4 pt-3 border-t border-[var(--border-primary)] flex flex-wrap items-center justify-between gap-3">

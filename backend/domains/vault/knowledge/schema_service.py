@@ -21,6 +21,7 @@ from backend.utils.open_values import (
     set_value,
     unpack_pair,
 )
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 
 if TYPE_CHECKING:
     from backend.api import vault_routes as _legacy
@@ -303,7 +304,8 @@ def _migrate_brain_source_metadata(
         if not path or not path.exists():
             continue
         try:
-            metadata, body = _legacy.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            raw = read_vault_text(path, root=_legacy.get_active_vault_path())
+            metadata, body = _legacy.parse_frontmatter(raw, path)
             present = [name for name in legacy_names if name in metadata]
             if not present:
                 continue
@@ -315,6 +317,8 @@ def _migrate_brain_source_metadata(
             _legacy.save_page_md(path, metadata, body)
             _legacy.register_page_in_index(path)
             migrated += 1
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             _legacy.log.warning("Could not migrate a Brain source relation in %s: %s", path, error)
     return migrated

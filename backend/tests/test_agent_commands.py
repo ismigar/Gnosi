@@ -59,7 +59,7 @@ def test_route_selects_executor_and_preserves_conversation(monkeypatch, tmp_path
 
     monkeypatch.setattr(principal_agent_migration, 'ensure_migrated', lambda: {'agents': [{'id': 'translator', 'command': '/traductor'}]})
     monkeypatch.setattr(route, '_vault_scope', lambda: (tmp_path, 'scope'))
-    monkeypatch.setattr(learning_context, 'prepare_learning_context', lambda *args: ('', [], '', None))
+    monkeypatch.setattr(learning_context, 'prepare_learning_context', lambda *args, **kwargs: ('', [], '', None))
     workflow = AsyncMock(side_effect=HTTPException(418, 'stop before execution'))
     monkeypatch.setattr(route, 'get_agent_workflow', workflow)
     req = route.ChatRequest(agent_id='conversation', profile_id='other', message='/traductor Translate this', active_skill_ids=['source-skill'])

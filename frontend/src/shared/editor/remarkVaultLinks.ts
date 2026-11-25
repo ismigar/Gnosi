@@ -67,7 +67,8 @@ export function remarkVaultLinks(this: MarkdownProcessor) {
                     const target = (match[2] ?? '').trim();
                     if (!target) continue;
                     if (match.index > cursor) parts.push({ type: 'text', value: child.value.slice(cursor, match.index) });
-                    const alias = (match[3] ?? '').trim();
+                    const rawAlias = (match[3] ?? '').trim();
+                    const alias = rawAlias.replace(/^\|+/, '').trim();
                     const sentinel = match[1] ? TRANSCLUSION_HREF_SENTINEL : WIKILINK_HREF_SENTINEL;
                     const url = sentinel + encodeURIComponent(target);
                     parts.push(match[1]

@@ -65,12 +65,17 @@ class _StreamEnvelope:
     stream_id: str
     trace_id: str
     turn_id: str
+    assistant_profile: dict[str, str] | None = None
     sequence: int = 0
     terminal_seen: bool = False
 
     def wrap(self, payload: dict[str, Any]) -> str:
         self.sequence += 1
         self.terminal_seen = self.terminal_seen or payload.get("type") == "done"
+        if self.assistant_profile and payload.get("type") in {
+            "stream_open", "llm_selected", "message", "clarification", "confirmation_required", "error",
+        }:
+            payload = {**payload, "assistant_profile": self.assistant_profile}
         return encode_event(
             payload,
             stream_id=self.stream_id,
@@ -145,6 +150,7 @@ async def _protocolize_journaled_stream(
     turn_id: str,
     heartbeat_seconds: float,
     journal_scope: Mapping[str, Any],
+    assistant_profile: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     from backend.services.agent_stream_journal import scope_digest
 
@@ -160,6 +166,7 @@ async def _protocolize_journaled_stream(
                 trace_id=trace_id,
                 turn_id=turn_id,
                 heartbeat_seconds=heartbeat_seconds,
+                assistant_profile=assistant_profile,
             ):
                 persisted = await _journal_event(
                     encoded,
@@ -213,8 +220,9 @@ async def _protocolize_live_stream(
     trace_id: str,
     turn_id: str,
     heartbeat_seconds: float,
+    assistant_profile: dict[str, str] | None = None,
 ) -> AsyncGenerator[str, None]:
-    envelope = _StreamEnvelope(stream_id, trace_id, turn_id)
+    envelope = _StreamEnvelope(stream_id, trace_id, turn_id, assistant_profile)
     source_iterator = source.__aiter__()
     queue: asyncio.Queue[tuple[str | None, BaseException | None]] = asyncio.Queue(maxsize=1)
 
@@ -288,6 +296,7 @@ async def protocolize_stream(
     turn_id: str = "",
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
     journal_scope: Mapping[str, Any] | None = None,
+    assistant_profile: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     """Wrap a legacy NDJSON stream and emit heartbeats while it is quiet.
 
@@ -303,6 +312,7 @@ async def protocolize_stream(
             turn_id=turn_id,
             heartbeat_seconds=heartbeat_seconds,
             journal_scope=journal_scope,
+            assistant_profile=assistant_profile,
         ):
             yield encoded
         return
@@ -312,6 +322,7 @@ async def protocolize_stream(
         trace_id=trace_id,
         turn_id=turn_id,
         heartbeat_seconds=heartbeat_seconds,
+        assistant_profile=assistant_profile,
     )
     async with contextlib.aclosing(live_stream):
         async for encoded in live_stream:

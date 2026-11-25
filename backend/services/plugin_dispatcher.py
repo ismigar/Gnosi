@@ -18,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Dict, cast
 
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.plugins.sandbox import HostHandler
 from backend.domains.vault.registry.state import RegistryData
 
@@ -55,7 +56,7 @@ def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"page not found: {page_id}")
-    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    metadata, body = parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
     return {
         "pageId": page_id,
         "title": (metadata or {}).get("title") or "",
@@ -81,7 +82,7 @@ def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"page not found: {page_id}")
-    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    metadata, body = parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
     metadata = metadata or {}
 
     new_content = args.get("content")

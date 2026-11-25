@@ -47,11 +47,16 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 async def metadata_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    _, detail = metadata_unavailable_detail(request.headers.get("Accept-Language", "en"))
+    reason = exc.reason if isinstance(exc, MetadataUnavailable) else "pending"
+    retryable = exc.retryable if isinstance(exc, MetadataUnavailable) else True
+    _, detail = metadata_unavailable_detail(request.headers.get("Accept-Language", "en"), reason)
+    headers = {"Cache-Control": "no-store", "X-Gnosi-File-Availability": reason}
+    if retryable:
+        headers["Retry-After"] = "2" if reason == "pending" else "30"
     return JSONResponse(
-        status_code=503,
-        headers={"Retry-After": "30"},
-        content={"detail": detail, "code": "metadata_unavailable"},
+        status_code={"no_space": 507, "permission": 403}.get(reason, 503),
+        headers=headers,
+        content={"detail": detail, "code": "metadata_unavailable", "reason": reason, "retryable": retryable},
     )
 
 

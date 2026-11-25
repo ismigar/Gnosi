@@ -1,0 +1,32 @@
+.chat-composer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "panel panel panel"
+    "entry entry entry"
+    "tools learning sessions";
+  align-items: center;
+  column-gap: 3px;
+  padding: 8px 10px 5px;
+  border-top: 1px solid var(--settings-border);
+  background: var(--bg-primary);
+}
+
+.chat-composer__entry { position: relative; grid-area: entry; min-width: 0; }
+.chat-composer__entry textarea:placeholder-shown { white-space: nowrap; text-overflow: ellipsis; }
+.chat-composer__entry textarea::placeholder { color: var(--text-secondary); opacity: 1; }
+.chat-composer__learning { grid-area: learning; justify-self: start; }
+.chat-composer__sessions { grid-area: sessions; display: flex; gap: 2px; }
+
+.chat-composer .gnosi-icon-button {
+  height: 26px;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.chat-composer__learning.gnosi-icon-button,
+.chat-composer__sessions .gnosi-icon-button { width: 26px; }
+
+.chat-composer .gnosi-icon-button:hover:not(:disabled),
+.chat-composer .gnosi-icon-button[aria-expanded="true"] { background: var(--bg-tertiary); color: var(--text-primary); }
+.chat-composer .gnosi-icon-button:disabled { opacity: .5; cursor: default; }

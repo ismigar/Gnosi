@@ -21,6 +21,9 @@ source_paths:
   - backend/config/paths_config.py
   - backend/platform/files/__init__.py
   - backend/platform/files/local.py
+  - backend/platform/files/coordinated.py
+  - backend/platform/files/skill_worker.py
+  - desktop/native/file-access.m
   - backend/platform/files/on_demand.py
   - backend/platform/files/onedrive.py
   - scripts/migrate-data-dir.py
@@ -797,6 +800,13 @@ Comenceu per l’adaptador seleccionat a `backend/platform/files`.
 no, la detecció utilitza `VAULT_HOST_PATH`. `LocalProvider` no fa cap
 hidratació. El nom d’un proveïdor o una interfície compartida no acrediten el
 comportament de tots els clients de núvol en tots els sistemes operatius.
+
+Gnosi fa servir fins a dos processos `gnosi-file-access` per llegir els fitxers
+`skill.yaml` i `SKILL.md` de les habilitats personals de l’agent en volums
+de File Provider de macOS. Cada lectura obté una autorització nova del
+proveïdor. Per mesurar la latència del xat, cronometreu el temps des de
+l’enviament del missatge fins a `model.request`, després de `model.request`
+a `model.response`, i anoteu quan apareix la resposta a la finestra.
 
 En emmagatzematge File Provider de macOS, `EDEADLK` o `EAGAIN` poden indicar
 fitxers no disponibles que només són al núvol. Aquests errors, per si sols, no

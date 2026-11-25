@@ -25,6 +25,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
+from backend.utils.metadata_io import read_vault_bytes
 from backend.services.context_vars import get_active_vault_path
 
 log = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ def extract_vault_inline_images(body: str) -> tuple[str, list[InlineImage]]:
                 log.warning("Inline image not found in the vault; preserving URL: %r", url)
             else:
                 content_type = mimetypes.guess_type(asset.name)[0] or ""
-                data = asset.read_bytes()
+                data = read_vault_bytes(asset, root=assets_root)
                 if not content_type.startswith("image/"):
                     log.warning(
                         "Asset source is not an image (%s); preserving URL: %r", content_type, url

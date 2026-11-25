@@ -17,6 +17,8 @@ from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
 from backend.domains.vault.tables.catalogs.types import Option
 from backend.utils.open_values import iterable_values
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, is_native_vault_file, read_vault_text_async
 
 
 class PageFinder(Protocol):
@@ -178,10 +180,13 @@ async def rewrite_option_in_rows(
         file_path = await asyncio.to_thread(dependencies.find_page, row.id)
         if not file_path or not file_path.exists():
             continue
-        await dependencies.materialize(file_path, f"option-rewrite/{row.id}")
+        if not is_native_vault_file(file_path):
+            await dependencies.materialize(file_path, f"option-rewrite/{row.id}")
         try:
-            raw = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+            raw = await read_vault_text_async(file_path, root=active_vault_path.get())
             metadata, body = dependencies.parse_frontmatter(raw, file_path)
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             dependencies.logger.warning("option-rewrite: could not read %s: %s", row.id, error)
             continue

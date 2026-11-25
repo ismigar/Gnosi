@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Mapping
 from uuid import NAMESPACE_URL, uuid5
 
+from backend.utils.metadata_io import read_vault_text
 from backend.domains.llm_wiki.source_structure import section_id
 from backend.domains.vault.pages.foundation_values import PageMetadata
 
@@ -75,7 +76,7 @@ def persist_sections(notes: list[dict[str, object]], prop: Mapping[object, objec
         path = dependencies.page_path(page) if page is not None else None
         body = ""
         if path is not None and path.exists():
-            current, body = dependencies.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            current, body = dependencies.parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
             metadata = {**current, **metadata}
         else:
             path = folder / f"{identifier}.md"
@@ -91,7 +92,7 @@ def persist_sections(notes: list[dict[str, object]], prop: Mapping[object, objec
         path = dependencies.page_path(page)
         if path is None or not path.exists():
             continue
-        _current, body = dependencies.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+        _current, body = dependencies.parse_frontmatter(read_vault_text(path, encoding="utf-8"), path)
         metadata["llm_wiki_section_stale"] = True
         portable = dependencies.prepare_managed_markdown(metadata)
         dependencies.save_page_md(path, portable, body)

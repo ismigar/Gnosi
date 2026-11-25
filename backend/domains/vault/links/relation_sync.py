@@ -12,6 +12,7 @@ from pathlib import Path
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.index_entries import PageCacheEntry
 from backend.services.relation_sync import RelationChange as RelationChange
+from backend.utils.metadata_io import read_vault_text
 
 
 Metadata = PageMetadata
@@ -98,7 +99,7 @@ def apply_inverse_change(
     if not file_path or not file_path.exists():
         return False
     metadata, body = dependencies.parse_frontmatter(
-        file_path.read_text(encoding="utf-8"),
+        read_vault_text(file_path, root=dependencies.active_vault_path()),
         file_path,
     )
     key = inverse_frontmatter_key(metadata, inverse_name, dependencies)

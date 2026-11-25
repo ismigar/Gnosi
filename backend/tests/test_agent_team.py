@@ -86,6 +86,7 @@ def team_runtime(monkeypatch, tmp_path):
     from backend.services import agent_team_usage
     monkeypatch.setattr(agent_team_usage, "resolve_data_dir", lambda **_: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda _: None)
+    monkeypatch.setattr(execution, "revalidate_scope_async", lambda scope: asyncio.to_thread(execution.revalidate_scope, scope))
     monkeypatch.setattr(model_router, "budget_status", lambda: {"over_cap": False})
     monkeypatch.setattr(model_router, "load_registry", lambda: [{"provider": "local", "model_id": "cheap", "enabled": True,
         "context_window": 32000, "cost_in": 1, "cost_out": 1, "tags": ["tools"]}])
@@ -141,6 +142,11 @@ def test_team_artifacts_are_private(team_runtime):
     scope, snapshot, _, _ = team_runtime
     store.create(AgentRun(run_id="root", agent_id="director", skill_id="", operation="team", origin="chat", status="running", created_at=0, updated_at=0), scope, {}, snapshot.model_dump())
     artifacts.put(scope, "root", "private", "temporary", {"private": True})
+    assert artifacts.list_artifacts(scope, "temporary", "root") == [{"private": True}]
+    assert artifacts.list_artifacts(scope, "temporary", "unknown") == []
+    for field in ("user_id", "workspace_id", "vault_path"):
+        foreign_scope = scope.model_copy(update={field: "other"})
+        assert artifacts.list_artifacts(foreign_scope, "temporary", "root") == []
     other = scope.model_copy(update={"user_id": "bob"})
     assert artifacts.list_artifacts(other, "temporary") == []
     with pytest.raises(LookupError):

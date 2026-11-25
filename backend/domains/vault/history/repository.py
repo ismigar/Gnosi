@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
+import stat
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from backend.utils.metadata_io import read_vault_text, vault_file_snapshot
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +24,16 @@ class HistoryRepository:
 
     def page_root(self, page_id: str) -> Path:
         return self.vault_root / ".history" / page_id
+
+    def _copy_source(self, source: Path, destination: Path) -> None:
+        with vault_file_snapshot(source, root=self.vault_root) as snapshot:
+            if not snapshot.is_private:
+                shutil.copy2(snapshot.path, destination)
+            else:
+                shutil.copyfile(snapshot.path, destination)
+                info = snapshot.stat_result
+                os.chmod(destination, stat.S_IMODE(info.st_mode))
+                os.utime(destination, ns=(info.st_atime_ns, info.st_mtime_ns))
 
     def create_file_version(
         self,
@@ -48,7 +61,7 @@ class HistoryRepository:
             timestamp += timedelta(seconds=1)
             version_path = history_root / f"{timestamp.strftime('%Y%m%d_%H%M%S')}.md"
         try:
-            shutil.copy2(file_path, version_path)
+            self._copy_source(file_path, version_path)
             log.info("Page version created: %s", version_path)
         except OSError as exc:
             log.warning("Could not create version for %s: %s", page_id, exc)
@@ -110,7 +123,7 @@ class HistoryRepository:
 
     def read_version(self, page_id: str, timestamp: str) -> str:
         """Read one snapshot as UTF-8 Markdown."""
-        return self.version_path(page_id, timestamp).read_text(encoding="utf-8")
+        return read_vault_text(self.version_path(page_id, timestamp), root=self.vault_root)
 
     def restore_version(
         self,
@@ -119,7 +132,7 @@ class HistoryRepository:
         current_path: Path,
     ) -> None:
         """Replace a current page with one immutable snapshot."""
-        shutil.copy2(self.version_path(page_id, timestamp), current_path)
+        self._copy_source(self.version_path(page_id, timestamp), current_path)
 
     def purge(self, page_id: str) -> bool:
         """Delete all snapshots and report whether a history root existed."""

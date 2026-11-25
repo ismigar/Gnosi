@@ -12,7 +12,6 @@ import { logChatError } from './chatDiagnostics';
 interface Options {
   readonly messages: readonly StoredChatMessage[];
   readonly setMessages: Dispatch<SetStateAction<readonly StoredChatMessage[]>>;
-  readonly agentName?: string;
   readonly selectedAgentId: string;
   readonly sessionId: string;
   readonly isLoading: boolean;
@@ -21,7 +20,7 @@ interface Options {
   readonly setShowMentionMenu: (value: boolean) => void;
 }
 
-export function useChatMessageActions({ messages, setMessages, agentName, selectedAgentId, sessionId, isLoading, inputRef, setInputValue, setShowMentionMenu }: Options) {
+export function useChatMessageActions({ messages, setMessages, selectedAgentId, sessionId, isLoading, inputRef, setInputValue, setShowMentionMenu }: Options) {
   const { t, i18n } = useTranslation();
   const focusComposerWith = useCallback((value: string) => {
     setInputValue(value); setShowMentionMenu(false);
@@ -31,10 +30,9 @@ export function useChatMessageActions({ messages, setMessages, agentName, select
     try { await writeClipboardText(content || ''); toast.success(t('chat.message_copied', 'Message copied')); }
     catch (error) { logChatError('agent-chat-copy', error); toast.error(t('chat.copy_failed', 'Could not copy the message')); }
   }, [t]);
-  const quoteMessage = useCallback((message: StoredChatMessage | null | undefined) => {
-    const prefix = message?.role === 'user' ? t('chat.you', 'You') : agentName || 'Gnosi Copilot';
-    focusComposerWith(`> ${prefix}: ${(message?.content || '').replace(/\n/g, '\n> ')}\n\n`);
-  }, [agentName, focusComposerWith, t]);
+  const quoteMessage = useCallback((content: string, author: string) => {
+    focusComposerWith(`> ${author}: ${content.replace(/\n/g, '\n> ')}\n\n`);
+  }, [focusComposerWith]);
   const markMessage = useCallback(<Key extends keyof MessageActionValues>(index: number, field: Key, value: MessageActionValues[Key]) => {
     setMessages((previous) => previous.map((message, messageIndex) => messageIndex === index ? { ...message, [field]: value } : message));
   }, [setMessages]);

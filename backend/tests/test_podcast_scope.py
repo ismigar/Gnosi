@@ -1,5 +1,6 @@
 """Private podcast status and selected-vault worker boundaries."""
 from datetime import datetime
+import asyncio
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -18,13 +19,13 @@ def test_preview_reads_do_not_create_output_and_report_the_streamed_episode(monk
     assert podcast_routes.get_podcast_info() == {"exists": False}
     assert not directory.parent.exists()
     directory.mkdir(parents=True)
-    (directory / "daily_2026_11_22.mp3").write_bytes(b"previous")
-    latest = directory / "daily_2026_11_23.mp3"
+    (directory / "daily_podcast_2026_11_22.mp3").write_bytes(b"previous")
+    latest = directory / "daily_podcast_2026_11_23.mp3"
     latest.write_bytes(b"latest")
     info = podcast_routes.get_podcast_info()
     assert info["filename"] == latest.name
     assert datetime.fromisoformat(info["created_at"]).tzinfo is not None
-    assert podcast_routes.get_latest_podcast().path == latest
+    assert Path(asyncio.run(podcast_routes.get_latest_podcast()).path) == latest
 
 
 @pytest.fixture

@@ -1,18 +1,64 @@
 """Report coordinated usage once, without counting job rollups a second time."""
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import time
 import sqlite3
 from decimal import Decimal
 from typing import Any
 
 from backend.config.data_dir import resolve_data_dir
+from backend.services.agent_chat_timing import current_chat_timing
 from backend.services import agent_execution_store as store
 from backend.services.agent_execution_models import AgentRun, ExecutionScope
 
 
+# Leave time for a follow-up request to acquire the five-second session lock.
+CHAT_USAGE_TIMEOUT_SECONDS = 3
+
+
+async def attach_team_usage(pending: Any, scope: ExecutionScope, run_id: str, started: float | None) -> list[Any]:
+    messages = [message.model_copy(deep=True) for message in pending]
+    try:
+        accounting = asyncio.to_thread(record_team_usage, scope, run_id)
+        timeout = CHAT_USAGE_TIMEOUT_SECONDS if started else None
+        usage = await asyncio.wait_for(accounting, timeout=timeout)
+    except Exception as error:
+        # Domain authorization denials carry no OS errno. Device access errors
+        # make usage unavailable without revoking an already-approved reply.
+        if isinstance(error, PermissionError) and error.errno is None:
+            raise
+        logging.getLogger(__name__).exception("Could not record usage for the completed team reply")
+        usage = {"usage_complete": False, "cost_source": "unknown", "estimated_cost_usd": None}
+    for message in messages:
+        message.additional_kwargs["gnosi_team_usage"] = usage
+        if started:
+            timings = message.additional_kwargs["gnosi_timings"]
+            total_ms = max(0, int((time.monotonic() - started) * 1000))
+            timings.update(total_ms=total_ms, team_usage=usage)
+            if (clock := current_chat_timing.get()) is not None and clock.trace_id == run_id:
+                timings.update(clock.phases(timings["response_ms"], total_ms))
+            for key in ("model_calls", "tool_calls", "input_tokens", "output_tokens", "estimated_cost_usd"):
+                if key in usage:
+                    timings[key] = usage[key]
+    return messages
+
+
+def record_team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
+    from backend.services import agent_team_store
+    from backend.services.agent_execution_trace import record
+    usage = team_usage(scope, run_id)
+    agent_team_store.put(scope, run_id, "usage", "usage", usage)
+    record("team.usage", usage)
+    return usage
+
+
 def _calls(scope: ExecutionScope, identifiers: set[str]) -> dict[str, list[dict[str, Any]]]:
     """Read the existing provider ledger, including retries and reported billing."""
+    if not identifiers:
+        return {}
     path = resolve_data_dir(create=False) / "llm_usage.sqlite"
     if not path.exists():
         return {}
@@ -49,25 +95,20 @@ def _totals(runs: list[AgentRun], calls: dict[str, list[dict[str, Any]]]) -> dic
 
 def team_usage(scope: ExecutionScope, run_id: str) -> dict[str, Any]:
     store.read(scope, run_id)  # Validate the root before inspecting its descendants.
-    tree = """WITH RECURSIVE descendants(id) AS (
-        SELECT run_id FROM agent_runs WHERE run_id=?
-        UNION SELECT r.run_id FROM agent_runs r JOIN descendants d
-        ON json_extract(r.payload,'$.parent_run_id')=d.id)
-    """
     with store.connect() as db:
-        rows = db.execute(tree + """SELECT r.payload FROM agent_runs r JOIN descendants d ON r.run_id=d.id
+        rows = db.execute(store.RUN_TREE_CTE + """SELECT r.payload FROM descendants d CROSS JOIN agent_runs r ON r.run_id=d.id
             WHERE r.user_id=? AND r.workspace_id=? AND r.vault_path=?
             AND COALESCE(json_extract(r.request,'$.mode'),'')!='job'""",
             (run_id, scope.user_id, scope.workspace_id, scope.vault_path)).fetchall()
-        tool_calls = db.execute(tree + """SELECT COUNT(*) FROM agent_trace_events e
-            JOIN descendants d ON e.run_id=d.id JOIN agent_runs r ON e.run_id=r.run_id
+        tool_calls = db.execute(store.RUN_TREE_CTE + """SELECT COUNT(*) FROM descendants d
+            CROSS JOIN agent_runs r ON r.run_id=d.id CROSS JOIN agent_trace_events e ON e.run_id=d.id
             WHERE e.kind='tool.request' AND r.user_id=? AND r.workspace_id=? AND r.vault_path=?""",
             (run_id, scope.user_id, scope.workspace_id, scope.vault_path)).fetchone()[0]
     runs = [AgentRun.model_validate_json(row[0]) for row in rows]
-    calls = _calls(scope, {run.run_id for run in runs})
+    calls = _calls(scope, {run.run_id for run in runs if run.model_calls})
     phases: dict[str, list[AgentRun]] = {key: [] for key in ("planning", "execution", "synthesis", "repair")}
     for run in runs:
-        phase = {"team.plan": "planning", "team.replan": "planning", "team.view_edit": "planning", "team.synthesis": "synthesis", "team.repair": "repair"}.get(run.operation, "execution")
+        phase = {"team.plan": "planning", "team.replan": "planning", "team.view_edit": "planning", "team.greeting": "planning", "team.synthesis": "synthesis", "team.repair": "repair"}.get(run.operation, "execution")
         phases[phase].append(run)
     with store.connect() as db:
         row = db.execute("SELECT payload FROM agent_team_artifacts WHERE run_id=? AND id='routing'", (run_id,)).fetchone()

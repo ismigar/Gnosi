@@ -14,6 +14,7 @@ from weakref import WeakValueDictionary
 
 from pydantic_core import from_json
 
+from backend.utils.metadata_io import MetadataUnavailable
 from backend.config.app_config import load_params
 from backend.domains.graph.adapters import Graph, directed_graph
 from backend.domains.graph.cache_inputs import (
@@ -433,6 +434,11 @@ class GraphService:
                     # leaves the new entry dirty for the next atomic write.
                     with GraphService._NODE_CACHE_WRITE_LOCK:
                         GraphService._NODE_CACHE_DIRTY.add(str(vault_path))
+            except MetadataUnavailable:
+                self._input_read_failed = True
+                if previous is None:
+                    continue
+                data = previous
             except Exception as error:
                 self._input_read_failed = True
                 log.error(f"Error processing node {path_str}: {error}")

@@ -5296,7 +5296,7 @@ export interface paths {
         };
         /**
          * Get Latest Podcast
-         * @description Download/Stream the most recent podcast
+         * @description Stream the latest published episode through the coordinated Vault reader.
          */
         get: operations["get_latest_podcast_api_reader_podcast_latest_get"];
         put?: never;
@@ -12674,6 +12674,7 @@ export interface components {
         AgentConfirmationRecordResponse: {
             /** Action */
             action: string;
+            assistant_profile?: components["schemas"]["AgentProfileIdentity"] | null;
             /** Confirmation Id */
             confirmation_id: string;
             /** Created At */
@@ -12708,6 +12709,15 @@ export interface components {
         AgentDeleteResponse: {
             /** Deleted */
             deleted: boolean;
+        };
+        /** AgentProfileIdentity */
+        AgentProfileIdentity: {
+            /** Id */
+            id: string;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** AgentQualityDashboardResponse */
         AgentQualityDashboardResponse: {
@@ -12861,6 +12871,7 @@ export interface components {
         };
         /** AgentSessionMessageResponse */
         AgentSessionMessageResponse: {
+            assistant_profile?: components["schemas"]["AgentProfileIdentity"] | null;
             /** Author User Id */
             author_user_id?: string | null;
             citations?: components["schemas"]["JsonValue"] | null;
@@ -12873,6 +12884,10 @@ export interface components {
             freshness?: components["schemas"]["JsonValue"] | null;
             gauntlet?: components["schemas"]["JsonValue"] | null;
             job?: components["schemas"]["JsonValue"] | null;
+            /** Llm */
+            llm?: {
+                [key: string]: string;
+            } | null;
             /** Memory Provenance */
             memory_provenance?: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -12888,6 +12903,8 @@ export interface components {
             timings?: components["schemas"]["JsonValue"] | null;
             /** Turn Id */
             turn_id?: string | null;
+            /** Turn Id Is Legacy */
+            turn_id_is_legacy?: boolean | null;
             verification?: components["schemas"]["JsonValue"] | null;
         };
         /** AgentSessionMessagesResponse */
@@ -15470,6 +15487,11 @@ export interface components {
             agent_id: string;
             /** Attachments */
             attachments?: components["schemas"]["AttachmentRef"][];
+            /**
+             * Cancel Id
+             * @description Fresh cancellation handle for this submission attempt.
+             */
+            cancel_id?: string | null;
             /** Context Refs */
             context_refs?: components["schemas"]["TurnContextRef"][];
             /** History */
@@ -18749,6 +18771,8 @@ export interface components {
              * @enum {string}
              */
             language: "ca" | "en" | "es" | "fr";
+            /** Profile Id */
+            profile_id?: string | null;
             /** Session Id */
             session_id: string;
         };
@@ -25629,8 +25653,16 @@ export interface components {
             name: string;
             /** Next Run */
             next_run?: string | null;
+            /** Retry At */
+            retry_at?: string | null;
             /** Status */
             status: string;
+            /** Wait Reason */
+            wait_reason?: string | null;
+            /** Waiting File */
+            waiting_file?: string | null;
+            /** Waiting Provider */
+            waiting_provider?: string | null;
         };
         /** SchedulePublishRequest */
         SchedulePublishRequest: {

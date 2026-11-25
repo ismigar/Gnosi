@@ -28,6 +28,8 @@ from backend.domains.vault.daily.contracts import (
 )
 from backend.domains.vault.pages import create_service as _page_create_service
 from backend.domains.vault.pages import tags as _tags_query
+from backend.domains.vault.pages.index_entries import is_metadata_stub as _is_metadata_stub
+from backend.domains.vault.registry.records import is_record as _is_record
 from backend.domains.vault.pages.runtime import DailyNoteRequest as _DailyNoteRequest
 from backend.domains.vault.pages.state import page_state as _page_state
 from backend.domains.vault.publishing.api import register_routes as _register_publishing_routes
@@ -286,6 +288,21 @@ async def _create_daily_page(
     )
 
 
+def _cached_daily_metadata(path: Path) -> _Metadata | None:
+    vault_path = _vault.get_active_vault_path()
+    if vault_path is None:
+        return None
+    with _vault._page_index_lock:
+        entry = _vault._page_index_entries.get(str(vault_path), {}).get(str(path))
+    if not entry or entry.get("_cloud_pending") or entry.get("_parse_failed"):
+        return None
+    info = path.stat()
+    if entry.get("mtime_ns") != info.st_mtime_ns or entry.get("size") != info.st_size:
+        return None
+    metadata = entry.get("metadata")
+    return metadata if _is_record(metadata) and not _is_metadata_stub(metadata) else None
+
+
 def _daily_notes_dependencies(
     context: _WorkspaceContext | None = None,
 ) -> _daily_service.DailyNotesDependencies:
@@ -319,6 +336,7 @@ def _daily_notes_dependencies(
         ),
         creation_lock=_vault._daily_note_lock,
         logger=_vault.log,
+        cached_metadata=_cached_daily_metadata,
     )
 
 

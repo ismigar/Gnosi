@@ -7,6 +7,9 @@ import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from backend.services.context_vars import active_vault_path
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
+
 
 def normalize_custom_icons(values: object, limit: int = 100) -> list[str]:
     """Normalize the persisted icon list without changing its legacy rules."""
@@ -54,10 +57,10 @@ class CustomIconStore:
         with self._lock:
             try:
                 path = self.path()
-                if not path.exists():
-                    return []
-                raw: object = json.loads(path.read_text(encoding="utf-8"))
+                raw: object = json.loads(read_vault_text(path, root=active_vault_path.get()))
                 return normalize_custom_icons(raw, limit=100)
+            except MetadataUnavailable:
+                raise
             except Exception:
                 return []
 

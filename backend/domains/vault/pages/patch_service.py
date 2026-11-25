@@ -16,6 +16,7 @@ from backend.domains.vault.pages.title_metadata import apply_explicit_title
 from backend.domains.vault.pages.patch_helpers import apply_patch_request
 from backend.domains.vault.pages.patch_helpers import PatchReadResult as PatchReadResult
 from backend.domains.vault.schemas.pages import PagePatchRequest
+from backend.utils.metadata_io import MetadataUnavailable
 
 Metadata = PageMetadata
 
@@ -218,7 +219,7 @@ async def patch_page(
                 "etag": dependencies.file_etag(file_path),
                 "message": "Page partially updated",
             }
-        except HTTPException:
+        except (HTTPException, MetadataUnavailable):
             raise
         except Exception as exc:
             log.error("Error patching page %s: %s", page_id, exc)

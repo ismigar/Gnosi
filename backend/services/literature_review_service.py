@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable, cast
 
 from fastapi import BackgroundTasks, HTTPException
 
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text
 from backend.domains.literature import review_logic
 from backend.services.context_vars import active_vault_path, get_primary_vault_path
 from backend.services.literature_models import deterministic_key
@@ -227,7 +228,9 @@ def _records(table_id: str) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for path in folder.glob("*.md"):
             try:
-                metadata, content = parse_frontmatter_typed(path.read_text(encoding="utf-8"), path)
+                metadata, content = parse_frontmatter_typed(read_vault_text(path, encoding="utf-8"), path)
+            except MetadataUnavailable:
+                raise
             except Exception:  # noqa: BLE001
                 continue
             if str(metadata.get("database_table_id") or metadata.get("table_id")) != table_id:

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.utils.open_values import iterable_values
+from backend.utils.metadata_io import MetadataUnavailable
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,8 @@ async def get_registry(dependencies: RegistryApiDependencies) -> RegistryData:
         )
         response["views"] = [item for item in iterable_values(views) if is_record(item)]
         return response
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         dependencies.logger.exception("ERROR in get_registry: %s", error)
         raise HTTPException(
@@ -58,7 +61,7 @@ async def update_registry(
     data: RegistryData,
     dependencies: RegistryApiDependencies,
 ) -> RegistryData:
-    dependencies.save_registry(data)
+    await asyncio.to_thread(dependencies.save_registry, data)
     return {"status": "success"}
 
 
@@ -76,6 +79,8 @@ def table_by_id(
             (table for table in iterable_values(tables) if is_record(table) and table.get("id") == table_id),
             None,
         )
+    except MetadataUnavailable:
+        raise
     except Exception:
         return None
 

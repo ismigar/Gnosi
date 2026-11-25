@@ -15,6 +15,7 @@ from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.title_metadata import apply_explicit_title
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.schemas.pages import PageSaveRequest
+from backend.utils.metadata_io import MetadataUnavailable
 
 Metadata = PageMetadata
 
@@ -148,15 +149,19 @@ async def save_page(
         if metadata.get("is_dashboard") is True:
             metadata.pop("content_format", None)
 
+        # Read a known source before a title or table change moves it. A cloud
+        # failure must leave both the previous contents and their path intact.
+        previous = await asyncio.to_thread(dependencies.read_page, file_path) if file_path else None
+        if previous is not None:
+            _check_save_etag(page_id, request, file_path, dependencies)
         file_path = dependencies.locate_file(
             page_id,
             request.title,
             metadata,
             file_path,
         )
-        old_metadata, old_body = await asyncio.to_thread(
-            dependencies.read_page,
-            file_path,
+        old_metadata, old_body = previous if previous is not None else await asyncio.to_thread(
+            dependencies.read_page, file_path
         )
         previous_title = str(old_metadata.get("title") or "").strip()
         try:
@@ -223,7 +228,7 @@ async def save_page(
                 "etag": dependencies.file_etag(file_path),
                 "message": "Page saved successfully",
             }
-        except HTTPException:
+        except (HTTPException, MetadataUnavailable):
             raise
         except Exception as exc:
             log.error("Error saving page %s: %s", page_id, exc)

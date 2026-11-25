@@ -60,6 +60,13 @@ def _get_or_init_mgmt_engine() -> tuple[Engine, sessionmaker[Session]]:
         raise RuntimeError("Management database initialization did not complete")
     return _engine, _SessionLocal
 
+async def ensure_mgmt_db_ready() -> None:
+    """Initialize the connection factory off the event loop if it needs storage configuration."""
+    if _engine is None or _SessionLocal is None:
+        import asyncio
+        await asyncio.to_thread(_get_or_init_mgmt_engine)
+
+
 def get_mgmt_db() -> Generator[Session, None, None]:
     """Dependency for FastAPI or internal use."""
     _, session_factory = _get_or_init_mgmt_engine()

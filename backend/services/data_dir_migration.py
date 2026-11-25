@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, metadata_path
-
-from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path, read_metadata_text, vault_file_snapshot
 
 import hashlib
 import importlib
@@ -133,7 +131,7 @@ def _is_sqlite(path: Path) -> bool:
     if not path.is_file() or path.is_symlink():
         return False
     try:
-        with metadata_path(path).open("rb") as handle:
+        with vault_file_snapshot(path) as lease, lease.path.open("rb") as handle:
             return handle.read(len(SQLITE_HEADER)) == SQLITE_HEADER
     except OSError:
         return False
@@ -184,7 +182,7 @@ def verify_sqlite_databases(root: Path, *, checkpoint: bool) -> list[dict[str, A
 
 def _hash_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with metadata_path(path).open("rb") as handle:
+    with vault_file_snapshot(path) as lease, lease.path.open("rb") as handle:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()

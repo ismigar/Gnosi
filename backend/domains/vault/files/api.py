@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -161,7 +162,7 @@ async def serve_library_file(rel_path: str) -> FileResponse:
     roots = _deps().library_roots(_deps().active_vault_path())
     for root in roots[:-1]:
         try:
-            if (root / rel_path).exists():
+            if await asyncio.to_thread((root / rel_path).exists):
                 return await _serve_file_with_containment(root, rel_path)
         except OSError:
             continue

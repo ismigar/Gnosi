@@ -66,6 +66,7 @@ def connect() -> Iterator[sqlite3.Connection]:
         db.execute("""CREATE TABLE IF NOT EXISTS usage_generations (
             call_id TEXT PRIMARY KEY, generation_id TEXT NOT NULL,
             estimated_cost_usd TEXT, reported_cost_usd TEXT, reconciled_at REAL)""")
+        db.execute("CREATE INDEX IF NOT EXISTS usage_calls_run_scope ON usage_calls(run_id,workspace_id,user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_date ON usage_calls(created)")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_scope ON usage_calls(workspace_id,user_id,created)")
         db.execute("CREATE TABLE IF NOT EXISTS usage_pricing (call_id TEXT PRIMARY KEY, details TEXT NOT NULL)")

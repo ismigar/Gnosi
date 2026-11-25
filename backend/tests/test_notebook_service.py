@@ -23,7 +23,7 @@ def notebook_env(tmp_path, monkeypatch):
     params = SimpleNamespace(paths={"LOCAL_DATA": local_data, "VAULT": vault})
     monkeypatch.setattr(notebook_repository, "load_params", lambda strict_env=False: params)
     monkeypatch.setattr(context_vars, "get_active_vault_path", lambda: vault)
-    monkeypatch.setattr(durable_job_queue, "load_params", lambda strict_env=False: params)
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(local_data))
     monkeypatch.setattr(notebook_domain_service, "launch_ingest", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(notebook_analysis, "launch_analysis", lambda *_args, **_kwargs: None)
 

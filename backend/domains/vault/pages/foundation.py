@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+from backend.utils.metadata_io import MetadataUnavailable, read_vault_text, read_vault_text_with_stat
 
 import importlib as _legacy_importlib
 from collections.abc import Callable
@@ -363,7 +363,13 @@ def _is_dashboard_file_path(file_path: Path) -> bool:
 
 
 def _read_dashboard_file(file_path: Path) -> tuple[RegistryData, str]:
-    data: object = _legacy.json.loads(read_metadata_text(file_path, encoding="utf-8"))
+    from backend.services.context_vars import active_vault_path
+
+    return _parse_dashboard_text(read_vault_text(file_path, root=active_vault_path.get()), file_path)
+
+
+def _parse_dashboard_text(raw_content: str, file_path: Path) -> tuple[RegistryData, str]:
+    data: object = _legacy.json.loads(raw_content)
     raw_metadata = metadata_value(data, "metadata")
     # Preserve the original second lookup when the first value was a dictionary.
     raw_metadata = metadata_value(data, "metadata") if is_record(raw_metadata) else {}
@@ -386,6 +392,18 @@ def _read_dashboard_file(file_path: Path) -> tuple[RegistryData, str]:
         body = _legacy.restore_view_fences(raw_body)
         body = _legacy.strip_view_snapshots(body)
     return (metadata, body)
+
+
+def _refresh_selected_cloud_page(page: PageInfo) -> None:
+    from backend.domains.vault.pages.index_service import refresh_table_pages_metadata
+
+    def read_entry(path: Path) -> dict[str, object]:
+        raw, source_stat = read_vault_text_with_stat(path, root=_legacy.get_active_vault_path())
+        parse = _parse_dashboard_text if _is_dashboard_file_path(path) else parse_frontmatter
+        metadata, body = parse(raw, path)
+        return _legacy._build_cache_entry_from_memory(path, source_stat, metadata, body)
+
+    refresh_table_pages_metadata([page], read_selected=read_entry)
 
 
 def _write_dashboard_file(
@@ -712,6 +730,7 @@ def initialize_foundation(legacy: ModuleType) -> None:
         _legacy.page_queries_api.PageQueryDependencies(
             get_pages_snapshot=_legacy._get_pages_snapshot,
             refresh_pages_metadata=_legacy._refresh_table_pages_metadata,
+            refresh_native_page=_refresh_selected_cloud_page,
             page_index_cache_path=lambda: _legacy.get_page_index_cache_path(),
             get_pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
             enrich_table_pages=_enrich_table_query_pages,
@@ -724,6 +743,7 @@ def initialize_foundation(legacy: ModuleType) -> None:
             ),
             materialize_page=lambda path, label: _legacy._materialize_if_online_only(path, label),
             read_dashboard=lambda path: _read_dashboard_file(path),
+            parse_dashboard=_parse_dashboard_text,
             is_dashboard=lambda path: _is_dashboard_file_path(path),
             parse_frontmatter=parse_frontmatter,
             enrich_single_page=_enrich_single_query_page,

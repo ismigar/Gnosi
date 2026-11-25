@@ -25,7 +25,7 @@ from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import SessionBusyError
 from backend.domains.agent.routes.contracts import FAILURE_MESSAGES, ChatRequest
 from backend.domains.agent.routes.shared import _agent_stream_error_code
-from backend.services.agent_cancellation import release as release_agent_turn
+from backend.services.agent_cancellation import is_cancelled, release as release_agent_turn
 from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.agent_replay import record_event as record_replay_event
 from backend.services.turn_idempotency import finish as finish_turn
@@ -128,7 +128,7 @@ async def stream_error_events(
     local_error_code = _agent_stream_error_code(error)
     response_language = _response_language(chat_req.message)
     if isinstance(error, MetadataUnavailable):
-        response_language, friendly_error = metadata_unavailable_detail(preferred_language or response_language)
+        response_language, friendly_error = metadata_unavailable_detail(preferred_language or response_language, error.reason)
     else:
         friendly_error = _friendly_stream_error(
             error,
@@ -180,7 +180,7 @@ async def stream_error_events(
     except Exception:  # noqa: BLE001
         log.exception("Failed to record agent quality telemetry.")
 
-    recovery = recovery_metadata(stable_error_code)
+    recovery = recovery_metadata(stable_error_code, retryable=error.retryable if isinstance(error, MetadataUnavailable) else None)
     error_payload = {
         "type": "error",
         "code": stable_error_code,
@@ -220,7 +220,8 @@ async def finalize_agent_stream(
     turn_claimed: bool,
     chat_principal: str,
 ) -> None:
-    if not state.stream_failed:
+    cancelled = is_cancelled(cancel_token)
+    if not state.stream_failed and not cancelled:
         try:
             await asyncio.to_thread(
                 record_quality_signal,
@@ -263,13 +264,14 @@ async def finalize_agent_stream(
             agent_id=agent_id,
             session_id=session_id,
             turn_id=chat_req.turn_id,
+            state="cancelled" if cancelled else "completed",
         )
     await asyncio.to_thread(
         record_replay_event,
         state.trace_id,
         "completed",
         {
-            "status": "completed",
+            "status": "cancelled" if cancelled else "completed",
             "duration_ms": max(
                 0,
                 int((time.monotonic() - state.request_started_at) * 1000),

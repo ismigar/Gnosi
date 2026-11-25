@@ -15,7 +15,7 @@ from typing import List
 
 from backend.platform.files import FilesProvider, get_files_provider
 from backend.platform.files.coordinated import is_cloud_placeholder
-from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local
+from backend.utils.metadata_io import MetadataUnavailable, vault_file_snapshot_async
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,9 @@ def _scan_online_only(root: Path) -> List[Path]:
     """
     out: List[Path] = []
     for dirpath, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = [name for name in dirs if not (Path(dirpath) / name).is_symlink()]
+        directory = Path(dirpath)
+        dirs[:] = [name for name in dirs if not (directory / name).is_symlink()
+                   and not (directory == root and root.name == ".gnosi" and name == "chat-attachments")]
         for name in files:
             p = os.path.join(dirpath, name)
             try:
@@ -87,7 +89,8 @@ async def _warm_critical(vault_path: str) -> None:
     if metadata.is_dir() and not metadata.is_symlink():
         for path in await asyncio.to_thread(_scan_online_only, metadata):
             try:
-                await asyncio.to_thread(ensure_metadata_local, path)
+                with await vault_file_snapshot_async(path, root=Path(vault_path), background=True):
+                    pass
             except MetadataUnavailable:
                 log.warning("Cloud metadata remains unavailable: %s", path.name)
     provider = get_files_provider()
@@ -102,7 +105,7 @@ async def _warm_critical(vault_path: str) -> None:
 
     pending: List[Path] = []
     for target in targets:
-        if not target.is_dir():
+        if not target.is_dir() or target.is_symlink():
             continue
         try:
             pending += await asyncio.to_thread(_scan_online_only, target)
@@ -121,7 +124,10 @@ async def _warm_critical(vault_path: str) -> None:
         nonlocal recovered
         async with sem:
             try:
-                if await provider.materialize(p):
+                if getattr(provider, "warmup_mode", None) == "coordinated":
+                    with await vault_file_snapshot_async(p, root=base, background=True):
+                        recovered += 1
+                elif await provider.materialize(p):
                     recovered += 1
             except Exception as e:  # noqa: BLE001
                 log.debug("Critical-warmup failed for %s: %s", p, e)

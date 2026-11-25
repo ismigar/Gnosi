@@ -43,11 +43,11 @@ def _read(path: Path, digest: str) -> list[dict[str, object]] | None:
         return None
 
 
-def extract_cached_pdf(path: Path, root: Path,
-                       extract: Callable[[], list[dict[str, object]]]) -> list[dict[str, object]]:
+def extract_cached_pdf(path: Path, root: Path, extract: Callable[[], list[dict[str, object]]],
+                       *, source_path: Path | None = None) -> list[dict[str, object]]:
     """Serialize concurrent misses; changed files or corrupt caches cannot reuse text."""
     digest = file_digest(path)
-    target = cache_path(root, path, digest)
+    target = cache_path(root, source_path or path, digest)
     target.parent.mkdir(parents=True, exist_ok=True)
     with FileLock(str(target) + ".lock", timeout=240):
         segments = _read(target, digest)
