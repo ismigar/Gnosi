@@ -17,6 +17,7 @@ class PendingPassagesRemaining(RuntimeError):
     """Extraction is partial and synthesis must wait for the remaining reviews."""
 
     def __init__(self, count: int) -> None:
+        self.count = count
         super().__init__(f"reading_passages_pending: {count}")
 
 
