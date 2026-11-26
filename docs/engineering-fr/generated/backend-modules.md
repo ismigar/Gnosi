@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 653 | 128688 |
+| `domains` | 653 | 128689 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1166 modules** and **222311 source lines**.
+Total: **1166 modules** and **222312 source lines**.
 
 ## agent
 
@@ -697,7 +697,7 @@ Total: **1166 modules** and **222311 source lines**.
 | [`backend/domains/vault/files/thumbnails.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/thumbnails.py) | 233 | 1 | 7 | 2 | 6 | QuickLook thumbnail resolution and streaming. |
 | [`backend/domains/vault/history/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/__init__.py) | 5 | 0 | 0 | 0 | 0 | Version history for vault pages. |
 | [`backend/domains/vault/history/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/repository.py) | 146 | 1 | 0 | 0 | 1 | Filesystem repository for forward-only vault page history. |
-| [`backend/domains/vault/home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/home_canvas.py) | 100 | 2 | 5 | 0 | 0 | A user's home layout travels with the selected Vault. |
+| [`backend/domains/vault/home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/home_canvas.py) | 101 | 2 | 5 | 0 | 0 | A user's home layout travels with the selected Vault. |
 | [`backend/domains/vault/knowledge/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
 | [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py) | 28 | 0 | 1 | 0 | 0 | Knowledge URLs share the historical handlers and their authorization guards. |
 | [`backend/domains/vault/knowledge/config_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 329 | 0 | 11 | 8 | 10 | Typed Vault domain extracted from the historical route facade. |
