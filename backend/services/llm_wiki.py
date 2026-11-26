@@ -502,7 +502,7 @@ def _serialized_start(function: Callable[_StartArgs, _StartResult]) -> Callable[
     return invoke
 
 
-MAX_PENDING_PASSAGE_RETRIES = 3
+MAX_PENDING_PASSAGE_RETRIES = 10
 
 
 def _process_resource_with_pending_retries(
