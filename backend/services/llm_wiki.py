@@ -502,6 +502,48 @@ def _serialized_start(function: Callable[_StartArgs, _StartResult]) -> Callable[
     return invoke
 
 
+MAX_PENDING_PASSAGE_RETRIES = 3
+
+
+def _process_resource_with_pending_retries(
+    run_pass: Callable[[dict[str, object] | None, str], dict[str, object]],
+    *,
+    job_id: str,
+    source_page_id: str,
+    resume_checkpoint: dict[str, object] | None,
+    resume_job_id: str,
+    max_retries: int = MAX_PENDING_PASSAGE_RETRIES,
+) -> dict[str, object]:
+    """Retry pending-passage stops within one job while count strictly drops."""
+    from backend.domains.llm_wiki.reading_batch_recovery import PendingPassagesRemaining
+
+    current_checkpoint = resume_checkpoint
+    current_resume_job_id = resume_job_id
+    previous_pending: int | None = None
+    retries = 0
+    while True:
+        try:
+            return run_pass(current_checkpoint, current_resume_job_id)
+        except PendingPassagesRemaining as pending_exc:
+            remaining = pending_exc.count
+            made_progress = previous_pending is None or remaining < previous_pending
+            if retries >= max_retries or not made_progress:
+                raise
+            retries += 1
+            previous_pending = remaining
+            current_resume_job_id = job_id
+            loaded = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
+            if isinstance(loaded, dict):
+                current_checkpoint = {str(key): value for key, value in loaded.items()}
+            logger.info(
+                "llm_wiki auto-retrying %d pending passage(s) for %s (pass %d/%d)",
+                remaining,
+                source_page_id,
+                retries,
+                max_retries,
+            )
+
+
 @_serialized_start
 def start_ingest(
     source_page_id: str,
@@ -574,24 +616,30 @@ def start_ingest(
         try:
             if active_vault is not None:
                 token = cv.active_vault_path.set(active_vault)
-            report = process_resource(
-                source_page_id,
-                source_title,
-                metadata,
-                body,
-                brain_table_id,
-                vault_root,
-                language,
-                source_table_id=source_table_id,
-                source_table=source_table,
-                source_config=source_config,
+            report = _process_resource_with_pending_retries(
+                lambda checkpoint, resume_id: process_resource(
+                    source_page_id,
+                    source_title,
+                    metadata,
+                    body,
+                    brain_table_id,
+                    vault_root,
+                    language,
+                    source_table_id=source_table_id,
+                    source_table=source_table,
+                    source_config=source_config,
+                    job_id=job_id,
+                    resume_checkpoint=checkpoint,
+                    resume_job_id=resume_id,
+                    batch_size=batch_size,
+                    expected_reading_identity=expected_reading_identity,
+                    reuse_results=not force,
+                    review_runtime=review_runtime,
+                ),
                 job_id=job_id,
+                source_page_id=source_page_id,
                 resume_checkpoint=resume_checkpoint,
                 resume_job_id=resume_job_id,
-                batch_size=batch_size,
-                expected_reading_identity=expected_reading_identity,
-                reuse_results=not force,
-                review_runtime=review_runtime,
             )
             llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(
