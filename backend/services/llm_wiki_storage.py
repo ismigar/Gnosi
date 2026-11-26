@@ -78,18 +78,21 @@ def _read_page_state(path: Path) -> dict[str, object]:
     try:
         stat = path.stat()
     except OSError:
-        _PAGE_STATE_CACHE.pop(str(path), None)
+        with _LOCK:
+            _PAGE_STATE_CACHE.pop(str(path), None)
         return {}
     cache_key = str(path)
-    cached = _PAGE_STATE_CACHE.get(cache_key)
     signature = (stat.st_mtime_ns, stat.st_size)
+    with _LOCK:
+        cached = _PAGE_STATE_CACHE.get(cache_key)
     if cached and cached[:2] == signature:
         return deepcopy(cached[2])
     payload = _read_json(path)
     raw_state = payload.get("metadata") if isinstance(payload, dict) else None
     state: dict[str, object] = raw_state if isinstance(raw_state, dict) else {}
     clean_state = {str(key): deepcopy(value) for key, value in state.items()}
-    _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
+    with _LOCK:
+        _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
     return deepcopy(clean_state)
 
 
