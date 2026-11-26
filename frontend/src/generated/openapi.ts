@@ -18295,6 +18295,12 @@ export interface components {
         };
         /** HomeCanvasBlock */
         HomeCanvasBlock: {
+            /**
+             * Height
+             * @default 1
+             * @enum {integer}
+             */
+            height: 1 | 2 | 3;
             /** Id */
             id: string;
             /** Kind */
