@@ -15,11 +15,12 @@ def test_layout_reopens_with_order_width_settings_and_actor_scope(tmp_path):
     assert initial.start_mode == "page" and initial.blocks is None
     assert not (tmp_path / ".gnosi").exists()
     cards = [
-        HomeCanvasBlock(id="first", kind="board", width=3, settings={"boardId": "reading"}),
+        HomeCanvasBlock(id="first", kind="board", width=3, height=2, settings={"boardId": "reading"}),
         HomeCanvasBlock(id="second", kind="board", width=1, settings={"boardId": "writing"}),
     ]
     request = HomeCanvasState(start_mode="canvas", blocks=cards)
     saved = save_home_canvas(request, owner)
+    assert saved.blocks is not None and saved.blocks[0].height == 2 and saved.blocks[1].height == 1
     assert saved.revision and get_home_canvas(owner) == saved
     assert save_home_canvas(request, owner) == saved
     assert get_home_canvas(WorkspaceContext("research", "someone-else", "owner", tmp_path)) == initial

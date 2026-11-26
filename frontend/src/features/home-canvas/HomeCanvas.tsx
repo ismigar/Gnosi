@@ -38,7 +38,7 @@ export default function HomeCanvas({ preferences, onSave, onReload }: Props) {
     const change = (update: (previous: readonly StoredHomeBlock[]) => readonly StoredHomeBlock[]) => {
         setDraft(previous => previous ? { ...previous, blocks: update(previous.blocks) } : previous);
     };
-    const updateBlock = (id: string, patch: Partial<Pick<StoredHomeBlock, 'width' | 'settings'>>) => {
+    const updateBlock = (id: string, patch: Partial<Pick<StoredHomeBlock, 'width' | 'height' | 'settings'>>) => {
         change(previous => previous.map(block => block.id === id ? { ...block, ...patch } : block));
     };
     const add = (kind: HomeBlockKind) => {
@@ -102,6 +102,7 @@ export default function HomeCanvas({ preferences, onSave, onReload }: Props) {
                             definition={definition} editing={draft !== null}
                             onConfigure={settings => { updateBlock(block.id, { settings }); }}
                             onWidth={width => { updateBlock(block.id, { width }); }}
+                            onHeight={height => { updateBlock(block.id, { height }); }}
                             onRemove={() => { change(previous => previous.filter(item => item.id !== block.id)); editButton.current?.focus(); }}
                             onEarlier={index > 0 ? () => { move(block.id, visible[index - 1]?.block.id); } : undefined}
                             onLater={index < visible.length - 1 ? () => { move(block.id, visible[index + 1]?.block.id); } : undefined} />)}

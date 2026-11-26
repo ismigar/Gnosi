@@ -60,7 +60,7 @@ function expand(path: string, visited = new Set<string>(), restoreLauncher = fal
   if (restoreLauncher && path === resolve(frontend, 'src/app/styles/home.css')) {
     // Bind the complete new canvas stylesheet before comparing the historical
     // extraction with the exact launcher styles it originally contained.
-    expect(digest(root)).toBe('91b9ca9f2669781898e85fc71d2cfbb8cd6b792629729824e9732eaf7d18c5e4');
+    expect(digest(root)).toBe('6861c4cb5bf45b573ce9960f088769439f1547dd4ce253c8a13eda1745ac8fd2');
     const original = readFileSync(resolve(frontend, 'tests/contracts/fixtures/home-launcher.css'), 'utf8');
     return postcss.parse(original, { from: path });
   }

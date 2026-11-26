@@ -38,7 +38,7 @@ async function render(body: ReactNode) {
     await update(() => { root.render(<MemoryRouter><QueryClientProvider client={client}>{body}</QueryClientProvider></MemoryRouter>); });
 }
 function block(kind: 'agenda' | 'audio', width: 1 | 2 = 1) {
-    return <DayBlocks block={{ id: kind, kind, width, settings: {} }} editing={false} onConfigure={() => {}} />;
+    return <DayBlocks block={{ id: kind, kind, width, height: 1, settings: {} }} editing={false} onConfigure={() => {}} />;
 }
 function media() {
     const audio = host.querySelector('audio');

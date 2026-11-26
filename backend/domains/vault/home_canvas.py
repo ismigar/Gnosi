@@ -26,6 +26,7 @@ class HomeCanvasBlock(BaseModel):
     id: Identifier
     kind: Identifier
     width: Literal[1, 2, 3]
+    height: Literal[1, 2, 3] = 1
     settings: dict[Identifier, SettingValue] = Field(default_factory=dict, max_length=16)
 
 

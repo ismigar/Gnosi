@@ -19,7 +19,7 @@ export interface HomeBlockProps {
 }
 
 export function makeBlock(kind: HomeBlockKind, id: string): HomeBlock {
-    return { id, kind, width: kind === 'board' || kind === 'graph' ? 2 : 1, settings: {} };
+    return { id, kind, width: kind === 'board' || kind === 'graph' ? 2 : 1, height: 1, settings: {} };
 }
 
 export const DEFAULT_BLOCKS = CORE_BLOCKS.map(({ kind }) => makeBlock(kind, 'initial-' + kind));
