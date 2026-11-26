@@ -26,19 +26,21 @@ class BlockBoundary extends Component<{ children: ReactNode; label: string; retr
 interface CardProps extends HomeBlockProps {
     readonly definition: BlockDefinition;
     readonly onWidth: (width: HomeBlock['width']) => void;
+    readonly onHeight: (height: HomeBlock['height']) => void;
     readonly onRemove: () => void;
     readonly onEarlier?: () => void;
     readonly onLater?: () => void;
 }
 
-export function HomeBlockCard({ block, editing, definition, onConfigure, onWidth, onRemove, onEarlier, onLater }: CardProps) {
+export function HomeBlockCard({ block, editing, definition, onConfigure, onWidth, onHeight, onRemove, onEarlier, onLater }: CardProps) {
     const { t } = useTranslation();
     const { setNodeRef, setActivatorNodeRef, isDragging, transform, transition, attributes, listeners } = useSortable({ id: block.id, disabled: !editing });
     const title = t(definition.titleKey);
     const app = t(definition.appKey);
+    const height = block.height ?? 1;
     const Body = block.kind === 'board' || block.kind === 'graph' ? KnowledgeBlocks
         : block.kind === 'agenda' || block.kind === 'audio' ? DayBlocks : OptionalBlock;
-    return <section ref={setNodeRef} aria-label={title} data-home-block={block.kind} data-width={block.width}
+    return <section ref={setNodeRef} aria-label={title} data-home-block={block.kind} data-width={block.width} data-height={height}
         className={'home-block' + (isDragging ? ' home-block--dragging' : '')}
         style={{ transform: CSS.Translate.toString(transform), transition }}>
         <header className="home-block__header">
@@ -61,6 +63,10 @@ export function HomeBlockCard({ block, editing, definition, onConfigure, onWidth
             <select className="home-field" aria-label={t('home_canvas.width_named', { title })} value={block.width}
                 onChange={event => { onWidth(Number(event.target.value) as HomeBlock['width']); }}>
                 {([1, 2, 3] as const).map(width => <option key={width} value={width}>{t('home_canvas.columns_' + String(width))}</option>)}
+            </select>
+            <select className="home-field" aria-label={t('home_canvas.height_named', { title })} value={height}
+                onChange={event => { onHeight(Number(event.target.value) as HomeBlock['height']); }}>
+                {([1, 2, 3] as const).map(rows => <option key={rows} value={rows}>{t('home_canvas.rows_' + String(rows))}</option>)}
             </select>
             <button type="button" className="home-block__icon" disabled={!onEarlier} onClick={onEarlier}
                 aria-label={t('home_canvas.earlier', { title })} title={t('home_canvas.earlier', { title })}><ArrowUp size={15} /></button>
