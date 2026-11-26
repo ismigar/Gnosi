@@ -32,7 +32,7 @@ export function settingsIntegrations(value: Record<string, unknown>): SettingsIn
 export function settingsAgents(value: unknown): SettingsAgent[] {
   if (value == null) return [];
   if (!Array.isArray(value) || !value.every((item: unknown) => isJsonRecord(item) && string(item.id)
-    && ['name', 'provider', 'model', 'icon', 'persona', 'context'].every(key => optional(item[key], string))
+    && ['name', 'provider', 'model', 'icon', 'persona', 'out_of_scope', 'context'].every(key => optional(item[key], string))
     && optional(item.enabled, boolean) && optional(item.skill_ids, strings)
     && optional(item.context_refs, refs => Array.isArray(refs) && refs.every((ref: unknown) => isJsonRecord(ref)
       && string(ref.id) && string(ref.label) && string(ref.ref)

@@ -157,7 +157,7 @@ def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], ski
             return False
         return runtime_skill_ids(runtime, requested).issubset(runtime.active_skill_ids) and not runtime.missing_skill_ids and not runtime.unavailable_tool_ids
     # UTF-8 byte count is a conservative upper bound, including profile instructions.
-    overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in inputs.profiles if p.get("id") in ids), default=0)
+    overhead = max((len(str(p.get("persona") or "").encode()) + len(str(p.get("out_of_scope") or "").encode()) + len(str(p.get("context") or "").encode()) for p in inputs.profiles if p.get("id") in ids), default=0)
     return select_executor(inputs.profiles, inputs.registry, allowed_ids=ids,
         skill_ids=skills, input_tokens=len(text.encode()) + overhead, source_provider=str(owner.get("provider") or ""),
         runtime_check=ready, preferred_id=preferred, require_tools=False, usage=inputs.usage, is_available=inputs.provider_available)

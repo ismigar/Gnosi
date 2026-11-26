@@ -14052,6 +14052,11 @@ export interface components {
             operations: {
                 [key: string]: string;
             }[];
+            /**
+             * Out Of Scope
+             * @default
+             */
+            out_of_scope: string;
             /** Skills */
             skills: {
                 [key: string]: unknown;

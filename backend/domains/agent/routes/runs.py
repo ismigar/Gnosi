@@ -140,6 +140,7 @@ class OperationBindingResponse(BaseModel):
 
 class BehaviorPreviewResponse(BaseModel):
     instructions: str
+    out_of_scope: str = ""
     context: str
     sources: list[dict[str, Any]]
     system: str
@@ -165,6 +166,7 @@ def preview(payload: BehaviorPreviewRequest) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         "instructions": str(payload.profile.get("persona") or ""),
+        "out_of_scope": str(payload.profile.get("out_of_scope") or ""),
         "context": str(payload.profile.get("context") or ""),
         "sources": payload.profile.get("context_refs") or [],
         "system": resource("system/data-boundary.md"),

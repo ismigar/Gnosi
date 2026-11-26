@@ -29,7 +29,7 @@ def public_summary(work: dict[str, Any]) -> dict[str, Any]:
 def _fresh_snapshot(source: AgentExecutionSnapshot, phase: str, root_id: str) -> AgentExecutionSnapshot:
     """Keep frozen authority and methodology, discard personal/context history."""
     profile = copy.deepcopy(source.profile)
-    profile.update(persona="", context="", _execution_detailed_persona="", _execution_reviewed_memory=[], team={"enabled": False})
+    profile.update(persona="", out_of_scope="", context="", _execution_detailed_persona="", _execution_reviewed_memory=[], team={"enabled": False})
     metadata = profile.setdefault("_team_execution", {"root_id": root_id, "owner_id": source.agent_id})
     metadata["read_only"] = True
     instructions = [*source.instructions, resource(f"system/gauntlet-{phase}.md")]

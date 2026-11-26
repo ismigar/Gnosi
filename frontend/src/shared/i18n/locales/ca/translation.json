@@ -3478,7 +3478,10 @@
         "remaining": "Pressupost mensual restant: {{amount}}",
         "budget_partial": "El consum mensual i el pressupost restant són parcials: hi ha crides amb cost desconegut.",
         "budget_estimated": "El consum mensual inclou costos estimats."
-      }
+      },
+      "out_of_scope_label": "Fora d’abast (què no fa)",
+      "out_of_scope_desc": "Defineix els límits i les peticions que aquest bot ha de rebutjar o derivar.",
+      "out_of_scope_placeholder": "Ex.: No enviïs correus sense revisió, no modifiquis factures, no responguis sobre temes legals…"
     },
     "footer": {
       "close": "Tancar",
@@ -8545,7 +8548,8 @@
     "update": "Nova versió de l’original",
     "use_update": "Aplicar la nova versió",
     "executor": "Bot executor",
-    "assign_operation": "Utilitza aquest bot per a aquesta operació"
+    "assign_operation": "Utilitza aquest bot per a aquesta operació",
+    "out_of_scope": "Fora d’abast"
   },
   "agent_team": {
     "routes_help": "Opcional: tria quins bots poden rebre cada tipus de tasca quan es demana ajuda a l’equip. Sense assignació, el principal en planifica la distribució. Es tria un bot adequat amb el menor cost estimat; un cost desconegut no es considera zero.",

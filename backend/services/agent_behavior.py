@@ -58,11 +58,20 @@ def operation_input(request: Any, *, provider: str = "") -> str:
     return json.dumps(payload, ensure_ascii=False, allow_nan=False)
 
 
+def out_of_scope_block(profile: dict[str, Any], *, preserve_instructions: bool = False) -> str:
+    text = str(profile.get("out_of_scope") or "").strip()
+    if not text:
+        return ""
+    if not preserve_instructions:
+        text = text[:4_000]
+    return f"Out of scope (refuse or defer requests outside these boundaries):\n{text}"
+
+
 def snapshot_instruction_text(snapshot: Any) -> str:
     profile = snapshot.profile
     return "\n\n".join([
-        str(profile.get("persona") or ""), str(profile.get("context") or ""),
-        str(profile.get("_execution_detailed_persona") or ""),
+        str(profile.get("persona") or ""), out_of_scope_block(profile, preserve_instructions=True),
+        str(profile.get("context") or ""), str(profile.get("_execution_detailed_persona") or ""),
         *(str(item.get("text") or "") for item in profile.get("_execution_reviewed_memory", [])),
         *snapshot.instructions, snapshot.behavior_resources.get("system/data-boundary.md", ""),
     ])

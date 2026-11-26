@@ -11,7 +11,7 @@ let container: HTMLDivElement;
 beforeEach(() => {
     vi.clearAllMocks(); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
-    vi.mocked(previewAgentBehavior).mockResolvedValue({ instructions: 'Persona', context: 'References', sources: [], system: 'Data boundary', skills: [], operations: [{ operation: 'podcast', skill_id: 'podcast', name: 'Podcast', agent_id: 'original' }], catalog_revision: '1', missing_skill_ids: [], system_resources: [] });
+    vi.mocked(previewAgentBehavior).mockResolvedValue({ instructions: 'Persona', out_of_scope: 'No billing edits', context: 'References', sources: [], system: 'Data boundary', skills: [], operations: [{ operation: 'podcast', skill_id: 'podcast', name: 'Podcast', agent_id: 'original' }], catalog_revision: '1', missing_skill_ids: [], system_resources: [] });
 });
 afterEach(async () => { await act(async () => { await Promise.resolve(); root.unmount(); }); container.remove(); vi.unstubAllGlobals(); });
 it('shows the current executor and changes it with concurrency protection', async () => {
@@ -23,8 +23,9 @@ it('shows the current executor and changes it with concurrency protection', asyn
     expect(previewAgentBehavior).toHaveBeenCalledTimes(2);
 });
 it('inspects the draft without changing an operation binding', async () => {
-    await act(async () => { await Promise.resolve(); root.render(<AgentBehaviorInspection profile={{ id: 'personal', persona: 'Draft' }} />); });
+    await act(async () => { await Promise.resolve(); root.render(<AgentBehaviorInspection profile={{ id: 'personal', persona: 'Draft', out_of_scope: 'No billing edits' }} />); });
     expect(container.textContent).toContain('Persona');
+    expect(container.textContent).toContain('No billing edits');
     expect(container.textContent).toContain('Data boundary');
     expect(bindAgentOperation).not.toHaveBeenCalled();
 });

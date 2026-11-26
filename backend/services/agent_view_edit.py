@@ -22,7 +22,7 @@ async def interpret_view_edit(owner: dict[str, Any], scope: ExecutionScope, root
     snapshot, _ = _snapshot(director, owner, root_id, scope, [TEAM_SKILL], [])
     # This internal parsing phase needs neither personal memory nor document
     # context. Model policy, membership, role and budget still use the executor.
-    profile = {**snapshot.profile, 'persona': '', 'context': '',
+    profile = {**snapshot.profile, 'persona': '', 'out_of_scope': '', 'context': '',
                '_execution_detailed_persona': '', '_execution_reviewed_memory': []}
     instructions = [resource('system/view-edit.md')]
     snapshot = snapshot.model_copy(update={'profile': profile, 'instructions': instructions,
