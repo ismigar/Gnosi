@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 789 | 3655 |
-| pytest | 851 | 6660 |
+| pytest | 852 | 6664 |
 
 ## Archivos
 
@@ -901,6 +901,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_observability_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_contracts.py) | 28 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_policy.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_operation_read_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_operation_read_tools.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_agent_out_of_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_out_of_scope.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_page_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_page_storage.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_phase_three.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_three.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_phase_two.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_two.py) | 5 | Python AST |
