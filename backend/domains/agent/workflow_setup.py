@@ -196,29 +196,22 @@ def _select_model_route(
             fallback_model=model_name,
         )
         return str(provider_name or ""), str(model_name) if model_name else None, strategy
-    if llm_mode != "agent_default" or not provider_name or not model_name:
+    if llm_mode != "agent_default":
         return provider_name, model_name, strategy
-
+    if profile.agent_data.get("model_tier"):
+        from backend.services.agent_model_tiers import resolve_tier_route
+        if (tier_route := resolve_tier_route(profile.agent_data, profile.ai_cfg, load_registry(), is_available=lambda p: dependencies.provider_is_available(p, (profile.providers or {}).get(p) or {}), message=user_message)) is not None:
+            return tier_route
+    if not provider_name or not model_name or normalize_model_strategy(profile.agent_data)["mode"] == "pinned":
+        return provider_name, model_name, strategy
     configured_strategy = normalize_model_strategy(profile.agent_data)
-    if configured_strategy["mode"] == "pinned":
-        return provider_name, model_name, strategy
     registry = load_registry()
     usage, budget = current_routing_limits()
     strategy = choose_agent_model(
-        user_message,
-        profile.agent_data,
-        registry,
-        is_available=lambda provider: dependencies.provider_is_available(
-            provider,
-            (profile.providers or {}).get(provider) or {},
-        ),
-        quality_scores=quality_scores(),
-        usage=usage,
-        budget=budget,
-        selector=decision_selector(
-            configured_strategy["decision_engine"], profile.providers, budget,
-            disconnected=profile.ai_cfg.get("disconnected_providers") or [],
-        ),
+        user_message, profile.agent_data, registry,
+        is_available=lambda provider: dependencies.provider_is_available(provider, (profile.providers or {}).get(provider) or {}),
+        quality_scores=quality_scores(), usage=usage, budget=budget,
+        selector=decision_selector(configured_strategy["decision_engine"], profile.providers, budget, disconnected=profile.ai_cfg.get("disconnected_providers") or []),
     )
     selected_route = strategy["selected"]
     return str(selected_route["provider"]), str(selected_route["model"]), strategy

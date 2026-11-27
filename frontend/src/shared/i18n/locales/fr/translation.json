@@ -1586,7 +1586,14 @@
         "remaining": "Budget mensuel restant : {{amount}}",
         "budget_partial": "Les dépenses mensuelles et le budget restant sont partiels : certains appels ont un coût inconnu.",
         "budget_estimated": "Les dépenses mensuelles comprennent des coûts estimés."
-      }
+      },
+      "model_tier_label": "Niveau de modèle (facultatif)",
+      "model_tier_desc": "Par défaut, ce profil utilise son modèle fixe. Choisir un niveau suit la table globale des niveaux.",
+      "model_tier_pinned": "Modèle fixe du profil (sans niveau)",
+      "model_tier_minimal": "Minimal (rapide et économique)",
+      "model_tier_standard": "Standard (équilibré)",
+      "model_tier_advanced": "Avancé (capacité maximale)",
+      "model_tier_fallback_label": "Basculer automatiquement vers le modèle suivant du niveau en cas d’erreur temporaire ou de quota"
     },
     "footer": {
       "close": "Fermer",

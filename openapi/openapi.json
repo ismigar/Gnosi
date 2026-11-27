@@ -25837,6 +25837,62 @@
         "title": "ModelReliabilityResponse",
         "type": "object"
       },
+      "ModelTierRoute": {
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model"
+        ],
+        "title": "ModelTierRoute",
+        "type": "object"
+      },
+      "ModelTiersConfig": {
+        "properties": {
+          "advanced": {
+            "items": {
+              "$ref": "#/components/schemas/ModelTierRoute"
+            },
+            "title": "Advanced",
+            "type": "array"
+          },
+          "gauntlet_reviewer_tier": {
+            "default": "",
+            "enum": [
+              "",
+              "minimal",
+              "standard",
+              "advanced"
+            ],
+            "title": "Gauntlet Reviewer Tier",
+            "type": "string"
+          },
+          "minimal": {
+            "items": {
+              "$ref": "#/components/schemas/ModelTierRoute"
+            },
+            "title": "Minimal",
+            "type": "array"
+          },
+          "standard": {
+            "items": {
+              "$ref": "#/components/schemas/ModelTierRoute"
+            },
+            "title": "Standard",
+            "type": "array"
+          }
+        },
+        "title": "ModelTiersConfig",
+        "type": "object"
+      },
       "ModelsPayload": {
         "description": "Registry update retaining the legacy manual 400 validation boundary.\n\nIndividual rows remain JSON values so malformed rows reach the existing\nroute validation and keep its status code and localized error detail.",
         "properties": {
@@ -52490,6 +52546,242 @@
           }
         },
         "summary": "Model Reliability"
+      }
+    },
+    "/api/ai/model-tiers": {
+      "get": {
+        "operationId": "get_model_tiers_api_ai_model_tiers_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelTiersConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model Tiers",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      },
+      "put": {
+        "operationId": "update_model_tiers_api_ai_model_tiers_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelTiersConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelTiersConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Model Tiers",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
       }
     },
     "/api/ai/models": {

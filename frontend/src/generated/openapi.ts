@@ -1079,6 +1079,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/model-tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Tiers */
+        get: operations["get_model_tiers_api_ai_model_tiers_get"];
+        /** Update Model Tiers */
+        put: operations["update_model_tiers_api_ai_model_tiers_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/models": {
         parameters: {
             query?: never;
@@ -21896,6 +21914,28 @@ export interface components {
             /** Models */
             models: components["schemas"]["JsonValue"][];
         };
+        /** ModelTierRoute */
+        ModelTierRoute: {
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+        };
+        /** ModelTiersConfig */
+        ModelTiersConfig: {
+            /** Advanced */
+            advanced?: components["schemas"]["ModelTierRoute"][];
+            /**
+             * Gauntlet Reviewer Tier
+             * @default
+             * @enum {string}
+             */
+            gauntlet_reviewer_tier: "" | "minimal" | "standard" | "advanced";
+            /** Minimal */
+            minimal?: components["schemas"]["ModelTierRoute"][];
+            /** Standard */
+            standard?: components["schemas"]["ModelTierRoute"][];
+        };
         /** NativeCompletion */
         NativeCompletion: {
             /** Agent Id */
@@ -31813,6 +31853,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelReliabilityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_model_tiers_api_ai_model_tiers_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelTiersConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_model_tiers_api_ai_model_tiers_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelTiersConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelTiersConfig"];
                 };
             };
             /** @description Validation Error */
