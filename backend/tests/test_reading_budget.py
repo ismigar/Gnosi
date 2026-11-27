@@ -426,3 +426,32 @@ def test_direct_providers_refine_estimated_reservation_on_completion():
         rows = dict(db.execute("SELECT call_id, reserved_usd FROM reading_reservations WHERE budget_id=?", (identifier,)).fetchall())
     assert Decimal(rows["anthropic-ok"]) == Decimal("0.00660")
     assert Decimal(rows["google-fail"]) > Decimal("0.01")
+
+
+def test_extend_book_budget_grant_adds_allowance_and_updates_ceiling():
+    from backend.services.reading_budget_grant import authorize, extend
+
+    first = budget.configure(5.0)
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("spent-1", first, "5", "4.8"))
+    book = budget.BookAccount("book-extend", (first,))
+    authorize(book, first, total_usd=Decimal("10"), additional_usd=Decimal("5"))
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("spent-2", first, "5", "5.0"))
+    assert budget.status(first)["remaining_usd"] == 0
+
+    extended = extend(book, first, additional_usd=Decimal("15"))
+    assert extended["limit_usd"] == 25.0
+    assert extended["authorized_limit_usd"] == 25.0
+    assert extended["additional_remaining_usd"] == 15.0
+    assert extended["remaining_usd"] == 15.0
+
+    # Extending a book with no prior grant creates one above its current ceiling.
+    second = budget.configure(5.0)
+    with ledger.connect() as db:
+        db.execute("INSERT INTO reading_reservations VALUES (?,?,?,?)", ("spent-3", second, "5", "4.9"))
+    fresh_book = budget.BookAccount("book-extend-fresh", (second,))
+    created = extend(fresh_book, second, additional_usd=Decimal("10"))
+    assert created["limit_usd"] == 15.0
+    assert created["authorized_limit_usd"] == 15.0
+    assert created["remaining_usd"] == 10.0

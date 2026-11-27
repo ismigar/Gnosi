@@ -15,7 +15,10 @@ function ProcessingDetails({ task, onClose }: { readonly task: ResourceProcessin
     useModalKeyboard({ containerRef: modalRef, isOpen: true, onClose, trapFocus: true });
     return <ProcessResourceModalView estimate={controller.estimate} estimateError={controller.estimateError}
         budgetLimit={controller.budgetLimit} onBudgetLimit={controller.setBudgetLimit}
-        batchSize={controller.batchSize} onBatchSize={controller.setBatchSize} canStart={controller.canStart}
+        batchSize={controller.batchSize} onBatchSize={controller.setBatchSize}
+        extendingBudget={controller.extendingBudget} extendBudgetError={controller.extendBudgetError}
+        onExtendBudget={(additionalUsd) => { void controller.extendBudget(additionalUsd); }}
+        canStart={controller.canStart}
         error={task.error} force={controller.force} fresh={controller.fresh} onReprocess={controller.reprocess} job={task.job} modalRef={modalRef}
         onCancel={onClose} onDismiss={onClose} onStart={() => { void controller.start(); }}
         state={task.state} title={task.title} />;

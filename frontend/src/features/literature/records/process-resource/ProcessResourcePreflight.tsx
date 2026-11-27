@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { bookSpendingCeiling, remainingBookBudget } from './processResourceModel';
 import { useTranslation } from 'react-i18next';
 import type { ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
@@ -11,9 +12,15 @@ interface Props {
     readonly onBudgetLimit: (usd: number) => void;
     readonly batchSize: number;
     readonly onBatchSize: (value: number) => void;
+    readonly extendingBudget?: boolean;
+    readonly extendBudgetError?: string;
+    readonly onExtendBudget?: (additionalUsd: number) => void;
 }
 
-export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize }: Props) {
+export function ProcessResourcePreflight({
+    estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize,
+    extendingBudget = false, extendBudgetError = '', onExtendBudget,
+}: Props) {
     const { t } = useTranslation();
     const { numberLocale } = useLocaleSettings();
     const translate = (key: string, defaultValue: string, values: Readonly<Record<string, string | number>> = {}): string =>
@@ -30,6 +37,12 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
     const ceiling = bookSpendingCeiling(estimate);
     const label = translate('budget_limit', 'Spending limit ({{currency}})', { currency });
     const insufficient = estimate?.cost_usd != null && estimate.cost_usd > available;
+    const canExtend = Boolean(estimate?.budget && onExtendBudget && (available <= 0 || insufficient));
+    const suggestedAdditionalDisplay = Math.max(5, Math.ceil(Math.max(0, (estimate?.cost_usd ?? 5) - available) * rate));
+    const [extendDisplayInput, setExtendDisplayInput] = useState<string>('');
+    const extendDisplayValue = extendDisplayInput !== '' ? Number(extendDisplayInput) : suggestedAdditionalDisplay;
+    const extendUsd = Number.isFinite(extendDisplayValue) && extendDisplayValue > 0 ? extendDisplayValue / rate : 0;
+    const extendLabel = translate('budget_extend_label', 'Additional budget ({{currency}})', { currency });
 
     return <div className="space-y-3 rounded-lg border border-[var(--border-primary)] p-3 text-xs text-[var(--text-secondary)]">
         <label className="flex items-center justify-between gap-3">
@@ -57,6 +70,37 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
             {estimate.priced && estimate.cost_usd !== null ? <>
                 <p>{translate('estimate_cost', 'Conservative estimate for all remaining work: {{cost}}.', { cost: money(estimate.cost_usd) })}</p>
                 {insufficient && <p role="status" className="font-semibold text-[var(--text-primary)]">{translate('estimate_over_budget', 'The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.')}</p>}
+                {canExtend && (
+                    <div className="space-y-2 rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)]/50 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="flex items-center gap-2 min-w-0">
+                                <span>{extendLabel}</span>
+                                <input
+                                    aria-label={extendLabel}
+                                    type="number"
+                                    min="1"
+                                    max={500 * rate}
+                                    step="any"
+                                    disabled={extendingBudget}
+                                    value={extendDisplayInput !== '' ? extendDisplayInput : String(suggestedAdditionalDisplay)}
+                                    onChange={event => { setExtendDisplayInput(event.target.value); }}
+                                    className="w-20 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-primary)]"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                disabled={extendingBudget || extendUsd <= 0}
+                                onClick={() => { if (extendUsd > 0) onExtendBudget?.(extendUsd); }}
+                                className="rounded bg-[var(--gnosi-primary)] px-2.5 py-1.5 font-medium text-white disabled:opacity-50"
+                            >
+                                {extendingBudget
+                                    ? translate('budget_extend_busy', 'Authorizing…')
+                                    : translate('budget_extend_action', 'Authorize extension')}
+                            </button>
+                        </div>
+                        {extendBudgetError && <p role="alert" className="text-red-500">{extendBudgetError}</p>}
+                    </div>
+                )}
                 <details className="space-y-2">
                     <summary className="cursor-pointer">{translate('estimate_calculation', 'How this is calculated')}</summary>
                     {estimate.processing_tier === 'flex' && <p>{translate('estimate_flex', 'Flex halves the base tariff and may take longer. This estimate includes cache-write overhead and assumes no cache hits. Reservations include the maximum output and cache-write cost; there is no automatic switch to Standard.')}</p>}

@@ -284,3 +284,37 @@ def _source_preflight(item_id: str, metadata: dict[str, object], body: str, vr: 
         if not preflight["priced"]:
             raise LlmWikiActionError(409, "reading_budget_unknown_price_or_output_limit")
     return {"_reading_identity": expected_reading_identity}
+
+
+def extend_source_budget(
+    resource_id: str,
+    *,
+    source_table_id: str = "",
+    additional_usd: float,
+) -> Dict[str, object]:
+    """Extend the authorized spending ceiling for an existing resumable book."""
+    from decimal import Decimal
+    from backend.api import vault_routes as legacy_vault_routes
+    from backend.services import llm_wiki, llm_wiki_storage, reading_budget, reading_budget_grant
+
+    vr = cast(VaultActionsPort, legacy_vault_routes)
+    if not vr._llm_wiki_enabled(vr._load_plugins_state()):  # noqa: SLF001
+        raise LlmWikiActionError(409, "The LLM Wiki plugin is disabled")
+    item_id = str(resource_id or "").strip()
+    if not item_id:
+        raise LlmWikiActionError(400, "resource_id is required")
+    resolved_table_id = str(source_table_id or "").strip()
+    if llm_wiki.is_running(item_id, resolved_table_id):
+        raise LlmWikiActionError(409, "Resource processing is currently running")
+    previous = llm_wiki_storage.get_job_status(item_id, resolved_table_id)
+    budget_id = str(previous.get("budget_id") or "").strip()
+    if not budget_id or previous.get("phase") not in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
+        raise LlmWikiActionError(409, "No resumable reading budget was found for this resource")
+    table_id = resolved_table_id or str(previous.get("source_table_id") or "")
+    book = reading_budget.book_account(vr.get_p("VAULT"), table_id, item_id)
+    try:
+        return reading_budget_grant.extend(
+            book, budget_id, additional_usd=Decimal(str(additional_usd)),
+        )
+    except (ValueError, reading_budget.ReadingBudgetError) as error:
+        raise LlmWikiActionError(400, str(error)) from error

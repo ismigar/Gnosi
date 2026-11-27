@@ -39,6 +39,11 @@ export function ProcessResourceModal(
             onBudgetLimit={processState.setBudgetLimit}
             batchSize={processState.batchSize}
             onBatchSize={processState.setBatchSize}
+            extendingBudget={processState.extendingBudget}
+            extendBudgetError={processState.extendBudgetError}
+            onExtendBudget={(additionalUsd) => {
+                void processState.extendBudget(additionalUsd);
+            }}
             canStart={processState.canStart}
             error={processState.error}
             force={processState.force}

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { estimateResourceProcessing, type ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
+import { estimateResourceProcessing, extendResourceProcessingBudget, type ResourceProcessingEstimate } from '../../../../shared/api/resource-processing';
 import { useTranslation } from 'react-i18next';
 import type { ProcessResourceModalProps } from './processResourceModel';
 import { discoverResourceProcessingTask, dismissResourceProcessingTask, getResourceProcessingTasks, processingTaskId, setResourceProcessingBackground, startResourceProcessingTask, subscribeResourceProcessingTasks, useResourceProcessingTasks } from './resourceProcessingTasks';
@@ -17,6 +17,9 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
     const budgetEditedFor = useRef<string | null>(null);
     const setBudgetLimit = (value: number): void => { budgetEditedFor.current = id; setBudgetState(value); };
     const [batchSize, setBatchSize] = useState(4);
+    const [estimateNonce, setEstimateNonce] = useState(0);
+    const [extendingBudget, setExtendingBudget] = useState(false);
+    const [extendBudgetError, setExtendBudgetError] = useState('');
     const hasTask = Boolean(task);
     const taskState = task?.state;
     const statusKey = useMemo(() => Symbol(JSON.stringify([isOpen, id])), [isOpen, id]);
@@ -43,7 +46,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         return () => { request.abort(); clearInterval(timer); };
     }, [isOpen, taskState, hasTask, noteId, sourceTableId, title, reprocess, t, statusKey]);
     const needsEstimate = isOpen && !checkingStatus && (!task || task.state === 'error');
-    const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState])), [isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState]);
+    const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState, estimateNonce])), [isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState, estimateNonce]);
     const [preflight, setPreflight] = useState<{ key: symbol; result: ResourceProcessingEstimate | null; error: string } | null>(null);
     const estimate = preflight?.key === estimateKey ? preflight.result : null;
     const estimateError = preflight?.key === estimateKey ? preflight.error : '';
@@ -90,6 +93,26 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         error: task?.error ?? '',
         job: task?.job ?? null,
         estimate, estimateError, budgetLimit, setBudgetLimit, batchSize, setBatchSize, canStart,
+        extendingBudget, extendBudgetError,
+        extendBudget: async (additionalUsd: number): Promise<void> => {
+            if (!Number.isFinite(additionalUsd) || additionalUsd <= 0 || extendingBudget) return;
+            setExtendingBudget(true);
+            setExtendBudgetError('');
+            try {
+                const updated = await extendResourceProcessingBudget({
+                    resource_id: noteId,
+                    source_table_id: sourceTableId,
+                    additional_usd: additionalUsd,
+                });
+                budgetEditedFor.current = null;
+                setBudgetState(updated.authorized_limit_usd ?? updated.limit_usd);
+                setEstimateNonce(n => n + 1);
+            } catch {
+                setExtendBudgetError(t('llm_wiki.budget_extend_failed', 'Could not extend the spending limit for this book.'));
+            } finally {
+                setExtendingBudget(false);
+            }
+        },
         start: () => {
             if (!canStart) return Promise.resolve();
             setFreshTarget(null);

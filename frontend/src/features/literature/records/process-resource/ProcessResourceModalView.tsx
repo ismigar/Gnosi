@@ -22,6 +22,9 @@ interface ProcessResourceModalViewProps {
     readonly onBudgetLimit: (value: number) => void;
     readonly batchSize: number;
     readonly onBatchSize: (value: number) => void;
+    readonly extendingBudget?: boolean;
+    readonly extendBudgetError?: string;
+    readonly onExtendBudget?: (additionalUsd: number) => void;
     readonly canStart: boolean;
     readonly fresh: boolean;
     readonly onReprocess: () => void;
@@ -38,7 +41,8 @@ interface ProcessResourceModalViewProps {
 
 
 export function ProcessResourceModalView({
-    estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize, canStart,
+    estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize,
+    extendingBudget, extendBudgetError, onExtendBudget, canStart,
     fresh, onReprocess,
     error,
     force,
@@ -126,7 +130,9 @@ export function ProcessResourceModalView({
                     {state === 'confirm' || state === 'error' ? (
                         <ProcessResourcePreflight estimate={estimate} estimateError={estimateError}
                             budgetLimit={budgetLimit} onBudgetLimit={onBudgetLimit}
-                            batchSize={batchSize} onBatchSize={onBatchSize} />
+                            batchSize={batchSize} onBatchSize={onBatchSize}
+                            extendingBudget={extendingBudget} extendBudgetError={extendBudgetError}
+                            onExtendBudget={onExtendBudget} />
                     ) : null}
 
                     {state === 'running' ? (
