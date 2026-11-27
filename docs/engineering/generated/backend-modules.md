@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 294 | 58101 |
+| `services` | 294 | 58104 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1168 modules** and **222869 source lines**.
+Total: **1168 modules** and **222872 source lines**.
 
 ## agent
 
@@ -1020,7 +1020,7 @@ Total: **1168 modules** and **222869 source lines**.
 | [`backend/services/agent_run_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_run_middleware.py) | 35 | 1 | 1 | 0 | 0 | Expose execution correlation without changing functional response bodies. |
 | [`backend/services/agent_semantic_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_semantic_memory.py) | 171 | 0 | 8 | 0 | 6 | Reviewable Vault-scoped vocabulary associations for agent retrieval. |
 | [`backend/services/agent_skill_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_assignments.py) | 332 | 4 | 2 | 0 | 5 | Revision-aware agent skill assignments and legacy migration. |
-| [`backend/services/agent_skill_audits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_audits.py) | 432 | 5 | 13 | 3 | 2 | Periodic tool-free skill regression audits with deterministic checks and history. |
+| [`backend/services/agent_skill_audits.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_audits.py) | 435 | 5 | 13 | 3 | 2 | Periodic tool-free skill regression audits with deterministic checks and history. |
 | [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_catalog.py) | 747 | 4 | 18 | 0 | 15 | Effective catalogs and runtime resolution for agent skills and tools. |
 | [`backend/services/agent_specialized_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_specialized_tools.py) | 165 | 0 | 8 | 0 | 4 | Specialized inference engines registered and audited as principal tools. |
 | [`backend/services/agent_stream_journal.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_journal.py) | 112 | 0 | 7 | 0 | 0 | Short-lived encrypted replay journal for accepted agent streams. |
