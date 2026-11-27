@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 790 | 3656 |
-| pytest | 852 | 6664 |
+| pytest | 852 | 6666 |
 
 ## Files
 
@@ -938,7 +938,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_unavailable_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_unavailable_http.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_universal_runtime_phase2.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_universal_runtime_phase2.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_view_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_view_edit.py) | 11 | Python AST |
-| pytest | [`backend/tests/test_agent_workflow_chains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workflow_chains.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_agent_workflow_chains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workflow_chains.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace.py) | 20 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_planning.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_speech.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_speech.py) | 21 | Python AST |
