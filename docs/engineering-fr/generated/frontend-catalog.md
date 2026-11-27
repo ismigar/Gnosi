@@ -52,9 +52,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2476 | 0 |
-| `features` | 1339 | 140439 | 57 |
+| `features` | 1339 | 140463 | 57 |
 | `generated` | 3 | 58386 | 603 |
-| `shared` | 361 | 38014 | 517 |
+| `shared` | 361 | 38015 | 517 |
 
 ## app
 
@@ -341,8 +341,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/graph/panels/NodeDetailsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/NodeDetailsPanel.tsx) | 271 | `NodeDetailsPanel` | — |
 | [`frontend/src/features/graph/panels/Sidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/Sidebar.tsx) | 252 | `Sidebar` | — |
 | [`frontend/src/features/graph/panels/VisualizationSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/panels/VisualizationSection.tsx) | 121 | `VisualizationSection` | — |
-| [`frontend/src/features/home-canvas/HomeBlockCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeBlockCard.tsx) | 78 | `HomeBlockCard` | — |
-| [`frontend/src/features/home-canvas/HomeCanvas.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeCanvas.tsx) | 115 | `HomeCanvas`, `function` | — |
+| [`frontend/src/features/home-canvas/HomeBlockCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeBlockCard.tsx) | 79 | `HomeBlockCard` | — |
+| [`frontend/src/features/home-canvas/HomeCanvas.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeCanvas.tsx) | 138 | `HomeCanvas`, `function` | — |
 | [`frontend/src/features/home-canvas/HomeCatalog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeCatalog.tsx) | 31 | `HomeCatalog` | — |
 | [`frontend/src/features/home-canvas/HomeHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/HomeHeader.tsx) | 17 | `HomeHeader` | — |
 | [`frontend/src/features/home-canvas/apps/DeviceBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/home-canvas/apps/DeviceBlocks.tsx) | 100 | `AssistantBlock`, `BookmarksBlock`, `CachedBlock`, `ShortcutBlock` | — |
@@ -1483,7 +1483,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/api/genograms.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/genograms.ts) | 18 | `fetchGenogram`, `fetchGenogramSetupStatus`, `prepareGenograms` | `/api/vault/genograms/graph`, `/api/vault/genograms/prepare`, `/api/vault/genograms/status` |
 | [`frontend/src/shared/api/google-auth.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/google-auth.ts) | 33 | `fetchGoogleOAuthHealth`, `fetchGoogleOAuthStatus`, `googleSignInPath` | `/api/auth/google/health`, `/api/auth/google/login?`, `/api/auth/google/status` |
 | [`frontend/src/shared/api/graph.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/graph.ts) | 19 | `fetchVaultGraph`, `graphQueryKey` | `/api/graph` |
-| [`frontend/src/shared/api/home-canvas.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/home-canvas.ts) | 41 | `fetchHomePreferences`, `homePreferencesKey`, `saveHomePreferences` | `/api/vault/home-canvas` |
+| [`frontend/src/shared/api/home-canvas.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/home-canvas.ts) | 42 | `fetchHomePreferences`, `homePreferencesKey`, `saveHomePreferences` | `/api/vault/home-canvas` |
 | [`frontend/src/shared/api/identity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/identity.ts) | 37 | `fetchIdentity`, `saveIdentity` | `/api/identity` |
 | [`frontend/src/shared/api/integrations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/integrations.ts) | 145 | `bulkUpdateIntegrations`, `fetchIntegrations`, `testCalendarIntegration`, `testContactsIntegration`, `testEmailIntegration`, `updateCalendarAliases`, `updateCalendarColors`, `updateCalendarSelection`, `updateDefaultCalendar`, `updateDefaultContacts`, `updateDefaultMail`, `updateIntegration` | `/api/integrations`, `/api/integrations/bulk`, `/api/integrations/calendar_aliases`, `/api/integrations/calendar_colors`, `/api/integrations/calendar_selection`, `/api/integrations/default_calendar`, `/api/integrations/default_contacts`, `/api/integrations/default_mail`, `/api/integrations/test-calendar`, `/api/integrations/test-contacts`, `/api/integrations/test-email`, `/api/integrations/{integration_id}` |
 | [`frontend/src/shared/api/links.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/links.ts) | 19 | `fetchLinkPreview` | `/api/vault/link-preview` |
