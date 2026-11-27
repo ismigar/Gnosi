@@ -11116,6 +11116,17 @@
         "title": "DefaultCalendarRequest",
         "type": "object"
       },
+      "DeleteAuditSuiteResponse": {
+        "properties": {
+          "deleted": {
+            "default": true,
+            "title": "Deleted",
+            "type": "boolean"
+          }
+        },
+        "title": "DeleteAuditSuiteResponse",
+        "type": "object"
+      },
       "DirectiveAnalyticsPageResponse": {
         "description": "Paginated directive inventory.",
         "properties": {
@@ -37518,6 +37529,290 @@
         "title": "SkillActivation",
         "type": "string"
       },
+      "SkillAuditCase": {
+        "properties": {
+          "expected_substrings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Expected Substrings",
+            "type": "array"
+          },
+          "forbidden_substrings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Forbidden Substrings",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prompt"
+        ],
+        "title": "SkillAuditCase",
+        "type": "object"
+      },
+      "SkillAuditCaseOutcome": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "forbidden_hits": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Forbidden Hits",
+            "type": "array"
+          },
+          "matched": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Matched",
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "output_preview": {
+            "default": "",
+            "title": "Output Preview",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "case_id",
+          "passed"
+        ],
+        "title": "SkillAuditCaseOutcome",
+        "type": "object"
+      },
+      "SkillAuditRun": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/SkillAuditCaseOutcome"
+            },
+            "title": "Outcomes",
+            "type": "array"
+          },
+          "passed_count": {
+            "title": "Passed Count",
+            "type": "integer"
+          },
+          "regressed_case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regressed Case Ids",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "regressed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suite_id": {
+            "title": "Suite Id",
+            "type": "string"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "suite_id",
+          "skill_id",
+          "status",
+          "passed_count",
+          "total_count",
+          "outcomes",
+          "created_at"
+        ],
+        "title": "SkillAuditRun",
+        "type": "object"
+      },
+      "SkillAuditSuite": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/SkillAuditCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "interval_days": {
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_status": {
+            "default": "",
+            "title": "Last Status",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "suite_id": {
+            "title": "Suite Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "suite_id",
+          "name",
+          "agent_id",
+          "skill_id",
+          "interval_days",
+          "enabled",
+          "cases",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SkillAuditSuite",
+        "type": "object"
+      },
+      "SkillAuditSuiteCreate": {
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/SkillAuditCase"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "interval_days": {
+            "default": 7,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "skill_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Skill Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "agent_id",
+          "skill_id",
+          "cases"
+        ],
+        "title": "SkillAuditSuiteCreate",
+        "type": "object"
+      },
       "SkillAutomationDeleteResponse": {
         "properties": {
           "automation_id": {
@@ -45047,6 +45342,626 @@
           }
         },
         "summary": "Shared Bank",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/skill-audits": {
+      "get": {
+        "operationId": "get_skill_audit_suites_api_agent_runs_skill_audits_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SkillAuditSuite"
+                  },
+                  "title": "Response Get Skill Audit Suites Api Agent Runs Skill Audits Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Skill Audit Suites",
+        "tags": [
+          "Agent runs"
+        ]
+      },
+      "post": {
+        "operationId": "post_skill_audit_suite_api_agent_runs_skill_audits_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillAuditSuiteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAuditSuite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Skill Audit Suite",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/skill-audits/{suite_id}": {
+      "delete": {
+        "operationId": "remove_skill_audit_suite_api_agent_runs_skill_audits__suite_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suite_id",
+            "required": true,
+            "schema": {
+              "title": "Suite Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAuditSuiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Skill Audit Suite",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/skill-audits/{suite_id}/run": {
+      "post": {
+        "operationId": "trigger_skill_audit_suite_api_agent_runs_skill_audits__suite_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suite_id",
+            "required": true,
+            "schema": {
+              "title": "Suite Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAuditRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trigger Skill Audit Suite",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/skill-audits/{suite_id}/runs": {
+      "get": {
+        "operationId": "get_skill_audit_runs_api_agent_runs_skill_audits__suite_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suite_id",
+            "required": true,
+            "schema": {
+              "title": "Suite Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SkillAuditRun"
+                  },
+                  "title": "Response Get Skill Audit Runs Api Agent Runs Skill Audits  Suite Id  Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Skill Audit Runs",
         "tags": [
           "Agent runs"
         ]

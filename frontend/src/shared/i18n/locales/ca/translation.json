@@ -9928,5 +9928,18 @@
     "noSites": "Crea primer un web a Webs.",
     "binding": "Vinculació",
     "newBinding": "Afegeix una altra secció…"
+  },
+  "skill_audits": {
+    "title": "Auditories de regressió d’habilitats",
+    "subtitle": "Executa periòdicament casos de prova sense eines per detectar regressions en habilitats.",
+    "empty": "Encara no hi ha cap bateria d’auditoria configurada.",
+    "run_now": "Executa ara",
+    "every_days": "Cada {{days}} dies",
+    "cases_count": "{{count}} casos",
+    "status": {
+      "passed": "Superada",
+      "regressed": "Regressió detectada",
+      "failed": "Fallada"
+    }
   }
 }
