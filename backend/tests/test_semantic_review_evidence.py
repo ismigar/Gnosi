@@ -336,3 +336,31 @@ def test_malformed_model_json_defers_one_range_after_governed_repair(runtime, mo
         with governed.operation_session(frozen), pytest.raises(PendingPassagesRemaining, match='reading_passages_pending: 1'):
             engine.review(overview, notes_map)
     assert len(calls) == 2 and len(engine.state['reviewed_groups']) == 3
+
+
+def test_stale_saved_review_sources_invalidates_only_affected_group_and_retries():
+    from backend.tests.test_semantic_review_parallel import prepared
+    from backend.tests.test_semantic_reading import response
+
+    engine, gm, nm, _, _ = prepared(count=2, size=1)
+    engine.review(gm, nm)
+    first_key = next(iter(engine.state['reviewed_groups']))
+    engine.state.setdefault('review_sources', {})[first_key] = [{'id': 'stale-seg', 'key': 'stale-key'}]
+    engine.state['completed'] = False
+    retried = []
+
+    def generate(prompt):
+        answer = response(prompt)
+        retried.append(prompt['notes'][0]['note']['title'])
+        return answer
+
+    engine.deps.generate_structured = lambda p, *_: (
+        encoded(generate(json.loads(p))),
+        'offline',
+    )
+    result = engine.review(gm, nm)
+    assert len(result) == 2
+    assert len(retried) == 1
+    assert first_key in engine.state['invalidated_review_groups']
+    assert 'saved review evidence changed' in engine.state['invalidated_review_groups'][first_key]['error']
+    assert engine.state['review_sources'].get(first_key) == []

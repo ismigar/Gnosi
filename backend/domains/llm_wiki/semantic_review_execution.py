@@ -288,13 +288,14 @@ def revalidate_saved_batch(engine: SemanticReader, batch: ReviewBatch) -> Review
     if answer is None:
         return batch
     saved_sources = engine.state.get("review_sources", {}).get(batch.key)
-    if saved_sources is not None:
-        batch = replace(batch, retrieved=evidence_lookup.restore(evidence_lookup.originals(engine.reader.chunks), saved_sources))
     try:
+        if saved_sources is not None:
+            batch = replace(batch, retrieved=evidence_lookup.restore(evidence_lookup.originals(engine.reader.chunks), saved_sources))
         validate_answer(answer, batch, engine.reader)
-    except (ValueError, TypeError, KeyError, ValidationError) as error:
+    except (ValueError, TypeError, KeyError, ValidationError, RuntimeError) as error:
         engine.state.setdefault("invalidated_review_groups", {})[batch.key] = {"answer": answer, "error": str(error)}
         del engine.state["reviewed_groups"][batch.key]
+        engine.state.get("review_sources", {}).pop(batch.key, None)
         engine.save()
         return replace(batch, payload={**batch.payload, "prior_review_failure": str(error),
                                        "retrieved_originals": [source_view(s) for s in batch.retrieved]})
