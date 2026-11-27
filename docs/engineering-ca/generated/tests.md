@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 789 | 3655 |
-| pytest | 851 | 6660 |
+| pytest | 852 | 6662 |
 
 ## Fitxers
 
@@ -1154,6 +1154,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_lint_edge_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint_edge_contracts.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_note_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_note_migration.py) | 13 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_page_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_page_cache.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_pdf_annotations.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_processing_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_processing_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_contracts.py) | 3 | Python AST |
