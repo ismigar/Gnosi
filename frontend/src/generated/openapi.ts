@@ -184,6 +184,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Chains */
+        get: operations["get_workflow_chains_api_agent_runs_chains_get"];
+        put?: never;
+        /** Post Workflow Chain */
+        post: operations["post_workflow_chain_api_agent_runs_chains_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/chains/{chain_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Chain */
+        get: operations["get_workflow_chain_api_agent_runs_chains__chain_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/chains/{chain_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Workflow Chain */
+        post: operations["cancel_workflow_chain_api_agent_runs_chains__chain_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/chains/{chain_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Workflow Chain */
+        post: operations["run_workflow_chain_api_agent_runs_chains__chain_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/preview": {
         parameters: {
             query?: never;
@@ -28989,6 +29058,104 @@ export interface components {
              */
             target: "staging";
         };
+        /** WorkflowChainCreate */
+        WorkflowChainCreate: {
+            /** Name */
+            name: string;
+            /** Steps */
+            steps: components["schemas"]["WorkflowChainStepDef"][];
+        };
+        /** WorkflowChainRun */
+        WorkflowChainRun: {
+            /** Chain Id */
+            chain_id: string;
+            /** Created At */
+            created_at: number;
+            /** Current Step Index */
+            current_step_index: number;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "awaiting_confirmation" | "completed" | "failed" | "cancelled";
+            /** Steps */
+            steps: components["schemas"]["WorkflowChainStepState"][];
+            /** Updated At */
+            updated_at: number;
+        };
+        /** WorkflowChainStepDef */
+        WorkflowChainStepDef: {
+            /** Agent Id */
+            agent_id: string;
+            /** Id */
+            id: string;
+            /** Instruction */
+            instruction: string;
+            /**
+             * Max Model Calls
+             * @default 2
+             */
+            max_model_calls: number;
+            /** Name */
+            name: string;
+            /** Skill Id */
+            skill_id: string;
+            /**
+             * Timeout Seconds
+             * @default 180
+             */
+            timeout_seconds: number;
+        };
+        /** WorkflowChainStepState */
+        WorkflowChainStepState: {
+            /** Agent Id */
+            agent_id: string;
+            /** Completed At */
+            completed_at?: number | null;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Instruction */
+            instruction: string;
+            /**
+             * Max Model Calls
+             * @default 2
+             */
+            max_model_calls: number;
+            /** Name */
+            name: string;
+            /**
+             * Output Text
+             * @default
+             */
+            output_text: string;
+            /**
+             * Run Id
+             * @default
+             */
+            run_id: string;
+            /** Skill Id */
+            skill_id: string;
+            /** Started At */
+            started_at?: number | null;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "running" | "awaiting_confirmation" | "completed" | "failed" | "cancelled";
+            /** Step Id */
+            step_id: string;
+            /**
+             * Timeout Seconds
+             * @default 180
+             */
+            timeout_seconds: number;
+        };
         /**
          * WorklogCreateResponse
          * @description Envelope returned after appending a worklog.
@@ -29591,6 +29758,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OperationBindingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_chains_api_agent_runs_chains_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowChainRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_workflow_chain_api_agent_runs_chains_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowChainCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowChainRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_chain_api_agent_runs_chains__chain_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                chain_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowChainRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_workflow_chain_api_agent_runs_chains__chain_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                chain_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowChainRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_workflow_chain_api_agent_runs_chains__chain_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                chain_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowChainRun"];
                 };
             };
             /** @description Validation Error */
