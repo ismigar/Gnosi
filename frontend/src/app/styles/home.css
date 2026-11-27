@@ -40,7 +40,7 @@
 .home-button:hover, .home-block__icon:not(:disabled):hover, .home-catalog__option:not(:disabled):hover { background: var(--bg-tertiary); }
 @container (max-width: 680px) {
   .home-grid { grid-template-columns: minmax(0, 1fr); }
-  .home-grid .home-block { grid-column: 1; }
+  .home-grid .home-block { grid-column: 1; grid-row: auto; }
 }
 @media (pointer: coarse) {
   .home-block__icon, .home-field, .home-button, .home-catalog__option { min-height: var(--control-height-touch); }
