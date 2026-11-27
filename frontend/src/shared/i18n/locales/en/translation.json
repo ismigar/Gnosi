@@ -5588,7 +5588,7 @@
     "columns_1": "1 column",
     "columns_2": "2 columns",
     "columns_3": "3 columns",
-    "height_named": "Rows for {{title}}",
+    "height_named": "Height of {{title}}",
     "rows_1": "1 row",
     "rows_2": "2 rows",
     "rows_3": "3 rows",
