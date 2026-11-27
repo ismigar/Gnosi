@@ -27,7 +27,7 @@ test('a personal canvas keeps a resized and reordered block after reopening', as
     await expect(home).toBeVisible();
     expect((await catalogRead).ok()).toBe(true);
     expect(sidebarTreeReads).toBe(0);
-    await page.getByTestId('home-edit').click();
+    await page.getByTestId('home-edit').getByRole('switch').click();
     await home.locator('button[aria-controls="home-block-catalog"]').click();
     await home.locator('[data-add-kind="bookmarks"]').click();
     const card = home.locator('[data-home-block="bookmarks"]');
@@ -36,7 +36,15 @@ test('a personal canvas keeps a resized and reordered block after reopening', as
     await card.getByRole('button', { name: /earlier/i }).click();
     const blocks = home.locator('[data-home-block]');
     const order = await blocks.evaluateAll(tiles => tiles.map(tile => tile.getAttribute('data-home-block')));
-    await page.getByTestId('home-edit').click();
+    await expect(async () => {
+      const saved = await readLayout();
+      const savedBlocks = Array.isArray(saved.blocks) ? saved.blocks as Array<Record<string, unknown>> : [];
+      const savedBookmarks = savedBlocks.find(b => b.kind === 'bookmarks');
+      expect(savedBookmarks?.width).toBe(2);
+      expect(savedBookmarks?.height).toBe(2);
+      expect(savedBlocks.map(b => b.kind)).toEqual(order);
+    }).toPass();
+    await page.getByTestId('home-edit').getByRole('switch').click();
     await expect(home.locator('.home-block__tools')).toHaveCount(0);
     await page.reload();
     await expect(card).toHaveAttribute('data-width', '2');
