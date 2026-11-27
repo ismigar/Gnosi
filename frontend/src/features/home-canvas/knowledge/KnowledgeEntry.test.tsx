@@ -22,7 +22,7 @@ it.each(['graph', 'board'] as const)('starts a cold %s with only the cache reque
     .mockResolvedValueOnce(Response.json({ pages: [], complete: true }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = mountTestComponent(<QueryClientProvider client={client}><MemoryRouter>
-    <KnowledgeBlocks block={{ id: 'block', kind, width: 1, settings: {} }} editing={false} onConfigure={vi.fn()} />
+    <KnowledgeBlocks block={{ id: 'block', kind, width: 1, height: 1, settings: {} }} editing={false} onConfigure={vi.fn()} />
   </MemoryRouter></QueryClientProvider>);
   await settle();
   expect(fetch).toHaveBeenCalledTimes(1);

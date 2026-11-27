@@ -72,7 +72,7 @@ async function settle() {
 function mount(kind: 'board' | 'graph', settings: Record<string, string> = {}, editing = false) {
   const configure = vi.fn();
   const node = (current: Record<string, string>, edit: boolean) => <QueryClientProvider client={client}><MemoryRouter>
-    <KnowledgeBlocks block={{ id: 'block', kind, width: 2, settings: current }} editing={edit} onConfigure={configure} />
+    <KnowledgeBlocks block={{ id: 'block', kind, width: 2, height: 1, settings: current }} editing={edit} onConfigure={configure} />
   </MemoryRouter></QueryClientProvider>;
   const result = mountTestComponent(node(settings, editing));
   return { ...result, configure, update: (current: Record<string, string>, edit = false) => { result.render(node(current, edit)); } };

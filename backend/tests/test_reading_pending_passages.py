@@ -308,3 +308,56 @@ def test_independent_audit_exclusion_checks_its_reason_against_the_same_boundary
               "reason": "El passatge ha quedat incomplet i se n’omet la tesi."}]}
     with pytest.raises(ValueError, match="source-grounded review"):
         apply_changes(answer, [{}], {"text": "The claim"}, [], [])
+
+
+def test_job_auto_retries_pending_passages_while_count_strictly_decreases(monkeypatch):
+    from backend.services import llm_wiki, llm_wiki_storage
+
+    monkeypatch.setattr(llm_wiki_storage, "load_checkpoint", lambda *args: None)
+    seen: list[str] = []
+    outcomes = [PendingPassagesRemaining(14), PendingPassagesRemaining(9), {"pages_touched": 3}]
+
+    def run_pass(_checkpoint, resume_id):
+        seen.append(resume_id)
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    report = llm_wiki._process_resource_with_pending_retries(
+        run_pass,
+        job_id="job-current",
+        source_page_id="book-1",
+        resume_checkpoint=None,
+        resume_job_id="job-prev",
+    )
+    assert report == {"pages_touched": 3}
+    assert seen == ["job-prev", "job-current", "job-current"]
+
+
+def test_job_auto_retry_stops_immediately_without_progress_or_at_limit(monkeypatch):
+    from backend.services import llm_wiki, llm_wiki_storage
+
+    monkeypatch.setattr(llm_wiki_storage, "load_checkpoint", lambda *args: None)
+    stalled = [PendingPassagesRemaining(5), PendingPassagesRemaining(5), {"pages_touched": 1}]
+    with pytest.raises(PendingPassagesRemaining, match="reading_passages_pending: 5"):
+        llm_wiki._process_resource_with_pending_retries(
+            lambda *_: (_ for _ in ()).throw(stalled.pop(0)),
+            job_id="job-1",
+            source_page_id="book-1",
+            resume_checkpoint=None,
+            resume_job_id="",
+        )
+    assert len(stalled) == 1  # Stopped after pass 1 made no progress.
+
+    bounded = [PendingPassagesRemaining(5), PendingPassagesRemaining(4), PendingPassagesRemaining(3), PendingPassagesRemaining(2)]
+    with pytest.raises(PendingPassagesRemaining, match="reading_passages_pending: 2"):
+        llm_wiki._process_resource_with_pending_retries(
+            lambda *_: (_ for _ in ()).throw(bounded.pop(0)),
+            job_id="job-2",
+            source_page_id="book-1",
+            resume_checkpoint=None,
+            resume_job_id="",
+            max_retries=3,
+        )
+    assert not bounded

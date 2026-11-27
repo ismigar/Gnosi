@@ -31,7 +31,8 @@ test('a personal canvas keeps a resized and reordered block after reopening', as
     await home.locator('button[aria-controls="home-block-catalog"]').click();
     await home.locator('[data-add-kind="bookmarks"]').click();
     const card = home.locator('[data-home-block="bookmarks"]');
-    await card.locator('.home-block__tools select').selectOption('2');
+    await card.getByLabel(/width of/i).selectOption('2');
+    await card.getByLabel(/height of/i).selectOption('2');
     await card.getByRole('button', { name: /earlier/i }).click();
     const blocks = home.locator('[data-home-block]');
     const order = await blocks.evaluateAll(tiles => tiles.map(tile => tile.getAttribute('data-home-block')));
@@ -39,6 +40,7 @@ test('a personal canvas keeps a resized and reordered block after reopening', as
     await expect(home.locator('.home-block__tools')).toHaveCount(0);
     await page.reload();
     await expect(card).toHaveAttribute('data-width', '2');
+    await expect(card).toHaveAttribute('data-height', '2');
     expect(await blocks.evaluateAll(tiles => tiles.map(tile => tile.getAttribute('data-home-block')))).toEqual(order);
     const other = await page.request.get(endpoint, { headers: contextHeaders(state, state.secondary_vault) });
     expect(other.ok()).toBe(true);

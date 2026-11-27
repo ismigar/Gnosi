@@ -15092,6 +15092,16 @@
       "HomeCanvasBlock": {
         "additionalProperties": false,
         "properties": {
+          "height": {
+            "default": 1,
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Height",
+            "type": "integer"
+          },
           "id": {
             "maxLength": 128,
             "minLength": 1,

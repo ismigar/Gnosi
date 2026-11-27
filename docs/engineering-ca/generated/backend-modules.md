@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 653 | 128688 |
+| `domains` | 653 | 128692 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 293 | 57621 |
+| `services` | 293 | 57669 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1166 modules** and **222311 source lines**.
+Total: **1166 modules** and **222363 source lines**.
 
 ## agent
 
@@ -406,7 +406,7 @@ Total: **1166 modules** and **222311 source lines**.
 | [`backend/domains/llm_wiki/note_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/note_migration.py) | 555 | 0 | 13 | 0 | 0 | Preview, classify, apply or roll back the explicit Brain note-field migration. |
 | [`backend/domains/llm_wiki/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/options.py) | 24 | 0 | 1 | 0 | 1 | Existing categorical values shared by Knowledge settings and processing. |
 | [`backend/domains/llm_wiki/origins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/origins.py) | 161 | 0 | 5 | 0 | 4 | Stable origin identity, deduplication, and LLM chunking. |
-| [`backend/domains/llm_wiki/passage_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/passage_repair.py) | 206 | 0 | 5 | 0 | 1 | Review a rejected passage before accepting its extraction batch. |
+| [`backend/domains/llm_wiki/passage_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/passage_repair.py) | 208 | 0 | 5 | 0 | 1 | Review a rejected passage before accepting its extraction batch. |
 | [`backend/domains/llm_wiki/passage_repair_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/passage_repair_notes.py) | 36 | 0 | 2 | 0 | 0 | Carry a passage's supported notes across an independent correction. |
 | [`backend/domains/llm_wiki/pdf_extraction_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/pdf_extraction_cache.py) | 63 | 0 | 5 | 0 | 1 | Reuse complete PDF extraction by exact file bytes, including its OCR result. |
 | [`backend/domains/llm_wiki/pdf_highlight_selection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/pdf_highlight_selection.py) | 51 | 0 | 2 | 0 | 1 | Rank grounded quotations for a sparse reading aid, independently of citations. |
@@ -415,7 +415,7 @@ Total: **1166 modules** and **222311 source lines**.
 | [`backend/domains/llm_wiki/pdf_review_excerpts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/pdf_review_excerpts.py) | 111 | 0 | 6 | 0 | 3 | Propose source-bound, literal excerpts for a specialist reviewing a PDF. |
 | [`backend/domains/llm_wiki/planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/planning.py) | 239 | 0 | 8 | 0 | 4 | Typed planning and grounding rules for LLM Wiki ingestion. |
 | [`backend/domains/llm_wiki/reading_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_action_contracts.py) | 121 | 0 | 4 | 0 | 3 | Typed action payloads; source identity, coverage and citations are checked locally. |
-| [`backend/domains/llm_wiki/reading_batch_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_batch_recovery.py) | 80 | 4 | 5 | 0 | 6 | Reduce automatic delivery after output exhaustion without altering evidence. |
+| [`backend/domains/llm_wiki/reading_batch_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_batch_recovery.py) | 81 | 4 | 5 | 0 | 6 | Reduce automatic delivery after output exhaustion without altering evidence. |
 | [`backend/domains/llm_wiki/reading_batch_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_batch_repairs.py) | 69 | 0 | 2 | 0 | 0 | Compose immutable per-plan patches into one bounded batch repair. |
 | [`backend/domains/llm_wiki/reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_contracts.py) | 110 | 2 | 4 | 0 | 2 | Deterministic evidence and coverage gates for skill-generated reading plans. |
 | [`backend/domains/llm_wiki/reading_dimension_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_dimension_repairs.py) | 154 | 0 | 4 | 0 | 2 | Repair memory, classification and references together without rewriting notes. |
@@ -697,7 +697,7 @@ Total: **1166 modules** and **222311 source lines**.
 | [`backend/domains/vault/files/thumbnails.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/files/thumbnails.py) | 233 | 1 | 7 | 2 | 6 | QuickLook thumbnail resolution and streaming. |
 | [`backend/domains/vault/history/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/__init__.py) | 5 | 0 | 0 | 0 | 0 | Version history for vault pages. |
 | [`backend/domains/vault/history/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/repository.py) | 146 | 1 | 0 | 0 | 1 | Filesystem repository for forward-only vault page history. |
-| [`backend/domains/vault/home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/home_canvas.py) | 100 | 2 | 5 | 0 | 0 | A user's home layout travels with the selected Vault. |
+| [`backend/domains/vault/home_canvas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/home_canvas.py) | 101 | 2 | 5 | 0 | 0 | A user's home layout travels with the selected Vault. |
 | [`backend/domains/vault/knowledge/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
 | [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py) | 28 | 0 | 1 | 0 | 0 | Knowledge URLs share the historical handlers and their authorization guards. |
 | [`backend/domains/vault/knowledge/config_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 329 | 0 | 11 | 8 | 10 | Typed Vault domain extracted from the historical route facade. |
@@ -1123,7 +1123,7 @@ Total: **1166 modules** and **222311 source lines**.
 | [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 459 | 0 | 22 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
 | [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 790 | 0 | 24 | 10 | 3 | Vault-native systematic-review records, blind decisions, and exports. |
 | [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical literature domain. |
-| [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 751 | 1 | 26 | 0 | 12 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
+| [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 799 | 1 | 27 | 0 | 13 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
 | [`backend/services/llm_wiki_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_actions.py) | 286 | 2 | 6 | 1 | 7 | Application actions shared by LLM Wiki HTTP routes and agent tools. |
 | [`backend/services/llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_agent.py) | 219 | 1 | 8 | 0 | 9 | Lifecycle and protection rules for the built-in LLM Wiki agent profile. |
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 255 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
