@@ -203,9 +203,10 @@ def vault_file_snapshot(path: Path, *, root: Path | None = None) -> VaultFileSna
     on_loop = _on_event_loop()
     future = snapshots.reads.request(path, info, handoff=on_loop)
     if on_loop and not future.done():
+        snapshots.release_waiter(future)
         raise MetadataUnavailable("Cloud file download is pending", path=path, reason="pending")
     try:
-        return future.result(timeout=31).lease()
+        return snapshots.claim_snapshot(future, timeout=31)
     except TimeoutError as exc:
         raise MetadataUnavailable("Cloud file download is pending", path=path, reason="pending") from exc
 
