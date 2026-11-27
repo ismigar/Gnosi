@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 654 | 128714 |
+| `domains` | 654 | 128720 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 294 | 57888 |
+| `services` | 294 | 57891 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1317 |
 
-Total: **1168 modules** and **222606 source lines**.
+Total: **1168 modules** and **222615 source lines**.
 
 ## agent
 
@@ -267,7 +267,7 @@ Total: **1168 modules** and **222606 source lines**.
 | [`backend/domains/agent/turn_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 501 | 0 | 8 | 0 | 5 | Provider-independent planning for governed agent turns. |
 | [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 299 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
 | [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 799 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
-| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 790 | 4 | 15 | 1 | 19 | Typed preparation stages for the agent workflow coordinator. |
+| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 791 | 4 | 15 | 1 | 19 | Typed preparation stages for the agent workflow coordinator. |
 | [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 537 | 0 | 8 | 0 | 5 | Fail-closed multilingual authorization intent. |
 | [`backend/domains/analytics/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/__init__.py) | 1 | 0 | 0 | 0 | 0 | Analytics-domain contracts and services. |
 | [`backend/domains/analytics/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/schemas.py) | 93 | 10 | 0 | 0 | 10 | Public request and response contracts for workspace analytics. |
@@ -313,7 +313,7 @@ Total: **1168 modules** and **222606 source lines**.
 | [`backend/domains/configuration/ai/model_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_bindings.py) | 44 | 0 | 2 | 0 | 0 | Explicit model bindings and safe confirmation of their removal. |
 | [`backend/domains/configuration/ai/model_metadata_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_metadata_routes.py) | 18 | 0 | 1 | 1 | 1 | Read-only model metadata used by assistant settings. |
 | [`backend/domains/configuration/ai/model_parameter_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_parameter_routes.py) | 29 | 0 | 1 | 1 | 0 | Review configured model parameters within the AI settings domain. |
-| [`backend/domains/configuration/ai/model_tiers_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_tiers_routes.py) | 32 | 0 | 2 | 2 | 0 | Configuration endpoints for opt-in AI model tiers and automatic fallback. |
+| [`backend/domains/configuration/ai/model_tiers_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_tiers_routes.py) | 37 | 0 | 2 | 2 | 0 | Configuration endpoints for opt-in AI model tiers and automatic fallback. |
 | [`backend/domains/configuration/ai/registry_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/registry_revision.py) | 9 | 0 | 1 | 0 | 0 | Optimistic revision for model and budget edits from independent clients. |
 | [`backend/domains/configuration/ai/usage_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py) | 97 | 0 | 5 | 5 | 2 | Authenticated, provider-independent consumption dashboard. |
 | [`backend/domains/configuration/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration HTTP APIs. |
@@ -1007,7 +1007,7 @@ Total: **1168 modules** and **222606 source lines**.
 | [`backend/services/agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_decisions.py) | 192 | 1 | 6 | 0 | 3 | Optional decision adapters. They advise; Gnosi owns the allowed routes. |
 | [`backend/services/agent_model_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_evaluations.py) | 138 | 0 | 5 | 0 | 2 | Explicit privacy-safe evaluations for configured agent models. |
 | [`backend/services/agent_model_strategy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_strategy.py) | 252 | 0 | 7 | 0 | 5 | Profile-owned model routing for Gnosi agents. |
-| [`backend/services/agent_model_tiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_tiers.py) | 216 | 2 | 7 | 0 | 5 | Opt-in model tier table and automatic same-locality fallback resolution. |
+| [`backend/services/agent_model_tiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_tiers.py) | 219 | 2 | 7 | 0 | 5 | Opt-in model tier table and automatic same-locality fallback resolution. |
 | [`backend/services/agent_native_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_native_bridge.py) | 56 | 0 | 5 | 0 | 0 | Durable native requests claimed once by the authorized desktop conversation. |
 | [`backend/services/agent_observability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_observability.py) | 130 | 0 | 8 | 0 | 1 | Privacy-preserving local spans for end-to-end agent diagnostics. |
 | [`backend/services/agent_operation_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_operation_catalog.py) | 102 | 0 | 5 | 0 | 1 | Reusable methodology for application operations, published in the skill catalog. |
