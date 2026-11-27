@@ -41,6 +41,7 @@ from backend.domains.configuration.ai.content_routes import (
     router as content_router,
 )
 from backend.domains.configuration.ai.model_metadata_routes import router as model_metadata_router
+from backend.domains.configuration.ai.model_tiers_routes import router as model_tiers_router
 from backend.domains.configuration.ai.model_parameter_routes import (
     ParameterReviewRequest as ParameterReviewRequest,
     ParameterReviewResponse as ParameterReviewResponse,
@@ -63,6 +64,7 @@ from backend.utils.safe_io import safe_write_text
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
 router.include_router(model_metadata_router)
+router.include_router(model_tiers_router)
 router.include_router(usage_router)
 router.include_router(legacy_usage_router)
 JsonObject = dict[str, Any]

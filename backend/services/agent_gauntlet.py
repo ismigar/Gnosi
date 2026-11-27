@@ -30,6 +30,9 @@ def _fresh_snapshot(source: AgentExecutionSnapshot, phase: str, root_id: str) ->
     """Keep frozen authority and methodology, discard personal/context history."""
     profile = copy.deepcopy(source.profile)
     profile.update(persona="", context="", _execution_detailed_persona="", _execution_reviewed_memory=[], team={"enabled": False})
+    if phase == "review":
+        from backend.services.agent_model_tiers import apply_gauntlet_reviewer_tier
+        apply_gauntlet_reviewer_tier(profile)
     metadata = profile.setdefault("_team_execution", {"root_id": root_id, "owner_id": source.agent_id})
     metadata["read_only"] = True
     instructions = [*source.instructions, resource(f"system/gauntlet-{phase}.md")]

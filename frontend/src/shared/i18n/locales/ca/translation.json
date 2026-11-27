@@ -3478,7 +3478,14 @@
         "remaining": "Pressupost mensual restant: {{amount}}",
         "budget_partial": "El consum mensual i el pressupost restant són parcials: hi ha crides amb cost desconegut.",
         "budget_estimated": "El consum mensual inclou costos estimats."
-      }
+      },
+      "model_tier_label": "Nivell de model (opcional)",
+      "model_tier_desc": "Per defecte s’usa el model fix del perfil. Si tries un nivell, aquest perfil segueix la taula global de nivells.",
+      "model_tier_pinned": "Model fix del perfil (sense nivell)",
+      "model_tier_minimal": "Mínim (ràpid i econòmic)",
+      "model_tier_standard": "Estàndard (equilibrat)",
+      "model_tier_advanced": "Avançat (màxima capacitat)",
+      "model_tier_fallback_label": "Salt automàtic al següent model del nivell en cas d’error temporal o quota"
     },
     "footer": {
       "close": "Tancar",

@@ -35,6 +35,8 @@ export interface SettingsAgent extends Record<string, unknown> {
   skill_ids?: string[];
   context_refs?: ContextReference[];
   model_strategy?: AgentModelStrategy;
+  model_tier?: '' | 'minimal' | 'standard' | 'advanced';
+  model_tier_fallback?: boolean;
 }
 export type AgentDraft = Partial<SettingsAgent>;
 export interface SettingsPreferences extends Record<string, unknown> {

@@ -8,7 +8,7 @@ import { Activity } from 'lucide-react';
 import AgentContextSources from '../../agent-context/AgentContextSources';
 import { AgentIconSelect } from './AgentIconSelect';
 import { AgentSkillsField } from '../AI/AIResourcesSettings';
-import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
+import { FormGroup, GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Loader2 } from 'lucide-react';
 import { MODEL_FAULT_REASONS } from '../AI/modelReliability';
 import { findModelFault } from '../AI/modelReliability';
@@ -29,6 +29,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
     ...agent, command: agent.command || '', name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
     icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
+    model_tier: agent.model_tier ?? '', model_tier_fallback: Boolean(agent.model_tier_fallback),
   });
   const incomingRoute = JSON.stringify([agent.provider, agent.model, agent.reasoning_effort, agent.openrouter_route]);
   const [modelIdentity, setModelIdentity] = useState(incomingRoute);
@@ -36,7 +37,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
     setModelIdentity(incomingRoute);
     setForm(previous => ({ ...previous, provider: agent.provider || '', model: agent.model || '', reasoning_effort: agent.reasoning_effort, openrouter_route: agent.openrouter_route }));
   }
-  const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
+  const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds, model_tier: modelTier, model_tier_fallback: modelTierFallback } = form;
   const [section, setSection] = useState('instructions');
   const migration = agent.behavior_migration && typeof agent.behavior_migration === 'object' ? agent.behavior_migration as Record<string, unknown> : undefined;
   const originalInstructions = typeof migration?.original === 'string' ? migration.original : '';
@@ -166,6 +167,31 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
           value={form.openrouter_route && form.openrouter_route.model === model ? form.openrouter_route.provider : null}
           onChange={upstream => { update({ openrouter_route: upstream ? { model, provider: upstream } : null }); }} />
 
+        <FormGroup label={t('settings.ai.model_tier_label')} description={t('settings.ai.model_tier_desc')}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('settings.ai.model_tier_label')}>
+            {(['', 'minimal', 'standard', 'advanced'] as const).map(tier => (
+              <button
+                type="button"
+                key={tier || 'pinned'}
+                className={`btn-gnosi ${modelTier === tier ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'}`}
+                aria-pressed={modelTier === tier}
+                onClick={() => { update({ model_tier: tier, model_tier_fallback: tier ? modelTierFallback : false }); }}
+              >
+                {t(tier ? `settings.ai.model_tier_${tier}` : 'settings.ai.model_tier_pinned')}
+              </button>
+            ))}
+          </div>
+          {modelTier && (
+            <div style={{ marginTop: 10 }}>
+              <GnosiToggle
+                active={modelTierFallback}
+                onChange={() => { update({ model_tier_fallback: !modelTierFallback }); }}
+                label={t('settings.ai.model_tier_fallback_label')}
+              />
+            </div>
+          )}
+        </FormGroup>
+
         {(efforts.length > 0 || form.reasoning_effort) && <FormGroup
           label={t('settings.ai.assistant.reasoning_effort')}
           description={t('settings.ai.assistant.reasoning_help')}
@@ -254,6 +280,8 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
                   context,
                   context_refs: contextRefs,
                   skill_ids: selectedSkillIds,
+                  model_tier: modelTier,
+                  model_tier_fallback: modelTier ? modelTierFallback : false,
                   model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] },
                 });
               } catch {

@@ -3458,7 +3458,14 @@
         "remaining": "Monthly budget remaining: {{amount}}",
         "budget_partial": "Monthly spend and remaining budget are partial: some calls have unknown cost.",
         "budget_estimated": "Monthly spend includes estimated costs."
-      }
+      },
+      "model_tier_label": "Model tier (optional)",
+      "model_tier_desc": "By default this profile uses its fixed model. Choosing a tier follows the global model tier table.",
+      "model_tier_pinned": "Fixed profile model (no tier)",
+      "model_tier_minimal": "Minimal (fast & economical)",
+      "model_tier_standard": "Standard (balanced)",
+      "model_tier_advanced": "Advanced (highest capability)",
+      "model_tier_fallback_label": "Automatically fall back to the next tier model on transient or quota errors"
     },
     "footer": {
       "close": "Close",

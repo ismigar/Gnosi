@@ -3424,7 +3424,14 @@
         "remaining": "Presupuesto mensual restante: {{amount}}",
         "budget_partial": "El consumo mensual y el presupuesto restante son parciales: hay llamadas con coste desconocido.",
         "budget_estimated": "El consumo mensual incluye costes estimados."
-      }
+      },
+      "model_tier_label": "Nivel de modelo (opcional)",
+      "model_tier_desc": "Por defecto se usa el modelo fijo del perfil. Si eliges un nivel, este perfil sigue la tabla global de niveles.",
+      "model_tier_pinned": "Modelo fijo del perfil (sin nivel)",
+      "model_tier_minimal": "Mínimo (rápido y económico)",
+      "model_tier_standard": "Estándar (equilibrado)",
+      "model_tier_advanced": "Avanzado (máxima capacidad)",
+      "model_tier_fallback_label": "Salto automático al siguiente modelo del nivel ante errores temporales o de cuota"
     },
     "footer": {
       "close": "Cerrar",
