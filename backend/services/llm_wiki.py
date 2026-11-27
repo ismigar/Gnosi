@@ -13,14 +13,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.services.llm_wiki_reading_runtime import ReadingRuntime
 
-import contextvars
 import datetime as dt
 import re
 import threading
 import time
 import uuid
 from collections.abc import Callable, Iterable
-from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from pathlib import Path
 from typing import Dict, List, Optional, ParamSpec, Protocol, TypeVar
@@ -176,18 +174,6 @@ def _fonts_ids(meta: _MetadataItems, table: dict[str, object] | None = None) -> 
     return list(dict.fromkeys(out))
 
 
-def _page_metadata_batch(pages: list[object]) -> list[PageMetadata]:
-    """Load page metadata concurrently while preserving caller contextvars."""
-    if len(pages) <= 4:
-        return [llm_wiki_storage.page_metadata(page) for page in pages]
-    with ThreadPoolExecutor(max_workers=min(16, len(pages))) as pool:
-        futures = [
-            pool.submit(contextvars.copy_context().run, llm_wiki_storage.page_metadata, page)
-            for page in pages
-        ]
-        return [future.result() for future in futures]
-
-
 def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dict[str, object]]:
     """Compact, bounded context packet for cross-links and connection proposals."""
     out = []
@@ -197,7 +183,7 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
         table = legacy_ports.table_by_id(brain_table_id) or {}
         config = llm_wiki_config.load_config()
         pages = list(legacy_ports.table_pages(brain_table_id))
-        for page, meta in zip(pages, _page_metadata_batch(pages), strict=True):
+        for page, meta in zip(pages, llm_wiki_storage.page_metadata_batch(pages), strict=True):
             if meta.get("is_template"):
                 continue
             if source_page_id and str(meta.get("llm_wiki_resource_id") or "") == source_page_id:

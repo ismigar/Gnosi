@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 
+import contextvars
 import hashlib
 import json
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
@@ -137,6 +139,18 @@ def page_metadata(page: object) -> PageMetadata:
         raw, "id"
     )
     return merge_page_metadata(raw, str(page_id or ""))
+
+
+def page_metadata_batch(pages: list[object]) -> list[PageMetadata]:
+    """Load page metadata concurrently while preserving caller contextvars."""
+    if len(pages) <= 4:
+        return [page_metadata(page) for page in pages]
+    with ThreadPoolExecutor(max_workers=min(16, len(pages))) as pool:
+        futures = [
+            pool.submit(contextvars.copy_context().run, page_metadata, page)
+            for page in pages
+        ]
+        return [future.result() for future in futures]
 
 
 def prepare_managed_markdown(metadata: PageMetadata) -> PageMetadata:
