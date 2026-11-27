@@ -9928,5 +9928,18 @@
     "noSites": "Créez d’abord un site dans Webs.",
     "binding": "Liaison",
     "newBinding": "Ajouter une autre section…"
+  },
+  "skill_audits": {
+    "title": "Audits de régression des compétences",
+    "subtitle": "Exécutez périodiquement des cas de test sans outils pour détecter les régressions.",
+    "empty": "Aucune suite d’audit configurée pour le moment.",
+    "run_now": "Exécuter maintenant",
+    "every_days": "Tous les {{days}} jours",
+    "cases_count": "{{count}} cas",
+    "status": {
+      "passed": "Réussi",
+      "regressed": "Régression détectée",
+      "failed": "Échoué"
+    }
   }
 }

@@ -9928,5 +9928,18 @@
     "noSites": "Crea primero una web en Webs.",
     "binding": "Vinculación",
     "newBinding": "Añadir otra sección…"
+  },
+  "skill_audits": {
+    "title": "Auditorías de regresión de habilidades",
+    "subtitle": "Ejecuta periódicamente casos de prueba sin herramientas para detectar regresiones en habilidades.",
+    "empty": "Todavía no hay ninguna batería de auditoría configurada.",
+    "run_now": "Ejecutar ahora",
+    "every_days": "Cada {{days}} días",
+    "cases_count": "{{count}} casos",
+    "status": {
+      "passed": "Superada",
+      "regressed": "Regresión detectada",
+      "failed": "Fallida"
+    }
   }
 }

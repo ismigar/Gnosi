@@ -9867,5 +9867,18 @@
     "noSites": "Create a website in Webs first.",
     "binding": "Binding",
     "newBinding": "Add another section…"
+  },
+  "skill_audits": {
+    "title": "Skill regression audits",
+    "subtitle": "Periodically run tool-free test cases to detect regressions in skills.",
+    "empty": "No skill audit suites configured yet.",
+    "run_now": "Run now",
+    "every_days": "Every {{days}} days",
+    "cases_count": "{{count}} cases",
+    "status": {
+      "passed": "Passed",
+      "regressed": "Regression detected",
+      "failed": "Failed"
+    }
   }
 }

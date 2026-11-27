@@ -253,6 +253,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/skill-audits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Skill Audit Suites */
+        get: operations["get_skill_audit_suites_api_agent_runs_skill_audits_get"];
+        put?: never;
+        /** Post Skill Audit Suite */
+        post: operations["post_skill_audit_suite_api_agent_runs_skill_audits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/skill-audits/{suite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Skill Audit Suite */
+        delete: operations["remove_skill_audit_suite_api_agent_runs_skill_audits__suite_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/skill-audits/{suite_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger Skill Audit Suite */
+        post: operations["trigger_skill_audit_suite_api_agent_runs_skill_audits__suite_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/skill-audits/{suite_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Skill Audit Runs */
+        get: operations["get_skill_audit_runs_api_agent_runs_skill_audits__suite_id__runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/task-evaluation-suite": {
         parameters: {
             query?: never;
@@ -16664,6 +16733,14 @@ export interface components {
              */
             source: string;
         };
+        /** DeleteAuditSuiteResponse */
+        DeleteAuditSuiteResponse: {
+            /**
+             * Deleted
+             * @default true
+             */
+            deleted: boolean;
+        };
         /**
          * DirectiveAnalyticsPageResponse
          * @description Paginated directive inventory.
@@ -26785,6 +26862,115 @@ export interface components {
          * @enum {string}
          */
         SkillActivation: "always" | "automatic" | "explicit";
+        /** SkillAuditCase */
+        SkillAuditCase: {
+            /** Expected Substrings */
+            expected_substrings?: string[];
+            /** Forbidden Substrings */
+            forbidden_substrings?: string[];
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+        };
+        /** SkillAuditCaseOutcome */
+        SkillAuditCaseOutcome: {
+            /** Case Id */
+            case_id: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Forbidden Hits */
+            forbidden_hits?: string[];
+            /** Matched */
+            matched?: string[];
+            /** Missing */
+            missing?: string[];
+            /**
+             * Output Preview
+             * @default
+             */
+            output_preview: string;
+            /** Passed */
+            passed: boolean;
+        };
+        /** SkillAuditRun */
+        SkillAuditRun: {
+            /** Created At */
+            created_at: number;
+            /** Outcomes */
+            outcomes: components["schemas"]["SkillAuditCaseOutcome"][];
+            /** Passed Count */
+            passed_count: number;
+            /** Regressed Case Ids */
+            regressed_case_ids?: string[];
+            /** Run Id */
+            run_id: string;
+            /** Skill Id */
+            skill_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "regressed" | "failed";
+            /** Suite Id */
+            suite_id: string;
+            /** Total Count */
+            total_count: number;
+        };
+        /** SkillAuditSuite */
+        SkillAuditSuite: {
+            /** Agent Id */
+            agent_id: string;
+            /** Cases */
+            cases: components["schemas"]["SkillAuditCase"][];
+            /** Created At */
+            created_at: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Interval Days */
+            interval_days: number;
+            /** Last Run At */
+            last_run_at?: number | null;
+            /**
+             * Last Status
+             * @default
+             */
+            last_status: string;
+            /** Name */
+            name: string;
+            /** Next Run At */
+            next_run_at?: number | null;
+            /** Skill Id */
+            skill_id: string;
+            /** Suite Id */
+            suite_id: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /** SkillAuditSuiteCreate */
+        SkillAuditSuiteCreate: {
+            /** Agent Id */
+            agent_id: string;
+            /** Cases */
+            cases: components["schemas"]["SkillAuditCase"][];
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Interval Days
+             * @default 7
+             */
+            interval_days: number;
+            /** Name */
+            name: string;
+            /** Skill Id */
+            skill_id: string;
+        };
         /** SkillAutomationDeleteResponse */
         SkillAutomationDeleteResponse: {
             /** Automation Id */
@@ -29781,6 +29967,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SharedEvaluationBank"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_skill_audit_suites_api_agent_runs_skill_audits_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillAuditSuite"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_skill_audit_suite_api_agent_runs_skill_audits_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillAuditSuiteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillAuditSuite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_skill_audit_suite_api_agent_runs_skill_audits__suite_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                suite_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteAuditSuiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_skill_audit_suite_api_agent_runs_skill_audits__suite_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                suite_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillAuditRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_skill_audit_runs_api_agent_runs_skill_audits__suite_id__runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                suite_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillAuditRun"][];
                 };
             };
             /** @description Validation Error */
