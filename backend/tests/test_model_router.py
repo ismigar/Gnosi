@@ -390,3 +390,23 @@ def test_budget_compares_usd_spend_against_converted_configured_currency(monkeyp
         assert result["cap_usd"] == round(cap / rate, 4)
         assert result["spent_ccy"] == 10.0 * rate
         assert result["over_cap"] is exceeded
+
+
+def test_classify_request_punctuation_code_fences_and_preferred_role():
+    # Punctuation attached to keywords should still match.
+    assert classify_request("Analitza, si us plau: el sistema.")["desired_quality"] == 3
+    assert "code" in classify_request("Mira aquest snippet:\n```python\nprint(1)\n```")["needs"]
+
+    # A long routine payload (e.g. text to translate) with preferred_role="worker" stays at quality 1.
+    long_payload = "Aquest és un text llarg per traduir sense cap anàlisi complexa. " * 10
+    assert classify_request(long_payload)["desired_quality"] == 3
+    assert classify_request(long_payload, preferred_role="worker")["desired_quality"] == 1
+
+    # A short prompt under an expert/documentalist skill escalates to quality 3.
+    assert classify_request("Revisa aquesta nota", preferred_role="expert")["desired_quality"] == 3
+    assert classify_request("Revisa aquesta nota", preferred_role="documentalist")["desired_quality"] == 3
+
+    # route_model respects preferred_role="worker" for long routine text.
+    routed = route_model(long_payload, is_available=ALL_UP, preferred_role="worker")
+    model = next(m for m in DEFAULT_REGISTRY if m["model_id"] == routed["model_id"])
+    assert model["quality"] == 1

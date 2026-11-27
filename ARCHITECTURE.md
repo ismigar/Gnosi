@@ -57,9 +57,9 @@ The app is created in `backend/server.py`. Its `lifespan` startup sequence wires
 4. **Vault index warmup** — the page index is preloaded from a disk cache (sync) and then refreshed against the filesystem (async), plus a wikilink-index rebuild so renames rewrite links.
 5. **IMAP IDLE workers** — one daemon per mail account holds an open IDLE connection for real-time push.
 
-### Route modules (`backend/api/`)
+### Route modules (`backend/api/` and `backend/domains/*/routes`)
 
-Routers are registered in `server.py`. They cover the full product surface:
+Legacy routers live in `backend/api/` and domain-owned routers in `backend/domains/`. They are registered in `server.py` and cover the full product surface:
 
 | Area | Modules |
 | --- | --- |
@@ -73,7 +73,7 @@ Routers are registered in `server.py`. They cover the full product surface:
 | Social / Scheduler / Analytics | `social_routes`, `scheduler_routes`, `analytics_routes` |
 | Platform | `system_routes`, `config_routes`, `env_routes`, `credentials_routes`, `integrations_routes` |
 
-Business logic lives in `backend/services/`; SQLAlchemy models in `backend/models/`; the agent in `backend/agent/`.
+Business logic lives in `backend/services/` and `backend/domains/`; SQLAlchemy models in `backend/models/`; the agent runtime in `backend/agent/`, `backend/domains/agent/`, and `backend/services/agent_*.py`.
 
 ### Storage
 
@@ -122,9 +122,14 @@ Collaboration follows a **central-relay** model (server as message hub), impleme
 - Identity is taken from the session cookie when available, otherwise from a query parameter (the module degrades gracefully if the auth layer is absent).
 - This is an early skeleton: the same channel is designed to carry full **CRDT** (Yjs) document updates next — adding a `type: "update"` message requires no transport changes. Planned: per-workspace authorization of the socket, rate limiting, and a shared backend (e.g. Redis pub/sub) for multi-worker deployments.
 
-## AI agent
+## AI agent, skills & model routing
 
-A multi-agent workflow built with **LangGraph** can plan and execute tasks using tools exposed through the **Model Context Protocol (MCP)**. Models can be local (Ollama) or any OpenAI-compatible endpoint. The agent is constructed at startup from the discovered MCP tools.
+Gnosi consolidates execution around a **principal agent + modular skills** architecture (`backend/services/agent_execution.py`, `backend/services/principal_agent_migration.py`), built with **LangGraph** and tools exposed through the **Model Context Protocol (MCP)**:
+
+- **Modular skills:** Domain procedures and instructions live in `backend/agent/behavior/`, `pipeline/skills/`, and user-authored skills (`UserSkillStore`). Application operations are cataloged in `backend/services/agent_operation_catalog.py` and loaded selectively into an `AgentExecutionSnapshot`.
+- **Profile-owned model routing:** Each agent profile configures a `model_strategy` (`pinned`, `resilient`, or `adaptive`) in `backend/services/agent_model_strategy.py`. Hard constraints (`backend/services/agent_routing_policy.py`) enforce trust boundaries (local vs. cloud), required capabilities (`tools`, `vision`), and monthly budget caps before any selector runs.
+- **Task-level model selection:** In `adaptive` mode, `backend/agent/model_router.py` (`classify_request`, `route_model`) combines request signals with any active skill's `preferred_role` (`worker`, `administrative`, `allrounder`, `documentalist`, `expert`, `director`), and optionally consults an external decision adapter (`backend/services/agent_model_decisions.py`).
+- **Governed teams:** Multi-step or parallel delegation runs through `AgentTeam` (`backend/services/agent_team_models.py`, `backend/services/agent_team_runtime.py`) with role-based suitability scoring (`backend/services/model_role_suitability.py`). Models can be local (Ollama) or any OpenAI-compatible endpoint.
 
 ## Frontend (React + Vite)
 

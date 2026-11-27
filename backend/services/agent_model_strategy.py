@@ -148,6 +148,7 @@ def choose_agent_model(
     budget: Mapping[str, Any] | None = None,
     quality_scores: Mapping[str, float] | None = None,
     selector: DecisionSelector | None = None,
+    preferred_role: str | None = None,
 ) -> dict[str, Any]:
     """Choose a route while keeping the agent's primary model authoritative."""
     from backend.agent.model_router import classify_request, route_model
@@ -164,7 +165,7 @@ def choose_agent_model(
         "provider": primary["provider"], "model_id": primary["model"], "enabled": True,
     })
     candidates.append(primary_row)
-    required_tags = set(classify_request(message).get("needs") or [])
+    required_tags = set(classify_request(message, preferred_role=preferred_role).get("needs") or [])
     candidates.extend(
         row for row in resolved["eligible_models"]
         if required_tags.issubset(set(row.get("tags") or []))
@@ -196,6 +197,7 @@ def choose_agent_model(
             is_available=is_available,
             usage=dict(usage or {}),
             budget=dict(budget or {}),
+            preferred_role=preferred_role,
         )
         if decision.get("provider") and decision.get("model_id"):
             selected = {"provider": decision["provider"], "model": decision["model_id"]}
@@ -219,13 +221,16 @@ def choose_agent_model(
             if route_key(row.get("provider"), row.get("model_id"))
             != route_key(selected["provider"], selected["model"])
         ]
-    return {
+    result_payload = {
         **resolved,
         "selected": selected,
         "selection_reason": reason,
         "fallback_models": fallbacks,
         "decision": decision_metadata,
     }
+    if preferred_role:
+        result_payload["preferred_role"] = preferred_role
+    return result_payload
 
 
 def _apply_decision_engine(
