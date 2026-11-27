@@ -9867,5 +9867,22 @@
     "noSites": "Create a website in Webs first.",
     "binding": "Binding",
     "newBinding": "Add another section…"
+  },
+  "watchdog": {
+    "title": "Execution watchdog",
+    "subtitle": "Detects stuck runs or transient errors and suggests safe recovery actions.",
+    "empty": "No open watchdog alerts.",
+    "sweep_now": "Check now",
+    "dismiss": "Dismiss",
+    "kind": {
+      "stale_run": "Stuck run",
+      "transient_failure": "Transient error",
+      "persistent_failure": "Persistent error"
+    },
+    "action": {
+      "resume": "Suggested action: resume",
+      "switch_model": "Suggested action: switch model",
+      "inspect": "Suggested action: inspect trace"
+    }
   }
 }

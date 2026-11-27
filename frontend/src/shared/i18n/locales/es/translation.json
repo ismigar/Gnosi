@@ -9928,5 +9928,22 @@
     "noSites": "Crea primero una web en Webs.",
     "binding": "Vinculación",
     "newBinding": "Añadir otra sección…"
+  },
+  "watchdog": {
+    "title": "Vigilante de ejecuciones",
+    "subtitle": "Detecta ejecuciones atascadas o errores temporales y propone acciones seguras de recuperación.",
+    "empty": "No hay alertas abiertas del vigilante.",
+    "sweep_now": "Comprobar ahora",
+    "dismiss": "Descartar",
+    "kind": {
+      "stale_run": "Ejecución atascada",
+      "transient_failure": "Error temporal",
+      "persistent_failure": "Error persistente"
+    },
+    "action": {
+      "resume": "Acción sugerida: reanudar",
+      "switch_model": "Acción sugerida: cambiar de modelo",
+      "inspect": "Acción sugerida: revisar traza"
+    }
   }
 }

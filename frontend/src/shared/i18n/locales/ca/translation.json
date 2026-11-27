@@ -9928,5 +9928,22 @@
     "noSites": "Crea primer un web a Webs.",
     "binding": "Vinculació",
     "newBinding": "Afegeix una altra secció…"
+  },
+  "watchdog": {
+    "title": "Vigilant d’execucions",
+    "subtitle": "Detecta execucions encallades o errors temporals i proposa accions segures de recuperació.",
+    "empty": "No hi ha cap alerta oberta del vigilant.",
+    "sweep_now": "Comprova ara",
+    "dismiss": "Descarta",
+    "kind": {
+      "stale_run": "Execució encallada",
+      "transient_failure": "Error temporal",
+      "persistent_failure": "Error persistent"
+    },
+    "action": {
+      "resume": "Acció suggerida: reprendre",
+      "switch_model": "Acció suggerida: canviar de model",
+      "inspect": "Acció suggerida: revisar traça"
+    }
   }
 }

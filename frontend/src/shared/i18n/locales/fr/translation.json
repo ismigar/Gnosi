@@ -9928,5 +9928,22 @@
     "noSites": "Créez d’abord un site dans Webs.",
     "binding": "Liaison",
     "newBinding": "Ajouter une autre section…"
+  },
+  "watchdog": {
+    "title": "Superviseur d’exécutions",
+    "subtitle": "Détecte les exécutions bloquées ou erreurs temporaires et propose des actions de reprise sûres.",
+    "empty": "Aucune alerte ouverte du superviseur.",
+    "sweep_now": "Vérifier maintenant",
+    "dismiss": "Ignorer",
+    "kind": {
+      "stale_run": "Exécution bloquée",
+      "transient_failure": "Erreur temporaire",
+      "persistent_failure": "Erreur persistante"
+    },
+    "action": {
+      "resume": "Action suggérée : reprendre",
+      "switch_model": "Action suggérée : changer de modèle",
+      "inspect": "Action suggérée : examiner la trace"
+    }
   }
 }
