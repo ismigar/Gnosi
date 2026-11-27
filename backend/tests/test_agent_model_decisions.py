@@ -346,3 +346,43 @@ def test_selector_prefers_reported_zero_and_records_http_failures(jev_transport,
     recorded.assert_called_once()
     assert recorded.call_args.kwargs['cost_usd'] is None
     assert recorded.call_args.kwargs['status']=='failed'
+
+
+def test_choose_agent_model_honors_skill_preferred_role(registry):
+    agent = {
+        "id": "principal",
+        "provider": "beta",
+        "model": "large",
+        "model_strategy": {
+            "mode": "adaptive",
+            "allowed_models": [{"provider": "alpha", "model": "small"}],
+        },
+    }
+    long_routine = "Tradueix aquest paràgraf al català mantenint el format. " * 10
+    without_role = choose_agent_model(long_routine, agent, registry, is_available=lambda _: True)
+    with_worker = choose_agent_model(
+        long_routine, agent, registry, is_available=lambda _: True, preferred_role="worker",
+    )
+    assert without_role["selected"] == {"provider": "beta", "model": "large"}
+    assert with_worker["selected"] == {"provider": "alpha", "model": "small"}
+    assert with_worker["preferred_role"] == "worker"
+
+
+def test_operation_catalog_and_runtime_preferred_role():
+    from backend.services.agent_model_strategy import preferred_role_from_runtime
+    from backend.services.agent_operation_catalog import OPERATION_ROLES, descriptors
+
+    desc_by_op = {d.metadata["application_operation"]: d for d in descriptors()}
+    assert desc_by_op["translation"].metadata["preferred_role"] == "worker"
+    assert desc_by_op["knowledge"].metadata["preferred_role"] == "expert"
+    assert set(OPERATION_ROLES) == set(desc_by_op)
+
+    runtime = SimpleNamespace(
+        active_skill_ids=("core.gnosi-translation-workflow", "core.gnosi-operation-knowledge"),
+        skills=[
+            SimpleNamespace(descriptor=desc_by_op["translation"]),
+            SimpleNamespace(descriptor=desc_by_op["knowledge"]),
+        ],
+    )
+    profile = SimpleNamespace(resolved_runtime=runtime)
+    assert preferred_role_from_runtime(profile) == "expert"

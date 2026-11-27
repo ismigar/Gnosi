@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 790 | 3656 |
-| pytest | 852 | 6666 |
+| pytest | 852 | 6669 |
 
 ## Files
 
@@ -896,7 +896,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_legacy_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_legacy_memory.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_mail_folders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_mail_folders.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_agent_memory_provenance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_memory_provenance.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_model_decisions.py) | 22 | Python AST |
+| pytest | [`backend/tests/test_agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_model_decisions.py) | 24 | Python AST |
 | pytest | [`backend/tests/test_agent_native_bridge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_native_bridge.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_no_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_no_tools.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_contracts.py) | 28 | Python AST |
@@ -1230,7 +1230,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_model_reliability_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_reliability_route_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_role_suitability.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_router.py) | 28 | Python AST |
+| pytest | [`backend/tests/test_model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_router.py) | 29 | Python AST |
 | pytest | [`backend/tests/test_navigation_read_responsiveness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_navigation_read_responsiveness.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_note_composer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_note_composer.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_notebook_agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_notebook_agent_context.py) | 5 | Python AST |

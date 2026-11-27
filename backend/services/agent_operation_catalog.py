@@ -48,6 +48,23 @@ DESCRIPTIONS = {
 OUTPUT_SIGNATURES = {"knowledge": [["classifications"]],
                      "tables": [["button_label", "button_action", "button_config"]]}
 
+OPERATION_ROLES: dict[str, str] = {
+    "writing": "allrounder",
+    "reader": "documentalist",
+    "podcast": "documentalist",
+    "notebook": "documentalist",
+    "literature": "documentalist",
+    "mail": "administrative",
+    "social": "administrative",
+    "meeting": "administrative",
+    "translation": "worker",
+    "tables": "worker",
+    "knowledge": "expert",
+    "reading-review": "expert",
+    "capture": "worker",
+    "learning": "expert",
+}
+
 
 def skill_id(operation: str) -> str:
     if operation not in OPERATIONS:
@@ -67,6 +84,7 @@ def descriptors() -> list[SkillDescriptor]:
         description=DESCRIPTIONS.get(key, name), origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"),
         activation=SkillActivation.EXPLICIT, instructions=instructions,
         metadata={"required_plugins": [plugin], "application_operation": key,
+                  "preferred_role": OPERATION_ROLES[key],
                   "output_signatures": OUTPUT_SIGNATURES.get(key, [])},
     ) for key, (plugin, name, instructions) in OPERATIONS.items()]
 

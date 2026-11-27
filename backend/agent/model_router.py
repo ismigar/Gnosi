@@ -10,6 +10,7 @@ directive `vault_knowledge_agents.md`, memory `feedback_local_backend_test_verif
 """
 from __future__ import annotations
 
+import re
 import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -67,28 +68,77 @@ def strip_legacy_registry_rows(registry: object) -> List[Dict[str, Any]]:
         explicit.append(row)
     return explicit
 
-_COMPLEX_KW = {"analitza", "analiza", "analyze", "explica", "compara", "dissenya",
-               "disseny", "refactor", "arquitectura", "estratègia", "pla", "plan"}
-_SIMPLE_KW = {"hola", "gràcies", "gracias", "sí", "no", "ok", "quan", "què", "qui", "on"}
-_CODE_KW = {"code", "codi", "codigo", "programa", "programar", "bug", "error", "python",
-            "funció", "funcion", "test", "git"}
+_COMPLEX_KW = {
+    "analitza", "analiza", "analyze", "analyse", "explica", "explain", "explique",
+    "compara", "compare", "dissenya", "diseña", "design", "disseny", "refactor",
+    "arquitectura", "architecture", "estratègia", "estrategia", "strategy",
+    "pla", "plan", "evalua", "evalúa", "evaluate", "audita", "audit",
+    "sintetitza", "sintetiza", "synthesize", "justifica", "justify",
+    "optimitza", "optimiza", "optimize", "migra", "migrate", "integra", "integrate",
+    "trade-off", "tradeoff",
+}
+_SIMPLE_KW = {
+    "hola", "hello", "hi", "bon", "bona", "buenos", "buenas", "gràcies", "gracias",
+    "thanks", "thank", "merci", "sí", "si", "yes", "no", "ok", "okay", "d'acord",
+    "vale", "quan", "when", "què", "qué", "what", "qui", "quién", "who", "on", "dónde", "where",
+}
+_CODE_KW = {
+    "code", "codi", "codigo", "código", "programa", "programar", "bug", "error",
+    "python", "typescript", "javascript", "funció", "funcion", "function", "class",
+    "test", "pytest", "git", "sql", "json", "yaml", "regex", "api", "traceback",
+    "exception", "stacktrace", "refactor", "debug",
+}
+_TOKEN_RE = re.compile(r"[\w'-]+")
+
+ROLE_QUALITY_HINTS: Dict[str, int] = {
+    "worker": 1,
+    "administrative": 2,
+    "allrounder": 2,
+    "documentalist": 3,
+    "expert": 3,
+    "director": 3,
+}
 
 
-def classify_request(message: str, *, has_images: bool = False,
-                     context_tokens: int = 0) -> Dict[str, Any]:
+def classify_request(
+    message: str,
+    *,
+    has_images: bool = False,
+    context_tokens: int = 0,
+    preferred_role: Optional[str] = None,
+) -> Dict[str, Any]:
     """Extracts the request features that guide routing (PURE)."""
     text = (message or "").strip().lower()
-    tokens = set(text.replace("\n", " ").split())
-    is_complex = len(text) > 320 or bool(_COMPLEX_KW & tokens)
-    is_simple = len(text) < 120 and (bool(_SIMPLE_KW & tokens) or "?" in text) and not is_complex
+    tokens = set(_TOKEN_RE.findall(text))
+    has_code_fence = "```" in text
+    multi_step_prompt = text.count("?") >= 2 or text.count("\n") >= 4
+    has_complex_kw = bool(_COMPLEX_KW & tokens)
+    is_complex = len(text) > 320 or has_complex_kw or multi_step_prompt
     needs: set[str] = set()
-    if _CODE_KW & tokens:
+    if has_code_fence or (_CODE_KW & tokens):
         needs.add("code")
     if has_images:
         needs.add("vision")
     if context_tokens > 16000:
         needs.add("long")
+    is_simple = (
+        len(text) < 120
+        and not is_complex
+        and "code" not in needs
+        and (bool(_SIMPLE_KW & tokens) or ("?" in text and len(tokens) <= 8))
+    )
     quality = 1 if is_simple else (3 if (is_complex or "code" in needs) else 2)
+    role = str(preferred_role or "").strip().lower()
+    if role in ROLE_QUALITY_HINTS:
+        role_quality = ROLE_QUALITY_HINTS[role]
+        if role == "worker" and not has_complex_kw and "code" not in needs:
+            # Routine skill payloads (e.g. long text to translate or classify) should
+            # stay on the fast/cheap tier unless the request asks for deep reasoning/code.
+            quality = 1
+        elif role_quality == 3:
+            quality = max(quality, 3)
+        elif role_quality == 2 and not is_simple:
+            quality = max(quality, 2)
     return {"desired_quality": quality, "needs": needs, "context_tokens": context_tokens}
 
 
@@ -119,6 +169,7 @@ def route_model(
     manual: Optional[Dict[str, str]] = None,
     has_images: bool = False,
     context_tokens: int = 0,
+    preferred_role: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Picks the best model based on capability + availability + budget + cost (PURE).
 
@@ -136,7 +187,12 @@ def route_model(
     registry = registry or DEFAULT_REGISTRY
     usage = usage or {}
     budget = budget or {}
-    features = classify_request(message, has_images=has_images, context_tokens=context_tokens)
+    features = classify_request(
+        message,
+        has_images=has_images,
+        context_tokens=context_tokens,
+        preferred_role=preferred_role,
+    )
 
     cap_usd = float(budget.get("cost_cap_usd") or 0)
     spent_usd = float(budget.get("spent_usd") or 0)

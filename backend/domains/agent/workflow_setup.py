@@ -49,8 +49,7 @@ from backend.domains.agent.runtime_tools import (
 from backend.domains.agent.workflow_nodes import AgentWorkflowNodes
 from backend.domains.agent.team_help import HELP_TOOL, TeamHelp
 from backend.services.agent_model_evaluations import quality_scores
-from backend.services.agent_model_strategy import choose_agent_model
-from backend.services.agent_model_strategy import normalize_model_strategy
+from backend.services.agent_model_strategy import choose_agent_model, normalize_model_strategy, preferred_role_from_runtime
 from backend.services.model_reasoning import agent_reasoning_kwargs
 from backend.services.agent_model_decisions import decision_selector
 from backend.services.agent_routing_policy import current_routing_limits
@@ -219,6 +218,7 @@ def _select_model_route(
             configured_strategy["decision_engine"], profile.providers, budget,
             disconnected=profile.ai_cfg.get("disconnected_providers") or [],
         ),
+        preferred_role=preferred_role_from_runtime(profile),
     )
     selected_route = strategy["selected"]
     return str(selected_route["provider"]), str(selected_route["model"]), strategy

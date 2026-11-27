@@ -1759,3 +1759,7 @@ Chat, Reader podcasts and generated audio share the saved speech configuration w
 ## Reading body coverage
 
 Source-reading review also checks conceptual coverage in note bodies: argument steps, conditions and the provisional status of premises must remain explained. A literal quotation or a coverage marker alone does not establish that coverage. Review policy 9 invalidates earlier review batches while retaining paid interpretations, maps and the complete originals; a fresh model review is required for the stronger semantic criterion. Mechanical citation and prose checks remain mandatory, and do not themselves certify semantic quality.
+
+## Skill preferred-role routing and request classification
+
+In `adaptive` model-routing mode, `backend/services/agent_model_strategy.py` resolves `preferred_role_from_runtime` from the active skills in the profile's `resolved_runtime` using the precedence order `expert`, `director`, `documentalist`, `administrative`, `allrounder`, `worker`. `backend/agent/model_router.py` (`classify_request`, `route_model`) combines that `preferred_role` hint with hardened request classification (`_TOKEN_RE` tokenization, fenced code detection, multi-step question/line detection, and tightened simple-query criteria) while keeping hard routing constraints (`backend/services/agent_routing_policy.py`) authoritative. `backend/services/agent_operation_catalog.py` exposes skill operation metadata so catalog-driven operations participate in the same capability-aware routing.
