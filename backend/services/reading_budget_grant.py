@@ -71,6 +71,48 @@ def authorize(book: BookAccount, budget_id: str, *, total_usd: Decimal, addition
         db.execute("UPDATE reading_budgets SET limit_usd=? WHERE id=?", (str(total_usd), budget_id))
 
 
+def extend(book: BookAccount, budget_id: str, *, additional_usd: Decimal) -> dict[str, object]:
+    """Explicitly extend an existing book's authorized spending limit by ``additional_usd``."""
+    from backend.services import ai_usage_ledger as ledger, reading_budget as budget
+
+    if not additional_usd.is_finite() or additional_usd <= 0:
+        raise ValueError("reading_budget_invalid")
+    if not book.key or budget_id not in book.history:
+        raise budget.ReadingBudgetError("reading_budget_book_mismatch")
+    with ledger.connect() as db:
+        budget.schema(db)
+        db.execute("BEGIN IMMEDIATE")
+        budget._attach_book(db, budget_id, book)
+        identifiers = budget._members(db, book.key)
+        spent, held = budget._usage(db, identifiers)
+        existing = db.execute(
+            "SELECT total_usd, additional_usd FROM reading_book_grants WHERE book_key=?",
+            (book.key,),
+        ).fetchone()
+        base_total = max(
+            Decimal(existing[0]) if existing else Decimal(str(budget.BOOK_LIMIT_USD)),
+            spent + held,
+        )
+        new_total = base_total + additional_usd
+        if existing:
+            db.execute(
+                "UPDATE reading_book_grants SET total_usd=?, additional_usd=?, granted_at=CURRENT_TIMESTAMP WHERE book_key=?",
+                (str(new_total), str(additional_usd), book.key),
+            )
+        else:
+            db.execute(
+                "INSERT INTO reading_book_grants (book_key,total_usd,additional_usd) VALUES (?,?,?)",
+                (book.key, str(new_total), str(additional_usd)),
+            )
+        db.execute(
+            """INSERT OR IGNORE INTO reading_book_grant_baseline (book_key,call_id)
+            SELECT ?,call_id FROM reading_reservations WHERE budget_id IN (SELECT value FROM json_each(?))""",
+            (book.key, json.dumps(sorted(identifiers))),
+        )
+        db.execute("UPDATE reading_budgets SET limit_usd=? WHERE id=?", (str(new_total), budget_id))
+        return budget.totals(db, budget_id)
+
+
 def main() -> None:
     """Grant a local operator-approved resume to the named, existing checkpoint."""
     import argparse

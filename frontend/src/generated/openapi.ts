@@ -7295,6 +7295,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/knowledge/budget/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Knowledge Llm Wiki Budget Extend
+         * @description Extend the authorized spending ceiling for an existing resumable book.
+         */
+        post: operations["knowledge_llm_wiki_budget_extend_llm_wiki_budget_extend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/knowledge/config": {
         parameters: {
             query?: never;
@@ -8244,6 +8264,26 @@ export interface paths {
          * @description Compatibility-namespaced alias used by the v2 Settings panel.
          */
         post: operations["create_standard_llm_wiki_brain_api_vault_llm_wiki_brain_create_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/llm-wiki/budget/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Llm Wiki Budget Extend
+         * @description Extend the authorized spending ceiling for an existing resumable book.
+         */
+        post: operations["llm_wiki_budget_extend_api_vault_llm_wiki_budget_extend_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19916,6 +19956,26 @@ export interface components {
             title: string;
         } & {
             [key: string]: unknown;
+        };
+        /** LlmWikiBudgetExtendRequest */
+        LlmWikiBudgetExtendRequest: {
+            /** Additional Usd */
+            additional_usd: number;
+            /**
+             * Item Id
+             * @default
+             */
+            item_id: string;
+            /**
+             * Resource Id
+             * @default
+             */
+            resource_id: string;
+            /**
+             * Source Table Id
+             * @default
+             */
+            source_table_id: string;
         };
         /** LlmWikiBudgetResponse */
         LlmWikiBudgetResponse: {
@@ -45736,6 +45796,46 @@ export interface operations {
             };
         };
     };
+    knowledge_llm_wiki_budget_extend_llm_wiki_budget_extend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiBudgetExtendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiBudgetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     knowledge_get_llm_wiki_config_llm_wiki_config_get: {
         parameters: {
             query?: never;
@@ -48089,6 +48189,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmWikiCreatedSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    llm_wiki_budget_extend_api_vault_llm_wiki_budget_extend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiBudgetExtendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiBudgetResponse"];
                 };
             };
             /** @description Validation Error */

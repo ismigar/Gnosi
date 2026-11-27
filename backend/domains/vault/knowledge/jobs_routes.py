@@ -60,6 +60,13 @@ class LlmWikiProcessRequest(BaseModel):
     estimate_id: str = ""
 
 
+class LlmWikiBudgetExtendRequest(BaseModel):
+    resource_id: str = ""
+    item_id: str = ""
+    source_table_id: str = ""
+    additional_usd: float = Field(gt=0, le=500, allow_inf_nan=False)
+
+
 class LlmWikiBudgetResponse(BaseModel):
     id: str
     limit_usd: float
@@ -477,6 +484,28 @@ async def llm_wiki_estimate(payload: LlmWikiProcessRequest = _legacy.Body(...)) 
             start_source_process, payload.resource_id or payload.item_id,
             source_table_id=payload.source_table_id, force=payload.force,
             language=payload.language, batch_size=payload.batch_size, estimate_only=True,
+        )
+    except LlmWikiActionError as exc:
+        raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/llm-wiki/budget/extend",
+    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    response_model=LlmWikiBudgetResponse,
+)
+async def llm_wiki_budget_extend(
+    payload: LlmWikiBudgetExtendRequest = _legacy.Body(...),
+) -> dict[str, object]:
+    """Extend the authorized spending ceiling for an existing resumable book."""
+    from backend.services.llm_wiki_actions import LlmWikiActionError, extend_source_budget
+
+    try:
+        return await _legacy.asyncio.to_thread(
+            extend_source_budget,
+            payload.resource_id or payload.item_id,
+            source_table_id=payload.source_table_id,
+            additional_usd=payload.additional_usd,
         )
     except LlmWikiActionError as exc:
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

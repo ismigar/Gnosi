@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     estimateResourceProcessing,
+    extendResourceProcessingBudget,
     fetchResourceProcessingStatus,
     startResourceProcessing,
     type ResourceProcessingJob,
@@ -27,6 +28,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
 
 vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
+    extendResourceProcessingBudget: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
@@ -260,4 +262,40 @@ it('explains automatic batch reduction while retaining the configured maximum an
     const select = dialog.querySelector('select');
     expect(select?.value).toBe('4');
     expect(startResourceProcessing).not.toHaveBeenCalled();
+});
+
+it('allows authorizing an additional budget extension when the estimate exceeds available budget', async () => {
+    const defaults = await vi.mocked(estimateResourceProcessing)({});
+    vi.mocked(estimateResourceProcessing)
+        .mockResolvedValueOnce({
+            ...defaults,
+            cost_usd: 9,
+            budget: { id: 'book-1', limit_usd: 60, authorized_limit_usd: 60, spent_usd: 34, reserved_usd: 25.9, remaining_usd: 0.1, additional_remaining_usd: 0.1 },
+        })
+        .mockResolvedValueOnce({
+            ...defaults,
+            cost_usd: 9,
+            budget: { id: 'book-1', limit_usd: 70, authorized_limit_usd: 70, spent_usd: 34, reserved_usd: 25.9, remaining_usd: 10.1, additional_remaining_usd: 10 },
+        });
+    vi.mocked(extendResourceProcessingBudget).mockResolvedValueOnce({
+        id: 'book-1',
+        limit_usd: 70,
+        authorized_limit_usd: 70,
+        spent_usd: 34,
+        reserved_usd: 25.9,
+        remaining_usd: 10.1,
+        additional_remaining_usd: 10,
+    });
+    const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="note-1" sourceTableId="table-1" title="Book" onClose={vi.fn()} />);
+    await flushProcessing();
+    const extendButton = buttonWithText(dialog, 'Authorize extension');
+    expect(extendButton).toBeTruthy();
+    act(() => { extendButton.click(); });
+    await flushProcessing();
+    expect(extendResourceProcessingBudget).toHaveBeenCalledWith({
+        resource_id: 'note-1',
+        source_table_id: 'table-1',
+        additional_usd: 9,
+    });
+    expect(dialog.textContent).toContain('limit of 70 USD per book');
 });

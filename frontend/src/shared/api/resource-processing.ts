@@ -44,6 +44,10 @@ export async function fetchResourceProcessingStatus(
 }
 
 export type ResourceProcessingEstimate = components['schemas']['LlmWikiEstimateResponse'];
+export type ResourceProcessingBudget = components['schemas']['LlmWikiBudgetResponse'];
+export type ResourceProcessingBudgetExtendInput = Partial<components['schemas']['LlmWikiBudgetExtendRequest']> & {
+  readonly additional_usd: number;
+};
 export async function findResumableResourceProcessing(itemId: string, sourceTableId = '', signal?: AbortSignal): Promise<ResourceProcessingJob | null> {
   const job = await fetchResourceProcessingStatus(itemId, sourceTableId, signal);
   return job.phase !== 'idle' && (job.running || job.phase === 'error' || job.phase === 'partial') ? job : null;
@@ -52,4 +56,15 @@ export async function estimateResourceProcessing(input: ResourceProcessingInput,
   return unwrapApiResult<ResourceProcessingEstimate, unknown>(await apiClient.POST('/api/vault/llm-wiki/estimate', {
     body: input as GeneratedResourceProcessingInput, signal,
   }));
+}
+export async function extendResourceProcessingBudget(
+  input: ResourceProcessingBudgetExtendInput,
+  signal?: AbortSignal,
+): Promise<ResourceProcessingBudget> {
+  return unwrapApiResult<ResourceProcessingBudget, unknown>(
+    await apiClient.POST('/api/vault/llm-wiki/budget/extend', {
+      body: input as components['schemas']['LlmWikiBudgetExtendRequest'],
+      signal,
+    }),
+  );
 }
