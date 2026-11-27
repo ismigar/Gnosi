@@ -49,8 +49,7 @@ from backend.domains.agent.runtime_tools import (
 from backend.domains.agent.workflow_nodes import AgentWorkflowNodes
 from backend.domains.agent.team_help import HELP_TOOL, TeamHelp
 from backend.services.agent_model_evaluations import quality_scores
-from backend.services.agent_model_strategy import choose_agent_model
-from backend.services.agent_model_strategy import normalize_model_strategy
+from backend.services.agent_model_strategy import choose_agent_model, normalize_model_strategy, preferred_role_from_runtime
 from backend.services.model_reasoning import agent_reasoning_kwargs
 from backend.services.agent_model_decisions import decision_selector
 from backend.services.agent_routing_policy import current_routing_limits
@@ -168,31 +167,6 @@ async def prepare_profile(
     )
 
 
-_ROLE_PRECEDENCE = ("expert", "director", "documentalist", "administrative", "allrounder", "worker")
-
-
-def _preferred_role_from_runtime(profile: ProfileSetup) -> str | None:
-    """Resolve the highest-capability preferred_role declared by active skills."""
-    runtime = getattr(profile, "resolved_runtime", None)
-    skills = getattr(runtime, "skills", ()) or ()
-    active_ids = set(getattr(runtime, "active_skill_ids", ()) or ())
-    declared: set[str] = set()
-    for entry in skills:
-        descriptor = getattr(entry, "descriptor", None)
-        if descriptor is None:
-            continue
-        if active_ids and descriptor.id not in active_ids:
-            continue
-        metadata = getattr(descriptor, "metadata", None) or {}
-        role = str(metadata.get("preferred_role") or metadata.get("preferred_model_role") or "").strip().lower()
-        if role in _ROLE_PRECEDENCE:
-            declared.add(role)
-    for role in _ROLE_PRECEDENCE:
-        if role in declared:
-            return role
-    return None
-
-
 def _select_model_route(
     profile: ProfileSetup,
     *,
@@ -244,7 +218,7 @@ def _select_model_route(
             configured_strategy["decision_engine"], profile.providers, budget,
             disconnected=profile.ai_cfg.get("disconnected_providers") or [],
         ),
-        preferred_role=_preferred_role_from_runtime(profile),
+        preferred_role=preferred_role_from_runtime(profile),
     )
     selected_route = strategy["selected"]
     return str(selected_route["provider"]), str(selected_route["model"]), strategy

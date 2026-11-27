@@ -369,7 +369,7 @@ def test_choose_agent_model_honors_skill_preferred_role(registry):
 
 
 def test_operation_catalog_and_runtime_preferred_role():
-    from backend.domains.agent.workflow_setup import _preferred_role_from_runtime
+    from backend.services.agent_model_strategy import preferred_role_from_runtime
     from backend.services.agent_operation_catalog import OPERATION_ROLES, descriptors
 
     desc_by_op = {d.metadata["application_operation"]: d for d in descriptors()}
@@ -385,4 +385,4 @@ def test_operation_catalog_and_runtime_preferred_role():
         ],
     )
     profile = SimpleNamespace(resolved_runtime=runtime)
-    assert _preferred_role_from_runtime(profile) == "expert"
+    assert preferred_role_from_runtime(profile) == "expert"

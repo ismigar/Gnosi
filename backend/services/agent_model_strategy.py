@@ -255,3 +255,28 @@ def _apply_decision_engine(
             return {"provider": row["provider"], "model": row["model_id"]}, metadata
         metadata["status"] = "invalid_response"
     return selected, metadata
+
+
+_ROLE_PRECEDENCE = ("expert", "director", "documentalist", "administrative", "allrounder", "worker")
+
+
+def preferred_role_from_runtime(profile: Any) -> str | None:
+    """Resolve the highest-capability preferred_role declared by active skills."""
+    runtime = getattr(profile, "resolved_runtime", None)
+    skills = getattr(runtime, "skills", ()) or ()
+    active_ids = set(getattr(runtime, "active_skill_ids", ()) or ())
+    declared: set[str] = set()
+    for entry in skills:
+        descriptor = getattr(entry, "descriptor", None)
+        if descriptor is None:
+            continue
+        if active_ids and descriptor.id not in active_ids:
+            continue
+        metadata = getattr(descriptor, "metadata", None) or {}
+        role = str(metadata.get("preferred_role") or metadata.get("preferred_model_role") or "").strip().lower()
+        if role in _ROLE_PRECEDENCE:
+            declared.add(role)
+    for role in _ROLE_PRECEDENCE:
+        if role in declared:
+            return role
+    return None
