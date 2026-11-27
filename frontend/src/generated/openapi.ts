@@ -374,6 +374,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/watchdog/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Watchdog Alerts */
+        get: operations["get_watchdog_alerts_api_agent_runs_watchdog_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/watchdog/alerts/{alert_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Dismiss Watchdog Alert */
+        post: operations["post_dismiss_watchdog_alert_api_agent_runs_watchdog_alerts__alert_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/watchdog/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Watchdog Sweep */
+        post: operations["post_watchdog_sweep_api_agent_runs_watchdog_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/agents/{agent_id}/learning": {
         parameters: {
             query?: never;
@@ -28834,6 +28885,79 @@ export interface components {
             /** Computers */
             computers: components["schemas"]["VirtualFieldComputerResponse"][];
         };
+        /** WatchdogAlert */
+        WatchdogAlert: {
+            /** Agent Id */
+            agent_id: string;
+            /** Alert Id */
+            alert_id: string;
+            /** Created At */
+            created_at: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stale_run" | "transient_failure" | "persistent_failure";
+            /** Last Retry At */
+            last_retry_at?: number | null;
+            /** Operation */
+            operation: string;
+            /**
+             * Retry Count
+             * @default 0
+             */
+            retry_count: number;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "retried" | "dismissed";
+            /**
+             * Suggested Action
+             * @enum {string}
+             */
+            suggested_action: "resume" | "switch_model" | "inspect";
+            /** Summary */
+            summary: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /** WatchdogSweepRequest */
+        WatchdogSweepRequest: {
+            /**
+             * Auto Retry
+             * @default false
+             */
+            auto_retry: boolean;
+            /**
+             * Cooldown Seconds
+             * @default 600
+             */
+            cooldown_seconds: number;
+            /**
+             * Max Auto Retries
+             * @default 2
+             */
+            max_auto_retries: number;
+            /**
+             * Stale After Seconds
+             * @default 900
+             */
+            stale_after_seconds: number;
+        };
+        /** WatchdogSweepResult */
+        WatchdogSweepResult: {
+            /** Auto Retried */
+            auto_retried: number;
+            /** New Alerts */
+            new_alerts: number;
+            /** Open Alerts */
+            open_alerts: components["schemas"]["WatchdogAlert"][];
+            /** Scanned Runs */
+            scanned_runs: number;
+        };
         /** WebChange */
         WebChange: {
             /**
@@ -30129,6 +30253,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TraceRetention"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_watchdog_alerts_api_agent_runs_watchdog_alerts_get: {
+        parameters: {
+            query?: {
+                include_dismissed?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchdogAlert"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_dismiss_watchdog_alert_api_agent_runs_watchdog_alerts__alert_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                alert_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchdogAlert"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_watchdog_sweep_api_agent_runs_watchdog_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WatchdogSweepRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchdogSweepResult"];
                 };
             };
             /** @description Validation Error */
