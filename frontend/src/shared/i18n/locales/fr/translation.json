@@ -1586,7 +1586,10 @@
         "remaining": "Budget mensuel restant : {{amount}}",
         "budget_partial": "Les dépenses mensuelles et le budget restant sont partiels : certains appels ont un coût inconnu.",
         "budget_estimated": "Les dépenses mensuelles comprennent des coûts estimés."
-      }
+      },
+      "out_of_scope_label": "Hors périmètre (ce qu’il ne fait pas)",
+      "out_of_scope_desc": "Définissez les limites et les demandes que ce bot doit refuser ou rediriger.",
+      "out_of_scope_placeholder": "Ex. : Ne pas envoyer d’e-mails sans relecture, ne pas modifier les factures, ne pas donner d’avis juridique…"
     },
     "footer": {
       "close": "Fermer",
@@ -8545,7 +8548,8 @@
     "update": "Nouvelle version de l’original",
     "use_update": "Appliquer la nouvelle version",
     "executor": "Bot exécutant",
-    "assign_operation": "Utiliser ce bot pour cette opération"
+    "assign_operation": "Utiliser ce bot pour cette opération",
+    "out_of_scope": "Hors périmètre"
   },
   "agent_team": {
     "routes_help": "Facultatif : choisissez les bots pouvant recevoir chaque type de tâche lorsqu’une aide est demandée à l’équipe. Sans affectation, le principal planifie sa répartition. Le bot adapté au coût estimé le plus faible est choisi ; un coût inconnu n’est pas considéré comme nul.",

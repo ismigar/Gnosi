@@ -4084,6 +4084,11 @@
             "title": "Operations",
             "type": "array"
           },
+          "out_of_scope": {
+            "default": "",
+            "title": "Out Of Scope",
+            "type": "string"
+          },
           "skills": {
             "items": {
               "additionalProperties": true,

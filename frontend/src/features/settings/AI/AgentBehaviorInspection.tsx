@@ -39,6 +39,7 @@ export function AgentBehaviorInspection({ profile, operationsOnly = false }: { p
             }}>{t('agent_behavior.assign_operation')}</button>}
         </article>) : <>
             <section><h4>{t('agent_behavior.instructions')}</h4><pre className="whitespace-pre-wrap">{value.instructions}</pre></section>
+            {value.out_of_scope.trim() && <section><h4>{t('agent_behavior.out_of_scope')}</h4><pre className="whitespace-pre-wrap">{value.out_of_scope}</pre></section>}
             <section><h4>{t('agent_behavior.context')}</h4><pre className="whitespace-pre-wrap">{value.context}</pre></section>
             <section><h4>{t('agent_behavior.skills')}</h4>{value.skills.map(skill => <details className="ai-resource-details" key={String(skill.id)}>
                 <summary>{String(skill.name)} · {String(skill.version)}</summary>

@@ -84,6 +84,7 @@ def planning_catalog(owner: dict[str, Any], scope: ExecutionScope, original: str
             } for entry in runtime.skills]
             catalog.append({
                 "id": identifier, "name": profile.get("name"), "roles": roles[identifier],
+                "out_of_scope": str(profile.get("out_of_scope") or "").strip()[:600],
                 "routing_revision": revision([profile, runtime.catalog_revision]),
                 "skills": list(profile.get("skill_ids") or []), "capabilities": skills,
                 "tools": [{"id": descriptor.id, "name": descriptor.name, "call_name": str(getattr(tool, "name", "")),

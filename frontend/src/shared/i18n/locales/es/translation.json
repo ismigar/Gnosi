@@ -3424,7 +3424,10 @@
         "remaining": "Presupuesto mensual restante: {{amount}}",
         "budget_partial": "El consumo mensual y el presupuesto restante son parciales: hay llamadas con coste desconocido.",
         "budget_estimated": "El consumo mensual incluye costes estimados."
-      }
+      },
+      "out_of_scope_label": "Fuera de alcance (qué no hace)",
+      "out_of_scope_desc": "Define los límites y las peticiones que este bot debe rechazar o derivar.",
+      "out_of_scope_placeholder": "Ej.: No envíes correos sin revisión, no modifiques facturas, no des asesoramiento legal…"
     },
     "footer": {
       "close": "Cerrar",
@@ -8545,7 +8548,8 @@
     "update": "Nueva versión del original",
     "use_update": "Aplicar la nueva versión",
     "executor": "Bot ejecutor",
-    "assign_operation": "Usar este bot para esta operación"
+    "assign_operation": "Usar este bot para esta operación",
+    "out_of_scope": "Fuera de alcance"
   },
   "agent_team": {
     "routes_help": "Opcional: elige qué bots pueden recibir cada tipo de tarea cuando se pide ayuda al equipo. Sin asignación, el principal planifica su distribución. Se elige un bot adecuado con el menor coste estimado; un coste desconocido no se considera cero.",

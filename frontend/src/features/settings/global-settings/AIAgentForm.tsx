@@ -27,7 +27,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
   const [choosingModel, setChoosingModel] = useState(false);
   const [form, setForm] = useState({
     ...agent, command: agent.command || '', name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
-    icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
+    icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', out_of_scope: agent.out_of_scope || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
   const incomingRoute = JSON.stringify([agent.provider, agent.model, agent.reasoning_effort, agent.openrouter_route]);
@@ -36,7 +36,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
     setModelIdentity(incomingRoute);
     setForm(previous => ({ ...previous, provider: agent.provider || '', model: agent.model || '', reasoning_effort: agent.reasoning_effort, openrouter_route: agent.openrouter_route }));
   }
-  const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
+  const { name, command, provider, model, icon, persona, out_of_scope: outOfScope, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
   const [section, setSection] = useState('instructions');
   const migration = agent.behavior_migration && typeof agent.behavior_migration === 'object' ? agent.behavior_migration as Record<string, unknown> : undefined;
   const originalInstructions = typeof migration?.original === 'string' ? migration.original : '';
@@ -189,6 +189,9 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
           <InstructionMarkdownEditor label={t('settings.ai.instructions_label')}
             description={t('settings.ai.instructions_desc')} value={persona} onChange={persona => { update({ persona }); }}
             placeholder={t('settings.ai.instructions_placeholder')} />
+          <InstructionMarkdownEditor label={t('settings.ai.out_of_scope_label')}
+            description={t('settings.ai.out_of_scope_desc')} value={outOfScope} onChange={out_of_scope => { update({ out_of_scope }); }}
+            placeholder={t('settings.ai.out_of_scope_placeholder')} />
           {originalInstructions && <details className="ai-resource-details"><summary>{t('agent_behavior.original')}</summary>
             <pre className="whitespace-pre-wrap">{originalInstructions}</pre>
             <button type="button" className="btn-gnosi-secondary" onClick={() => { update({ persona: originalInstructions }); }}>{t('agent_behavior.restore')}</button>
@@ -251,6 +254,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
                   openrouter_route: provider === 'openrouter' ? form.openrouter_route ?? null : null,
                   icon,
                   persona,
+                  out_of_scope: outOfScope,
                   context,
                   context_refs: contextRefs,
                   skill_ids: selectedSkillIds,

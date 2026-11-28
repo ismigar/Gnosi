@@ -492,14 +492,15 @@ def build_prompts(
     context_window_tokens = _model_context_window(model.provider_name, model.model_name)
     model_input_chars = max(8_000, int(context_window_tokens * 0.75 * 3))
     persona = str(profile.agent_data.get("persona", ""))
-    from backend.services.agent_behavior import resource
+    from backend.services.agent_behavior import out_of_scope_block, resource
     boundary = str(profile.agent_data.get("_execution_data_boundary") or resource("system/data-boundary.md"))
     if not preserve_instructions:
         persona = persona[:8_000]
     if "_execution_detailed_persona" not in profile.agent_data:
         profile.agent_data["_execution_detailed_persona"] = _detailed_persona(instructions_dir, profile.target_id)
     detailed = str(profile.agent_data["_execution_detailed_persona"])
-    combined = f"{persona}\n\n{detailed}" if detailed else persona
+    scope_block = out_of_scope_block(profile.agent_data, preserve_instructions=preserve_instructions)
+    combined = "\n\n".join(part for part in (persona, detailed, scope_block) if part)
     active_runtime_ids = tuple(
         str(skill_id)
         for skill_id in (getattr(profile.resolved_runtime, "active_skill_ids", ()) or ())

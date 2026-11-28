@@ -3458,7 +3458,10 @@
         "remaining": "Monthly budget remaining: {{amount}}",
         "budget_partial": "Monthly spend and remaining budget are partial: some calls have unknown cost.",
         "budget_estimated": "Monthly spend includes estimated costs."
-      }
+      },
+      "out_of_scope_label": "Out of scope (what it does not do)",
+      "out_of_scope_desc": "Define boundaries and requests this bot must refuse or defer.",
+      "out_of_scope_placeholder": "e.g., Do not send emails without review, do not modify invoices, do not give legal advice…"
     },
     "footer": {
       "close": "Close",
@@ -8484,7 +8487,8 @@
     "update": "Updated original",
     "use_update": "Apply updated original",
     "executor": "Executing bot",
-    "assign_operation": "Use this bot for this operation"
+    "assign_operation": "Use this bot for this operation",
+    "out_of_scope": "Out of scope"
   },
   "agent_team": {
     "routes_help": "Optional: choose which bots can receive each task type when team help is requested. Without an assignment, the primary plans its distribution. The suitable bot with the lowest estimated cost is selected; unknown cost is not treated as zero.",
