@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 294 | 58050 |
+| `services` | 295 | 58194 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1318 |
 
-Total: **1168 modules** and **222961 source lines**.
+Total: **1169 modules** and **223105 source lines**.
 
 ## agent
 
@@ -1135,9 +1135,10 @@ Total: **1168 modules** and **222961 source lines**.
 | [`backend/services/llm_wiki_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_generation.py) | 41 | 0 | 4 | 0 | 2 | Run Brain model work with the selected profile and its editable skills. |
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 781 | 0 | 47 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 323 | 0 | 13 | 0 | 9 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
+| [`backend/services/llm_wiki_page_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_page_cache.py) | 107 | 0 | 4 | 0 | 4 | Persistent local disk cache for synchronized LLM Wiki page sidecars. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 590 | 7 | 19 | 0 | 11 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
 | [`backend/services/llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_reading_runtime.py) | 455 | 2 | 9 | 0 | 2 | Freeze one governed profile, model and skill for an entire source job. |
-| [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 532 | 0 | 32 | 0 | 14 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
+| [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 569 | 0 | 34 | 0 | 15 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
 | [`backend/services/llm_wiki_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_suggestions.py) | 330 | 0 | 14 | 0 | 11 | Read-only connection proposals for the Brain. |
 | [`backend/services/lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/lookup_normalizers.py) | 49 | 0 | 0 | 0 | 0 | Compatibility facade for pure citation lookup normalizers. |
 | [`backend/services/mail_ingester.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_ingester.py) | 69 | 0 | 1 | 0 | 0 | Compatibility facade for newsletter ingestion. |
