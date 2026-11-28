@@ -9932,5 +9932,21 @@
     "noSites": "Crea primer un web a Webs.",
     "binding": "Vinculació",
     "newBinding": "Afegeix una altra secció…"
+  },
+  "workflow_chains": {
+    "title": "Cadenes d’agents",
+    "subtitle": "Fluxos asíncrons en diversos passos amb traspàs persistent de resultats.",
+    "empty": "Encara no hi ha cap cadena d’agents.",
+    "run": "Executa",
+    "resume": "Reprèn",
+    "cancel": "Cancel·la",
+    "status": {
+      "pending": "Pendent",
+      "running": "En curs",
+      "awaiting_confirmation": "Esperant confirmació",
+      "completed": "Completada",
+      "failed": "Fallada",
+      "cancelled": "Cancel·lada"
+    }
   }
 }

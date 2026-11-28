@@ -9932,5 +9932,21 @@
     "noSites": "Crea primero una web en Webs.",
     "binding": "Vinculación",
     "newBinding": "Añadir otra sección…"
+  },
+  "workflow_chains": {
+    "title": "Cadenas de agentes",
+    "subtitle": "Flujos asíncronos de varios pasos con traspaso persistente de resultados.",
+    "empty": "Todavía no hay ninguna cadena de agentes.",
+    "run": "Ejecutar",
+    "resume": "Reanudar",
+    "cancel": "Cancelar",
+    "status": {
+      "pending": "Pendiente",
+      "running": "En curso",
+      "awaiting_confirmation": "Esperando confirmación",
+      "completed": "Completada",
+      "failed": "Fallida",
+      "cancelled": "Cancelada"
+    }
   }
 }

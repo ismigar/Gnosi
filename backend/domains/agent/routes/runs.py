@@ -17,7 +17,9 @@ router = APIRouter(prefix="/api/agent/runs", tags=["Agent runs"], dependencies=[
 ])
 
 from backend.domains.agent.routes.task_evaluations import router as task_evaluation_router
+from backend.domains.agent.routes.workflow_chains import router as workflow_chains_router
 router.include_router(task_evaluation_router)
+router.include_router(workflow_chains_router)
 
 
 class TraceRetention(BaseModel):

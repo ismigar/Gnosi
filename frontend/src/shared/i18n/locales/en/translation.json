@@ -9871,5 +9871,21 @@
     "noSites": "Create a website in Webs first.",
     "binding": "Binding",
     "newBinding": "Add another section…"
+  },
+  "workflow_chains": {
+    "title": "Agent chains",
+    "subtitle": "Asynchronous multi-step workflows with persistent output handoffs.",
+    "empty": "No agent chains yet.",
+    "run": "Run",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "awaiting_confirmation": "Awaiting confirmation",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    }
   }
 }

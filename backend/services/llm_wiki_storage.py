@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
 
+import contextvars
 import hashlib
 import json
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
@@ -16,6 +18,7 @@ from typing import Optional
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
+from backend.services import llm_wiki_page_cache
 from backend.utils.open_values import float_value, get_value
 from backend.utils.safe_io import safe_write_json
 
@@ -74,22 +77,54 @@ def _legacy_page_state(metadata: object) -> dict[str, object]:
     return state
 
 
+def _page_cache_path() -> Path | None:
+    try:
+        return local_root() / llm_wiki_page_cache.CACHE_FILENAME
+    except (KeyError, RuntimeError, TypeError, OSError):
+        return None
+
+
+def flush_page_state_cache() -> None:
+    """Persist dirty sidecar cache entries to local storage for fast cold starts."""
+    cache_path = _page_cache_path()
+    if cache_path is None:
+        return
+    try:
+        prefix = str(synced_root() / "pages")
+    except (KeyError, RuntimeError, TypeError, OSError):
+        prefix = ""
+    with _LOCK:
+        snapshot = dict(_PAGE_STATE_CACHE)
+    llm_wiki_page_cache.flush(cache_path, snapshot, prefix=prefix)
+
+
 def _read_page_state(path: Path) -> dict[str, object]:
+    cache_path = _page_cache_path()
+    if cache_path is not None:
+        with _LOCK:
+            llm_wiki_page_cache.load_into(cache_path, _PAGE_STATE_CACHE)
     try:
         stat = path.stat()
     except OSError:
-        _PAGE_STATE_CACHE.pop(str(path), None)
+        with _LOCK:
+            removed = _PAGE_STATE_CACHE.pop(str(path), None)
+        if removed is not None and cache_path is not None:
+            llm_wiki_page_cache.mark_dirty(cache_path)
         return {}
     cache_key = str(path)
-    cached = _PAGE_STATE_CACHE.get(cache_key)
     signature = (stat.st_mtime_ns, stat.st_size)
+    with _LOCK:
+        cached = _PAGE_STATE_CACHE.get(cache_key)
     if cached and cached[:2] == signature:
         return deepcopy(cached[2])
     payload = _read_json(path)
     raw_state = payload.get("metadata") if isinstance(payload, dict) else None
     state: dict[str, object] = raw_state if isinstance(raw_state, dict) else {}
     clean_state = {str(key): deepcopy(value) for key, value in state.items()}
-    _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
+    with _LOCK:
+        _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
+    if cache_path is not None and llm_wiki_page_cache.mark_dirty(cache_path):
+        flush_page_state_cache()
     return deepcopy(clean_state)
 
 
@@ -136,6 +171,18 @@ def page_metadata(page: object) -> PageMetadata:
     return merge_page_metadata(raw, str(page_id or ""))
 
 
+def page_metadata_batch(pages: list[object]) -> list[PageMetadata]:
+    """Load page metadata concurrently while preserving caller contextvars."""
+    if len(pages) <= 4:
+        return [page_metadata(page) for page in pages]
+    with ThreadPoolExecutor(max_workers=min(16, len(pages))) as pool:
+        futures = [
+            pool.submit(contextvars.copy_context().run, page_metadata, page)
+            for page in pages
+        ]
+        return [future.result() for future in futures]
+
+
 def prepare_managed_markdown(metadata: PageMetadata) -> PageMetadata:
     """Persist managed state and return portable Markdown frontmatter.
 
@@ -169,6 +216,10 @@ def prepare_managed_markdown(metadata: PageMetadata) -> PageMetadata:
             )
         except OSError:
             _PAGE_STATE_CACHE.pop(str(path), None)
+        cache_path = _page_cache_path()
+        if cache_path is not None:
+            llm_wiki_page_cache.mark_dirty(cache_path)
+            flush_page_state_cache()
 
     for key in list(portable):
         if str(key).startswith(MANAGED_METADATA_PREFIX):
