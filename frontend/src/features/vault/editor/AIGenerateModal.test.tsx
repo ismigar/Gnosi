@@ -122,7 +122,10 @@ describe('AIGenerateModal', () => {
         const generate = [...document.querySelectorAll('button')]
             .find((button) => button.textContent === 'Generate');
         if (!generate) throw new Error('Generate action was not rendered');
-        await act(async () => { generate.click(); });
+        await act(async () => {
+            generate.click();
+            await Promise.resolve();
+        });
 
         expect(toast.error).toHaveBeenCalledWith(
             'Could not generate content: Check the AI provider’s credits and billing settings.',
