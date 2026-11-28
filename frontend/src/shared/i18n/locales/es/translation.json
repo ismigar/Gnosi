@@ -7191,6 +7191,8 @@
     "estimate_loading": "Calculando sin llamadas de IA…",
     "estimate_failed": "No se pudo calcular la estimación. Cierra y vuelve a abrir para reintentar.",
     "estimate_progress": "{{saved}} fragmentos guardados; {{remaining}} pendientes; unas {{calls}} llamadas.",
+    "publish_saved_hint": "Todos los fragmentos y la revisión conjunta están completados. Puedes publicar ya las notas revisadas en el Conocimiento sin más llamadas de IA.",
+    "publish_saved_action": "Publicar ahora (sin IA)",
     "estimate_cost": "Estimación conservadora de todo el trabajo pendiente: {{cost}}.",
     "estimate_unpriced": "El modelo elegido no tiene una tarifa verificada. El procesamiento queda bloqueado hasta configurar su precio.",
     "estimate_tokens": "Entrada estimada: {{input}}; salida prevista: {{output}} tokens. Incluye el contexto repetido.",

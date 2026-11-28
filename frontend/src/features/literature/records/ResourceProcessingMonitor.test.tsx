@@ -6,6 +6,7 @@ import {
     estimateResourceProcessing,
     findResumableResourceProcessing,
     fetchResourceProcessingStatus,
+    publishSavedResourceProcessing,
     startResourceProcessing,
     type ResourceProcessingJob,
     type ResourceProcessingStart,
@@ -31,6 +32,7 @@ vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
     findResumableResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
+    publishSavedResourceProcessing: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
 
@@ -305,6 +307,26 @@ describe('existing backend resource jobs', () => {
         expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Planning notes');
         expect(startResourceProcessing).not.toHaveBeenCalled();
         expect(getResourceProcessingTasks()[0]?.job?.job_id).toBe('job-1');
+    });
+
+    it('exposes offline publication when reopening an interrupted job from the corner monitor', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 8, remaining_chunks: 0, can_publish_saved_review: true });
+        vi.mocked(publishSavedResourceProcessing).mockResolvedValue(started);
+        await render(<ProcessingScreen />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        closeDialog();
+        const interrupted = { ...runningJob, phase: 'partial', running: false, error: 'Provider credit exhausted' };
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(interrupted);
+        await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+        vi.mocked(findResumableResourceProcessing).mockResolvedValue(interrupted);
+        act(() => { container.querySelector<HTMLButtonElement>('.resource-processing-card-open')?.click(); });
+        await flushProcessing();
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
+        act(() => { buttonWithText('Publish now (no AI)').click(); });
+        await flushProcessing();
+        expect(publishSavedResourceProcessing).toHaveBeenCalledWith({ resource_id: 'note-1', source_table_id: 'resources' });
     });
 
     it('does not register a late discovery after the dialog closes', async () => {

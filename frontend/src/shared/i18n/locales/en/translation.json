@@ -6628,6 +6628,8 @@
     "estimate_loading": "Estimating without AI calls…",
     "estimate_failed": "Could not estimate processing. Close and reopen to retry.",
     "estimate_progress": "{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.",
+    "publish_saved_hint": "All fragments and the joint review are complete. You can publish the reviewed notes now without additional AI calls.",
+    "publish_saved_action": "Publish now (no AI)",
     "estimate_cost": "Conservative estimate for all remaining work: {{cost}}.",
     "estimate_unpriced": "The selected model has no verified tariff. Processing is blocked until its price is configured.",
     "estimate_tokens": "Estimated input: {{input}}; assumed output: {{output}} tokens. Repeated context is included.",

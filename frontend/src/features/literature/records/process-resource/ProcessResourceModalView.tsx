@@ -23,6 +23,8 @@ interface ProcessResourceModalViewProps {
     readonly batchSize: number;
     readonly onBatchSize: (value: number) => void;
     readonly canStart: boolean;
+    readonly canPublishSaved?: boolean;
+    readonly onPublishSaved?: () => void;
     readonly fresh: boolean;
     readonly onReprocess: () => void;
     readonly error: string;
@@ -39,6 +41,7 @@ interface ProcessResourceModalViewProps {
 
 export function ProcessResourceModalView({
     estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize, canStart,
+    canPublishSaved = false, onPublishSaved,
     fresh, onReprocess,
     error,
     force,
@@ -249,7 +252,16 @@ export function ProcessResourceModalView({
                     ) : null}
                 </div>
 
-                <div className="px-5 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-2">
+                <div className="px-5 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex flex-wrap justify-end gap-2">
+                    {(state === 'confirm' || state === 'error') && canPublishSaved && onPublishSaved ? (
+                        <button
+                            type="button"
+                            className="px-3 py-2 border border-emerald-500/50 rounded-md text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors mr-auto"
+                            onClick={onPublishSaved}
+                        >
+                            {translate('publish_saved_action', 'Publish now (no AI)')}
+                        </button>
+                    ) : null}
                     {state === 'confirm' ? (
                         <>
                             <button

@@ -7443,6 +7443,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/knowledge/publish-saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Knowledge Llm Wiki Publish Saved
+         * @description Publish validated saved reading notes directly to the Brain without AI calls.
+         */
+        post: operations["knowledge_llm_wiki_publish_saved_llm_wiki_publish_saved_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/knowledge/status/{item_id}": {
         parameters: {
             query?: never;
@@ -8392,6 +8412,26 @@ export interface paths {
          * @description Start a durable ingest for one row of a configured source table.
          */
         post: operations["llm_wiki_process_api_vault_llm_wiki_process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/llm-wiki/publish-saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Llm Wiki Publish Saved
+         * @description Publish validated saved reading notes directly to the Brain without AI calls.
+         */
+        post: operations["llm_wiki_publish_saved_api_vault_llm_wiki_publish_saved_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20059,6 +20099,8 @@ export interface components {
             /** Batch Size */
             batch_size: number;
             budget: components["schemas"]["LlmWikiBudgetResponse"] | null;
+            /** Can Publish Saved Review */
+            can_publish_saved_review?: boolean | null;
             /** Chunks Total */
             chunks_total: number;
             /** Cost In Per Million Usd */
@@ -20388,6 +20430,29 @@ export interface components {
             source_table_id: string;
             /** Status */
             status: string;
+        };
+        /** LlmWikiPublishSavedRequest */
+        LlmWikiPublishSavedRequest: {
+            /**
+             * Item Id
+             * @default
+             */
+            item_id: string;
+            /**
+             * Language
+             * @default
+             */
+            language: string;
+            /**
+             * Resource Id
+             * @default
+             */
+            resource_id: string;
+            /**
+             * Source Table Id
+             * @default
+             */
+            source_table_id: string;
         };
         /** LlmWikiReprocessCandidateResponse */
         LlmWikiReprocessCandidateResponse: {
@@ -46048,6 +46113,46 @@ export interface operations {
             };
         };
     };
+    knowledge_llm_wiki_publish_saved_llm_wiki_publish_saved_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiPublishSavedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiProcessStartResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     knowledge_llm_wiki_status_llm_wiki_status__item_id__get: {
         parameters: {
             query?: {
@@ -48391,6 +48496,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LlmWikiProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiProcessStartResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    llm_wiki_publish_saved_api_vault_llm_wiki_publish_saved_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiPublishSavedRequest"];
             };
         };
         responses: {

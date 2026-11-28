@@ -7191,6 +7191,8 @@
     "estimate_loading": "Calculant sense crides d’IA…",
     "estimate_failed": "No s’ha pogut calcular l’estimació. Tanca i torna a obrir per reintentar-ho.",
     "estimate_progress": "{{saved}} fragments desats; {{remaining}} pendents; unes {{calls}} crides.",
+    "publish_saved_hint": "Tots els fragments i la revisió conjunta estan completats. Pots publicar ja les notes revisades al Coneixement sense més crides d’IA.",
+    "publish_saved_action": "Publicar ara (sense IA)",
     "estimate_cost": "Estimació conservadora de tot el treball pendent: {{cost}}.",
     "estimate_unpriced": "El model triat no té una tarifa verificada. El processament queda bloquejat fins que es configuri el preu.",
     "estimate_tokens": "Entrada estimada: {{input}}; sortida prevista: {{output}} tokens. Inclou el context repetit.",

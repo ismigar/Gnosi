@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 654 | 128762 |
+| `domains` | 654 | 128793 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 294 | 58050 |
+| `services` | 295 | 58508 |
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1318 |
 
-Total: **1168 modules** and **222961 source lines**.
+Total: **1169 modules** and **223450 source lines**.
 
 ## agent
 
@@ -703,7 +703,7 @@ Total: **1168 modules** and **222961 source lines**.
 | [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py) | 28 | 0 | 1 | 0 | 0 | Knowledge URLs share the historical handlers and their authorization guards. |
 | [`backend/domains/vault/knowledge/config_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 329 | 0 | 11 | 8 | 10 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/knowledge/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/contracts.py) | 171 | 16 | 0 | 0 | 5 | Public contracts for selecting the Vault Brain table. |
-| [`backend/domains/vault/knowledge/jobs_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/jobs_routes.py) | 716 | 29 | 18 | 13 | 30 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/knowledge/jobs_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/jobs_routes.py) | 747 | 30 | 19 | 14 | 31 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/knowledge/native_calls.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/native_calls.py) | 24 | 1 | 1 | 0 | 2 | Narrow native calls whose lookup order is part of the Knowledge contract. |
 | [`backend/domains/vault/knowledge/schema_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/schema_service.py) | 545 | 0 | 25 | 0 | 13 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/links/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/__init__.py) | 5 | 0 | 0 | 0 | 0 | Vault wikilink, backlink and mention domain. |
@@ -1136,6 +1136,7 @@ Total: **1168 modules** and **222961 source lines**.
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 781 | 0 | 47 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 323 | 0 | 13 | 0 | 9 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 590 | 7 | 19 | 0 | 11 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
+| [`backend/services/llm_wiki_publish_saved.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_publish_saved.py) | 443 | 0 | 6 | 0 | 1 | Offline publication of already extracted and jointly reviewed reading notes. |
 | [`backend/services/llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_reading_runtime.py) | 455 | 2 | 9 | 0 | 2 | Freeze one governed profile, model and skill for an entire source job. |
 | [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 532 | 0 | 32 | 0 | 14 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
 | [`backend/services/llm_wiki_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_suggestions.py) | 330 | 0 | 14 | 0 | 11 | Read-only connection proposals for the Brain. |
@@ -1221,7 +1222,7 @@ Total: **1168 modules** and **222961 source lines**.
 | [`backend/services/reading_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget.py) | 269 | 3 | 18 | 0 | 3 | Durable per-book reservations: a retry or resumed worker cannot reset spending. |
 | [`backend/services/reading_budget_grant.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_budget_grant.py) | 96 | 1 | 4 | 0 | 2 | Local, non-renewing authority to resume one book within two spending ceilings. |
 | [`backend/services/reading_cache_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_cache_transport.py) | 89 | 2 | 3 | 0 | 3 | Keep variable reading schemas after the reusable native Responses prefix. |
-| [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 205 | 0 | 4 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
+| [`backend/services/reading_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_estimate.py) | 220 | 0 | 5 | 0 | 0 | Read-only source preflight; includes repeated context, output and repair allowance. |
 | [`backend/services/reading_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_performance.py) | 79 | 0 | 5 | 0 | 1 | Lossless shared-prefix caching for direct Sol source-reading operations. |
 | [`backend/services/reading_result_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_result_cache.py) | 61 | 0 | 3 | 1 | 1 | Reuse validated, immutable reading phases within their authenticated scope. |
 | [`backend/services/reading_semantic_estimate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/reading_semantic_estimate.py) | 114 | 0 | 3 | 0 | 2 | Offline phase estimates for the deterministic reader, including joint review. |

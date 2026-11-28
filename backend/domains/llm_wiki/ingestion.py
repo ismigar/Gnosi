@@ -345,7 +345,7 @@ def _resolve_plan(
     if (checkpoint_plan and checkpoint_hashes == current_hashes
             and resume_checkpoint is not None
             and resume_checkpoint.get("reading_revision") == reading_revision
-            and checkpoint_plan.get("reviewed") is True
+            and (checkpoint_plan.get("reviewed") is True or checkpoint_plan.get("operator_published") is True)
             and (not dependencies.semantic_reading or checkpoint_plan.get("quality_review_version") == REVIEW_QUALITY_VERSION)):
         model = str(resume_checkpoint.get("model") or "") if resume_checkpoint else ""
         if job_id:

@@ -29,6 +29,7 @@ vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
     findResumableResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
+    publishSavedResourceProcessing: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
 

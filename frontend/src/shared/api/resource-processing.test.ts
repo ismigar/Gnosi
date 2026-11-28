@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   estimateResourceProcessing,
   fetchResourceProcessingStatus,
+  publishSavedResourceProcessing,
   startResourceProcessing,
 } from './resource-processing';
 
@@ -89,5 +90,18 @@ describe('resource processing API', () => {
     const url = new URL(input.url);
     expect(url.pathname).toBe('/api/vault/llm-wiki/status/resource%2F1');
     expect(url.searchParams.get('source_table_id')).toBe('resources');
+  });
+
+  it('posts an offline publish-saved request to its dedicated endpoint', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ status: 'started', item_id: 'book', resource_id: 'book', job_id: 'job-2', job: { phase: 'writing', progress: 80, resource_id: 'book', running: true } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await publishSavedResourceProcessing({ resource_id: 'book', source_table_id: 'resources' });
+    const [request] = fetchMock.mock.calls[0] || [];
+    if (!(request instanceof Request)) throw new Error('Expected a Request');
+    expect(new URL(request.url).pathname).toBe('/api/vault/llm-wiki/publish-saved');
+    expect(request.method).toBe('POST');
+    expect(await request.json()).toEqual({ resource_id: 'book', source_table_id: 'resources' });
   });
 });

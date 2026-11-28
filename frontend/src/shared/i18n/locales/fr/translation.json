@@ -7191,6 +7191,8 @@
     "estimate_loading": "Calcul sans appels IA…",
     "estimate_failed": "Impossible de calculer l’estimation. Fermez puis rouvrez pour réessayer.",
     "estimate_progress": "{{saved}} fragments enregistrés ; {{remaining}} restants ; environ {{calls}} appels.",
+    "publish_saved_hint": "Tous les fragments et la révision conjointe sont terminés. Vous pouvez publier les notes révisées maintenant sans appels d’IA supplémentaires.",
+    "publish_saved_action": "Publier maintenant (sans IA)",
     "estimate_cost": "Estimation prudente de tout le travail restant : {{cost}}.",
     "estimate_unpriced": "Le modèle choisi ne dispose pas de tarif vérifié. Le traitement est bloqué jusqu’à la configuration du prix.",
     "estimate_tokens": "Entrée estimée : {{input}} ; sortie prévue : {{output}} jetons. Le contexte répété est inclus.",

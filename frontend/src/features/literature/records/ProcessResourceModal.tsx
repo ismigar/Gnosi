@@ -40,6 +40,10 @@ export function ProcessResourceModal(
             batchSize={processState.batchSize}
             onBatchSize={processState.setBatchSize}
             canStart={processState.canStart}
+            canPublishSaved={processState.canPublishSaved}
+            onPublishSaved={() => {
+                void processState.publishSaved();
+            }}
             error={processState.error}
             force={processState.force}
             fresh={processState.fresh}
