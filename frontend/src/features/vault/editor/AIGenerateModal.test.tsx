@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AiGenerateInput } from '../../../shared/api/ai';
+import { GnosiApiError } from '../../../shared/api/errors';
+import { toast } from '../../../shared/notifications/toast';
 import AIGenerateModal from './AIGenerateModal';
 
 
@@ -104,5 +106,32 @@ describe('AIGenerateModal', () => {
         });
         expect(onInsert).toHaveBeenCalledWith('Generated markdown', 'block-1');
         expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it('reports the billing failure without applying or closing the article edit', async () => {
+        mocks.generateAiContent.mockRejectedValueOnce(new GnosiApiError(
+            new Response(null, { status: 402 }),
+            { detail: 'Payment Required' },
+        ));
+        const onClose = vi.fn();
+        const onInsert = vi.fn();
+        act(() => {
+            root.render(<AIGenerateModal request={{ replacePage: true, context: 'Article' }}
+                onClose={onClose} onInsert={onInsert} />);
+        });
+        const generate = [...document.querySelectorAll('button')]
+            .find((button) => button.textContent === 'Generate');
+        if (!generate) throw new Error('Generate action was not rendered');
+        await act(async () => {
+            generate.click();
+            await Promise.resolve();
+        });
+
+        expect(toast.error).toHaveBeenCalledWith(
+            'Could not generate content: Check the AI provider’s credits and billing settings.',
+        );
+        expect(generate.disabled).toBe(false);
+        expect(onInsert).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
     });
 });

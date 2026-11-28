@@ -1199,6 +1199,7 @@
     "ai_preset_translate": "Tradueix",
     "ai_empty": "La IA no ha retornat contingut.",
     "ai_error": "No s'ha pogut generar",
+    "ai_payment_required": "Revisa els crèdits i la facturació del proveïdor d’IA.",
     "ai_title": "Generar amb IA",
     "ai_language_placeholder": "Idioma destí (p. ex. anglès)",
     "ai_prompt_placeholder": "Què vols que escrigui la IA?",

@@ -1200,6 +1200,7 @@
     "ai_preset_translate": "Traducir",
     "ai_empty": "La IA no ha devuelto contenido.",
     "ai_error": "No se ha podido generar",
+    "ai_payment_required": "Revisa los créditos y la facturación del proveedor de IA.",
     "ai_title": "Generar con IA",
     "ai_language_placeholder": "Idioma destino (p. ej. inglés)",
     "ai_prompt_placeholder": "¿Qué quieres que escriba la IA?",

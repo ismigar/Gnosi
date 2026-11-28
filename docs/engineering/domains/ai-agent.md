@@ -205,6 +205,7 @@ tests:
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_ai_model_registry_api.py
+  - backend/domains/configuration/ai/content_routes.py
   - backend/tests/test_ai_content_routes.py
   - backend/tests/test_pipeline_ai_client.py
   - backend/tests/test_provider_delete.py
@@ -342,8 +343,14 @@ into the agent runtime.
 AI settings keep provider credentials, connection tombstones, model registry,
 budget and usage routes in a strictly typed compatibility facade. Editor
 generation and correction live in the configuration AI domain, while validated
-YAML mapping loads and explicit legacy response metadata preserve the existing
-HTTP and OpenAPI contracts exactly.
+YAML mapping loads and explicit legacy response metadata preserve their typed
+response shapes.
+
+`POST /api/ai/generate` and `POST /api/ai/correct` return HTTP `402 Payment
+Required` when the selected provider returns 402 for credits or billing. The
+response body is `{"detail": "Check the AI provider's credits and billing settings."}`.
+Clients can identify the billing failure by status code. The **Edit with AI**
+dialog localizes the message and keeps the prompt open so the user can retry.
 
 ## Tool governance
 

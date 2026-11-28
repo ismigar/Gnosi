@@ -50,6 +50,11 @@ def _execution_unavailable_detail(error: RuntimeError) -> str:
 
 def _provider_error(error: Exception, *, route: str) -> HTTPException:
     """Map provider failures to the stable editor-facing HTTP contract."""
+    if getattr(error, "status_code", None) == 402:
+        return HTTPException(
+            status_code=402,
+            detail="Check the AI provider's credits and billing settings.",
+        )
     message = str(error).lower()
     if any(marker in message for marker in ("timeout", "timed out", "timed_out")):
         return HTTPException(

@@ -12,6 +12,7 @@ import { Check, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 import { toast } from '../../../shared/notifications/toast';
 import { generateAiContent } from '../../../shared/api/ai';
+import { GnosiApiError } from '../../../shared/api/errors';
 
 
 type AiGenerateMode = 'continue' | 'free' | 'improve' | 'summarize' | 'translate';
@@ -37,7 +38,6 @@ interface AIGenerateModalProps {
 interface OpenAIGenerateModalProps extends Omit<AIGenerateModalProps, 'request'> {
     readonly request: AiGenerateRequest;
 }
-
 
 const PRESETS: ReadonlyArray<{
     readonly labelKey: string;
@@ -111,7 +111,9 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
             if (!content) toast.error(tr('editor.ai_empty', 'The AI returned no content.'));
             else setResult(content);
         } catch (error) {
-            const detail = error instanceof Error ? error.message : tr('common.error', 'Error');
+            const detail = error instanceof GnosiApiError && error.status === 402
+                ? tr('editor.ai_payment_required', 'Check the AI provider’s credits and billing settings.')
+                : error instanceof Error ? error.message : tr('common.error', 'Error');
             toast.error(`${tr('editor.ai_error', 'Could not generate content')}: ${detail}`);
         } finally {
             setLoading(false);
@@ -145,7 +147,7 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
             aria-label={request.replacePage ? tr('editor.ai_edit_page', 'Edit with AI…') : tr('editor.ai_title', 'Generate with AI')}
         >
             <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
-                <Sparkles size={18} className="text-violet-500" />
+                <Sparkles size={18} className="text-[var(--gnosi-primary)]" />
                 <span className="font-medium">{request.replacePage ? tr('editor.ai_edit_page', 'Edit with AI…') : tr('editor.ai_title', 'Generate with AI')}</span>
                 <button
                     type="button"
@@ -212,12 +214,12 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
                         void generate();
                     }}
                     disabled={loading || (needsPrompt && !prompt.trim())}
-                    className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    className="btn-gnosi btn-gnosi-primary"
                 >
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                     {loading ? tr('editor.ai_generating', 'Generating…') : tr('editor.ai_generate', 'Generate')}
                 </button> : <>
-                    <button type="button" onClick={() => { void insert(); }} disabled={applying || loading} className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                    <button type="button" onClick={() => { void insert(); }} disabled={applying || loading} className="btn-gnosi btn-gnosi-primary">
                         <Check size={16} />
                         {request.replacePage ? tr('editor.ai_apply_edit', 'Apply edit') : tr('editor.ai_insert', 'Insert')}
                     </button>

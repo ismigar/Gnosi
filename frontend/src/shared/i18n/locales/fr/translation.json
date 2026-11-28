@@ -4274,6 +4274,7 @@
     "ai_preset_translate": "Traduire",
     "ai_empty": "L'IA n'a retourné aucun contenu.",
     "ai_error": "Impossible de générer",
+    "ai_payment_required": "Vérifiez les crédits et la facturation du fournisseur d’IA.",
     "ai_title": "Générer avec l'IA",
     "ai_language_placeholder": "Langue cible (p. ex. anglais)",
     "ai_prompt_placeholder": "Que voulez-vous que l'IA écrive ?",

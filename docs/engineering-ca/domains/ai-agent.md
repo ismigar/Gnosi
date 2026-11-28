@@ -205,6 +205,7 @@ tests:
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_ai_model_registry_api.py
+  - backend/domains/configuration/ai/content_routes.py
   - backend/tests/test_ai_content_routes.py
   - backend/tests/test_pipeline_ai_client.py
   - backend/tests/test_provider_delete.py
@@ -350,8 +351,15 @@ La configuració d’IA manté les credencials, les marques de connexions elimin
 el registre de models i les rutes de pressupost i ús en una façana de
 compatibilitat estrictament tipada. La generació i correcció de l’editor viuen
 al domini de configuració d’IA; les càrregues validades de mapes YAML i les
-metadades explícites de resposta històrica preserven exactament els contractes
-HTTP i OpenAPI existents.
+metadades explícites de resposta històrica preserven les estructures de resposta
+tipades.
+
+`POST /api/ai/generate` i `POST /api/ai/correct` retornen HTTP `402 Payment
+Required` quan el proveïdor seleccionat retorna 402 per crèdits o facturació. El
+cos és `{"detail": "Check the AI provider's credits and billing settings."}`.
+Els clients poden identificar l’error de facturació pel codi d’estat. El diàleg
+**Edita amb IA** tradueix el missatge i conserva la instrucció perquè l’usuari ho
+pugui tornar a provar.
 
 ## Governança d’eines
 

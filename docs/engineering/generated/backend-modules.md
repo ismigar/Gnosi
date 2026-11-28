@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 68 |
 | `config` | 14 | 1452 |
 | `data` | 2 | 221 |
-| `domains` | 654 | 128762 |
+| `domains` | 654 | 128767 |
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 8 | 1318 |
 
-Total: **1169 modules** and **223118 source lines**.
+Total: **1169 modules** and **223123 source lines**.
 
 ## agent
 
@@ -309,7 +309,7 @@ Total: **1169 modules** and **223118 source lines**.
 | [`backend/domains/configuration/agent/router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/router.py) | 5 | 0 | 0 | 0 | 0 | Shared router singleton for governed agent configuration APIs. |
 | [`backend/domains/configuration/ai/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/__init__.py) | 1 | 0 | 0 | 0 | 0 | AI configuration domain routes and contracts. |
 | [`backend/domains/configuration/ai/budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/budget.py) | 25 | 0 | 1 | 0 | 1 | Normalize model registry budget settings. |
-| [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 171 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
+| [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 176 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
 | [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 407 | 32 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
 | [`backend/domains/configuration/ai/model_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_bindings.py) | 44 | 0 | 2 | 0 | 0 | Explicit model bindings and safe confirmation of their removal. |
 | [`backend/domains/configuration/ai/model_metadata_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_metadata_routes.py) | 18 | 0 | 1 | 1 | 1 | Read-only model metadata used by assistant settings. |
