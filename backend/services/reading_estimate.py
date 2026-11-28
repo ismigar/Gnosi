@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-from copy import deepcopy
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -200,6 +199,6 @@ def _saved_state(previous: dict[str, Any], identity: str, semantic: bool, force:
                          and checkpoint.get("reading_context") == fingerprint([source_title, language])))):
                 plans = checkpoint.get("plans", {})
                 if isinstance(plans, dict) and (not saved or state_progress(checkpoint) > state_progress(saved)):
-                    saved = deepcopy(checkpoint)
+                    saved = dict(checkpoint)
                     reduce_batch(saved, str(llm_wiki_storage.get_job_status(job_id).get("error") or ""))
     return saved, previous_plans
