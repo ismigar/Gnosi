@@ -30,6 +30,21 @@ from backend.services import llm_wiki_publish_saved, reading_estimate
             },
             True,
         ),
+        (
+            True,
+            [],
+            {
+                "global_map": "Global overview.",
+                "notes_map": "Notes overview.",
+                "reviewed_groups": {},
+                "previous_reviewed_groups": {"g1": {"warnings": []}},
+                "knowledge_context_changed": True,
+                "pending_review_groups": {},
+                "review_drafts": {},
+                "pending_audits": {"p1": {"reason": "Check nuance"}},
+            },
+            True,
+        ),
         (False, [], {"global_map": "a", "notes_map": "b", "reviewed_groups": {"g1": {}}, "pending_audits": {"p1": {}}}, False),
         (True, [{"id": "c1"}], {"global_map": "a", "notes_map": "b", "reviewed_groups": {"g1": {}}, "pending_audits": {"p1": {}}}, False),
         (True, [], {"global_map": "a", "notes_map": "b", "reviewed_groups": {"g1": {}}, "pending_review_groups": {"g2": {}}, "pending_audits": {"p1": {}}}, False),
@@ -151,6 +166,7 @@ def test_build_offline_plan_applies_saved_audits_and_never_calls_ai(monkeypatch:
             self.dimensions: list[dict[str, object]] = []
             self.language = "en"
             self.warnings: list[str] = []
+            self.resume_job_id = str(args[-1]) if args else ""
 
     class FakeSemanticReader:
         def __init__(self, creader: FakeContextualReader) -> None:
@@ -189,3 +205,25 @@ def test_build_offline_plan_applies_saved_audits_and_never_calls_ai(monkeypatch:
     warnings = plan["warnings"]
     assert isinstance(warnings, list)
     assert any("2 pending independent-audit passage(s) skipped by operator" in str(w) for w in warnings)
+
+
+def test_restore_knowledge_shifted_reviews_recovers_raw_groups() -> None:
+    state: dict[str, object] = {
+        "knowledge_context_changed": True,
+        "reviewed_groups": {},
+        "independent_reviews": {},
+    }
+    raw = {
+        "review_quality_version": REVIEW_QUALITY_VERSION,
+        "reviewed_groups": {"g1": {"warnings": []}},
+        "reviewed_ranges": {"0": 4},
+        "review_sources": {"g1": []},
+        "independent_reviews": {"r1": {"answer": {"changes": []}}},
+    }
+    restored = llm_wiki_publish_saved._restore_knowledge_shifted_reviews(
+        state, "job-99", lambda jid, name: raw if (jid, name) == ("job-99", "semantic-state") else None
+    )
+    assert restored is True
+    assert state["reviewed_groups"] == {"g1": {"warnings": []}}
+    assert state["independent_reviews"] == {"r1": {"answer": {"changes": []}}}
+

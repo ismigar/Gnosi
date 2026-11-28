@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
 | Vitest | 790 | 3659 |
-| pytest | 853 | 6669 |
+| pytest | 853 | 6670 |
 
 ## Files
 
@@ -195,8 +195,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/literature/records/CslStylePicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/CslStylePicker.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/MetadataLookupModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/MetadataLookupModal.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/literature/records/ProcessResourceBudget.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceBudget.test.tsx) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 19 | call-pattern estimate |
+| Vitest | [`frontend/src/features/literature/records/ProcessResourceBudget.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceBudget.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 18 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ReferenceImportExport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ReferenceImportExport.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx) | 4 | call-pattern estimate |
@@ -1158,7 +1158,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_llm_wiki_note_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_note_migration.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_pdf_annotations.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_processing_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_processing_domain_contract.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_publish_saved.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_publish_saved.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_publish_saved.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_publish_saved.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_contracts.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_reading_references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_references.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_repairs.py) | 9 | Python AST |

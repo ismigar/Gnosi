@@ -37,6 +37,25 @@ def _no_ai_call(*_args: object, **_kwargs: object) -> tuple[str, str]:
     raise RuntimeError("AI calls are disabled when publishing saved review notes")
 
 
+def _restore_knowledge_shifted_reviews(
+    state: dict[str, object],
+    resume_job_id: str,
+    load_checkpoint: object,
+) -> bool:
+    from collections.abc import Callable
+
+    if not state.get("knowledge_context_changed") or not resume_job_id:
+        return False
+    loader = cast(Callable[[str, str], object], load_checkpoint)
+    raw = loader(resume_job_id, "semantic-state")
+    if not isinstance(raw, dict) or raw.get("review_quality_version") != REVIEW_QUALITY_VERSION:
+        return False
+    for field in ("reviewed_groups", "reviewed_ranges", "review_sources", "independent_reviews"):
+        if field in raw and not state.get(field):
+            state[field] = raw[field]
+    return True
+
+
 def _build_offline_plan(
     *,
     origins: list[dict[str, object]],
@@ -106,6 +125,9 @@ def _build_offline_plan(
         deps, chunks, origins, source_title, language, brain_index, ai_dimensions, "", resume_job_id,
     )
     sreader = SemanticReader(creader)
+    knowledge_shifted = _restore_knowledge_shifted_reviews(
+        sreader.state, creader.resume_job_id, llm_wiki_storage.load_checkpoint,
+    )
     plans = sreader.state.get("plans")
     if not isinstance(plans, dict) or any(str(c["id"]) not in plans for c in chunks):
         raise RuntimeError("Saved checkpoint does not cover all source fragments")
@@ -137,6 +159,10 @@ def _build_offline_plan(
     if skipped:
         warnings.append(
             f"Published from saved review with {skipped} pending independent-audit passage(s) skipped by operator."
+        )
+    if knowledge_shifted:
+        warnings.append(
+            "Published using the Brain index captured during the saved joint review."
         )
     summary = str(sreader.state.get("independent_synthesis") or global_map)
     return {
@@ -326,7 +352,7 @@ def start_publish_saved_review(
     from backend.domains.llm_wiki.reading_skill import SKILL_ID
     from backend.services import context_vars as cv, llm_wiki, llm_wiki_config, llm_wiki_storage
     from backend.services.agent_execution import create_job_run, prepare_snapshot
-    from backend.services.llm_wiki_actions import LlmWikiActionError, VaultActionsPort
+    from backend.services.llm_wiki_actions import LlmWikiActionError, VaultActionsPort, _source_page_path
     from backend.services.llm_wiki_reading_runtime import prepare_review_runtime
 
     vr = cast(VaultActionsPort, legacy_vault_routes)
@@ -339,7 +365,7 @@ def start_publish_saved_review(
     brain_table_id = str(config.get("brain_table_id") or "")
     if not brain_table_id or not vr._table_by_id(brain_table_id):  # noqa: SLF001
         raise LlmWikiActionError(400, "No valid Brain table is configured")
-    path = vr.find_page_path(item_id)
+    path = _source_page_path(vr, item_id)
     if not path or not path.exists():
         raise LlmWikiActionError(404, f"Resource {item_id} was not found")
     metadata, body = vr.parse_frontmatter(read_metadata_text(path, encoding="utf-8"), path)
@@ -357,7 +383,7 @@ def start_publish_saved_review(
         raise LlmWikiActionError(409, "No resumable checkpoint was found for this resource")
 
     resolved_language = _resolve_source_language(language, metadata, source_table, source_config)
-    source_title = str(metadata.get("title") or path.stem)
+    source_title = vr._llm_wiki_source_title(metadata, path, source_table, source_config)  # noqa: SLF001
     vault_root = Path(vr.get_p("VAULT"))
 
     snapshot = prepare_snapshot(SKILL_ID)

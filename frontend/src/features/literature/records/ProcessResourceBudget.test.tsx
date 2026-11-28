@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     estimateResourceProcessing,
     fetchResourceProcessingStatus,
+    publishSavedResourceProcessing,
     startResourceProcessing,
     type ResourceProcessingJob,
     type ResourceProcessingStart,
@@ -261,4 +262,25 @@ it('explains automatic batch reduction while retaining the configured maximum an
     const select = dialog.querySelector('select');
     expect(select?.value).toBe('4');
     expect(startResourceProcessing).not.toHaveBeenCalled();
+});
+
+it('publishes saved review notes without AI calls even when budget is exhausted', async () => {
+    const defaults = await vi.mocked(estimateResourceProcessing)({});
+    vi.mocked(estimateResourceProcessing).mockResolvedValue({
+        ...defaults, saved_chunks: 8, remaining_chunks: 0, can_publish_saved_review: true,
+        budget: { id: 'exhausted', limit_usd: 5, spent_usd: 5, reserved_usd: 0, remaining_usd: 0 },
+    });
+    vi.mocked(publishSavedResourceProcessing).mockResolvedValue(started);
+    vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+        ...runningJob, running: false, phase: 'done', progress: 100,
+        warnings: ['Published from saved review with 3 pending independent-audit passage(s) skipped by operator.'],
+    });
+    const dialog = await renderDialog(<ProcessResourceModal isOpen noteId="note-1" sourceTableId="resources" onClose={vi.fn()} />);
+    expect(buttonWithText(dialog, 'Process').disabled).toBe(true);
+    expect(dialog.textContent).toContain('publish the reviewed notes now without additional AI calls');
+    act(() => { buttonWithText(dialog, 'Publish now (no AI)').click(); });
+    await flushProcessing();
+    expect(publishSavedResourceProcessing).toHaveBeenCalledWith({ resource_id: 'note-1', source_table_id: 'resources' });
+    expect(startResourceProcessing).not.toHaveBeenCalled();
+    expect(dialog.textContent).toContain('Saved with observations to review');
 });

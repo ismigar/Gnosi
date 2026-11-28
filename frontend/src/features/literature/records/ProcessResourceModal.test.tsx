@@ -8,7 +8,6 @@ import {
     estimateResourceProcessing,
     findResumableResourceProcessing,
     fetchResourceProcessingStatus,
-    publishSavedResourceProcessing,
     startResourceProcessing,
     type ResourceProcessingJob,
     type ResourceProcessingStart,
@@ -479,26 +478,6 @@ describe('ProcessResourceModal', () => {
         expect(toast.error).toHaveBeenCalledWith(
             'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.',
         );
-    });
-
-    it('publishes saved review notes without AI calls even when budget is exhausted', async () => {
-        const defaults = await vi.mocked(estimateResourceProcessing)({});
-        vi.mocked(estimateResourceProcessing).mockResolvedValue({
-            ...defaults, saved_chunks: 8, remaining_chunks: 0, can_publish_saved_review: true,
-            budget: { id: 'exhausted', limit_usd: 5, spent_usd: 5, reserved_usd: 0, remaining_usd: 0 },
-        });
-        vi.mocked(publishSavedResourceProcessing).mockResolvedValue(started);
-        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
-            ...doneJob, warnings: ['Published from saved review with 3 pending independent-audit passage(s) skipped by operator.'],
-        });
-        await render(<ProcessResourceModal isOpen noteId="note-1" sourceTableId="resources" onClose={vi.fn()} />);
-        expect(buttonWithText('Process').disabled).toBe(true);
-        expect(document.body.textContent).toContain('publish the reviewed notes now without additional AI calls');
-        act(() => { buttonWithText('Publish now (no AI)').click(); });
-        await flushProcessing();
-        expect(publishSavedResourceProcessing).toHaveBeenCalledWith({ resource_id: 'note-1', source_table_id: 'resources' });
-        expect(startResourceProcessing).not.toHaveBeenCalled();
-        expect(document.body.textContent).toContain('Saved with observations to review');
     });
 
     it('does not render content while closed', async () => {

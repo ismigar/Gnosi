@@ -139,15 +139,16 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
 
 
 def _can_publish_saved(semantic: bool, remaining: list[dict[str, object]], saved: dict[str, Any]) -> bool:
+    reviewed = saved.get("reviewed_groups") or saved.get("previous_reviewed_groups")
     return bool(
         semantic
         and not remaining
         and not saved.get("review_drafts")
         and saved.get("global_map")
         and saved.get("notes_map")
-        and saved.get("reviewed_groups")
+        and reviewed
         and not saved.get("pending_review_groups")
-        and saved.get("pending_audits")
+        and (saved.get("pending_audits") or saved.get("independent_revision"))
     )
 
 
