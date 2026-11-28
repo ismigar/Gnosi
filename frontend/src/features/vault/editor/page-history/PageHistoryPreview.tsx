@@ -1,4 +1,4 @@
-import { FileText, Loader2, RotateCcw } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { VaultPageHistoryContent, VaultPageHistoryVersion } from '../../../../shared/api/vault-history';
@@ -9,7 +9,6 @@ export interface PageHistoryPreviewProps {
     readonly comparisonContent: string | null;
     readonly content: VaultPageHistoryContent | null;
     readonly loading: boolean;
-    readonly onRestore: (version: VaultPageHistoryVersion) => void;
     readonly version: VaultPageHistoryVersion | null;
 }
 
@@ -18,7 +17,6 @@ export function PageHistoryPreview({
     comparisonContent,
     content,
     loading,
-    onRestore,
     version,
 }: PageHistoryPreviewProps) {
     const { t } = useTranslation();
@@ -48,21 +46,12 @@ export function PageHistoryPreview({
         ? null
         : pageHistoryDiffLines(comparisonContent, content.content);
     return <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/30 px-6 py-3">
-            <div className="min-w-0">
-                {title && <h4 className="mb-1 break-words text-sm font-semibold text-[var(--text-primary)]">{title}</h4>}
-                <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                    <FileText className="shrink-0 text-[var(--text-tertiary)]" size={14} />
-                    <span>{t('vault.history.version_at', { timestamp: version.timestamp })}</span>
-                </div>
+        <div className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/30 px-6 py-3">
+            {title && <h4 className="mb-1 break-words text-sm font-semibold text-[var(--text-primary)]">{title}</h4>}
+            <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
+                <FileText className="shrink-0 text-[var(--text-tertiary)]" size={14} />
+                <span>{t('vault.history.version_at', { timestamp: version.timestamp })}</span>
             </div>
-            <button
-                className="btn-gnosi btn-gnosi-primary shrink-0 !px-3 !py-1.5 !text-xs"
-                onClick={() => { onRestore(version); }}
-                type="button"
-            >
-                <RotateCcw size={12} />{t('vault.history.restore_now')}
-            </button>
         </div>
         {summary ? <div className="border-b border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 px-6 py-2 text-xs text-[var(--text-secondary)]">
             {t('vault.history.visual_diff', {

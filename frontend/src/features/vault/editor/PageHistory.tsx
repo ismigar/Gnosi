@@ -173,7 +173,6 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
                     loading={loading}
                     onCompare={(version) => { void compare(version); }}
                     onPreview={(version) => { void preview(version); }}
-                    onRestore={setRestoreTarget}
                     previewVersion={previewVersion}
                 />
                 <div className="relative flex flex-1 flex-col bg-[var(--bg-primary)]">
@@ -181,7 +180,6 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
                         comparisonContent={comparisonContent}
                         content={previewContent}
                         loading={previewLoading}
-                        onRestore={setRestoreTarget}
                         version={previewVersion}
                     />
                 </div>

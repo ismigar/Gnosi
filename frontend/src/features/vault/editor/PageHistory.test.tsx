@@ -132,7 +132,11 @@ describe('PageHistory', () => {
         });
         expect(container.querySelector('.vault-history-diff-line--added')?.textContent)
             .toContain('gamma');
-        act(() => { buttonWithText('vault.history.restore_now').click(); });
+        const restoreButtons = [...container.querySelectorAll('button')]
+            .filter((button) => /restore/.test(button.title + button.textContent));
+        expect(restoreButtons.map((button) => button.textContent))
+            .toEqual(['vault.history.restore_selected_btn']);
+        act(() => { buttonWithText('vault.history.restore_selected_btn').click(); });
         await act(async () => {
             buttonWithText('Restore version').click();
             await Promise.resolve();
