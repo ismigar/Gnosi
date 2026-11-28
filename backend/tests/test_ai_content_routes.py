@@ -5,6 +5,7 @@ import json
 
 import httpx
 import pytest
+from anthropic import APIStatusError as AnthropicStatusError
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from openai import APIStatusError
@@ -92,10 +93,13 @@ def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch)
     assert raised.value.status_code == 504
 
 
-def test_generate_content_reports_provider_billing_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("error_type", [APIStatusError, AnthropicStatusError])
+def test_generate_content_reports_provider_billing_failure(
+    monkeypatch: pytest.MonkeyPatch, error_type: type[APIStatusError] | type[AnthropicStatusError],
+) -> None:
     def fail_generate(*args: str) -> tuple[str, str]:
         response = httpx.Response(402, request=httpx.Request("POST", "https://provider.invalid/responses"))
-        raise APIStatusError("You have no credits remaining.", response=response, body=None)
+        raise error_type("You have no credits remaining.", response=response, body=None)
 
     monkeypatch.setattr(agent_execution, "generate_for", fail_generate)
 

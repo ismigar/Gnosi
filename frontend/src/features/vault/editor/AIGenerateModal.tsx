@@ -39,8 +39,6 @@ interface OpenAIGenerateModalProps extends Omit<AIGenerateModalProps, 'request'>
     readonly request: AiGenerateRequest;
 }
 
-const PRIMARY_BUTTON = 'btn-gnosi bg-[var(--gnosi-primary)] text-black hover:brightness-95 supports-[color:contrast-color(white)]:[color:contrast-color(var(--gnosi-primary))]';
-
 const PRESETS: ReadonlyArray<{
     readonly labelKey: string;
     readonly labelFallback: string;
@@ -216,12 +214,12 @@ function OpenAIGenerateModal({ request, onClose, onInsert, t }: OpenAIGenerateMo
                         void generate();
                     }}
                     disabled={loading || (needsPrompt && !prompt.trim())}
-                    className={PRIMARY_BUTTON}
+                    className="btn-gnosi btn-gnosi-primary"
                 >
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                     {loading ? tr('editor.ai_generating', 'Generating…') : tr('editor.ai_generate', 'Generate')}
                 </button> : <>
-                    <button type="button" onClick={() => { void insert(); }} disabled={applying || loading} className={PRIMARY_BUTTON}>
+                    <button type="button" onClick={() => { void insert(); }} disabled={applying || loading} className="btn-gnosi btn-gnosi-primary">
                         <Check size={16} />
                         {request.replacePage ? tr('editor.ai_apply_edit', 'Apply edit') : tr('editor.ai_insert', 'Insert')}
                     </button>
