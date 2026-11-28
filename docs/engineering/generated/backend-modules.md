@@ -20,15 +20,15 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `mcp` | 3 | 429 |
 | `migrations` | 41 | 2464 |
 | `models` | 14 | 1325 |
-| `platform` | 16 | 2049 |
+| `platform` | 16 | 2195 |
 | `scheduler` | 9 | 1522 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
 | `services` | 294 | 58050 |
 | `sync` | 1 | 1 |
-| `utils` | 8 | 1317 |
+| `utils` | 8 | 1318 |
 
-Total: **1168 modules** and **222814 source lines**.
+Total: **1168 modules** and **222961 source lines**.
 
 ## agent
 
@@ -929,7 +929,7 @@ Total: **1168 modules** and **222814 source lines**.
 | [`backend/platform/files/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 468 | 1 | 3 | 0 | 4 | Provider-neutral support for vaults with files on demand. |
 | [`backend/platform/files/onedrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py) | 90 | 1 | 0 | 0 | 1 | OneDrive adapter for the provider-neutral files-on-demand runtime. |
 | [`backend/platform/files/skill_worker.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/skill_worker.py) | 201 | 4 | 2 | 0 | 2 | Reuse two native processes across event loops. Every request gets a new provider grant. |
-| [`backend/platform/files/snapshots.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/snapshots.py) | 244 | 3 | 3 | 1 | 2 | Bounded, cross-event-loop coordination of demand and speculative file reads. |
+| [`backend/platform/files/snapshots.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/snapshots.py) | 390 | 4 | 5 | 1 | 3 | Bounded, cross-event-loop coordination of demand and speculative file reads. |
 | [`backend/platform/notifications.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/notifications.py) | 179 | 5 | 1 | 0 | 6 | Provider-neutral notification channels for local Gnosi operations. |
 | [`backend/platform/translation_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/translation_server.py) | 33 | 0 | 1 | 0 | 1 | HTTP transport adapter for the optional Zotero translation server. |
 
@@ -1278,7 +1278,7 @@ Total: **1168 modules** and **222814 source lines**.
 | [`backend/utils/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/cache.py) | 104 | 1 | 0 | 0 | 1 | Thread-safe in-memory cache with TTL and bounded size. |
 | [`backend/utils/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/errors.py) | 92 | 0 | 2 | 0 | 2 | Safe error handling helpers for HTTP responses. |
 | [`backend/utils/http_retry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/http_retry.py) | 54 | 0 | 1 | 0 | 1 | Tolerant parsing of the HTTP `Retry-After` header (RFC 7231). |
-| [`backend/utils/metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/metadata_io.py) | 286 | 1 | 21 | 4 | 7 | Read one caller-authorized vault file through its storage provider. |
+| [`backend/utils/metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/metadata_io.py) | 287 | 1 | 21 | 4 | 7 | Read one caller-authorized vault file through its storage provider. |
 | [`backend/utils/open_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/open_values.py) | 99 | 1 | 14 | 0 | 14 | Native operations on opaque extension values, without schema assertions. |
 | [`backend/utils/request_profile.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/request_profile.py) | 202 | 1 | 3 | 0 | 2 | Bounded, opt-in Python stack metadata for one application-owned request. |
 | [`backend/utils/safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/utils/safe_io.py) | 245 | 0 | 11 | 0 | 11 | safe_io.py — Atomic and cloud-safe filesystem helpers. |
