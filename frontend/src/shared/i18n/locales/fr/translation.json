@@ -9928,5 +9928,21 @@
     "noSites": "Créez d’abord un site dans Webs.",
     "binding": "Liaison",
     "newBinding": "Ajouter une autre section…"
+  },
+  "workflow_chains": {
+    "title": "Chaînes d’agents",
+    "subtitle": "Flux asynchrones en plusieurs étapes avec transfert persistant des résultats.",
+    "empty": "Aucune chaîne d’agents pour le moment.",
+    "run": "Exécuter",
+    "resume": "Reprendre",
+    "cancel": "Annuler",
+    "status": {
+      "pending": "En attente",
+      "running": "En cours",
+      "awaiting_confirmation": "En attente de confirmation",
+      "completed": "Terminée",
+      "failed": "Échouée",
+      "cancelled": "Annulée"
+    }
   }
 }

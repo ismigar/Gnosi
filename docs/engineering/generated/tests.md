@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
-| Vitest | 789 | 3655 |
-| pytest | 851 | 6661 |
+| Vitest | 790 | 3656 |
+| pytest | 852 | 6667 |
 
 ## Files
 
@@ -293,6 +293,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/settings/AI/AgentEvaluationLab.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentEvaluationLab.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AgentExecutionHistory.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentExecutionHistory.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/SkillInstructions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/SkillInstructions.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/AI/WorkflowChainsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/WorkflowChainsPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/activityHistoryPresentation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/activityHistoryPresentation.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/aiResourceI18n.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/aiSettingsUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.test.ts) | 10 | call-pattern estimate |
@@ -937,6 +938,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_unavailable_http.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_unavailable_http.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_universal_runtime_phase2.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_universal_runtime_phase2.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_view_edit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_view_edit.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_agent_workflow_chains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workflow_chains.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace.py) | 20 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_planning.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_speech.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_speech.py) | 21 | Python AST |
