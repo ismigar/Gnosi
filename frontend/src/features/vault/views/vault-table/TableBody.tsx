@@ -58,14 +58,14 @@ export function TableBody({ model }: { model: TableController; }) {
 
     {!isListView && (
       <tr className="border-b border-[var(--border-primary)]/50 hover:bg-[var(--bg-secondary)]/80 transition-colors group/new-row h-10">
-        <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] py-2">
+        <td className="vault-table-row-gutter sticky left-0 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] py-2">
           <div className="flex items-center justify-center">
             <Plus size={14} className="text-[var(--text-tertiary)] group-focus-within/new-row:text-indigo-500" />
           </div>
         </td>
         <td
           style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-          className="py-1 px-4 sticky left-10 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]"
+          className="py-1 px-4 sticky vault-table-sticky-title z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]"
         >
           <input
             ref={newRowInputRef}

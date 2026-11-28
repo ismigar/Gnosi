@@ -23,10 +23,10 @@ export function createNewSubitemRenderer(model: TableController) {
       ref={virtualItem ? rowVirtualizer.measureElement : undefined}
       className="border-b border-[var(--border-primary)] bg-indigo-500/5"
     >
-      <td className="w-10 sticky left-0 z-20 bg-[var(--bg-primary)]" />
+      <td className="vault-table-row-gutter sticky left-0 z-20 bg-[var(--bg-primary)]" />
       <td
         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-        className="py-1.5 px-4 sticky left-10 z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
+        className="py-1.5 px-4 sticky vault-table-sticky-title z-20 bg-[var(--bg-primary)] border-r border-[var(--border-primary)]"
       >
         <div className="flex items-center gap-2" style={{ marginLeft: depth * 20 }}>
           <input
