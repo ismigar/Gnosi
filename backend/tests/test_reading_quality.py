@@ -237,6 +237,33 @@ def test_generated_notes_do_not_displace_their_original_knowledge_context(monkey
     assert service._load_brain_index('brain', 'book') == before
 
 
+def test_load_brain_index_preserves_contextvars_across_worker_threads(monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from backend.services import llm_wiki as service
+    from backend.services.context_vars import active_vault_path
+
+    seen_paths: list[Path | None] = []
+    pages = [SimpleNamespace(id=f'p-{i}', title=f'Note {i}', metadata={}) for i in range(12)]
+    monkeypatch.setattr(service.legacy_ports, 'table_by_id', lambda *_: {})
+    monkeypatch.setattr(service.legacy_ports, 'table_pages', lambda *_: pages)
+    monkeypatch.setattr(service.llm_wiki_config, 'load_config', lambda: {})
+
+    def fake_page_metadata(page):
+        seen_paths.append(active_vault_path.get())
+        return page.metadata
+
+    monkeypatch.setattr(service.llm_wiki_storage, 'page_metadata', fake_page_metadata)
+    expected_vault = Path('/tmp/gnosi-contextvar-test')
+    token = active_vault_path.set(expected_vault)
+    try:
+        rows = service._load_brain_index('brain')
+    finally:
+        active_vault_path.reset(token)
+    assert len(rows) == 12
+    assert seen_paths == [expected_vault] * 12
+
+
 def test_preflight_prices_revalidation_of_legacy_reviews_at_the_saved_batch_limit():
     from backend.services.reading_semantic_estimate import phase_estimate
     engine, gm, nm, _, _ = prepared(count=8, size=2)

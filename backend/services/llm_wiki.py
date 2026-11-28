@@ -182,8 +182,8 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
 
         table = legacy_ports.table_by_id(brain_table_id) or {}
         config = llm_wiki_config.load_config()
-        for page in legacy_ports.table_pages(brain_table_id):
-            meta = llm_wiki_storage.page_metadata(page)
+        pages = list(legacy_ports.table_pages(brain_table_id))
+        for page, meta in zip(pages, llm_wiki_storage.page_metadata_batch(pages), strict=True):
             if meta.get("is_template"):
                 continue
             if source_page_id and str(meta.get("llm_wiki_resource_id") or "") == source_page_id:
