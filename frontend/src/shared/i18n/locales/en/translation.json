@@ -1240,6 +1240,7 @@
     "ai_preset_translate": "Translate",
     "ai_empty": "The AI didn't return any content.",
     "ai_error": "Couldn't generate",
+    "ai_payment_required": "Check the AI provider’s credits and billing settings.",
     "ai_title": "Generate with AI",
     "ai_language_placeholder": "Target language (e.g. English)",
     "ai_prompt_placeholder": "What do you want the AI to write?",

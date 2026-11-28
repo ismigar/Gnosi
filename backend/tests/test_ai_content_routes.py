@@ -3,9 +3,11 @@
 import asyncio
 import json
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
+from openai import APIStatusError
 
 from backend.services import agent_execution
 from backend.domains.configuration.ai.content_routes import (
@@ -88,6 +90,20 @@ def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch)
         asyncio.run(generate_content(GeneratePayload(prompt="Expand")))
 
     assert raised.value.status_code == 504
+
+
+def test_generate_content_reports_provider_billing_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_generate(*args: str) -> tuple[str, str]:
+        response = httpx.Response(402, request=httpx.Request("POST", "https://provider.invalid/responses"))
+        raise APIStatusError("You have no credits remaining.", response=response, body=None)
+
+    monkeypatch.setattr(agent_execution, "generate_for", fail_generate)
+
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(generate_content(GeneratePayload(prompt="Expand")))
+
+    assert raised.value.status_code == 402
+    assert "credits and billing" in raised.value.detail
 
 
 @pytest.mark.parametrize(("incident", "detail"), [

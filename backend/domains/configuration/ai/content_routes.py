@@ -5,6 +5,7 @@ from backend.services.agent_behavior import task_input
 import asyncio
 
 from fastapi import APIRouter, HTTPException
+from openai import APIStatusError
 from pydantic import BaseModel
 
 from backend.utils.errors import safe_error_detail
@@ -50,6 +51,11 @@ def _execution_unavailable_detail(error: RuntimeError) -> str:
 
 def _provider_error(error: Exception, *, route: str) -> HTTPException:
     """Map provider failures to the stable editor-facing HTTP contract."""
+    if isinstance(error, APIStatusError) and error.status_code == 402:
+        return HTTPException(
+            status_code=402,
+            detail="Check the AI provider's credits and billing settings.",
+        )
     message = str(error).lower()
     if any(marker in message for marker in ("timeout", "timed out", "timed_out")):
         return HTTPException(
