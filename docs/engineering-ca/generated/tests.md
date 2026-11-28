@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 40 | 130 |
-| Vitest | 790 | 3656 |
-| pytest | 853 | 6668 |
+| Vitest | 790 | 3657 |
+| pytest | 853 | 6669 |
 
 ## Fitxers
 
@@ -401,7 +401,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/tldrawEditorModel.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawHandwriting.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/AICorrectLayer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AICorrectLayer.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/AIGenerateModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.test.tsx) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/AIGenerateModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/BibliographyBlock.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/BibliographyBlock.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/CiteInline.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/CiteInline.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/ContextualLinkPasteMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/ContextualLinkPasteMenu.test.tsx) | 2 | call-pattern estimate |
@@ -944,7 +944,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_workspace_speech.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_speech.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_agent_workspace_voice.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_workspace_voice.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_ai_consumption.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_consumption.py) | 23 | Python AST |
-| pytest | [`backend/tests/test_ai_content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_content_routes.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_ai_content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_content_routes.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_ai_model_registry_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_model_registry_api.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_ai_registry_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_registry_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_timeout.py) | 6 | Python AST |

@@ -52,7 +52,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 22 | 2476 | 0 |
-| `features` | 1340 | 140569 | 57 |
+| `features` | 1340 | 140571 | 57 |
 | `generated` | 3 | 58745 | 607 |
 | `shared` | 362 | 38042 | 520 |
 
@@ -890,7 +890,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawPageCards.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawPageCards.ts) | 227 | `useTldrawPageCards` | — |
 | [`frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/tldraw-editor/useTldrawPersistence.ts) | 167 | `useTldrawPersistence` | — |
 | [`frontend/src/features/vault/editor/AICorrectLayer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AICorrectLayer.tsx) | 178 | `AICorrectLayer`, `function` | — |
-| [`frontend/src/features/vault/editor/AIGenerateModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.tsx) | 246 | `AIGenerateModal`, `function` | — |
+| [`frontend/src/features/vault/editor/AIGenerateModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/AIGenerateModal.tsx) | 248 | `AIGenerateModal`, `function` | — |
 | [`frontend/src/features/vault/editor/BibliographyBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/BibliographyBlock.tsx) | 267 | `BibliographyBlock` | — |
 | [`frontend/src/features/vault/editor/BlockEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/BlockEditor.tsx) | 12 | `BlockEditor` | — |
 | [`frontend/src/features/vault/editor/CiteInline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/CiteInline.tsx) | 212 | `CiteInline` | — |

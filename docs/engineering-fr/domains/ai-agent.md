@@ -205,6 +205,7 @@ tests:
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_ai_model_registry_api.py
+  - backend/domains/configuration/ai/content_routes.py
   - backend/tests/test_ai_content_routes.py
   - backend/tests/test_pipeline_ai_client.py
   - backend/tests/test_provider_delete.py
@@ -359,7 +360,14 @@ suppression de connexion, le registre des modèles et les routes de budget et
 d'utilisation dans une façade de compatibilité strictement typée. La génération
 et la correction de l'éditeur résident dans le domaine IA de configuration ;
 le chargement validé des mappings YAML et les métadonnées explicites des réponses
-historiques préservent exactement les contrats HTTP et OpenAPI existants.
+historiques préservent les structures de réponse typées.
+
+`POST /api/ai/generate` et `POST /api/ai/correct` renvoient HTTP `402 Payment
+Required` lorsque le fournisseur sélectionné renvoie 402 pour des raisons de
+crédits ou de facturation. Le corps est `{"detail": "Check the AI provider's credits and billing settings."}`.
+Les clients peuvent identifier l’erreur de facturation par le code de statut.
+La boîte **Modifier avec l’IA** traduit le message et conserve la consigne pour
+permettre à l’utilisateur de réessayer.
 
 ## Gouvernance des outils
 
