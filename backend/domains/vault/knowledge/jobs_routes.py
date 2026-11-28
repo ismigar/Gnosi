@@ -60,6 +60,13 @@ class LlmWikiProcessRequest(BaseModel):
     estimate_id: str = ""
 
 
+class LlmWikiPublishSavedRequest(BaseModel):
+    resource_id: str = ""
+    item_id: str = ""
+    source_table_id: str = ""
+    language: str = ""
+
+
 class LlmWikiBudgetResponse(BaseModel):
     id: str
     limit_usd: float
@@ -93,6 +100,7 @@ class LlmWikiEstimateResponse(BaseModel):
     memory_restore_calls: int
     source_token_bound: int
     token_count_method: str | None = None
+    can_publish_saved_review: bool | None = None
     input_token_bound: int
     output_tokens_assumed: int
     output_token_bound: int
@@ -477,6 +485,29 @@ async def llm_wiki_estimate(payload: LlmWikiProcessRequest = _legacy.Body(...)) 
             start_source_process, payload.resource_id or payload.item_id,
             source_table_id=payload.source_table_id, force=payload.force,
             language=payload.language, batch_size=payload.batch_size, estimate_only=True,
+        )
+    except LlmWikiActionError as exc:
+        raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/llm-wiki/publish-saved",
+    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    response_model=LlmWikiProcessStartResponse,
+)
+async def llm_wiki_publish_saved(
+    payload: LlmWikiPublishSavedRequest = _legacy.Body(...),
+) -> dict[str, object]:
+    """Publish validated saved reading notes directly to the Brain without AI calls."""
+    from backend.services.llm_wiki_actions import LlmWikiActionError
+    from backend.services.llm_wiki_publish_saved import start_publish_saved_review
+
+    try:
+        return await _legacy.asyncio.to_thread(
+            start_publish_saved_review,
+            payload.resource_id or payload.item_id,
+            source_table_id=payload.source_table_id,
+            language=payload.language,
         )
     except LlmWikiActionError as exc:
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

@@ -62,6 +62,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         return () => { request.abort(); };
     }, [needsEstimate, noteId, sourceTableId, id, force, reprocess, batchSize, hasTask, estimateKey, t]);
     const canStart = !checkingStatus && taskState !== 'running' && Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && remainingBookBudget(estimate, budgetLimit) > 0 && budgetLimit <= bookSpendingCeiling(estimate);
+    const canPublishSaved = !checkingStatus && taskState !== 'running' && !reprocess && !(estimate?.incompatible_saved_chunks ?? 0) && Boolean(estimate?.can_publish_saved_review);
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
     const reportDone = useEffectEvent(() => { onProcessed?.(); });
     useEffect(() => {
@@ -89,7 +90,12 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         fresh: reprocess,
         error: task?.error ?? '',
         job: task?.job ?? null,
-        estimate, estimateError, budgetLimit, setBudgetLimit, batchSize, setBatchSize, canStart,
+        estimate, estimateError, budgetLimit, setBudgetLimit, batchSize, setBatchSize, canStart, canPublishSaved,
+        publishSaved: () => {
+            if (!canPublishSaved) return Promise.resolve();
+            setFreshTarget(null);
+            return startResourceProcessingTask({ noteId, sourceTableId, title, publishSaved: true }, false, t);
+        },
         start: () => {
             if (!canStart) return Promise.resolve();
             setFreshTarget(null);

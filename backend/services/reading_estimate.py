@@ -134,7 +134,21 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
             "source_token_bound": source_tokens, "token_count_method": token_method, "input_token_bound": input_bound,
             "output_tokens_assumed": output_assumed, "output_token_bound": output_bound,
-            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings}
+            "cost_usd": low, "cost_with_repairs_usd": high, "budget": budget, "warnings": warnings,
+            "can_publish_saved_review": _can_publish_saved(semantic, remaining, saved)}
+
+
+def _can_publish_saved(semantic: bool, remaining: list[dict[str, object]], saved: dict[str, Any]) -> bool:
+    return bool(
+        semantic
+        and not remaining
+        and not saved.get("review_drafts")
+        and saved.get("global_map")
+        and saved.get("notes_map")
+        and saved.get("reviewed_groups")
+        and not saved.get("pending_review_groups")
+        and saved.get("pending_audits")
+    )
 
 
 

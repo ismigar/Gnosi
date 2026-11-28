@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { TFunction } from 'i18next';
-import { fetchResourceProcessingStatus, findResumableResourceProcessing, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
+import { fetchResourceProcessingStatus, findResumableResourceProcessing, publishSavedResourceProcessing, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
 import { toast } from '../../../../shared/notifications/toast';
 import { resourceProcessingError } from '../../../../shared/notifications/resourceProcessingError';
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
@@ -20,7 +20,10 @@ export interface ResourceProcessingTask {
     readonly background: boolean;
 }
 
-type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'> & { readonly background?: boolean };
+type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'> & {
+    readonly background?: boolean;
+    readonly publishSaved?: boolean;
+};
 interface Poller {
     timer?: ReturnType<typeof setInterval>;
     request?: AbortController;
@@ -134,10 +137,12 @@ export async function startResourceProcessingTask(input: TaskInput, force: boole
     publish();
     const current = (): boolean => pollers.get(id) === poller;
     try {
-        const response = await startResourceProcessing({ force: force && (!previous || input.reprocess === true), resource_id: input.noteId, source_table_id: input.sourceTableId,
-            ...(input.budgetLimit !== undefined ? { max_cost_usd: input.budgetLimit } : {}),
-            ...(input.batchSize !== undefined ? { batch_size: input.batchSize } : {}),
-            ...(input.estimateId ? { estimate_id: input.estimateId } : {}) });
+        const response = input.publishSaved
+            ? await publishSavedResourceProcessing({ resource_id: input.noteId, source_table_id: input.sourceTableId })
+            : await startResourceProcessing({ force: force && (!previous || input.reprocess === true), resource_id: input.noteId, source_table_id: input.sourceTableId,
+                ...(input.budgetLimit !== undefined ? { max_cost_usd: input.budgetLimit } : {}),
+                ...(input.batchSize !== undefined ? { batch_size: input.batchSize } : {}),
+                ...(input.estimateId ? { estimate_id: input.estimateId } : {}) });
         if (!current()) return;
         if (applyJob(id, response.job, t)) return;
         const identifier = getPollingIdentifier(response, input.noteId);
