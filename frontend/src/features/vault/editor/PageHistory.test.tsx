@@ -142,6 +142,32 @@ describe('PageHistory', () => {
         expect(onClose).toHaveBeenCalledOnce();
     });
 
+    it('shows the saved title when switching between versions with empty bodies', async () => {
+        mocks.fetchVersion.mockImplementation((_pageId: string, versionId: string) => (
+            Promise.resolve({
+                content: '',
+                id: 'page-1',
+                metadata: versionId === 'new' ? { title: 'Renamed article' } : { Títol: 'Original title' },
+                version_id: versionId,
+            })
+        ));
+        await act(async () => {
+            root.render(<PageHistory onClose={vi.fn()} onRestore={vi.fn()} open pageId="page-1" />);
+            await Promise.resolve();
+        });
+        const versionRows = container.querySelectorAll<HTMLElement>('[role="button"]');
+        await act(async () => {
+            versionRows[0]?.click();
+            await Promise.resolve();
+        });
+        expect(container.querySelector('h4')?.textContent).toBe('Renamed article');
+        await act(async () => {
+            versionRows[1]?.click();
+            await Promise.resolve();
+        });
+        expect(container.querySelector('h4')?.textContent).toBe('Original title');
+    });
+
     it('purges history after confirmation', async () => {
         await act(async () => {
             root.render(<PageHistory

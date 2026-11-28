@@ -10,6 +10,7 @@ import {
     fetchVaultPageHistoryVersion,
     purgeVaultPageHistory,
     restoreVaultPageHistoryVersion,
+    type VaultPageHistoryContent,
     type VaultPageHistoryVersion,
 } from '../../../shared/api/vault-history';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
@@ -28,7 +29,7 @@ export interface PageHistoryProps {
 
 export function PageHistory(props: PageHistoryProps) {
     if (!props.open) return null;
-    return <PageHistoryDialog {...props} />;
+    return <PageHistoryDialog key={props.pageId} {...props} />;
 }
 
 
@@ -37,7 +38,8 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
     const panelRef = useRef<HTMLDivElement | null>(null);
     const [history, setHistory] = useState<VaultPageHistoryVersion[]>([]);
     const [loading, setLoading] = useState(true);
-    const [previewContent, setPreviewContent] = useState<string | null>(null);
+    const [previewContent, setPreviewContent] = useState<VaultPageHistoryContent | null>(null);
+    const previewRequest = useRef<AbortController | null>(null);
     const [previewVersion, setPreviewVersion] = useState<VaultPageHistoryVersion | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [restoreTarget, setRestoreTarget] = useState<VaultPageHistoryVersion | null>(null);
@@ -56,7 +58,10 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
             .finally(() => {
                 if (!controller.signal.aborted) setLoading(false);
             });
-        return () => { controller.abort(); };
+        return () => {
+            controller.abort();
+            previewRequest.current?.abort();
+        };
     }, [pageId]);
 
     useModalKeyboard({
@@ -68,21 +73,27 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
     });
 
     const preview = async (version: VaultPageHistoryVersion): Promise<void> => {
+        previewRequest.current?.abort();
+        const controller = new AbortController();
+        previewRequest.current = controller;
         setPreviewLoading(true);
         setPreviewVersion(version);
+        setPreviewContent(null);
+        setComparisonContent(null);
         try {
-            const content = await fetchVaultPageHistoryVersion(pageId, version.id);
-            setPreviewContent(content.content);
+            const content = await fetchVaultPageHistoryVersion(pageId, version.id, controller.signal);
+            controller.signal.throwIfAborted();
+            setPreviewContent(content);
             const comparison = comparisonVersion
                 ?? nextOlderHistoryVersion(history, version.id);
             if (comparison) {
-                const older = await fetchVaultPageHistoryVersion(pageId, comparison.id);
-                setComparisonContent(older.content);
-            } else setComparisonContent(null);
+                const older = await fetchVaultPageHistoryVersion(pageId, comparison.id, controller.signal);
+                if (!controller.signal.aborted) setComparisonContent(older.content);
+            }
         } catch (error: unknown) {
-            logError('page-history.preview', error);
+            if (!controller.signal.aborted) logError('page-history.preview', error);
         } finally {
-            setPreviewLoading(false);
+            if (!controller.signal.aborted) setPreviewLoading(false);
         }
     };
     const compare = async (version: VaultPageHistoryVersion): Promise<void> => {
@@ -114,6 +125,8 @@ function PageHistoryDialog({ onClose, onRestore, pageId }: PageHistoryProps) {
     const purge = async (): Promise<void> => {
         try {
             await purgeVaultPageHistory(pageId);
+            previewRequest.current?.abort();
+            setPreviewLoading(false);
             setHistory([]);
             setPreviewContent(null);
             setPreviewVersion(null);
