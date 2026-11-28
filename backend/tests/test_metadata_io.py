@@ -145,11 +145,25 @@ def test_async_waiters_share_one_snapshot_after_one_is_cancelled(tmp_path, monke
 
     install_coordinated_reader(monkeypatch, download)
     monkeypatch.setattr(metadata_io, "is_cloud_placeholder", lambda *_: True)
+    original_request = snapshots.reads.request
+    request_count = 0
+    second_joined = threading.Event()
+
+    def tracked_request(*args, **kwargs):
+        nonlocal request_count
+        request_count += 1
+        future = original_request(*args, **kwargs)
+        if request_count == 2:
+            second_joined.set()
+        return future
+
+    monkeypatch.setattr(snapshots.reads, "request", tracked_request)
 
     async def run():
         first = asyncio.create_task(metadata_io.read_vault_bytes_async(source, root=tmp_path))
         assert await asyncio.to_thread(started.wait, 2)
         second = asyncio.create_task(metadata_io.vault_file_snapshot_async(source, root=tmp_path))
+        assert await asyncio.to_thread(second_joined.wait, 2)
         await asyncio.sleep(0)
         first.cancel()
         with pytest.raises(asyncio.CancelledError):

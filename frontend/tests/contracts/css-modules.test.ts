@@ -60,7 +60,7 @@ function expand(path: string, visited = new Set<string>(), restoreLauncher = fal
   if (restoreLauncher && path === resolve(frontend, 'src/app/styles/home.css')) {
     // Bind the complete new canvas stylesheet before comparing the historical
     // extraction with the exact launcher styles it originally contained.
-    expect(digest(root)).toBe('6861c4cb5bf45b573ce9960f088769439f1547dd4ce253c8a13eda1745ac8fd2');
+    expect(digest(root)).toBe('f94a6bcc7e3ab7d84f7bce05114776423cfde0238ba278198511a9723449ec7b');
     const original = readFileSync(resolve(frontend, 'tests/contracts/fixtures/home-launcher.css'), 'utf8');
     return postcss.parse(original, { from: path });
   }
@@ -453,7 +453,7 @@ describe('semantic CSS extraction contracts', () => {
     expect(compact).toBeGreaterThan(grid);
     const singleColumn = postcss.parse(`@container (max-width: 680px) {
       .home-grid { grid-template-columns: minmax(0, 1fr); }
-      .home-grid .home-block { grid-column: 1; }
+      .home-grid .home-block { grid-column: 1; grid-row: auto; }
     }`);
     const responsiveRule = global.nodes[compact];
     if (!responsiveRule || !singleColumn.first) throw new Error('Missing the compact Home grid');

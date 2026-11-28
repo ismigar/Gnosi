@@ -4,7 +4,8 @@ import { unwrapApiResult } from './errors';
 import { currentRequestContext, requestContextHeaders, type RequestContext } from './request-context';
 
 type CanvasWire = components['schemas']['HomeCanvasState'];
-export type StoredHomeBlock = Required<components['schemas']['HomeCanvasBlock']>;
+type RawHomeBlock = components['schemas']['HomeCanvasBlock'];
+export type StoredHomeBlock = Required<Omit<RawHomeBlock, 'height'>> & { readonly height?: RawHomeBlock['height'] };
 export interface HomePreferences {
     readonly revision: string | null;
     readonly start_mode: CanvasWire['start_mode'];
@@ -35,7 +36,7 @@ export async function saveHomePreferences(scope: RequestContext, value: HomePref
         throw new DOMException('Home canvas scope changed', 'AbortError');
     }
     return preferences(unwrapApiResult(await apiClient.PUT('/api/vault/home-canvas', {
-        body: { ...value, blocks: value.blocks ? [...value.blocks] : null },
+        body: { ...value, blocks: value.blocks ? value.blocks.map(block => ({ ...block, height: block.height ?? 1 })) : null },
         headers: requestContextHeaders(scope),
     })));
 }
