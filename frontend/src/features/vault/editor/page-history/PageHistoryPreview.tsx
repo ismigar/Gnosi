@@ -1,15 +1,14 @@
-import { FileText, Loader2, RotateCcw } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { VaultPageHistoryVersion } from '../../../../shared/api/vault-history';
+import type { VaultPageHistoryContent, VaultPageHistoryVersion } from '../../../../shared/api/vault-history';
 import { pageHistoryDiffLines, pageHistoryDiffSummary } from './pageHistoryModel';
 
 
 export interface PageHistoryPreviewProps {
     readonly comparisonContent: string | null;
-    readonly content: string | null;
+    readonly content: VaultPageHistoryContent | null;
     readonly loading: boolean;
-    readonly onRestore: (version: VaultPageHistoryVersion) => void;
     readonly version: VaultPageHistoryVersion | null;
 }
 
@@ -18,7 +17,6 @@ export function PageHistoryPreview({
     comparisonContent,
     content,
     loading,
-    onRestore,
     version,
 }: PageHistoryPreviewProps) {
     const { t } = useTranslation();
@@ -39,25 +37,21 @@ export function PageHistoryPreview({
             {t('vault.history.no_selection_desc')}
         </p>
     </div>;
+    const title = [content.metadata.title, content.metadata['Títol']]
+        .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
     const summary = comparisonContent === null
         ? null
-        : pageHistoryDiffSummary(comparisonContent, content);
+        : pageHistoryDiffSummary(comparisonContent, content.content);
     const lines = comparisonContent === null
         ? null
-        : pageHistoryDiffLines(comparisonContent, content);
+        : pageHistoryDiffLines(comparisonContent, content.content);
     return <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/30 px-6 py-3">
+        <div className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/30 px-6 py-3">
+            {title && <h4 className="mb-1 break-words text-sm font-semibold text-[var(--text-primary)]">{title}</h4>}
             <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
-                <FileText className="text-[var(--text-tertiary)]" size={14} />
+                <FileText className="shrink-0 text-[var(--text-tertiary)]" size={14} />
                 <span>{t('vault.history.version_at', { timestamp: version.timestamp })}</span>
             </div>
-            <button
-                className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs"
-                onClick={() => { onRestore(version); }}
-                type="button"
-            >
-                <RotateCcw size={12} />{t('vault.history.restore_now')}
-            </button>
         </div>
         {summary ? <div className="border-b border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 px-6 py-2 text-xs text-[var(--text-secondary)]">
             {t('vault.history.visual_diff', {
@@ -69,7 +63,7 @@ export function PageHistoryPreview({
         <div className="custom-scrollbar flex-1 overflow-y-auto bg-[var(--bg-primary)] p-8">
             <div className="mx-auto max-w-3xl">
                 <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-[var(--text-primary)] selection:bg-[var(--gnosi-primary)]/20">
-                    {lines === null ? content : lines.map(({ kind, line }, index) => <span
+                    {lines === null ? content.content : lines.map(({ kind, line }, index) => <span
                         className={`vault-history-diff-line vault-history-diff-line--${kind}`}
                         key={`${kind}-${String(index)}`}
                     >

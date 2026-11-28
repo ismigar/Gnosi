@@ -132,7 +132,11 @@ describe('PageHistory', () => {
         });
         expect(container.querySelector('.vault-history-diff-line--added')?.textContent)
             .toContain('gamma');
-        act(() => { buttonWithText('vault.history.restore_now').click(); });
+        const restoreButtons = [...container.querySelectorAll('button')]
+            .filter((button) => /restore/.test(button.title + button.textContent));
+        expect(restoreButtons.map((button) => button.textContent))
+            .toEqual(['vault.history.restore_selected_btn']);
+        act(() => { buttonWithText('vault.history.restore_selected_btn').click(); });
         await act(async () => {
             buttonWithText('Restore version').click();
             await Promise.resolve();
@@ -140,6 +144,32 @@ describe('PageHistory', () => {
         expect(mocks.restoreVersion).toHaveBeenCalledWith('page-1', 'new');
         expect(onRestore).toHaveBeenCalledOnce();
         expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it('shows the saved title when switching between versions with empty bodies', async () => {
+        mocks.fetchVersion.mockImplementation((_pageId: string, versionId: string) => (
+            Promise.resolve({
+                content: '',
+                id: 'page-1',
+                metadata: versionId === 'new' ? { title: 'Renamed article' } : { Títol: 'Original title' },
+                version_id: versionId,
+            })
+        ));
+        await act(async () => {
+            root.render(<PageHistory onClose={vi.fn()} onRestore={vi.fn()} open pageId="page-1" />);
+            await Promise.resolve();
+        });
+        const versionRows = container.querySelectorAll<HTMLElement>('[role="button"]');
+        await act(async () => {
+            versionRows[0]?.click();
+            await Promise.resolve();
+        });
+        expect(container.querySelector('h4')?.textContent).toBe('Renamed article');
+        await act(async () => {
+            versionRows[1]?.click();
+            await Promise.resolve();
+        });
+        expect(container.querySelector('h4')?.textContent).toBe('Original title');
     });
 
     it('purges history after confirmation', async () => {

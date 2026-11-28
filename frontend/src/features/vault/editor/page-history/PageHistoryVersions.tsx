@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { Clock, Loader2, RotateCcw } from 'lucide-react';
+import { Clock, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { VaultPageHistoryVersion } from '../../../../shared/api/vault-history';
@@ -10,7 +10,6 @@ export interface PageHistoryVersionsProps {
     readonly loading: boolean;
     readonly onCompare: (version: VaultPageHistoryVersion) => void;
     readonly onPreview: (version: VaultPageHistoryVersion) => void;
-    readonly onRestore: (version: VaultPageHistoryVersion) => void;
     readonly previewVersion: VaultPageHistoryVersion | null;
 }
 
@@ -20,7 +19,6 @@ export function PageHistoryVersions({
     loading,
     onCompare,
     onPreview,
-    onRestore,
     previewVersion,
 }: PageHistoryVersionsProps) {
     const { t } = useTranslation();
@@ -49,7 +47,7 @@ export function PageHistoryVersions({
                 {history.map((version) => {
                     const selected = previewVersion?.id === version.id;
                     return <div
-                        className={`group flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)]/40 ${selected ? 'border-l-4 border-l-[var(--gnosi-primary)] bg-[var(--bg-primary)]' : 'hover:bg-[var(--bg-tertiary)]'}`}
+                        className={`flex w-full cursor-pointer items-center justify-between px-5 py-4 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)]/40 ${selected ? 'border-l-4 border-l-[var(--gnosi-primary)] bg-[var(--bg-primary)]' : 'hover:bg-[var(--bg-tertiary)]'}`}
                         key={version.id}
                         onClick={() => { onPreview(version); }}
                         onKeyDown={(event) => { openOnKeyboard(event, version); }}
@@ -64,17 +62,6 @@ export function PageHistoryVersions({
                                 {(version.size / 1024).toFixed(1)} KB • {version.author || 'Sistema'}
                             </p>
                         </div>
-                        <button
-                            className="rounded-md bg-[var(--bg-primary)] p-1.5 text-[var(--gnosi-primary)] opacity-0 shadow-sm transition-all hover:bg-[var(--gnosi-primary)]/10 group-hover:opacity-100"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onRestore(version);
-                            }}
-                            title={t('vault.history.restore_tooltip')}
-                            type="button"
-                        >
-                            <RotateCcw size={14} />
-                        </button>
                         <button
                             className="p-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
                             onClick={(event) => {
