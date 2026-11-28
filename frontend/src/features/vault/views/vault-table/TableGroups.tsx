@@ -101,8 +101,8 @@ export function createGroupRenderers(model: TableController) {
         ref={rowVirtualizer.measureElement}
         className="border-b border-[var(--border-primary)] bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)]"
       >
-        <td className="w-10 sticky left-0 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)]"></td>
-        <td className="py-1.5 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
+        <td className="vault-table-row-gutter sticky left-0 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)]"></td>
+        <td className="py-1.5 px-4 sticky vault-table-sticky-title bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
           {aggCell('title', 'title')}
         </td>
         {dynamicColumns.map(([key, type]) => (

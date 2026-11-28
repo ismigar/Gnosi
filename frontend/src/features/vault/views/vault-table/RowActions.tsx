@@ -33,9 +33,9 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
     i18n,
     onDeletePage,
   } = model;
-  return (<td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
+  return (<td className={`vault-table-row-gutter px-1.5 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
     {!isListView && <span className="block text-[10px] tabular-nums text-[var(--text-tertiary)]" data-row-number>{(model.navRowIndexById.get(note.id) ?? 0) + 1}</span>}
-    <div className="flex items-center justify-center gap-1.5" onClick={event => { event.stopPropagation(); }}>
+    <div className="flex items-center justify-center gap-1" onClick={event => { event.stopPropagation(); }}>
       {/* Selection checkbox */}
       <label
         className={`cursor-pointer inline-flex items-center shrink-0 ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100'}`}
@@ -51,7 +51,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
       </label>
       <button
         onClick={(e) => { e.stopPropagation(); onNoteSelect(note.id, { returnFocusId: note.id }); }}
-        className={`relative p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
+        className={`relative shrink-0 p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
         aria-label={t('common.open')}
       >
         <ExternalLink size={14} />
@@ -75,7 +75,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
             e.stopPropagation();
             onDeletePage(note.id, note.title);
           }}
-          className="relative p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100"
+          className="relative shrink-0 p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100"
           aria-label={t('table.delete')}
         >
           <Trash2 size={14} />

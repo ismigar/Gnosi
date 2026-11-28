@@ -6,8 +6,8 @@ export function TableFooter({ model }: { model: TableController; }) {
   const titleLabel = titleKey === 'title' ? t('table.note_name') : titleKey;
   return (<tfoot className="bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)] font-medium">
     <tr>
-      <td className="w-10 sticky left-0 bg-[var(--bg-primary)] z-20 border-r border-[var(--border-primary)]"></td>
-      <td className="py-2 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
+      <td className="vault-table-row-gutter sticky left-0 bg-[var(--bg-primary)] z-20 border-r border-[var(--border-primary)]"></td>
+      <td className="py-2 px-4 sticky vault-table-sticky-title bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col">
           <select
             className="bg-transparent border-none p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-outline-color)] cursor-pointer hover:text-indigo-600"

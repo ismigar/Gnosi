@@ -1,3 +1,16 @@
+[data-vault-table-scroll] {
+    /* Leave room for the checkbox, open button, options menu and delete button. */
+    --vault-table-row-gutter-width: 7rem;
+}
+
+[data-vault-table-scroll] .vault-table-row-gutter {
+    width: var(--vault-table-row-gutter-width);
+}
+
+[data-vault-table-scroll] .vault-table-sticky-title {
+    left: var(--vault-table-row-gutter-width);
+}
+
 /* An opaque, theme-aware fill keeps selected sticky cells and ranges visible. */
 [data-vault-table-scroll] td[data-grid-field][aria-selected="true"] {
     background-color: color-mix(in srgb, var(--gnosi-primary) 22%, var(--bg-primary));

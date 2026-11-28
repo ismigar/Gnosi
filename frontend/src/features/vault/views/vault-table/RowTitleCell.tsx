@@ -63,7 +63,7 @@ export function RowTitleCell({ model, note, isChild, depth }: { model: TableCont
               data-active-cell={titleSel.isActive}
     tabIndex={-1}
     style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
-    className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
+    className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky vault-table-sticky-title z-30 overflow-hidden align-top
                             ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}
                             ${isListView ? 'group-hover:bg-[var(--bg-secondary)]' : 'border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]'}
                             ${titleSel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}

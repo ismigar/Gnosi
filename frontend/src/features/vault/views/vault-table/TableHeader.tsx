@@ -26,7 +26,7 @@ export function TableHeader({ model }: { model: TableController; }) {
   } = model;
   return (<thead className="bg-[var(--bg-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-40">
     <tr>
-      <th className="w-10 px-2 sticky left-0 bg-[var(--bg-primary)] z-40 border-r border-[var(--border-primary)]">
+      <th className="vault-table-row-gutter px-2 sticky left-0 bg-[var(--bg-primary)] z-40 border-r border-[var(--border-primary)]">
         <div className="flex items-center justify-center">
           <label className="cursor-pointer inline-flex items-center" onClick={(e) => { e.stopPropagation(); }}>
             <input
@@ -51,7 +51,7 @@ export function TableHeader({ model }: { model: TableController; }) {
           <th
             aria-sort={activeSort.field === 'title' ? activeSort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}
             style={{ width: columnWidths['title'] || 250 }}
-            className="py-3 px-4 sticky left-10 bg-[var(--bg-secondary)] z-40 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] hover:bg-[var(--bg-tertiary)] transition-colors group relative"
+            className="py-3 px-4 sticky vault-table-sticky-title bg-[var(--bg-secondary)] z-40 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] hover:bg-[var(--bg-tertiary)] transition-colors group relative"
           >
             <div className="flex items-center justify-between cursor-pointer overflow-hidden text-[var(--text-secondary)]" {...headerProps('title', titleKey === 'title' ? t('table.note_name') : titleKey)}>
               <div className="flex items-center gap-1.5 truncate">

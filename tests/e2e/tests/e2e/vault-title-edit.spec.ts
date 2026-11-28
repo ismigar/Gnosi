@@ -136,7 +136,14 @@ test.describe('VaultTable: clic al títol edita (no obre)', () => {
     // 1st <button> in the actions cell (td 1) = "Open" button (ExternalLink icon).
     const openBtn = firstRow.locator('td:nth-child(1) button').first();
     await openBtn.scrollIntoViewIfNeeded();
-    await openBtn.click({ force: true });
+    await expect.poll(() => openBtn.evaluate(button => {
+      const gutter = button.closest('td');
+      if (!gutter) return false;
+      const cell = gutter.getBoundingClientRect();
+      const control = button.getBoundingClientRect();
+      return control.left >= cell.left && control.right <= cell.right;
+    })).toBe(true);
+    await openBtn.click();
 
     await expect(page).toHaveURL(/\/@[^/]+\/knowledge\/page\/[^/?#]+/, { timeout: 10_000 });
   });
